@@ -1,1 +1,0 @@
-# talkflow initgit add README.mdgit commit -m first commitgit branch -M maingit remote add origin git@github.com:saamirkhrl/talkflow.gitgit push -u origin main
