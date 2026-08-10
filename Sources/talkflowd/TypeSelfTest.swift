@@ -93,12 +93,12 @@ enum TypeSelfTest {
         let flat = "Dear Sarah, can you please review the pitch deck for the quarterly numbers and let me know what you think about the revenue slide. Thank you, Sincerely, Samir."
         let structured = "Dear Sarah,\n\nCan you please review the pitch deck for the quarterly numbers and let me know what you think about the revenue slide.\n\nThank you, Sincerely, Samir."
         sync.sync(to: flat)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        settle(expecting: flat) { _, _ in
             sync.sync(to: structured)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            settle(expecting: structured) { arrived, _ in
                 let got = textView?.string ?? ""
-                check(got == structured, "large keystroke rewrite (\(flat.count) chars restructured)",
-                      got == structured ? "" : "got \(got.debugDescription)")
+                check(arrived, "large keystroke rewrite (\(flat.count) chars restructured)",
+                      arrived ? "" : "got \(got.debugDescription)")
                 report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
                 exit(failures == 0 ? 0 : 1)
             }
@@ -108,14 +108,16 @@ enum TypeSelfTest {
     private static func replay(sync: FieldSync, label: String, index: Int) {
         guard index < streamingRevisions.count else {
             let want = streamingRevisions[streamingRevisions.count - 1]
-            let got = textView?.string ?? ""
-            check(got == want, "streaming sequence via \(label) keeps every character",
-                  got == want ? "" : "got \(got.debugDescription)")
-            check(sync.typedText == got, "internal record matches screen (\(label))")
-            if label == "accessibility" {
-                runKeystrokeStreamingCase()
-            } else {
-                runLargeRewriteCase()
+            settle(expecting: want) { arrived, _ in
+                let got = textView?.string ?? ""
+                check(arrived, "streaming sequence via \(label) keeps every character",
+                      arrived ? "" : "got \(got.debugDescription)")
+                check(sync.typedText == got, "internal record matches screen (\(label))")
+                if label == "accessibility" {
+                    runKeystrokeStreamingCase()
+                } else {
+                    runLargeRewriteCase()
+                }
             }
             return
         }
@@ -136,11 +138,43 @@ enum TypeSelfTest {
 
         textView?.string = ""
         LiveType.insert(text)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-            check(textView?.string == text, "\(label) (\(text.count) chars)",
-                  "got \((textView?.string ?? "").count) chars")
+        settle(expecting: text) { arrived, elapsed in
+            check(arrived, "\(label) (\(text.count) chars)",
+                  "got \((textView?.string ?? "").count) chars after \(String(format: "%.1f", elapsed))s")
             runCase(index + 1)
         }
+    }
+
+    /// Waits for the field to match, rather than checking once after a fixed
+    /// pause.
+    ///
+    /// The fixed pause was 0.7s, and on a busy machine a 122-character insert
+    /// came back 120 characters - which reads as the window server dropping
+    /// events, the exact historical bug this file exists to catch, but is
+    /// indistinguishable from the last event simply not having been delivered
+    /// yet. Those are opposite conclusions and the test has to be able to tell
+    /// them apart, so it waits for quiescence and reports how long it took. A
+    /// slow delivery passes and says so; a lost character still fails.
+    private static func settle(
+        expecting expected: String,
+        within timeout: TimeInterval = 4.0,
+        then finish: @escaping (Bool, TimeInterval) -> Void
+    ) {
+        let startedAt = Date()
+        func poll() {
+            let elapsed = Date().timeIntervalSince(startedAt)
+            if textView?.string == expected {
+                if elapsed > 1.0 { report("     (took \(String(format: "%.1f", elapsed))s to arrive)") }
+                finish(true, elapsed)
+                return
+            }
+            guard elapsed < timeout else {
+                finish(false, elapsed)
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: poll)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: poll)
     }
 
     /// The operation in-field streaming actually performs: type a guess, then
@@ -152,13 +186,13 @@ enum TypeSelfTest {
 
         textView?.string = ""
         LiveType.insert(first)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+        settle(expecting: first) { _, _ in
             let onScreen = textView?.string ?? ""
             let shared = commonPrefix(onScreen, corrected)
             LiveType.backspace(count: onScreen.count - shared.count)
             LiveType.insert(String(corrected.dropFirst(shared.count)))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                check(textView?.string == corrected, "backspace-then-retype rewrite",
+            settle(expecting: corrected) { arrived, _ in
+                check(arrived, "backspace-then-retype rewrite",
                       (textView?.string ?? "").debugDescription)
                 runStreamingCase()
             }
