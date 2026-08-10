@@ -42,17 +42,25 @@ final class FieldSync {
         case failed
     }
 
+    /// The edit `sync` would make: how many characters come off the end of what
+    /// we typed, and what goes on in their place. Pure, so a test can measure the
+    /// real edit rather than a reimplementation of it - the streaming self-test
+    /// asserts `deleting == 0` on every live update, which is the whole point of
+    /// the append-only commit buffer upstream.
+    static func edit(from current: String, to desired: String) -> (deleting: Int, inserting: String) {
+        let old = Array(current)
+        let new = Array(desired)
+        var shared = 0
+        while shared < old.count, shared < new.count, old[shared] == new[shared] { shared += 1 }
+        return (old.count - shared, String(new[shared...]))
+    }
+
     @discardableResult
     func sync(to desired: String) -> Outcome {
         guard desired != typedText else { return .unchanged }
 
-        let current = Array(typedText)
-        let new = Array(desired)
-        var shared = 0
-        while shared < current.count, shared < new.count, current[shared] == new[shared] { shared += 1 }
-
-        let staleTail = String(current[shared...])
-        let freshTail = String(new[shared...])
+        let (deleteCount, freshTail) = Self.edit(from: typedText, to: desired)
+        let staleTail = String(typedText.suffix(deleteCount))
 
         if strategy == .preferAccessibility,
            FieldWriter.replaceBeforeCaret(expected: staleTail, with: freshTail) {
@@ -62,7 +70,7 @@ final class FieldSync {
 
         // One ordered unit on LiveType's serial queue, so a later update can
         // never overtake an earlier one and interleave its keystrokes.
-        LiveType.rewrite(deleting: staleTail.count, inserting: freshTail)
+        LiveType.rewrite(deleting: deleteCount, inserting: freshTail)
         typedText = desired
         return .keystrokes
     }

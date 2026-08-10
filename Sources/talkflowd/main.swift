@@ -24,6 +24,12 @@ if CommandLine.arguments.contains("--typetest") {
     TypeSelfTest.run()
 }
 
+// Pure logic - no mic, no focus, no window - so it can run straight after a
+// build, unlike --typetest.
+if CommandLine.arguments.contains("--streamtest") {
+    StreamSelfTest.run()
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--rectest") {
     let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 3
     RecordSelfTest.run(seconds: seconds)
