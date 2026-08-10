@@ -193,10 +193,15 @@ final class Dictation {
             field.reset()
             return
         }
+        let before = field.typedText
+        let edit = FieldSync.edit(from: before, to: desired)
         let outcome = field.sync(to: desired)
-        if outcome == .failed {
-            print("talkflowd: could not write to the focused field")
-        }
+        // Logged on every write, not only on failure. When the app looked
+        // completely dead in Slack, Discord and Terminal the log could not say
+        // which path had been taken or whether one had been taken at all, and
+        // the whole question is which apps accept which kind of write.
+        let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+        print("talkflowd: wrote via \(outcome.rawValue) into \(app) [-\(edit.deleting) +\(edit.inserting.count)]")
     }
 
     private func dismiss() {

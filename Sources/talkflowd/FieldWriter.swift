@@ -20,32 +20,103 @@ import Foundation
 /// declined rather than eating their words.
 enum FieldWriter {
     /// Replaces the `expected` characters immediately before the caret with
-    /// `replacement`. Returns false if the app doesn't support AX text editing,
-    /// or if what's in front of the caret isn't what we expected - in which case
-    /// nothing has been modified.
-    static func replaceBeforeCaret(expected: String, with replacement: String) -> Bool {
-        guard let field = focusedTextElement() else { return false }
-        guard let caret = caretLocation(in: field) else { return false }
+    /// `replacement`. Returns `.no(reason)` if the app doesn't support AX text
+    /// editing, if what's in front of the caret isn't what we expected, or if the
+    /// write did not visibly land - in all of which cases nothing has been
+    /// modified and the caller must fall back to keystrokes.
+    static func replaceBeforeCaret(expected: String, with replacement: String) -> Attempt {
+        guard let field = focusedTextElement() else { return .no("no focused element") }
+        guard let caret = caretLocation(in: field) else { return .no("no caret") }
 
         let expectedUnits = expected.utf16.count
-        guard caret >= expectedUnits else { return false }
+        guard caret >= expectedUnits else { return .no("caret is before the text we typed") }
         let start = caret - expectedUnits
 
         // Only proceed if the text there is exactly what we think we typed.
         if expectedUnits > 0 {
             guard let onScreen = string(in: field, location: start, length: expectedUnits),
-                  onScreen == expected else { return false }
+                  onScreen == expected else { return .no("text before the caret is not ours") }
+        }
+
+        // Ask the element whether it can be edited this way at all before
+        // writing to it. Chromium (Slack, Discord, VS Code, Cursor) and
+        // Terminal's scrollback both answer AX calls without necessarily
+        // honouring them.
+        guard isSettable(field, kAXSelectedTextRangeAttribute), isSettable(field, kAXSelectedTextAttribute) else {
+            return .no("element does not accept AX text edits")
         }
 
         var range = CFRange(location: start, length: expectedUnits)
-        guard let rangeValue = AXValueCreate(.cfRange, &range) else { return false }
+        guard let rangeValue = AXValueCreate(.cfRange, &range) else { return .no("could not build a range") }
         guard AXUIElementSetAttributeValue(field, kAXSelectedTextRangeAttribute as CFString, rangeValue) == .success else {
-            return false
+            return .no("setting the range was refused")
         }
         guard AXUIElementSetAttributeValue(field, kAXSelectedTextAttribute as CFString, replacement as CFTypeRef) == .success else {
-            return false
+            return .no("setting the text was refused")
         }
-        return true
+
+        // A `.success` return is not evidence the text landed. This is the
+        // failure that made the app look completely dead in Slack, Discord and
+        // Terminal: every AX call reported success, nothing appeared, and
+        // because the write claimed to have worked the keystroke fallback -
+        // the path that actually works in those apps - never ran. Nothing may
+        // be believed here without proof.
+        let replacementUnits = replacement.utf16.count
+        if caretLocation(in: field) == start + replacementUnits { return .yes }
+        if let landed = string(in: field, location: start, length: replacementUnits), landed == replacement { return .yes }
+        return .no("AX reported success but the field did not change")
+    }
+
+    /// Why a write was refused, so the log can say which apps take which path
+    /// instead of leaving it to be guessed.
+    enum Attempt: Equatable {
+        case yes
+        case no(String)
+
+        var succeeded: Bool { self == .yes }
+        var reason: String {
+            if case let .no(reason) = self { return reason }
+            return ""
+        }
+    }
+
+    /// What the focused element will and will not accept, read-only, for
+    /// `--writetest`. Whether an app takes the Accessibility path or the
+    /// keystroke path is a property of the app, and until this existed the only
+    /// way to find out was to dictate into it and watch.
+    static func focusReport() -> String {
+        guard let field = focusedTextElement() else { return "no focused UI element" }
+
+        func attribute(_ name: String) -> String {
+            var value: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(field, name as CFString, &value) == .success else { return "-" }
+            return (value as? String) ?? "(non-string)"
+        }
+
+        var lines = [
+            "role=\(attribute(kAXRoleAttribute)) subrole=\(attribute(kAXSubroleAttribute))",
+            "selectedTextRange settable=\(isSettable(field, kAXSelectedTextRangeAttribute))",
+            "selectedText settable=\(isSettable(field, kAXSelectedTextAttribute))",
+            "value settable=\(isSettable(field, kAXValueAttribute))"
+        ]
+        if let caret = caretLocation(in: field) {
+            lines.append("caret=\(caret)")
+            if caret > 0 {
+                let readback = string(in: field, location: caret - 1, length: 1)
+                lines.append("stringForRange readable=\(readback != nil)")
+            } else {
+                lines.append("stringForRange readable=(field is empty, cannot probe)")
+            }
+        } else {
+            lines.append("caret=unreadable (no selection range, or something is selected)")
+        }
+        return lines.joined(separator: "\n     ")
+    }
+
+    private static func isSettable(_ field: AXUIElement, _ attribute: String) -> Bool {
+        var settable: DarwinBoolean = false
+        guard AXUIElementIsAttributeSettable(field, attribute as CFString, &settable) == .success else { return false }
+        return settable.boolValue
     }
 
     private static func focusedTextElement() -> AXUIElement? {

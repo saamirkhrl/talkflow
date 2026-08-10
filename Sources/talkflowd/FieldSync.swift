@@ -35,11 +35,21 @@ final class FieldSync {
 
     func reset() { typedText = "" }
 
-    enum Outcome: String {
+    enum Outcome: Equatable {
         case unchanged
         case accessibility
-        case keystrokes
-        case failed
+        /// Carries why Accessibility was not used, because "which path did this
+        /// app take" was unanswerable from the log while the app appeared
+        /// completely dead in Slack, Discord and Terminal.
+        case keystrokes(String)
+
+        var rawValue: String {
+            switch self {
+            case .unchanged: return "unchanged"
+            case .accessibility: return "accessibility"
+            case let .keystrokes(reason): return "keystrokes (\(reason))"
+            }
+        }
     }
 
     /// The edit `sync` would make: how many characters come off the end of what
@@ -62,16 +72,20 @@ final class FieldSync {
         let (deleteCount, freshTail) = Self.edit(from: typedText, to: desired)
         let staleTail = String(typedText.suffix(deleteCount))
 
-        if strategy == .preferAccessibility,
-           FieldWriter.replaceBeforeCaret(expected: staleTail, with: freshTail) {
-            typedText = desired
-            return .accessibility
+        var reason = "strategy is keystrokes only"
+        if strategy == .preferAccessibility {
+            let attempt = FieldWriter.replaceBeforeCaret(expected: staleTail, with: freshTail)
+            if attempt.succeeded {
+                typedText = desired
+                return .accessibility
+            }
+            reason = attempt.reason
         }
 
         // One ordered unit on LiveType's serial queue, so a later update can
         // never overtake an earlier one and interleave its keystrokes.
         LiveType.rewrite(deleting: deleteCount, inserting: freshTail)
         typedText = desired
-        return .keystrokes
+        return .keystrokes(reason)
     }
 }

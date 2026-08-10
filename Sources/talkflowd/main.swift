@@ -30,6 +30,18 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// Read-only: what the focused element says it accepts, without writing to it.
+if CommandLine.arguments.contains("--focusprobe") {
+    WriteSelfTest.probe()
+}
+
+// Types into whatever app the user focuses, to find out which write path that
+// app actually accepts.
+if let index = CommandLine.arguments.firstIndex(of: "--writetest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 8
+    WriteSelfTest.run(after: seconds)
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--rectest") {
     let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 3
     RecordSelfTest.run(seconds: seconds)
