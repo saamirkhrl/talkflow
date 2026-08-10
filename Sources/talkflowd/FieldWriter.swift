@@ -55,16 +55,35 @@ enum FieldWriter {
             return .no("setting the text was refused")
         }
 
-        // A `.success` return is not evidence the text landed. This is the
-        // failure that made the app look completely dead in Slack, Discord and
-        // Terminal: every AX call reported success, nothing appeared, and
-        // because the write claimed to have worked the keystroke fallback -
-        // the path that actually works in those apps - never ran. Nothing may
-        // be believed here without proof.
+        // A `.success` return is not evidence the text landed. Discord returns
+        // success from every one of the calls above and changes nothing; that is
+        // measured, not suspected, and it is what made the app look completely
+        // dead there - the write claimed to have worked, so the keystroke path
+        // that Discord does accept never ran. Nothing may be believed here
+        // without proof, which is why this is the only line that can produce a
+        // success and why it goes through `landed`.
         let replacementUnits = replacement.utf16.count
-        if caretLocation(in: field) == start + replacementUnits { return .yes }
-        if let landed = string(in: field, location: start, length: replacementUnits), landed == replacement { return .yes }
-        return .no("AX reported success but the field did not change")
+        return landed(
+            caretAfter: caretLocation(in: field),
+            expectedCaret: start + replacementUnits,
+            readback: string(in: field, location: start, length: replacementUnits),
+            replacement: replacement
+        ) ? .yes : .no("AX reported success but the field did not change")
+    }
+
+    /// Did the write land? Pure, and the only definition of success in this
+    /// file, so the rule can be tested without an app to write into
+    /// (`--streamtest`).
+    ///
+    /// The caret is the primary evidence: setting selected text collapses the
+    /// selection to the end of what was inserted, so a caret that has not moved
+    /// means nothing was inserted. Reading the text back is the fallback for
+    /// apps that report a caret we can't predict; an app that offers neither is
+    /// an app whose writes cannot be trusted, so it gets keystrokes.
+    static func landed(caretAfter: Int?, expectedCaret: Int, readback: String?, replacement: String) -> Bool {
+        if caretAfter == expectedCaret { return true }
+        if let readback, readback == replacement { return true }
+        return false
     }
 
     /// Why a write was refused, so the log can say which apps take which path

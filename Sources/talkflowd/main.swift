@@ -42,6 +42,12 @@ if let index = CommandLine.arguments.firstIndex(of: "--writetest") {
     WriteSelfTest.run(after: seconds)
 }
 
+// Whether a newline typed into a chat app sends the message.
+if let index = CommandLine.arguments.firstIndex(of: "--newlinetest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 8
+    WriteSelfTest.newlineProbe(after: seconds)
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--rectest") {
     let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 3
     RecordSelfTest.run(seconds: seconds)

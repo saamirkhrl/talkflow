@@ -6,10 +6,16 @@ import Foundation
 ///
 /// Each key-hold starts with nothing on screen from its own point of view, so
 /// without this two dictations in a row run together ("...America." + "I'm going
-/// to" -> "America.I'm going to"). Uses the Accessibility API to look at the real
-/// text field where it can, and falls back to remembering how the previous hold
-/// ended when the focused app doesn't expose its text (Electron apps, terminals,
-/// canvas-drawn editors).
+/// to" -> "America.I'm going to").
+///
+/// It reads the real text field through the Accessibility API, which means it
+/// answers in native apps and does not answer anywhere else. Every app measured
+/// so far - Cursor, Discord, Terminal - refuses, so back-to-back dictations in
+/// those apps do run together. There is no fallback to remembering how the last
+/// hold ended (an earlier version of this comment claimed there was); guessing
+/// would put a space at the start of a fresh message every time the user sent
+/// the last one, and the standing preference here is that a missing space is
+/// easier to live with than one that shouldn't be there.
 enum CursorContext {
     /// Whether inserted text should open with a space so it doesn't run into
     /// whatever is already there. When the app won't say, assume not - a missing

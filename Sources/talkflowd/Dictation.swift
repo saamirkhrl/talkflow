@@ -50,6 +50,9 @@ final class Dictation {
     /// The last thing the live path put on screen. Every later live update has
     /// to extend it, or it is refused - see `streamField`.
     private var lastStreamed = ""
+    /// Set when the user moves to a different app mid-hold. Latching, because
+    /// coming back does not make it safe to write again - see `syncField`.
+    private var focusLeft = false
     /// Set once at the start of a hold and then fixed: changing it later would
     /// shift the whole string and force a rewrite from position zero.
     private var leadingSpace = ""
@@ -71,6 +74,7 @@ final class Dictation {
         field.reset()
         stream.reset()
         lastStreamed = ""
+        focusLeft = false
         targetAppPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         statusBar.setState(.recording)
@@ -186,10 +190,23 @@ final class Dictation {
 
     /// Brings the focused field in line with `desired`.
     private func syncField(to desired: String) {
+        guard !focusLeft else { return }
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetAppPID else {
-            // Focus moved. Stop writing rather than spraying text into whatever
-            // is in front now, and forget what was typed so a later update can't
-            // delete into a different app's content.
+            // Focus moved. Stop writing for the rest of this hold, including the
+            // pass at release.
+            //
+            // This used to forget what had been typed and carry on. If focus
+            // came back, `typedText` was empty, so the next update looked like a
+            // first insertion and retyped the whole dictation at wherever the
+            // caret now was - the text duplicated. That was survivable while
+            // most apps took the atomic Accessibility path; now that every app
+            // measured takes the keystroke path, it would be hundreds of key
+            // events into a document at an unknown position. Whatever is already
+            // on screen stays, and the words spoken from here on are lost, which
+            // is the failure worth having.
+            focusLeft = true
+            let now = NSWorkspace.shared.frontmostApplication?.localizedName ?? "another app"
+            print("talkflowd: focus left the target app for \(now), stopped writing for this hold")
             field.reset()
             return
         }

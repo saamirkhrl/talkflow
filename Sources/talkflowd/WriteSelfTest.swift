@@ -43,6 +43,40 @@ enum WriteSelfTest {
         exit(0)
     }
 
+    /// `--newlinetest` - types a two-line marker into the focused field.
+    ///
+    /// A dictation containing a paragraph break sends "\n" as a unicode
+    /// character rather than as the Return key, precisely so that Slack and
+    /// Discord don't send the message halfway through. That assumption has never
+    /// been tested in either app, and it only became reachable now that
+    /// keystrokes actually land there. Run it in a DM to yourself: if the
+    /// assumption is wrong, this posts a message.
+    static func newlineProbe(after seconds: Double) -> Never {
+        try? FileManager.default.removeItem(at: logURL)
+        report("--- newlinetest ---")
+        report("focus a message box you don't mind typing into - a DM to yourself.")
+        report("if the newline sends the message, that is the answer, and you will")
+        report("have posted \"talkflow line one\".")
+
+        countdown(from: Int(seconds.rounded()))
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+            let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+            report("target: \(app)")
+            LiveType.insert("talkflow line one\nline two")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                report("posted. What happened?")
+                report("     both lines sitting in the box -> newlines are safe here")
+                report("     \"talkflow line one\" was sent as a message -> paragraph breaks")
+                report("       must be suppressed in this app")
+                report("     only one line, no send -> the newline was swallowed")
+                report("--- end ---")
+                exit(0)
+            }
+        }
+        RunLoop.main.run()
+        exit(0)
+    }
+
     private static func countdown(from seconds: Int) {
         guard seconds > 0 else { return }
         for remaining in stride(from: seconds, through: 1, by: -1) {

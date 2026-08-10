@@ -110,8 +110,34 @@ enum StreamSelfTest {
         try? FileManager.default.removeItem(at: logURL)
         report("--- streamtest ---")
         for testCase in cases { runCase(testCase) }
+        runWriteVerificationCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
+    }
+
+    /// The rule that decides whether an Accessibility write is believed.
+    ///
+    /// Discord accepts every AX call, returns success, and changes nothing. For
+    /// as long as that return code was trusted, the text vanished and the
+    /// keystroke path that Discord does accept never ran - the app looked
+    /// completely dead there, and in Terminal, while working in Cursor. This is
+    /// the rule that keeps that from coming back, so it is pinned here rather
+    /// than left to a comment.
+    private static func runWriteVerificationCases() {
+        report("case: an AX write is only believed when it can be proved")
+
+        check(FieldWriter.landed(caretAfter: 12, expectedCaret: 12, readback: nil, replacement: "hello"),
+              "caret moved to the end of the insertion -> believed")
+        check(!FieldWriter.landed(caretAfter: 7, expectedCaret: 12, readback: nil, replacement: "hello"),
+              "caret did not move (this is Discord) -> refused")
+        check(FieldWriter.landed(caretAfter: nil, expectedCaret: 12, readback: "hello", replacement: "hello"),
+              "caret unreadable but the text reads back -> believed")
+        check(!FieldWriter.landed(caretAfter: nil, expectedCaret: 12, readback: nil, replacement: "hello"),
+              "no caret and no readback -> refused, because nothing was proved")
+        check(!FieldWriter.landed(caretAfter: nil, expectedCaret: 12, readback: "hell", replacement: "hello"),
+              "readback does not match what was written -> refused")
+        check(FieldWriter.landed(caretAfter: 5, expectedCaret: 5, readback: nil, replacement: ""),
+              "a pure deletion leaves the caret where the text was removed -> believed")
     }
 
     private static func runCase(_ testCase: Case) {
