@@ -1,0 +1,197 @@
+import AppKit
+import Foundation
+
+/// The whole dictation pipeline.
+///
+/// Audio is captured while the key is held. Every ~0.7s the buffer so far is
+/// transcribed, formatted, and streamed straight into the focused text field, so
+/// the words appear where you are typing as you say them. On release the final
+/// transcript is rendered the same way and the field is brought in line with it.
+///
+/// Everything on screen is produced by `syncField`, which is the only thing here
+/// allowed to touch the user's document. It knows exactly what this hold has
+/// typed (`typedText`) and only ever rewrites the tail of that - it cannot
+/// delete a character it did not put there. That property is what makes live
+/// typing safe; an earlier design tracked the screen only approximately, and a
+/// mismatch between what it thought it had typed and what was really there
+/// destroyed a whole dictation.
+///
+/// There is no LLM anywhere in this path. Both local models that were tried
+/// rewrote the user's words instead of editing them and were rejected by their
+/// own safety check on every real transcript; removing them took ~0.3-3s out of
+/// the round trip and removed the only component that could invent text.
+final class Dictation {
+    private let recorder = Recorder()
+    private let overlay: OverlayController
+    private let statusBar: StatusBar
+
+    private let transcribeURL = URL(string: "http://127.0.0.1:8178/inference")!
+    private let minDuration: TimeInterval = 0.3
+
+    private var isRecording = false
+    private var startedAt: Date?
+    private var targetAppPID: pid_t?
+
+    /// Owns everything written to the user's document. See FieldSync.
+    private let field = FieldSync()
+    /// Set once at the start of a hold and then fixed: changing it later would
+    /// shift the whole string and force a rewrite from position zero.
+    private var leadingSpace = ""
+
+    private var previewTimer: DispatchSourceTimer?
+    private var previewInFlight = false
+    private let previewInterval: TimeInterval = 0.7
+
+    init(overlay: OverlayController, statusBar: StatusBar) {
+        self.overlay = overlay
+        self.statusBar = statusBar
+        recorder.onLevel = { [weak self] level in self?.overlay.pushLevel(level) }
+    }
+
+    func begin() {
+        guard !isRecording else { return }
+        isRecording = true
+        startedAt = Date()
+        field.reset()
+        targetAppPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+
+        statusBar.setState(.recording)
+        overlay.show()
+
+        do {
+            try recorder.start()
+            // After start(): asking the focused app about its caret is an
+            // Accessibility round-trip that can take a quarter second, and
+            // anything done before the mic is live is speech that gets lost.
+            leadingSpace = CursorContext.needsSeparatorBeforeInsertion() ? " " : ""
+            startPreviewLoop()
+        } catch {
+            print("talkflowd: could not start recording: \(error.localizedDescription)")
+            isRecording = false
+            statusBar.setState(.idle)
+            overlay.hide()
+        }
+        print("talkflowd: recording started")
+    }
+
+    func finish() {
+        guard isRecording else { return }
+        isRecording = false
+        stopPreviewLoop()
+
+        let duration = startedAt.map { Date().timeIntervalSince($0) } ?? 0
+        startedAt = nil
+        let wav = recorder.stop()
+
+        guard duration >= minDuration else {
+            print("talkflowd: hold was \(String(format: "%.2f", duration))s, discarding as an accidental tap")
+            dismiss()
+            return
+        }
+
+        statusBar.setState(.processing)
+
+        Transcriber.transcribe(wav: wav, serverURL: transcribeURL) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard let result, !Transcriber.isPlaceholder(result.text) else {
+                    if result != nil { print("talkflowd: no speech in \(String(format: "%.1f", duration))s of audio") }
+                    self.dismiss()
+                    return
+                }
+                let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
+                print("talkflowd: transcribed in \(String(format: "%.2f", result.elapsed))s: \(result.text)")
+                self.syncField(to: final)
+                if !self.field.typedText.isEmpty {
+                    StatsStore.shared.recordSession(text: self.field.typedText, durationSeconds: duration)
+                }
+                self.dismiss()
+            }
+        }
+    }
+
+    /// Ends a hold without inserting anything further. Whatever is already on
+    /// screen stays - it is the user's text now.
+    func abandon() {
+        guard isRecording else { return }
+        isRecording = false
+        stopPreviewLoop()
+        _ = recorder.stop()
+        dismiss()
+    }
+
+    /// Transcript -> what should be on screen. Deterministic and cheap, so the
+    /// live preview and the final pass run the identical function; that keeps the
+    /// two in agreement and makes the last update a small diff rather than a
+    /// wholesale rewrite.
+    /// `structure` is off for live updates. Inserting a paragraph break rewrites
+    /// everything after it, and doing that mid-sentence - repeatedly, as the
+    /// sign-off match flickers in and out while words arrive - is a large rewrite
+    /// every 0.7s. Breaks are decided once, at the end, when the whole text is
+    /// known.
+    static func render(_ transcript: String, leadingSpace: String, structure: Bool) -> String {
+        let tidied = Cleanup.tidy(transcript)
+        let withCommands = TextCommands.applyAll(tidied)
+        let structured = structure ? StructurePolish.apply(to: withCommands) : withCommands
+        // Capitalisation runs last, once the paragraph breaks are actually in the
+        // string. Run earlier and the body after "Dear Sarah,\n\n" keeps whatever
+        // case whisper gave it - which is how "can you please" and "best Samir"
+        // ended up lowercase at the start of their paragraphs.
+        let cased = TextCommands.capitalizeAfterSentenceEnds(structured)
+        return cased.isEmpty ? "" : leadingSpace + cased
+    }
+
+    // MARK: - Screen
+
+    /// Brings the focused field in line with `desired`.
+    private func syncField(to desired: String) {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == targetAppPID else {
+            // Focus moved. Stop writing rather than spraying text into whatever
+            // is in front now, and forget what was typed so a later update can't
+            // delete into a different app's content.
+            field.reset()
+            return
+        }
+        let outcome = field.sync(to: desired)
+        if outcome == .failed {
+            print("talkflowd: could not write to the focused field")
+        }
+    }
+
+    private func dismiss() {
+        statusBar.setState(.idle)
+        overlay.hide()
+    }
+
+    // MARK: - Live preview
+
+    private func startPreviewLoop() {
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + previewInterval, repeating: previewInterval)
+        timer.setEventHandler { [weak self] in self?.tickPreview() }
+        previewTimer = timer
+        timer.resume()
+    }
+
+    private func stopPreviewLoop() {
+        previewTimer?.cancel()
+        previewTimer = nil
+    }
+
+    /// Only one request is ever in flight: each one re-transcribes the whole
+    /// buffer, so a queue of them would be stale by the time it drained and would
+    /// also delay the final pass behind it.
+    private func tickPreview() {
+        guard isRecording, !previewInFlight, recorder.durationSeconds >= 0.5 else { return }
+        previewInFlight = true
+
+        Transcriber.transcribe(wav: recorder.snapshotWAV(), serverURL: transcribeURL, timeout: 5) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.previewInFlight = false
+                guard self.isRecording, let result, !Transcriber.isPlaceholder(result.text) else { return }
+                self.syncField(to: Self.render(result.text, leadingSpace: self.leadingSpace, structure: false))
+            }
+        }
+    }
+}
