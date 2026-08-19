@@ -38,6 +38,14 @@ enum TypeSelfTest {
         let view = NSTextView(frame: frame)
         view.isEditable = true
         view.isRichText = false
+        // Otherwise the text view "helpfully" turns ' into a curly quote and the
+        // test reports a character the event pipeline delivered correctly as a
+        // dropped one. The harness must measure delivery, nothing else.
+        view.isAutomaticQuoteSubstitutionEnabled = false
+        view.isAutomaticDashSubstitutionEnabled = false
+        view.isAutomaticTextReplacementEnabled = false
+        view.isAutomaticSpellingCorrectionEnabled = false
+        view.smartInsertDeleteEnabled = false
         window.contentView = view
         window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(view)
@@ -99,8 +107,53 @@ enum TypeSelfTest {
                 let got = textView?.string ?? ""
                 check(arrived, "large keystroke rewrite (\(flat.count) chars restructured)",
                       arrived ? "" : "got \(got.debugDescription)")
-                report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
-                exit(failures == 0 ? 0 : 1)
+                runReleaseSizedRewriteCase(0)
+            }
+        }
+    }
+
+    /// The size the release pass actually reaches in real dictation, taken from
+    /// the app's own log: `-422 +471`, `-365 +392`, `-263 +287` are routine.
+    /// Every case above is an order of magnitude smaller, which is why they all
+    /// pass while a long hold loses its middle on screen.
+    ///
+    /// Each pair is (what the live path committed, what the release pass wants),
+    /// diverging early so the edit deletes and retypes almost the whole string -
+    /// exactly the burst that is being reported as lossy.
+    private static let releaseSizedRewrites: [(String, String)] = [
+        (
+            "However, I keep running into this error where once I speak for a long amount of time and I let go it Erases everything so it can rewrite it and that's fine But after it's rewriting it it cuts off like a lot of the thing that I wrote so it writes like the beginning of a couple of seconds of what I said and then only the end and the middle is kind of gone Fix it, please",
+            "However, I keep running into this error where once I speak for a long amount of time and I let go, it erases everything so it can rewrite it, and that's fine. But after it is rewriting it, it cuts off a lot of the thing that I wrote, so it writes the beginning, a couple of seconds of what I said, and then only the end, and the middle is kind of gone. Fix it, please."
+        ),
+        (
+            "Dear Sarah I wanted to follow up on the quarterly planning document that we discussed on Tuesday because there are a few numbers in the revenue section that no longer match what finance sent over on Thursday and I think we should reconcile them before the board meeting so that nobody has to ask the same question twice and we can spend the time on the roadmap instead of on the spreadsheet Thanks Samir",
+            "Dear Sarah,\n\nI wanted to follow up on the quarterly planning document that we discussed on Tuesday, because there are a few numbers in the revenue section that no longer match what finance sent over on Thursday, and I think we should reconcile them before the board meeting so that nobody has to ask the same question twice and we can spend the time on the roadmap instead of on the spreadsheet.\n\nThanks, Samir."
+        )
+    ]
+
+    private static func runReleaseSizedRewriteCase(_ index: Int) {
+        guard index < releaseSizedRewrites.count else {
+            report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
+            exit(failures == 0 ? 0 : 1)
+        }
+        guard ensureFocused() else { exit(2) }
+        textView?.string = ""
+
+        let (live, final) = releaseSizedRewrites[index]
+        let sync = FieldSync(strategy: .keystrokesOnly)
+        sync.sync(to: live)
+        settle(expecting: live, within: 30) { landed, _ in
+            let got = textView?.string ?? ""
+            check(landed, "release case \(index): live text lands (\(live.count) chars)",
+                  "got \(got.count) chars: \(got.debugDescription)")
+            let edit = FieldSync.edit(from: live, to: final)
+            report("     release case \(index) edit is -\(edit.deleting) +\(edit.inserting.count)")
+            sync.sync(to: final)
+            self.settle(expecting: final, within: 30) { arrived, elapsed in
+                let after = textView?.string ?? ""
+                check(arrived, "release case \(index): -\(edit.deleting) +\(edit.inserting.count) rewrite",
+                      "after \(String(format: "%.1f", elapsed))s got \(after.count) of \(final.count) chars: \(after.debugDescription)")
+                runReleaseSizedRewriteCase(index + 1)
             }
         }
     }

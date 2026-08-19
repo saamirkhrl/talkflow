@@ -48,6 +48,16 @@ if let index = CommandLine.arguments.firstIndex(of: "--newlinetest") {
     WriteSelfTest.newlineProbe(after: seconds)
 }
 
+// Measures how large a keystroke rewrite the focused app can actually receive.
+// Everything else types into a text view this process owns, which never drops
+// anything; the apps that do are the ones the user dictates into.
+if let index = CommandLine.arguments.firstIndex(of: "--stresstest") {
+    let rest = CommandLine.arguments.dropFirst(index + 1)
+    let seconds = rest.first.flatMap(Double.init) ?? 8
+    let characters = rest.dropFirst().first.flatMap(Int.init) ?? 400
+    WriteSelfTest.stress(after: seconds, characters: characters)
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--rectest") {
     let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 3
     RecordSelfTest.run(seconds: seconds)

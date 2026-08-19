@@ -111,6 +111,8 @@ enum StreamSelfTest {
         report("--- streamtest ---")
         for testCase in cases { runCase(testCase) }
         runWriteVerificationCases()
+        runPlaceholderSegmentCases()
+        runReleaseSplitCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -138,6 +140,102 @@ enum StreamSelfTest {
               "readback does not match what was written -> refused")
         check(FieldWriter.landed(caretAfter: 5, expectedCaret: 5, readback: nil, replacement: ""),
               "a pure deletion leaves the caret where the text was removed -> believed")
+    }
+
+    /// Long audio comes back from whisper-server as several segments, one per
+    /// line, and a pause in the middle of a dictation is returned as a segment
+    /// reading `[BLANK_AUDIO]`. The whole-transcript check cannot see it, so it
+    /// was typed into the user's document verbatim.
+    private static func runPlaceholderSegmentCases() {
+        report("case: placeholder segments inside a real transcript")
+
+        let cases: [(String, String, String)] = [
+            ("a trailing blank segment on a long hold",
+             "and the middle is kind of gone Fix it, please\n [BLANK_AUDIO]",
+             "and the middle is kind of gone Fix it, please"),
+            ("a blank segment between two real ones",
+             "first part of what I said\n [BLANK_AUDIO]\n second part of what I said",
+             "first part of what I said\nsecond part of what I said"),
+            ("real multi-segment speech is untouched",
+             "the first segment of a long dictation\n and the second segment of it",
+             "the first segment of a long dictation\nand the second segment of it"),
+            ("a transcript that is nothing but a placeholder",
+             "[BLANK_AUDIO]",
+             "")
+        ]
+
+        for (name, raw, want) in cases {
+            let got = Transcriber.stripPlaceholderSegments(raw)
+            check(got == want, name, "got \(got.debugDescription), wanted \(want.debugDescription)")
+        }
+
+        // The rendered result is what actually reaches the field, so check the
+        // whole chain and not just the strip.
+        let rendered = Dictation.render(
+            Transcriber.stripPlaceholderSegments("and the middle is kind of gone Fix it, please\n [BLANK_AUDIO]"),
+            leadingSpace: "",
+            structure: true
+        )
+        check(!rendered.contains("BLANK_AUDIO"),
+              "no placeholder survives to the screen", rendered.debugDescription)
+    }
+
+    /// The release pass deletes text the user can already see, then retypes it,
+    /// and no write path can prove the retype arrived. When it does not, the
+    /// field is left with the start of the dictation, a hole, and the tail -
+    /// reported twice, from real use, with the survivor beginning mid-word.
+    ///
+    /// So the pass is split: the words the live path held back are appended (no
+    /// deletion, nothing at risk), and only then is the correction attempted, and
+    /// only while it is small enough to deliver. These pin both halves.
+    private static func runReleaseSplitCases() {
+        report("case: the release pass never risks words that are already on screen")
+
+        let appends: [(String, String, String?)] = [
+            ("adds the words held back while speaking",
+             "I need two tickets", "I need two tickets for the show tonight."),
+            ("keeps a word the live path got wrong rather than deleting it",
+             "I need to tickets", "I need to tickets for the show tonight."),
+            ("carries a paragraph break into the append",
+             "Dear Sarah,", "Dear Sarah,\n\nCan you take a look"),
+            ("nothing to add when the transcript has no new words",
+             "the whole thing was already typed", nil),
+            ("nothing to add when the final transcript is shorter",
+             "more words on screen than in the transcript", nil)
+        ]
+        let finals = [
+            "I need two tickets for the show tonight.",
+            "I need two tickets for the show tonight.",
+            "Dear Sarah,\n\nCan you take a look",
+            "the whole thing was already typed",
+            "fewer words"
+        ]
+        for (index, (name, current, want)) in appends.enumerated() {
+            let got = FieldSync.appendOnlyTarget(current: current, final: finals[index])
+            check(got == want, name, "got \(String(describing: got)), wanted \(String(describing: want))")
+            if let got {
+                let edit = FieldSync.edit(from: current, to: got)
+                check(edit.deleting == 0, "  \u{21b3} the append deletes nothing", "\(edit.deleting) deleted")
+            }
+        }
+
+        report("case: a correction is only attempted when it can be delivered")
+
+        // The two rewrites that destroyed real dictations, from the app's log.
+        check(!Dictation.correctionIsAffordable(deleting: 422, inserting: String(repeating: "x", count: 471),
+                                                via: .keystrokes("no AX")),
+              "-422 +471 by keystrokes is refused")
+        check(!Dictation.correctionIsAffordable(deleting: 263, inserting: String(repeating: "x", count: 287),
+                                                via: .keystrokes("no AX")),
+              "-263 +287 by keystrokes is refused")
+        // The everyday release pass, which has always worked and must keep working.
+        check(Dictation.correctionIsAffordable(deleting: 31, inserting: String(repeating: "x", count: 37),
+                                               via: .keystrokes("no AX")),
+              "-31 +37 by keystrokes is allowed")
+        // Accessibility is one atomic verified call - length is not the risk.
+        check(Dictation.correctionIsAffordable(deleting: 422, inserting: String(repeating: "x", count: 471),
+                                               via: .accessibility),
+              "-422 +471 via accessibility is allowed, because it is verified")
     }
 
     private static func runCase(_ testCase: Case) {

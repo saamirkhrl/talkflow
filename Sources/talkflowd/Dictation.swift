@@ -129,11 +129,19 @@ final class Dictation {
                 // rather than one per tick.
                 let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
                 print("talkflowd: transcribed in \(String(format: "%.2f", result.elapsed))s: \(result.text)")
-                self.syncField(to: final)
+                self.reconcile(to: final)
                 if !self.field.typedText.isEmpty {
                     StatsStore.shared.recordSession(text: self.field.typedText, durationSeconds: duration)
                 }
-                self.dismiss()
+                // The pill goes now - the user has stopped speaking and there is
+                // nothing left to visualise - but the release pass on a long hold
+                // is hundreds of paced key events and takes a couple of seconds
+                // to finish landing. Stay in `.processing` until they are out, or
+                // the menu bar says idle while the text is still arriving.
+                self.overlay.hide()
+                LiveType.whenDrained {
+                    DispatchQueue.main.async { self.statusBar.setState(.idle) }
+                }
             }
         }
     }
@@ -170,6 +178,66 @@ final class Dictation {
     }
 
     // MARK: - Screen
+
+    /// How many key events a destructive rewrite may cost before it is refused.
+    ///
+    /// A keystroke rewrite deletes text the user can see and then retypes it, and
+    /// nothing in the pipeline can prove the retype arrived. When it doesn't, the
+    /// user is left with the start of their dictation, a hole, and the tail -
+    /// which is the bug this number exists to stop. The larger the burst, the
+    /// likelier a drop, so past a point the correction is not worth what it
+    /// risks: the words already on screen are the user's words, and whisper's
+    /// second opinion on punctuation is not worth losing them for.
+    ///
+    /// 160 events is roughly a 60-character rewrite plus its retype, and it is
+    /// deliberately conservative. The real ceiling for Terminal and the Electron
+    /// apps has never been measured - `--stresstest` measures it. Raise this when
+    /// there is a number, not before.
+    private static let correctionEventBudget = 160
+
+    /// The release pass, split by risk.
+    ///
+    /// Adding the words the live path held back is a pure append. It has never
+    /// been on screen, so no write path can destroy anything by delivering it
+    /// badly, and it always runs.
+    ///
+    /// Correcting words that are already on screen is the opposite: it deletes
+    /// text the user is looking at and retypes it. Via Accessibility that is one
+    /// atomic, verified call and size is irrelevant. Via keystrokes it is one
+    /// droppable event per character, so it runs only while it is small enough to
+    /// trust.
+    private func reconcile(to final: String) {
+        if let appended = FieldSync.appendOnlyTarget(current: field.typedText, final: final),
+           appended != field.typedText {
+            syncField(to: appended)
+        }
+
+        let edit = FieldSync.edit(from: field.typedText, to: final)
+        guard edit.deleting > 0 || !edit.inserting.isEmpty else { return }
+
+        guard Self.correctionIsAffordable(deleting: edit.deleting, inserting: edit.inserting, via: field.lastOutcome) else {
+            let events = Self.eventCost(deleting: edit.deleting, inserting: edit.inserting)
+            print("talkflowd: refused the correction pass, -\(edit.deleting) +\(edit.inserting.count) = \(events) keystroke events is more than can be delivered reliably; the dictation stays as it was spoken")
+            return
+        }
+        syncField(to: final)
+    }
+
+    /// What a rewrite costs in key events: one per deleted character, one per
+    /// chunk of the replacement.
+    static func eventCost(deleting: Int, inserting: String) -> Int {
+        deleting + LiveType.chunked(inserting).count
+    }
+
+    /// Whether the correction half of the release pass is worth what it risks.
+    /// Pure, so the rule is pinned by `--streamtest` rather than left to a
+    /// comment - it is the rule that decides whether a dictation can be lost.
+    static func correctionIsAffordable(deleting: Int, inserting: String, via outcome: FieldSync.Outcome) -> Bool {
+        // One atomic call that reads back what it replaced. Length is irrelevant
+        // and there is nothing to drop.
+        if outcome == .accessibility { return true }
+        return eventCost(deleting: deleting, inserting: inserting) <= correctionEventBudget
+    }
 
     /// The only way the live path is allowed to write. Refuses anything that is
     /// not a pure extension of what it last put on screen.

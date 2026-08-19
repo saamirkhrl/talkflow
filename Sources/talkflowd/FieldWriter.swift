@@ -162,6 +162,18 @@ enum FieldWriter {
         return range.location
     }
 
+    /// The `count` characters immediately before the caret, read only, for
+    /// `--stresstest`. This is not the trust check `replaceBeforeCaret` makes -
+    /// it is a diagnostic, and it says what an app really contains after a
+    /// rewrite, in an app that only ever answers "I changed it" and cannot be
+    /// believed. Nil when the app will not answer at all.
+    static func readBeforeCaret(_ count: Int) -> String? {
+        guard let field = focusedTextElement(), let caret = caretLocation(in: field) else { return nil }
+        let length = min(count, caret)
+        guard length > 0 else { return nil }
+        return string(in: field, location: caret - length, length: length)
+    }
+
     private static func string(in field: AXUIElement, location: Int, length: Int) -> String? {
         var range = CFRange(location: location, length: length)
         guard let rangeValue = AXValueCreate(.cfRange, &range) else { return nil }

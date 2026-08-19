@@ -77,6 +77,104 @@ enum WriteSelfTest {
         exit(0)
     }
 
+    /// `--stresstest [seconds] [characters]` - the measurement nobody has ever
+    /// taken: how large a keystroke rewrite the app you actually dictate into can
+    /// receive without losing part of it.
+    ///
+    /// Every existing test types into a text view this process owns, which is the
+    /// fastest possible consumer and keeps every character at any rate measured.
+    /// The failures are in Terminal and the Electron apps, and they are invisible
+    /// from inside this process - a dropped key event is reported nowhere. So the
+    /// payload is written to be read: numbered five-character groups, `a001 a002
+    /// a003 ...`, then rewritten to `b001 b002 b003 ...`. If groups are missing
+    /// the sequence jumps, and where it jumps says exactly which part of the
+    /// burst was dropped.
+    ///
+    /// Run it in an empty text box in the app you care about. Nothing is read
+    /// back and nothing is asserted - your eyes are the instrument.
+    static func stress(after seconds: Double, characters: Int) -> Never {
+        try? FileManager.default.removeItem(at: logURL)
+        let before = numbered("a", count: characters)
+        let after = numbered("b", count: characters)
+        let rewriteEvents = before.count + LiveType.chunked(after).count
+
+        report("--- stresstest ---")
+        report("focus an EMPTY text box in the app you want measured.")
+        report("\(characters) characters go in, then get rewritten - \(rewriteEvents) key events.")
+
+        countdown(from: Int(seconds.rounded()))
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
+            let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+            report("target: \(app)")
+            LiveType.insert(before)
+
+            // Long enough for the insertion to have finished arriving, so that
+            // anything missing after the rewrite is the rewrite's doing.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6) {
+                report("step 1 done: \(before.count) characters posted as a plain insert.")
+                LiveType.rewrite(deleting: before.count, inserting: after)
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 20) {
+                    report("step 2 done: rewrote all \(before.count) characters (\(rewriteEvents) events).")
+                    verdict(expected: after)
+                    report("--- end ---")
+                    exit(0)
+                }
+            }
+        }
+        RunLoop.main.run()
+        exit(0)
+    }
+
+    /// Reads the field back and says whether the rewrite survived.
+    ///
+    /// Accessibility reads work in apps where Accessibility *writes* cannot be
+    /// trusted - Terminal answers a read and lies about a write - so this can
+    /// often measure automatically what otherwise needs a person looking at a
+    /// screen. When the app will not answer, it falls back to asking.
+    private static func verdict(expected: String) {
+        guard let got = FieldWriter.readBeforeCaret(expected.utf16.count) else {
+            report("this app will not answer an Accessibility read, so look at the box.")
+            report("it should read, unbroken:")
+            report("     \(expected)")
+            report("b001, b002, b003 ... with no gaps means this app survives a rewrite")
+            report("this large. A jump - b007 straight to b031 - is the bug, and the gap")
+            report("is what was dropped.")
+            report("re-run smaller to find where it starts holding:  --stresstest 8 200")
+            return
+        }
+
+        if got == expected {
+            report("PASS  all \(expected.count) characters arrived, in order, nothing dropped.")
+            report("      this app survives a rewrite of \(expected.count) characters.")
+            return
+        }
+
+        report("FAIL  the field does not match what was posted.")
+        report("      posted \(expected.count) characters, read back \(got.count).")
+        let wanted = Array(expected)
+        let arrived = Array(got)
+        var index = 0
+        while index < wanted.count, index < arrived.count, wanted[index] == arrived[index] { index += 1 }
+        report("      first divergence at character \(index).")
+        report("      wanted from there: \(String(wanted[index...].prefix(60)).debugDescription)")
+        report("      got from there:    \(String(arrived[min(index, arrived.count)...].prefix(60)).debugDescription)")
+        report("      re-run smaller to find the ceiling:  --stresstest 8 200")
+    }
+
+    /// `a001 a002 a003 ...`, trimmed to exactly `count` characters. Five
+    /// characters per group, so a dropped 16-unit event takes out three of them
+    /// and the gap is obvious at a glance.
+    private static func numbered(_ tag: Character, count: Int) -> String {
+        var out = ""
+        var index = 1
+        while out.count < count {
+            out += "\(tag)\(String(format: "%03d", index)) "
+            index += 1
+        }
+        return String(out.prefix(count))
+    }
+
     private static func countdown(from seconds: Int) {
         guard seconds > 0 else { return }
         for remaining in stride(from: seconds, through: 1, by: -1) {

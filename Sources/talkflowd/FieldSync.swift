@@ -27,13 +27,22 @@ final class FieldSync {
     /// there.
     private(set) var typedText = ""
 
+    /// Which path the most recent write actually took. The release pass needs it:
+    /// an Accessibility write is atomic and verified, so its size does not matter,
+    /// while a keystroke rewrite is hundreds of droppable events and its size is
+    /// the whole risk. See `Dictation.reconcile`.
+    private(set) var lastOutcome: Outcome = .unchanged
+
     private let strategy: Strategy
 
     init(strategy: Strategy = .preferAccessibility) {
         self.strategy = strategy
     }
 
-    func reset() { typedText = "" }
+    func reset() {
+        typedText = ""
+        lastOutcome = .unchanged
+    }
 
     enum Outcome: Equatable {
         case unchanged
@@ -65,6 +74,56 @@ final class FieldSync {
         return (old.count - shared, String(new[shared...]))
     }
 
+    /// The furthest `current` can be moved towards `final` without deleting
+    /// anything: `current`, plus the words of `final` that have never been on
+    /// screen.
+    ///
+    /// The release pass does two jobs at once, and they carry opposite risk. The
+    /// words the live path held back have never been shown, so adding them cannot
+    /// destroy anything no matter how the write path behaves. Correcting words
+    /// that are already on screen means deleting text the user can see and is
+    /// happy with, and then retyping it - and when that retype is dropped, the
+    /// dictation is gone. Splitting them lets the safe half always happen.
+    ///
+    /// Word-aligned, not character-aligned, because the live path commits whole
+    /// words: the count of words on screen indexes straight into the final
+    /// transcript. That is the same positional assumption `StreamCommit` makes.
+    /// If whisper re-splits a word in its final pass the seam can gain or lose
+    /// one word, which the correction pass repairs when it runs, and which is a
+    /// far smaller failure than the one this exists to prevent.
+    ///
+    /// Returns nil when there is nothing to add.
+    static func appendOnlyTarget(current: String, final: String) -> String? {
+        let onScreen = tokenize(current).count
+        let tokens = tokenize(final)
+        guard tokens.count > onScreen else { return nil }
+        let tail = tokens[onScreen...].map { $0.leading + $0.word }.joined()
+        return tail.isEmpty ? nil : current + tail
+    }
+
+    /// Words, each carrying the whitespace in front of it, so a slice can be
+    /// reassembled character for character. Whitespace after the last word
+    /// belongs to the word that has not arrived yet and is dropped.
+    private static func tokenize(_ text: String) -> [(leading: String, word: String)] {
+        var tokens: [(leading: String, word: String)] = []
+        var leading = ""
+        var word = ""
+        for character in text {
+            if character.isWhitespace {
+                if !word.isEmpty {
+                    tokens.append((leading, word))
+                    word = ""
+                    leading = ""
+                }
+                leading.append(character)
+            } else {
+                word.append(character)
+            }
+        }
+        if !word.isEmpty { tokens.append((leading, word)) }
+        return tokens
+    }
+
     @discardableResult
     func sync(to desired: String) -> Outcome {
         guard desired != typedText else { return .unchanged }
@@ -77,6 +136,7 @@ final class FieldSync {
             let attempt = FieldWriter.replaceBeforeCaret(expected: staleTail, with: freshTail)
             if attempt.succeeded {
                 typedText = desired
+                lastOutcome = .accessibility
                 return .accessibility
             }
             reason = attempt.reason
@@ -86,6 +146,7 @@ final class FieldSync {
         // never overtake an earlier one and interleave its keystrokes.
         LiveType.rewrite(deleting: deleteCount, inserting: freshTail)
         typedText = desired
+        lastOutcome = .keystrokes(reason)
         return .keystrokes(reason)
     }
 }

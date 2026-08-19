@@ -15,7 +15,8 @@ Fn held -> mic -> in-memory PCM -> whisper-server (local, warm)
         -> every 0.7s: transcribe the whole buffer so far
         -> StreamCommit: which words have stopped changing?
         -> FieldSync: append them to the focused field
-Fn released -> final transcript -> one correction pass
+Fn released -> final transcript -> append what was held back,
+                                   then correct, if that can be delivered
 ```
 
 **Live typing is append-only.** Whisper revises what it already said as more
@@ -26,6 +27,18 @@ and another word sits behind it - LocalAgreement-2, the standard streaming-ASR
 approach. Committed words are never taken back, so the only edit a live update
 can make is an append. Corrections are deferred to a single pass when the key
 is released, which is also where email paragraph breaks are decided.
+
+**A correction is never worth losing words for.** The pass at release does two
+jobs, and they carry opposite risk. Adding the words the live path held back is a
+pure append: they have never been on screen, so no write path can destroy
+anything by delivering them badly. Correcting words that are already on screen
+means deleting text you can see and is correct, then retyping it - and a
+synthetic keystroke that gets dropped is reported nowhere, so nothing can prove
+the retype arrived. On a long hold that rewrite reached 470 characters, and what
+came back was the start of the dictation, a hole, and the tail. So the append
+always happens, and the correction happens only when it is one atomic verified
+Accessibility call, or small enough to trust to keystrokes. Past that it is
+refused and logged, and your words stay as you said them.
 
 **Nothing is believed without proof.** An Accessibility write that returns
 success has not necessarily done anything - Discord accepts every such call and

@@ -32,6 +32,25 @@ enum Transcriber {
         return false
     }
 
+    /// whisper-server returns one segment per line, and past roughly 30 seconds
+    /// of audio there is always more than one. A pause inside a long dictation
+    /// comes back as a segment of its own reading `[BLANK_AUDIO]`, which
+    /// `isPlaceholder` does not catch because the transcript as a whole is real
+    /// speech - so the literal characters "[BLANK_AUDIO]" were typed into the
+    /// user's document, at the end of exactly the long dictations that are
+    /// hardest to notice it in. Measured, from the app's own log.
+    ///
+    /// Segments are dropped whole rather than pattern-matched inside a line: a
+    /// placeholder is always its own segment, and editing within a segment would
+    /// risk touching real words.
+    static func stripPlaceholderSegments(_ text: String) -> String {
+        let segments = text.split(separator: "\n", omittingEmptySubsequences: false)
+        let kept = segments
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !isPlaceholder($0) }
+        return kept.joined(separator: "\n")
+    }
+
     static func transcribe(
         wav: Data,
         serverURL: URL,
@@ -74,7 +93,8 @@ enum Transcriber {
                 completion(nil)
                 return
             }
-            completion(Result(text: raw.trimmingCharacters(in: .whitespacesAndNewlines), elapsed: elapsed))
+            let text = stripPlaceholderSegments(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+            completion(Result(text: text, elapsed: elapsed))
         }.resume()
     }
 }
