@@ -1,7 +1,9 @@
 #!/bin/bash
 # Builds talkflowd, installs it into /Applications/TalkFlow.app, re-signs with the
 # stable local dev identity (keeps Accessibility/Input Monitoring/Mic grants across
-# rebuilds - see Packaging/README if this ever needs to be redone), and restarts
+# rebuilds; the identity is a self-signed code-signing cert of that name in the
+# login keychain, check it with: security find-certificate -c "TalkFlow Local Dev"
+# and recreate it via Keychain Access > Certificate Assistant), and restarts
 # the LaunchAgent.
 set -euo pipefail
 

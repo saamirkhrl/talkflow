@@ -315,15 +315,16 @@ enum TextCommands {
         options: [.caseInsensitive]
     )
 
-    /// `precededBy` is whatever is already on screen ahead of `text` - the
-    /// paragraph/list rules need it to know whether a break would be a leading
-    /// blank line (suppressed) or a real separator - normally "", since the whole
-    /// transcript is formatted in one pass.
-    static func applyAll(_ text: String, precededBy priorText: String = "") -> String {
+    /// The whole transcript is formatted in one pass, so the paragraph and list
+    /// rules only ever need to know whether a break would land at the very start
+    /// of the text (suppressed) or between words (a real separator). These used to
+    /// take a `precededBy` argument for text already on screen ahead of this
+    /// string; nothing ever passed one.
+    static func applyAll(_ text: String) -> String {
         var result = applySpokenPunctuation(text)
         result = applyEmoji(result)
-        result = applyParagraphBreaks(result, precededBy: priorText)
-        result = applyListCues(result, precededBy: priorText)
+        result = applyParagraphBreaks(result)
+        result = applyListCues(result)
         return result
     }
 
@@ -430,7 +431,7 @@ enum TextCommands {
         return result
     }
 
-    static func applyParagraphBreaks(_ text: String, precededBy priorText: String = "") -> String {
+    static func applyParagraphBreaks(_ text: String) -> String {
         let ns = text as NSString
         let matches = newParagraphPattern.matches(in: text, range: NSRange(location: 0, length: ns.length))
         guard !matches.isEmpty else { return text }
@@ -439,7 +440,7 @@ enum TextCommands {
         var lastEnd = 0
         for match in matches {
             result += ns.substring(with: NSRange(location: lastEnd, length: match.range.location - lastEnd))
-            if !(priorText + result).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 result += "\n\n"
             }
             lastEnd = match.range.location + match.range.length
@@ -448,7 +449,7 @@ enum TextCommands {
         return result
     }
 
-    static func applyListCues(_ text: String, precededBy priorText: String = "") -> String {
+    static func applyListCues(_ text: String) -> String {
         let ns = text as NSString
         let matches = listCuePattern.matches(in: text, range: NSRange(location: 0, length: ns.length))
         guard !matches.isEmpty else { return text }
@@ -458,7 +459,7 @@ enum TextCommands {
         for match in matches {
             let start = match.range.location
             result += ns.substring(with: NSRange(location: lastEnd, length: start - lastEnd))
-            if !(priorText + result).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 result += "\n"
             }
             lastEnd = start

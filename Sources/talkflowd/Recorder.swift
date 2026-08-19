@@ -87,18 +87,18 @@ final class Recorder {
     /// Everything captured so far, as a valid WAV. Safe to call mid-recording -
     /// that's what drives the live preview.
     ///
-    /// `lastSeconds` trims to the most recent audio. The preview re-transcribes
-    /// from scratch each tick, so on a long hold the whole-buffer cost grows
-    /// without bound and preview requests start queueing ahead of the final
-    /// transcription. The pill only shows the newest words anyway.
-    func snapshotWAV(lastSeconds: TimeInterval? = nil) -> Data {
+    /// Always the whole buffer, and there is deliberately no way to ask for less.
+    /// `StreamCommit` compares each transcript against the previous one word by
+    /// word, so every transcript has to cover the same audio; handing it only the
+    /// recent seconds would shift every word index against what is already
+    /// committed. This used to take a `lastSeconds` argument that nothing ever
+    /// passed, carrying a comment arguing for the trim that `Dictation.tickPreview`
+    /// documents as the thing that must not happen. 60s of speech transcribes in
+    /// ~1.5s, so the whole buffer is affordable for a hold of any realistic length.
+    func snapshotWAV() -> Data {
         lock.lock()
-        var copy = samples
+        let copy = samples
         lock.unlock()
-        if let lastSeconds {
-            let keep = Int(lastSeconds * sampleRate)
-            if copy.count > keep { copy = Array(copy.suffix(keep)) }
-        }
         return Self.wav(from: copy, sampleRate: Int(sampleRate))
     }
 

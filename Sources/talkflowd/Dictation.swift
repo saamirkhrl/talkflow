@@ -313,12 +313,11 @@ final class Dictation {
     /// buffer, so a queue of them would be stale by the time it drained and would
     /// also delay the final pass behind it.
     ///
-    /// `snapshotWAV()` is deliberately called with no `lastSeconds` limit.
-    /// StreamCommit compares this transcript against the previous one word by
-    /// word, so it has to be a transcript of the same thing every time -
-    /// transcribing only the recent audio would shift every index against what
-    /// is already committed. 60s of speech transcribes in ~1.5s, so the whole
-    /// buffer is affordable for a hold of any realistic length.
+    /// `snapshotWAV()` always covers the whole recording, and `Recorder` offers no
+    /// way to ask for less. StreamCommit compares this transcript against the
+    /// previous one word by word, so it has to be a transcript of the same thing
+    /// every time - transcribing only the recent audio would shift every index
+    /// against what is already committed.
     private func tickPreview() {
         guard isRecording, !previewInFlight, recorder.durationSeconds >= 0.5 else { return }
         previewInFlight = true
