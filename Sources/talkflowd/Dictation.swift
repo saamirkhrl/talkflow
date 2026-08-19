@@ -128,7 +128,8 @@ final class Dictation {
                 // the complete text, where inserting one costs one rewrite
                 // rather than one per tick.
                 let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
-                print("talkflowd: transcribed in \(String(format: "%.2f", result.elapsed))s: \(result.text)")
+                let detail = Self.logTranscripts ? ": \(result.text)" : ""
+                print("talkflowd: transcribed \(Self.shape(of: result.text)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
                 self.reconcile(to: final)
                 if !self.field.typedText.isEmpty {
                     StatsStore.shared.recordSession(text: self.field.typedText, durationSeconds: duration)
@@ -144,6 +145,24 @@ final class Dictation {
                 }
             }
         }
+    }
+
+    /// The log used to carry every transcript verbatim, which made it a plaintext
+    /// record of everything the user has ever dictated, sitting in
+    /// `~/Library/Logs/TalkFlow/talkflow.log` indefinitely. The numbers are what
+    /// diagnosis actually needs - a lost release pass shows up as a character
+    /// count that does not match the edit that followed it - so those stay and
+    /// the words do not.
+    ///
+    /// Set `TALKFLOW_LOG_TRANSCRIPTS=1` in the LaunchAgent to put the text back
+    /// while chasing a bug that needs it.
+    static let logTranscripts = ProcessInfo.processInfo.environment["TALKFLOW_LOG_TRANSCRIPTS"] == "1"
+
+    /// Size and structure of a transcript, with none of its content.
+    static func shape(of text: String) -> String {
+        let words = text.split(whereSeparator: { $0.isWhitespace }).count
+        let segments = text.split(separator: "\n").count
+        return "\(text.count) chars / \(words) words" + (segments > 1 ? " / \(segments) segments" : "")
     }
 
     /// Ends a hold without inserting anything further. Whatever is already on

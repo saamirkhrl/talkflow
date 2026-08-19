@@ -120,10 +120,15 @@ enum TypeSelfTest {
     /// Each pair is (what the live path committed, what the release pass wants),
     /// diverging early so the edit deletes and retypes almost the whole string -
     /// exactly the burst that is being reported as lossy.
+    ///
+    /// The text is invented, but its shape is not: length, divergence point and
+    /// resulting edit are matched to a real dictation from the log (`-273 +271`).
+    /// Fixtures are never real transcripts - this repo is pushed to GitHub, and
+    /// the user's dictation is not test data.
     private static let releaseSizedRewrites: [(String, String)] = [
         (
-            "However, I keep running into this error where once I speak for a long amount of time and I let go it Erases everything so it can rewrite it and that's fine But after it's rewriting it it cuts off like a lot of the thing that I wrote so it writes like the beginning of a couple of seconds of what I said and then only the end and the middle is kind of gone Fix it, please",
-            "However, I keep running into this error where once I speak for a long amount of time and I let go, it erases everything so it can rewrite it, and that's fine. But after it is rewriting it, it cuts off a lot of the thing that I wrote, so it writes the beginning, a couple of seconds of what I said, and then only the end, and the middle is kind of gone. Fix it, please."
+            "So the plan for next weekend is that we drive up on the evening of the fourteenth and stop for food and then get to the cabin late and just unpack and sleep and on the saturday we can take the long trail if the weather holds or the short one down by the river if it does not and either way we should be back at the house well before dark to get the fire going",
+            "So the plan for next weekend is that we drive up on the evening of the fourteenth and stop for food, and then get to the cabin late and just unpack and sleep. On the Saturday we can take the long trail if the weather holds, or the short one down by the river if it does not, and either way we should be back at the house well before dark to get the fire going."
         ),
         (
             "Dear Sarah I wanted to follow up on the quarterly planning document that we discussed on Tuesday because there are a few numbers in the revenue section that no longer match what finance sent over on Thursday and I think we should reconcile them before the board meeting so that nobody has to ask the same question twice and we can spend the time on the roadmap instead of on the spreadsheet Thanks Samir",

@@ -51,6 +51,29 @@ enum Transcriber {
         return kept.joined(separator: "\n")
     }
 
+    /// Deliberately not the shared session.
+    ///
+    /// `URLSession.shared` caches according to the protocol, the whisper server
+    /// sends no `Cache-Control`, and Foundation therefore wrote *both* directions
+    /// of every transcription to disk: the multipart request body, which is the
+    /// raw WAV of the user speaking, and the response body, which is the
+    /// transcript. They accumulated unencrypted and survived reboots in
+    /// `~/Library/Caches/com.samir.talkflow/Cache.db` - 18 audio blobs and
+    /// readable sentences were found sitting there. The app believed audio never
+    /// touched the disk, and its own code never put it there; the networking
+    /// layer did, silently.
+    ///
+    /// Ephemeral keeps caches, cookies and credentials in memory only, a nil
+    /// `urlCache` removes even the in-memory response cache, and the explicit
+    /// policy on each request means nothing consults or populates a cache
+    /// whatever a later configuration change does.
+    private static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        return URLSession(configuration: configuration)
+    }()
+
     static func transcribe(
         wav: Data,
         serverURL: URL,
@@ -73,10 +96,11 @@ enum Transcriber {
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = timeout
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         request.httpBody = body
 
         let startedAt = Date()
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        session.dataTask(with: request) { data, response, error in
             let elapsed = Date().timeIntervalSince(startedAt)
             if let error {
                 print("talkflowd: transcription request failed after \(String(format: "%.2f", elapsed))s: \(error.localizedDescription)")

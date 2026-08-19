@@ -151,8 +151,8 @@ enum StreamSelfTest {
 
         let cases: [(String, String, String)] = [
             ("a trailing blank segment on a long hold",
-             "and the middle is kind of gone Fix it, please\n [BLANK_AUDIO]",
-             "and the middle is kind of gone Fix it, please"),
+             "and that was the last thing I wanted to go over\n [BLANK_AUDIO]",
+             "and that was the last thing I wanted to go over"),
             ("a blank segment between two real ones",
              "first part of what I said\n [BLANK_AUDIO]\n second part of what I said",
              "first part of what I said\nsecond part of what I said"),
@@ -172,7 +172,7 @@ enum StreamSelfTest {
         // The rendered result is what actually reaches the field, so check the
         // whole chain and not just the strip.
         let rendered = Dictation.render(
-            Transcriber.stripPlaceholderSegments("and the middle is kind of gone Fix it, please\n [BLANK_AUDIO]"),
+            Transcriber.stripPlaceholderSegments("and that was the last thing I wanted to go over\n [BLANK_AUDIO]"),
             leadingSpace: "",
             structure: true
         )
