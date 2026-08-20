@@ -64,14 +64,26 @@ enum RecordSelfTest {
         check(nonZero > actualSamples / 10, "samples contain real signal",
               "\(nonZero)/\(actualSamples) non-zero, peak level \(String(format: "%.3f", peakLevel))")
 
-        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-rectest.wav")
-        try? wav.write(to: url)
-        report("wrote \(url.path)")
+        // Every assertion above runs on the bytes in memory, so the file is not
+        // needed to verify anything - it exists only for a human to listen to
+        // when the microphone itself is the suspect. That is rare, and leaving a
+        // recording of the user in $TMPDIR after every run is not the default
+        // worth having. Opt in with TALKFLOW_KEEP_TEST_AUDIO=1.
+        if ProcessInfo.processInfo.environment["TALKFLOW_KEEP_TEST_AUDIO"] == "1" {
+            let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-rectest.wav")
+            try? wav.write(to: url)
+            report("wrote \(url.path)")
+        } else {
+            report("audio not written to disk (TALKFLOW_KEEP_TEST_AUDIO=1 to keep it)")
+        }
 
         let done = DispatchSemaphore(value: 0)
         Transcriber.transcribe(wav: wav, serverURL: URL(string: "http://127.0.0.1:8178/inference")!) { result in
             if let result {
-                report("transcribed in \(String(format: "%.2f", result.elapsed))s: \(result.text)")
+                // Same rule as the live path: the log records the shape, not the
+                // words. See Dictation.logTranscripts.
+                let detail = Dictation.logTranscripts ? ": \(result.text)" : ""
+                report("transcribed \(Dictation.shape(of: result.text)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
             } else {
                 report("FAIL transcription request failed")
                 failures += 1
