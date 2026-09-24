@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="710" viewBox="0 0 680 710" role="img">
+<title>How TalkFlow works</title>
+<desc>You hold Fn and the mic records. While you talk, Whisper, an AI model on your Mac, listens every 0.7 seconds, simple rules tidy the words, and words are typed once they stop changing. When you let go, Whisper listens to the whole recording again, the rules tidy it and add email layout, missing words are typed, and earlier mistakes are fixed only if safe. Everything is typed into your app and checked.</desc>
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .th { font-size: 14px; font-weight: 500; }
+  .ts { font-size: 12px; }
+  .lane { fill: none; stroke: #B4B2A9; stroke-width: 0.8; stroke-dasharray: 4 4; }
+  .label { fill: #5F5E5A; }
+  .arr { fill: none; stroke: #888780; stroke-width: 1.5; }
+  .purple rect { fill: #EEEDFE; stroke: #534AB7; stroke-width: 0.8; }
+  .purple .th { fill: #3C3489; } .purple .ts { fill: #534AB7; }
+  .teal rect { fill: #E1F5EE; stroke: #0F6E56; stroke-width: 0.8; }
+  .teal .th { fill: #085041; } .teal .ts { fill: #0F6E56; }
+  .gray rect { fill: #F1EFE8; stroke: #5F5E5A; stroke-width: 0.8; }
+  .gray .th { fill: #444441; } .gray .ts { fill: #5F5E5A; }
+  @media (prefers-color-scheme: dark) {
+    .lane { stroke: #5F5E5A; } .label { fill: #B4B2A9; } .arr { stroke: #888780; }
+    .purple rect { fill: #3C3489; stroke: #AFA9EC; } .purple .th { fill: #EEEDFE; } .purple .ts { fill: #CECBF6; }
+    .teal rect { fill: #085041; stroke: #5DCAA5; } .teal .th { fill: #E1F5EE; } .teal .ts { fill: #9FE1CB; }
+    .gray rect { fill: #444441; stroke: #B4B2A9; } .gray .th { fill: #F1EFE8; } .gray .ts { fill: #D3D1C7; }
+  }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<g class="gray"><rect x="90" y="30" width="220" height="56" rx="4"/><text class="th" x="200" y="53" text-anchor="middle">You hold Fn</text><text class="ts" x="200" y="72" text-anchor="middle">and start talking</text></g>
+<g class="gray"><rect x="370" y="30" width="220" height="56" rx="4"/><text class="th" x="480" y="53" text-anchor="middle">Mic records your voice</text><text class="ts" x="480" y="72" text-anchor="middle">kept in memory, not saved</text></g>
+<line x1="310" y1="58" x2="368" y2="58" class="arr" marker-end="url(#arrow)"/>
+
+<rect x="40" y="116" width="290" height="348" rx="8" class="lane"/>
+<rect x="350" y="116" width="290" height="348" rx="8" class="lane"/>
+<text class="ts label" x="60" y="140">While you talk, every 0.7s</text>
+<text class="ts label" x="370" y="140">When you let go of Fn</text>
+
+<path d="M480 86 V100 H290 V156" class="arr" marker-end="url(#arrow)"/>
+<path d="M480 86 V100 H560 V156" class="arr" marker-end="url(#arrow)"/>
+
+<g class="purple"><rect x="60" y="160" width="250" height="56" rx="4"/><text class="th" x="185" y="183" text-anchor="middle">Whisper listens</text><text class="ts" x="185" y="202" text-anchor="middle">AI model, runs on your Mac</text></g>
+<g class="teal"><rect x="60" y="236" width="250" height="56" rx="4"/><text class="th" x="185" y="259" text-anchor="middle">Tidy up the words</text><text class="ts" x="185" y="278" text-anchor="middle">drop "um", say "comma" = ,</text></g>
+<g class="teal"><rect x="60" y="312" width="250" height="56" rx="4"/><text class="th" x="185" y="335" text-anchor="middle">Wait until words settle</text><text class="ts" x="185" y="354" text-anchor="middle">heard the same twice = safe</text></g>
+<g class="teal"><rect x="60" y="388" width="250" height="56" rx="4"/><text class="th" x="185" y="411" text-anchor="middle">Type the settled words</text><text class="ts" x="185" y="430" text-anchor="middle">only adds, never deletes</text></g>
+<line x1="185" y1="216" x2="185" y2="234" class="arr" marker-end="url(#arrow)"/>
+<line x1="185" y1="292" x2="185" y2="310" class="arr" marker-end="url(#arrow)"/>
+<line x1="185" y1="368" x2="185" y2="386" class="arr" marker-end="url(#arrow)"/>
+
+<g class="purple"><rect x="370" y="160" width="250" height="56" rx="4"/><text class="th" x="495" y="183" text-anchor="middle">Whisper listens again</text><text class="ts" x="495" y="202" text-anchor="middle">hears the whole thing at once</text></g>
+<g class="teal"><rect x="370" y="236" width="250" height="56" rx="4"/><text class="th" x="495" y="259" text-anchor="middle">Tidy up + email layout</text><text class="ts" x="495" y="278" text-anchor="middle">breaks after "Hi", before "Thanks"</text></g>
+<g class="teal"><rect x="370" y="312" width="250" height="56" rx="4"/><text class="th" x="495" y="335" text-anchor="middle">Type the missing words</text><text class="ts" x="495" y="354" text-anchor="middle">the last few still held back</text></g>
+<g class="teal"><rect x="370" y="388" width="250" height="56" rx="4"/><text class="th" x="495" y="411" text-anchor="middle">Fix earlier mistakes</text><text class="ts" x="495" y="430" text-anchor="middle">only if it's small and safe</text></g>
+<line x1="495" y1="216" x2="495" y2="234" class="arr" marker-end="url(#arrow)"/>
+<line x1="495" y1="292" x2="495" y2="310" class="arr" marker-end="url(#arrow)"/>
+<line x1="495" y1="368" x2="495" y2="386" class="arr" marker-end="url(#arrow)"/>
+
+<path d="M185 444 V480 H290 V496" class="arr" marker-end="url(#arrow)"/>
+<path d="M495 444 V480 H390 V496" class="arr" marker-end="url(#arrow)"/>
+
+<g class="teal"><rect x="190" y="500" width="300" height="56" rx="4"/><text class="th" x="340" y="523" text-anchor="middle">Put text into your app</text><text class="ts" x="340" y="542" text-anchor="middle">checks it landed, else types keys</text></g>
+<line x1="340" y1="556" x2="340" y2="586" class="arr" marker-end="url(#arrow)"/>
+<g class="gray"><rect x="190" y="590" width="300" height="56" rx="4"/><text class="th" x="340" y="613" text-anchor="middle">Your words appear</text><text class="ts" x="340" y="632" text-anchor="middle">Slack, Notes, Cursor, Terminal</text></g>
+
+<g class="purple"><rect x="60" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="80" y="682">AI model (Whisper)</text>
+<g class="teal"><rect x="240" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="260" y="682">Simple rules, no AI</text>
+<g class="gray"><rect x="420" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="440" y="682">You and your Mac</text>
+</svg>

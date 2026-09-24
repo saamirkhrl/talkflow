@@ -10,6 +10,13 @@ rather than assuming.
 
 ## How it works
 
+![How TalkFlow works: hold Fn, Whisper transcribes on your Mac, simple rules tidy the text, settled words are typed into your app](docs/how-it-works.svg)
+
+The only AI model is Whisper (`ggml-small.en`, running locally in
+`whisper-server`). It turns speech into text and supplies most of the
+capitalisation and punctuation itself. Everything after it is plain rules. It is
+sent no prompt, just the audio.
+
 ```
 Fn held -> mic -> in-memory PCM -> whisper-server (local, warm)
         -> every 0.7s: transcribe the whole buffer so far
