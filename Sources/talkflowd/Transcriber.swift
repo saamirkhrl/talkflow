@@ -3,9 +3,9 @@ import Foundation
 /// Sends audio to the local whisper-server for transcription.
 ///
 /// The server is a LaunchAgent that stays up with the model already resident, so
-/// a request costs only inference: measured on this M4, 0.35s for 5.7s of speech
-/// and 0.37s for 7.7s with small.en. That is what makes transcribing once, at the
-/// end of the hold, feel instant rather than like waiting.
+/// a request costs only inference: measured on this M4 with large-v3-turbo, 1.0s
+/// for 5.8s of speech and 2.9s for 39s (small.en did the same in 0.30s and
+/// 1.25s).
 enum Transcriber {
     struct Result {
         let text: String

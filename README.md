@@ -12,7 +12,7 @@ rather than assuming.
 
 ![How TalkFlow works: hold Fn, Whisper transcribes on your Mac, simple rules tidy the text, settled words are typed into your app](docs/how-it-works.svg)
 
-The only AI model is Whisper (`ggml-small.en`, running locally in
+The only AI model is Whisper (`ggml-large-v3-turbo`, running locally in
 `whisper-server`). It turns speech into text and supplies most of the
 capitalisation and punctuation itself. Everything after it is plain rules. It is
 sent no prompt, just the audio.
@@ -69,9 +69,10 @@ or add whitespace.
               # and restarts the LaunchAgent
 ```
 
-Needs a local `whisper-server` on `127.0.0.1:8178` with `ggml-small.en.bin`
-resident, run as a LaunchAgent so the model stays warm. Transcription costs
-about 0.35s warm, and 60s of speech transcribes in about 1.5s.
+Needs a local `whisper-server` on `127.0.0.1:8178` with
+`ggml-large-v3-turbo.bin` resident, run as a LaunchAgent so the model stays
+warm. Transcription costs about 1s warm for a short phrase, and about 4.3s for
+70s of speech.
 
 `swift build` on its own changes nothing that is running. Use `deploy.sh`.
 
