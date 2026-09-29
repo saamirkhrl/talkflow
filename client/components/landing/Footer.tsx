@@ -1,26 +1,25 @@
 import Link from "next/link";
-import { Wordmark } from "@/components/brand/Logo";
 
 export function Footer() {
   return (
-    <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-gutter py-10">
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <Wordmark />
-          <div className="flex gap-6 text-[15px] text-graphite">
+    <footer className="overflow-hidden border-t border-line">
+      <div className="mx-auto max-w-[1200px] px-gutter pt-10">
+        <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[15px] text-graphite">
+          <p>Free and open source, under the MIT License.</p>
+          <div className="flex gap-6">
             <Link href="/terms" className="hover:text-ink">
               Terms
             </Link>
             <Link href="/privacy" className="hover:text-ink">
               Privacy
             </Link>
+            <Link href="/terms#other-companies" className="hover:text-ink">
+              Trademarks
+            </Link>
           </div>
         </div>
-        <p className="max-w-[90ch] text-[13px] leading-relaxed text-graphite">
-          TalkFlow is free, open-source software released under the MIT License. It is an independent project and is not
-          affiliated with, endorsed by or sponsored by any company whose products are shown on this site. Apple, Mac and macOS are
-          trademarks of Apple Inc. Windows is a trademark of the Microsoft group of companies. All other product names and logos
-          belong to their owners.
+        <p aria-hidden="true" className="mt-10 text-center font-serif text-[clamp(72px,22.5vw,290px)] leading-[0.8] tracking-[-0.04em] whitespace-nowrap select-none">
+          TalkFlow
         </p>
       </div>
     </footer>

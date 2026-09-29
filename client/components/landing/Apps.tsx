@@ -52,11 +52,11 @@ export function Apps() {
   const { app, typed } = useTypedApp(reduced);
 
   return (
-    <section id="features" className="py-[clamp(88px,12vw,160px)]">
+    <section id="features" className="pt-[clamp(88px,12vw,160px)]">
       <div className="mx-auto max-w-[1200px] px-gutter text-center">
         <h2 className="font-serif text-[clamp(38px,5.6vw,72px)] leading-[1.05] font-normal tracking-[-0.02em]">
           Speak, and it appears in
-          <span className="sr-only"> almost any app.</span>
+          <span className="sr-only"> any app.</span>
           <span aria-hidden="true" className="mt-1 flex items-center justify-center gap-[0.22em] sm:mt-2">
             <span key={app.name} className="inline-flex size-[0.78em] animate-[appear_300ms_ease-out]">
               <BrandLogo logo={app} className="size-full" />
@@ -68,7 +68,7 @@ export function Apps() {
           </span>
         </h2>
         <p className="mx-auto mt-6 max-w-[44ch] text-[18px] text-graphite">
-          TalkFlow types into whichever text field has your cursor, so it works in almost any Mac app. No copying, no pasting.
+          TalkFlow types into whichever text field has your cursor. No copying, no pasting.
         </p>
       </div>
     </section>
