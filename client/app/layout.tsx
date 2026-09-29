@@ -1,28 +1,25 @@
 import type { Metadata } from "next";
-import { Barlow, Barlow_Condensed } from "next/font/google";
+import { Newsreader } from "next/font/google";
 import "./globals.css";
 
-const barlow = Barlow({
-  variable: "--font-barlow",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
-
-const barlowCondensed = Barlow_Condensed({
-  variable: "--font-barlow-condensed",
-  subsets: ["latin"],
-  weight: ["400", "600"],
   style: ["normal", "italic"],
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
-  title: "TalkFlow — Talk to your computer, for free.",
-  description: "TalkFlow turns your voice into text in any app, instantly. Free, private, and runs entirely on your device.",
+  title: {
+    default: "TalkFlow: talk to your computer, for free",
+    template: "%s | TalkFlow",
+  },
+  description: "Hold fn, speak, and your words are typed wherever your cursor is. Free, open source, and runs entirely on your Mac.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${barlow.variable} ${barlowCondensed.variable}`}>
+    <html lang="en" className={newsreader.variable}>
       <body className="font-sans">{children}</body>
     </html>
   );

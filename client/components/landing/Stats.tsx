@@ -1,90 +1,48 @@
-"use client";
-
-import { useState } from "react";
-import { cn } from "@/lib/cn";
-import { STATS, type StatsRange } from "./content";
-import { Blueprint, labelClass, LiveDot, Section } from "./primitives";
-
-const HEAT_LEVEL = ["border border-divider", "bg-accent/35", "bg-accent/65", "bg-accent"];
-
-// Eight weeks of fake activity: nothing for the first five days, then a
-// deterministic mix of light, medium and heavy days.
-const HEAT = Array.from({ length: 56 }, (_, i) => {
-  const level = i >= 5 ? [1, 2, 3, 2, 3, 3, 1, 2, 3, 2][(i * 7 + 3) % 10] : 0;
-  return { level, title: level ? `Day ${i - 4}` : "No dictation" };
-});
-
-const RANGES: [StatsRange, string][] = [
-  ["week", "This week"],
-  ["all", "All time"],
-];
+import { AppIcon } from "@/components/brand/Logo";
+import { DASHBOARD } from "./content";
+import { SectionTitle } from "./primitives";
 
 export function Stats() {
-  const [range, setRange] = useState<StatsRange>("all");
-
   return (
-    <Section index="04" title="Your stats">
-      <div className="mb-12 flex flex-wrap items-end justify-between gap-6">
-        <h2 className="max-w-[15ch] font-display text-[clamp(34px,4.4vw,56px)] leading-[1.02] font-normal tracking-[-0.015em]">
-          Watch the keyboard time melt away.
-        </h2>
-        <p className="max-w-[40ch] text-[17px] text-muted">
-          A private dashboard tracks every word you speak instead of type. Computed on your machine, for your eyes only.
+    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+      <div className="grid items-end gap-x-16 gap-y-8 lg:grid-cols-2">
+        <SectionTitle className="max-w-[14ch]">See how much you didn&apos;t type.</SectionTitle>
+        <p className="max-w-[44ch] text-[18px] text-graphite lg:justify-self-end">
+          Open Dashboard from the menu bar to see your words, speed, streak and the typing time you&apos;ve saved. It&apos;s
+          worked out on your Mac and stays there.
         </p>
       </div>
 
-      <Blueprint className="bg-bg shadow-lg">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-divider px-5 py-3.5">
-          <span className="flex items-center gap-2.5 font-heading text-[19px] font-semibold">
-            <LiveDot className="size-[9px]" />
-            Your TalkFlow
-          </span>
-          <div role="radiogroup" aria-label="Stats range" className="inline-flex divide-x divide-divider overflow-hidden border border-divider">
-            {RANGES.map(([value, label]) => (
-              <label
-                key={value}
-                className="inline-flex cursor-pointer items-center px-3 py-[7px] text-[13px] hover:bg-ink/7 has-checked:bg-accent has-checked:text-bg has-focus-visible:outline-2 has-focus-visible:-outline-offset-2 has-focus-visible:outline-accent"
-              >
-                <input type="radio" name="tf-range" className="sr-only" checked={range === value} onChange={() => setRange(value)} />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 min-[600px]:grid-cols-2 min-[1080px]:grid-cols-4">
-          {STATS[range].map((s) => (
-            <div key={s.label} className="-mr-px border-r border-b border-divider px-6 pt-7 pb-[26px]">
-              <span className={cn(labelClass, "block text-muted")}>{s.label}</span>
-              <div className="mt-2.5 mb-1.5 flex items-baseline gap-2">
-                <span className="font-heading text-[clamp(48px,5vw,64px)] leading-none font-semibold tracking-[-0.01em] tabular-nums">
-                  {s.value}
-                </span>
-                <span className="font-heading text-[20px] text-muted">{s.unit}</span>
-              </div>
-              <span className="text-[14px] text-ink-accent">{s.note}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-end justify-between gap-x-10 gap-y-5 p-6">
-          <div className="flex min-w-0 flex-col gap-3">
-            <span className={cn(labelClass, "text-muted")}>Last 8 weeks</span>
-            <div className="grid auto-cols-[14px] grid-flow-col grid-rows-[repeat(7,14px)] gap-1">
-              {HEAT.map((cell, i) => (
-                <span key={i} title={cell.title} className={HEAT_LEVEL[cell.level]} />
+      <figure className="mt-14">
+        <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_30px_60px_-34px_rgba(31,30,34,0.35)]">
+          <div className="flex h-11 items-center gap-3 border-b border-line px-4">
+            <div className="flex gap-[7px]">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="size-[11px] rounded-full bg-ink/12" />
               ))}
             </div>
+            <span className="flex flex-1 items-center justify-center gap-2 text-[13px] text-graphite">
+              <AppIcon className="size-4" />
+              Your dictation stats
+            </span>
+            <span className="w-[47px]" />
           </div>
-          <div className="flex items-center gap-2.5 text-[14px] text-muted">
-            <span>Less</span>
-            {HEAT_LEVEL.map((cls) => (
-              <span key={cls} className={cn("size-3.5", cls)} />
+          <dl className="grid grid-cols-2 md:grid-cols-3">
+            {DASHBOARD.map((s) => (
+              <div key={s.label} className="-mr-px -mb-px border-r border-b border-line px-6 py-7 sm:px-8">
+                <dt className="text-[14px] text-graphite">{s.label}</dt>
+                <dd className="mt-2 flex items-baseline gap-1.5">
+                  <span className="font-serif text-[clamp(40px,5vw,60px)] leading-none tracking-[-0.02em] tabular-nums">{s.value}</span>
+                  {s.unit && <span className="text-[15px] text-graphite">{s.unit}</span>}
+                </dd>
+              </div>
             ))}
-            <span>More</span>
-          </div>
+          </dl>
         </div>
-      </Blueprint>
-    </Section>
+        <figcaption className="mt-4 text-[13px] text-graphite">
+          Example numbers. Time saved compares your speaking time with typing the same words at 40 wpm.
+        </figcaption>
+      </figure>
+    </section>
   );
 }

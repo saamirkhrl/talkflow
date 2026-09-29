@@ -1,16 +1,15 @@
 "use client";
 
-import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { CODE, PROMPTS } from "./content";
-import { Blueprint, LiveDot, Wave } from "./primitives";
+import { RecDot, Waveform } from "./primitives";
 import { useReducedMotion, useVisitor } from "./visitor";
 
 type Phase = "idle" | "listening" | "done";
-type Dictation = { pi: number; words: number; phase: Phase; startedAt: number; now: number };
+type Dictation = { pi: number; words: number; phase: Phase };
 
-const START: Dictation = { pi: 0, words: 0, phase: "idle", startedAt: 0, now: 0 };
+const START: Dictation = { pi: 0, words: 0, phase: "idle" };
 
 // Plays each prompt into the chat box word by word, with human-ish pauses
 // after commas and sentence ends, then moves on to the next prompt.
@@ -27,8 +26,7 @@ function useDictation(reduced: boolean): Dictation {
     const listen = (pi: number) => {
       const words = PROMPTS[pi].split(" ");
       later(() => {
-        const t0 = Date.now();
-        setDictation({ ...START, pi, phase: "listening", startedAt: t0, now: t0 });
+        setDictation({ ...START, pi, phase: "listening" });
         later(() => step(pi, words, 0), 650);
       }, 1600);
     };
@@ -47,7 +45,7 @@ function useDictation(reduced: boolean): Dictation {
       }
       const burst = Math.random() < 0.35 && i + 1 < words.length ? 2 : 1;
       const n = Math.min(words.length, i + burst);
-      setDictation((d) => ({ ...d, words: n, now: Date.now() }));
+      setDictation((d) => ({ ...d, words: n }));
       const word = words[n - 1];
       let delay = 110 + Math.random() * 150;
       if (/[,;]$/.test(word)) delay += 280 + Math.random() * 220;
@@ -63,91 +61,80 @@ function useDictation(reduced: boolean): Dictation {
   return reduced ? { ...START, words: PROMPTS[0].split(" ").length, phase: "done" } : dictation;
 }
 
+// An agent chat with a prompt being dictated into it. The pill mirrors the
+// app's real overlay: a red dot and input levels while fn is held.
 export function HeroMock() {
-  const { os, mobile } = useVisitor();
+  const { mobile } = useVisitor();
   const reduced = useReducedMotion();
-  const { pi, words: shown, phase, startedAt, now } = useDictation(reduced);
+  const { pi, words: shown, phase } = useDictation(reduced);
 
   const words = PROMPTS[pi].split(" ");
   const listening = phase === "listening";
-  const secs = Math.max(0, Math.floor((now - startedAt) / 1000));
 
   return (
-    <div data-reveal className="relative mt-[clamp(56px,7vw,88px)] pb-7">
-      <Blueprint className="bg-bg shadow-lg">
-        <div className="flex h-[42px] items-center gap-3.5 border-b border-divider px-4">
+    <div className="relative pb-7">
+      <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_30px_60px_-30px_rgba(31,30,34,0.35)]">
+        <div className="flex h-11 items-center gap-3 border-b border-line px-4">
           <div className="flex gap-[7px]">
             {[0, 1, 2].map((i) => (
-              <span key={i} className="size-[11px] rounded-full border border-divider" />
+              <span key={i} className="size-[11px] rounded-full bg-ink/12" />
             ))}
           </div>
-          <span className="flex-1 text-center text-[13px] text-muted">checkout-app — Assistant</span>
-          <span className="border border-accent px-2.5 py-[3px] text-[11px] tracking-[.02em] text-accent">main</span>
+          <span className="flex-1 text-center text-[13px] text-graphite">checkout-app</span>
+          <span className="w-[47px]" />
         </div>
 
-        <div className="grid min-h-[420px] grid-cols-[repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+        <div className="grid min-h-[380px] grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))]">
           {!mobile && (
-            <div className="overflow-hidden border-r border-divider bg-surface py-[22px] font-mono text-[13px] leading-[1.85]">
-              <div className="px-5 pb-3.5 font-sans text-[12px] tracking-[.08em] text-muted uppercase">PayButton.tsx</div>
+            <div className="overflow-hidden border-r border-line bg-mist py-5 font-mono text-[12.5px] leading-[1.85]">
+              <div className="px-5 pb-3 font-sans text-[13px] text-graphite">PayButton.tsx</div>
               {CODE.map((line, i) => (
-                <div key={i} className="flex gap-[18px] px-5 whitespace-pre">
-                  <span className="w-[18px] text-right text-ink/38">{i + 1}</span>
-                  <span className="text-muted">{line}</span>
+                <div key={i} className="flex gap-4 px-5 whitespace-pre">
+                  <span className="w-4 text-right text-ink/35">{i + 1}</span>
+                  <span className="text-ink/75">{line}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <div className="flex flex-col gap-[18px] px-[clamp(18px,2.4vw,28px)] pt-[22px] pb-[26px]">
-            <div className="flex items-start gap-3">
-              <span className="grid size-[26px] flex-none place-items-center border border-divider font-heading text-[13px] text-muted">
-                AI
-              </span>
-              <p className="max-w-[44ch] text-[15px] text-muted">All 48 tests pass on main. What should we work on next?</p>
-            </div>
+          <div className="flex flex-col gap-4 p-5">
+            <p className="max-w-[40ch] rounded-2xl bg-mist px-4 py-3 text-[15px] text-graphite">
+              All 48 tests pass on main. What should we work on next?
+            </p>
             <div className="flex-1" />
             <div
               className={cn(
-                "border bg-bg px-[18px] pt-4 pb-3 transition-colors duration-250",
-                listening ? "border-accent ring-3 ring-accent/18" : "border-divider",
+                "rounded-2xl border bg-paper px-4 pt-3.5 pb-3 transition-[border-color,box-shadow] duration-300",
+                listening ? "border-ink/40 shadow-[0_0_0_4px_rgba(31,30,34,0.06)]" : "border-line",
               )}
             >
-              <div aria-live="off" className="min-h-[124px] text-[16px] leading-[1.6]">
+              <div aria-live="off" className="min-h-[118px] text-[15.5px] leading-[1.6]">
                 <span>{words.slice(0, shown).join(" ")}</span>
-                <span aria-hidden="true" className="ml-0.5 inline-block h-[1.15em] w-0.5 animate-blink bg-accent align-[-3px]" />
-                {shown === 0 && <span className="text-ink/42">Ask anything…</span>}
+                <span aria-hidden="true" className="ml-0.5 inline-block h-[1.15em] w-0.5 translate-y-[3px] animate-blink bg-ink" />
+                {shown === 0 && <span className="text-ink/40">Ask anything</span>}
               </div>
-              <div className="mt-2.5 flex items-center justify-between text-[12px] text-muted">
+              <div className="mt-2 flex items-center justify-between text-[12px] text-graphite">
                 <span>{shown ? `${shown} words` : ""}</span>
                 <span>Enter to send</span>
               </div>
             </div>
           </div>
         </div>
-      </Blueprint>
+      </div>
 
       <div
         role="status"
-        aria-label="TalkFlow listening indicator"
-        className="absolute bottom-0 left-1/2 flex h-12 min-w-[228px] -translate-x-1/2 items-center justify-center rounded-full border border-neutral-100/14 bg-neutral-900 pr-5 pl-4 text-[14px] whitespace-nowrap text-neutral-100 shadow-lg"
+        aria-label={listening ? "TalkFlow is listening" : "Hold fn to talk"}
+        className="absolute bottom-0 left-1/2 flex h-12 min-w-[180px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)]"
       >
-        {phase === "idle" && (
-          <span className="flex items-center gap-2.5">
-            <span className="size-2 rounded-full bg-neutral-500" />
-            Hold <span className="border border-neutral-100/30 px-[7px] py-px text-[12px] tracking-[.04em]">{os === "mac" ? "fn" : "Ctrl + Win"}</span> to talk
-          </span>
-        )}
-        {listening && (
-          <span className="flex items-center gap-3">
-            <LiveDot />
-            <Wave count={12} height={20} color="var(--color-accent-400)" />
-            <span className="text-neutral-300 tabular-nums">0:{String(secs).padStart(2, "0")}</span>
-          </span>
-        )}
-        {phase === "done" && (
-          <span className="flex items-center gap-[9px]">
-            <Check size={16} strokeWidth={2} className="text-accent-400" aria-hidden="true" />
-            Inserted {words.length} words
+        {listening ? (
+          <>
+            <RecDot />
+            <Waveform bars={12} height={20} />
+          </>
+        ) : (
+          <span className="flex items-center gap-2 text-paper/80">
+            Hold <kbd className="rounded-md border border-paper/25 px-1.5 py-px font-sans text-[12px] text-paper">fn</kbd> to talk
           </span>
         )}
       </div>
