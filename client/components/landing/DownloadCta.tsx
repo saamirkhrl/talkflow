@@ -1,83 +1,66 @@
 "use client";
 
-import { Check, Download } from "lucide-react";
+import { Check, Link2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { buttonClass, Corners } from "./primitives";
+import { BrandLogo } from "./BrandLogo";
+import { OS_LOGOS } from "./brand-logos.generated";
+import { DOWNLOAD_URL, SHOW_OS_LOGOS } from "./content";
+import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
 
-const COPY = {
-  hero: {
-    submit: "Send me the download link",
-    helper: "TalkFlow is a desktop app for Mac and Windows. We'll email you one link, nothing else.",
-  },
-  final: {
-    submit: "Get it on your computer",
-    helper: "We'll email you the link so you can install it on your desktop.",
-  },
+const OS = {
+  mac: { label: "Mac", logo: OS_LOGOS.apple },
+  windows: { label: "Windows", logo: OS_LOGOS.windows },
 };
 
-// Desktop visitors get a download button for their OS (with a link to swap
-// OS); mobile visitors get an email form, since the app is desktop-only.
-export function DownloadCta({ variant }: { variant: "hero" | "final" }) {
-  const { os, mobile, swapOs } = useVisitor();
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const hero = variant === "hero";
+// Desktop visitors get a download for their OS plus a link for the other one.
+// Phones can't run TalkFlow, so they get a way to carry the link to a computer
+// instead. Nothing is collected either way.
+export function DownloadCta({ align = "center" }: { align?: "center" | "start" }) {
+  const { os, mobile } = useVisitor();
+  const other = os === "mac" ? "windows" : "mac";
 
-  if (!mobile) {
-    return (
-      <div className={cn("flex flex-col gap-3", hero ? "items-start" : "mt-2 items-center")}>
-        <a href="#download" className={cn(buttonClass.primary, "relative gap-2.5 px-[26px] py-[15px] text-[19px] tracking-[.01em]")}>
-          <Corners />
-          <Download size={19} strokeWidth={1.75} aria-hidden="true" />
-          {os === "mac" ? "Download for Mac" : "Download for Windows"}
-        </a>
-        <a
-          href="#download"
-          className="text-[14px] text-ink-accent underline underline-offset-3 hover:text-accent"
-          onClick={(e) => {
-            e.preventDefault();
-            swapOs();
-          }}
-        >
-          {os === "mac" ? "Also available for Windows" : "Also available for Mac"}
-        </a>
-      </div>
-    );
-  }
+  if (mobile) return <CopyLink align={align} />;
 
   return (
-    <div className={cn("flex flex-col gap-3", !hero && "w-full max-w-[440px]")}>
-      {sent ? (
-        <p className="flex items-center gap-2.5 text-[16px]">
-          {hero && <Check size={18} strokeWidth={2} className="text-accent" aria-hidden="true" />}
-          Sent. Open it on your Mac or PC.
-        </p>
-      ) : (
-        // Prototype only: nothing is emailed yet, the form just flips to "Sent".
-        <form
-          className="flex flex-wrap gap-2.5"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSent(true);
-          }}
-        >
-          <input
-            type="email"
-            required
-            placeholder="you@example.com"
-            aria-label="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="min-h-12 flex-[1_1_200px] border border-divider bg-surface px-2.5 py-1.5 text-[16px] text-ink caret-accent hover:border-ink/45 focus-visible:border-accent focus-visible:outline-offset-0"
-          />
-          <button type="submit" className={cn(buttonClass.primary, "min-h-12 px-5 text-[17px]", !hero && "flex-auto")}>
-            {COPY[variant].submit}
-          </button>
-        </form>
-      )}
-      <p className="text-[14px] text-muted">{COPY[variant].helper}</p>
+    <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
+      <a href={DOWNLOAD_URL} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+        {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
+        Download for {OS[os].label}
+      </a>
+      <a
+        href={DOWNLOAD_URL}
+        className="inline-flex items-center gap-1.5 text-[15px] text-graphite underline decoration-line underline-offset-4 hover:text-ink hover:decoration-ink"
+      >
+        {SHOW_OS_LOGOS && <BrandLogo logo={OS[other].logo} className="size-3.5" />}
+        Also available for {OS[other].label}
+      </a>
+    </div>
+  );
+}
+
+function CopyLink({ align }: { align: "center" | "start" }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className={cn("flex max-w-[34ch] flex-col gap-3", align === "center" ? "items-center text-center" : "items-start")}>
+      <button
+        type="button"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(location.href.split("#")[0]);
+            setCopied(true);
+          } catch {
+            setCopied(false);
+          }
+        }}
+        className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}
+      >
+        {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
+        {copied ? "Link copied" : "Copy link for your computer"}
+      </button>
+      <p className="text-[15px] text-graphite">TalkFlow runs on your computer, not your phone. Open this page on your Mac to download it.</p>
     </div>
   );
 }

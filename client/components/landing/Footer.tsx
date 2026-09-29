@@ -1,23 +1,27 @@
-import { LiveDot } from "./primitives";
-
-const LINKS = ["GitHub", "Twitter", "Instagram", "YouTube", "Privacy policy"];
+import Link from "next/link";
+import { Wordmark } from "@/components/brand/Logo";
 
 export function Footer() {
   return (
-    <footer className="border-t border-divider">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-8 gap-y-5 px-gutter py-8 text-[14px] text-muted">
-        <span className="flex items-center gap-2.5 font-heading text-[20px] font-semibold text-ink">
-          <LiveDot className="size-[9px]" />
-          TalkFlow
-        </span>
-        <div className="flex flex-wrap gap-x-[22px] gap-y-2">
-          {LINKS.map((label) => (
-            <a key={label} href="#" className="underline underline-offset-3 hover:text-accent">
-              {label}
-            </a>
-          ))}
+    <footer className="border-t border-line">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-8 px-gutter py-10">
+        <div className="flex flex-wrap items-center justify-between gap-6">
+          <Wordmark />
+          <div className="flex gap-6 text-[15px] text-graphite">
+            <Link href="/terms" className="hover:text-ink">
+              Terms
+            </Link>
+            <Link href="/privacy" className="hover:text-ink">
+              Privacy
+            </Link>
+          </div>
         </div>
-        <span>Made by Samir Kharel.</span>
+        <p className="max-w-[90ch] text-[13px] leading-relaxed text-graphite">
+          TalkFlow is free, open-source software released under the MIT License. It is an independent project and is not
+          affiliated with, endorsed by or sponsored by any company whose products are shown on this site. Apple, Mac and macOS are
+          trademarks of Apple Inc. Windows is a trademark of the Microsoft group of companies. All other product names and logos
+          belong to their owners.
+        </p>
       </div>
     </footer>
   );

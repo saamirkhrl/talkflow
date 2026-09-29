@@ -4,22 +4,20 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { FAQ } from "./content";
-import { Section } from "./primitives";
+import { SectionTitle } from "./primitives";
 
 export function Faq() {
   const [open, setOpen] = useState(0);
 
   return (
-    <Section id="faq" index="05" title="FAQ">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] gap-x-[clamp(32px,6vw,88px)] gap-y-8">
-        <h2 className="font-display text-[clamp(34px,4.4vw,56px)] leading-[1.02] font-normal tracking-[-0.015em]">
-          Questions, answered.
-        </h2>
-        <div className="col-span-full min-w-0 border-t border-divider min-[720px]:col-span-2">
+    <section id="faq" className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+      <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
+        <SectionTitle>FAQs</SectionTitle>
+        <div className="border-t border-line">
           {FAQ.map(([question, answer], i) => {
             const isOpen = open === i;
             return (
-              <div key={question} className="border-b border-divider">
+              <div key={question} className="border-b border-line">
                 <h3>
                   <button
                     type="button"
@@ -27,27 +25,27 @@ export function Faq() {
                     aria-expanded={isOpen}
                     aria-controls={`faq-p${i}`}
                     onClick={() => setOpen(isOpen ? -1 : i)}
-                    className="flex w-full cursor-pointer items-center justify-between gap-5 px-1 py-[22px] text-left font-heading text-[22px] leading-[1.25] font-semibold hover:text-ink-accent"
+                    className="flex w-full cursor-pointer items-center justify-between gap-6 py-6 text-left text-[20px] leading-snug font-medium transition-colors hover:text-graphite"
                   >
-                    <span>{question}</span>
+                    {question}
                     <Plus
                       size={20}
-                      strokeWidth={1.5}
+                      strokeWidth={1.75}
                       aria-hidden="true"
-                      className={cn("flex-none transition-transform duration-250", isOpen && "rotate-45")}
+                      className={cn("flex-none transition-transform duration-300", isOpen && "rotate-45")}
                     />
                   </button>
                 </h3>
                 {isOpen && (
-                  <div id={`faq-p${i}`} role="region" aria-labelledby={`faq-b${i}`} className="max-w-[62ch] pr-12 pb-6 pl-1 text-[16px] text-muted">
+                  <p id={`faq-p${i}`} role="region" aria-labelledby={`faq-b${i}`} className="max-w-[60ch] pr-10 pb-7 text-[17px] text-graphite">
                     {answer}
-                  </div>
+                  </p>
                 )}
               </div>
             );
           })}
         </div>
       </div>
-    </Section>
+    </section>
   );
 }

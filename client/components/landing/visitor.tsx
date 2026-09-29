@@ -1,15 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 
 type Os = "mac" | "windows";
 
 type Visitor = {
   os: Os;
-  // Phones and narrow windows get the "email me the link" flow instead of a
-  // download button, since TalkFlow is a desktop app.
+  // Phones and narrow windows can't install TalkFlow, so they get a
+  // "copy link" button instead of a download.
   mobile: boolean;
-  swapOs: () => void;
 };
 
 const noopSubscribe = () => () => {};
@@ -43,19 +42,11 @@ export function useReducedMotion(): boolean {
 const VisitorContext = createContext<Visitor | null>(null);
 
 export function VisitorProvider({ children }: { children: React.ReactNode }) {
-  const detectedOs = useSyncExternalStore(noopSubscribe, detectOs, () => "mac" as Os);
+  const os = useSyncExternalStore(noopSubscribe, detectOs, () => "mac" as Os);
   const mobileUa = useSyncExternalStore(noopSubscribe, detectMobileUa, () => false);
   const narrow = useMediaQuery("(max-width: 639px)");
-  const [swapped, setSwapped] = useState(false);
 
-  const os = swapped ? (detectedOs === "mac" ? "windows" : "mac") : detectedOs;
-  const swapOs = useCallback(() => setSwapped((s) => !s), []);
-
-  return (
-    <VisitorContext.Provider value={{ os, mobile: mobileUa || narrow, swapOs }}>
-      {children}
-    </VisitorContext.Provider>
-  );
+  return <VisitorContext.Provider value={{ os, mobile: mobileUa || narrow }}>{children}</VisitorContext.Provider>;
 }
 
 export function useVisitor(): Visitor {

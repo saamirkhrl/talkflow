@@ -1,20 +1,16 @@
-// Copy and demo data for the landing page, lifted verbatim from the
-// "TalkFlow Landing" design export.
+// Copy and demo data for the landing page. Every product claim here is checked
+// against the app's source; keep it that way when editing.
 
-// Drop real assets into /public and point these at them. While a value is
-// null the page shows the design's placeholder frame; for the hero, the
-// animated dictation mock stands in until a recording exists.
-export const MEDIA = {
-  heroRecording: null as string | null,
-  promptTerminal: null as string | null,
-  founderAvatar: null as string | null,
-};
+export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
+export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`;
 
-export const GITHUB_URL = "https://github.com/";
-export const GITHUB_STARS = "1.2k";
+// Apple's and Microsoft's trademark guidelines restrict use of their logos
+// without permission. Set to false to show text-only download buttons.
+export const SHOW_OS_LOGOS = true;
 
+// The hero demo in "Built for prompting": a request dictated into an agent.
 export const PROMPTS = [
-  "Okay, so the checkout form is double-submitting when someone taps pay twice on a slow connection. Can you add a loading state that disables the button after the first click, and show a small spinner inside it? Also make sure it resets if the request fails, and add a test for the retry case.",
+  "So the checkout form is double submitting when someone taps pay twice on a slow connection. Can you add a loading state that disables the button after the first click and shows a small spinner inside it? Also make sure it resets if the request fails, and add a test for the retry case.",
   "Let's clean up the pay button before we ship. Pull the price formatting out into a helper that handles currencies properly, keep the button label short on small screens, and write a couple of tests so we don't break it again next week.",
 ];
 
@@ -34,33 +30,42 @@ export const CODE = [
 ];
 
 export const FAQ: [question: string, answer: string][] = [
-  ["Is it really free?", "Yes. No trial, no tiers, no subscription. TalkFlow runs on your computer, so there are no servers to pay for and nothing to upsell."],
-  ["Does anything get sent to the cloud?", "No. Speech recognition happens entirely on your device. Audio is processed in memory and discarded the moment your text is inserted. There's no account and no server on the other end."],
-  ["Which languages does it support?", "English works best today, with support for many other major languages, including Spanish, French, German, Portuguese and Hindi. You can pick a language or let TalkFlow detect it."],
-  ["Does it work offline?", "Completely. Once it's installed, turn off Wi-Fi and TalkFlow works exactly the same, on a plane or anywhere else."],
-  ["What are the system requirements?", "macOS 13 or later on Apple silicon or Intel, or Windows 10/11 (64-bit). 8 GB of RAM is recommended, and the speech model needs about 1.5 GB of disk space."],
-  ["Mac vs. Windows?", "Same app, same features, same price (free). The only difference is the default hotkey: fn on Mac, Ctrl + Win on Windows. Change it to ⌥ Space, Right ⌘, Caps Lock or any shortcut you like."],
+  [
+    "Is it really free?",
+    "Yes. No trial, no tiers, no subscription. TalkFlow is open source under the MIT License and runs on your own Mac, so there's nothing to pay for.",
+  ],
+  [
+    "Does anything get sent to the cloud?",
+    "No. Your audio goes to one place: the speech engine running on your own Mac. The text is typed straight into the app you're using. There's no account, no analytics and no update check.",
+  ],
+  [
+    "Which key do I hold?",
+    "fn, the Globe key in the bottom-left corner of Mac keyboards. Hold it while you talk and let go when you're done.",
+  ],
+  [
+    "Does it rewrite what I say?",
+    "No. It types what you said. It removes filler sounds like \"um\" and \"uh\", and it follows spoken commands such as \"comma\", \"question mark\", \"new paragraph\" and emoji names like \"rocket emoji\". It never rephrases your sentences.",
+  ],
+  [
+    "Which languages does it support?",
+    "English. TalkFlow uses Whisper's English speech model, which is fast and accurate for English but doesn't transcribe other languages.",
+  ],
+  [
+    "Does it work offline?",
+    "Yes. Once it's set up, turn off Wi-Fi and TalkFlow works exactly the same.",
+  ],
+  [
+    "What do I need to run it?",
+    "A Mac with macOS 13 or later. It's built and tested on Apple silicon. The speech model needs about 500 MB of disk space. A Windows version is planned.",
+  ],
 ];
 
-export type StatsRange = "week" | "all";
-export type Stat = { label: string; value: string; unit: string; note: string };
-
-export const STATS: Record<StatsRange, Stat[]> = {
-  all: [
-    { label: "Words dictated", value: "45,212", unit: "", note: "≈ 90 pages of text" },
-    { label: "Daily streak", value: "51", unit: "days", note: "Longest yet" },
-    { label: "Time saved", value: "13.4", unit: "hrs", note: "vs. typing at 45 wpm" },
-    { label: "Speaking speed", value: "142", unit: "wpm", note: "3.2× your typing" },
-  ],
-  week: [
-    { label: "Words dictated", value: "6,480", unit: "", note: "+18% vs. last week" },
-    { label: "Daily streak", value: "51", unit: "days", note: "7 of 7 days this week" },
-    { label: "Time saved", value: "1.9", unit: "hrs", note: "vs. typing at 45 wpm" },
-    { label: "Speaking speed", value: "147", unit: "wpm", note: "Your fastest week" },
-  ],
-};
-
-export const APPS = ["Cursor", "Claude Code", "Notes", "Slack", "Gmail", "Notion", "VS Code", "Terminal", "Messages"];
-export const HOTKEYS = ["fn", "⌥ Space", "Right ⌘", "Ctrl Space", "Caps Lock", "F5"];
-export const RAW = ["um, so", "can we maybe", "move the standup", "to like…", "ten thirty", "tomorrow", "so Priya can,", "uh, join?", "and also", "ship the fix", "after lunch"];
-export const CLEAN = ["Can we move standup to 10:30 tomorrow so Priya can join?", "Also, let's ship the fix after lunch.", "Switch the retry logic to exponential backoff."];
+// What the TalkFlow dashboard shows, with example numbers.
+export const DASHBOARD = [
+  { label: "Words dictated", value: "44,612", unit: "" },
+  { label: "Average speed", value: "145", unit: "wpm" },
+  { label: "Words today", value: "1,208", unit: "" },
+  { label: "Day streak", value: "52", unit: "days" },
+  { label: "Time saved", value: "13.5", unit: "hours" },
+  { label: "Dictations", value: "2,316", unit: "" },
+];

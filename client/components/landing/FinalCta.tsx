@@ -1,18 +1,17 @@
+import { AppIcon } from "@/components/brand/Logo";
 import { DownloadCta } from "./DownloadCta";
-import { Wave } from "./primitives";
 
 export function FinalCta() {
   return (
-    <section
-      id="download"
-      data-reveal
-      className="flex flex-col items-center gap-7 pt-[clamp(72px,10vw,140px)] pb-[clamp(64px,8vw,112px)] text-center"
-    >
-      <Wave count={24} height={44} color="var(--color-accent)" barWidth={3} />
-      <h2 className="font-display text-[clamp(44px,7vw,92px)] leading-[.96] font-normal tracking-[-0.02em]">Talk instead of type.</h2>
-      <p className="text-[19px] text-muted">Private, free, on your computer.</p>
-      <DownloadCta variant="final" />
-      <p className="text-[14px] tracking-[.04em] text-muted">Free · No account · Works offline</p>
+    <section id="download" className="mx-auto flex max-w-[1200px] flex-col items-center px-gutter py-[clamp(96px,13vw,176px)] text-center">
+      <AppIcon className="size-[88px] drop-shadow-[0_18px_28px_rgba(31,30,34,0.28)]" />
+      <h2 className="mt-10 font-serif text-[clamp(48px,7.4vw,96px)] leading-[0.95] font-normal tracking-[-0.025em]">
+        Talk instead of type.
+      </h2>
+      <p className="mt-6 max-w-[36ch] text-[19px] text-graphite">Free, open source, and private by design. Set up once and just talk.</p>
+      <div className="mt-10">
+        <DownloadCta />
+      </div>
     </section>
   );
 }
