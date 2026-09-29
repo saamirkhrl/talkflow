@@ -7,7 +7,7 @@ import type { BrandSvg } from "./brand-logos.generated";
  * The markup in `logo.body` is generated at build time from vetted, licensed
  * icon sets (see scripts/build-brand-logos.mjs). It never comes from user input.
  *
- * The same logo can appear several times on a page (marquee copies, the
+ * The same logo can appear several times on a page (the
  * typewriter heading), so each instance gets its own gradient and mask ids.
  * Shared ids would make every copy depend on the first one in the document,
  * which breaks masks whenever that copy is hidden.
