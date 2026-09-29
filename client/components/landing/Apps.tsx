@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { APP_LOGOS } from "./brand-logos.generated";
 import { BrandLogo } from "./BrandLogo";
-import { LogoMarquee } from "./LogoMarquee";
 import { useReducedMotion } from "./visitor";
 
 const FEATURED = ["Slack", "Messages", "Cursor", "Notion", "Claude", "WhatsApp", "Gmail", "ChatGPT", "Linear", "Obsidian", "VS Code", "Discord"];
@@ -71,9 +70,6 @@ export function Apps() {
         <p className="mx-auto mt-6 max-w-[44ch] text-[18px] text-graphite">
           TalkFlow types into whichever text field has your cursor, so it works in almost any Mac app. No copying, no pasting.
         </p>
-      </div>
-      <div className="mt-[clamp(48px,6vw,80px)]">
-        <LogoMarquee />
       </div>
     </section>
   );
