@@ -40,7 +40,7 @@ export function Stats() {
           </dl>
         </div>
         <figcaption className="mt-4 text-[13px] text-graphite">
-          Example numbers. Time saved compares your speaking time with typing the same words at 40 wpm.
+          Time saved compares your speaking time with typing the same words at 40 wpm.
         </figcaption>
       </figure>
     </section>

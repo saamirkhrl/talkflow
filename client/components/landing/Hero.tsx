@@ -3,7 +3,7 @@ import { HeroRibbon } from "./HeroRibbon";
 
 export function Hero() {
   return (
-    <section id="top" className="relative overflow-hidden pt-[clamp(128px,18vw,184px)]">
+    <section id="top" className="relative overflow-hidden pt-[clamp(104px,12vw,136px)]">
       <div className="mx-auto flex max-w-[1200px] flex-col items-center px-gutter text-center">
         <h1 className="font-serif text-[clamp(54px,8.6vw,108px)] leading-[0.94] font-normal tracking-[-0.025em]">
           Talk to your computer,

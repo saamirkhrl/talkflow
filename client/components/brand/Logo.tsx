@@ -39,7 +39,7 @@ export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-2.5 font-serif text-[22px] leading-none tracking-[-0.01em]", className)}>
       <AppIcon className="size-7" />
-      TalkFlow
+      <span className="translate-y-[0.07em]">TalkFlow</span>
     </span>
   );
 }
