@@ -321,23 +321,17 @@ export function HeroRibbon() {
               </text>
               {shape.tail && (
                 <>
-                  {/* A paper band under the tail knocks out the way in where they cross. */}
-                  <path
-                    ref={tailPathRef}
-                    id={tailId}
-                    d={shape.tail}
-                    fill="none"
-                    className="stroke-paper"
-                    strokeWidth={Math.round(shape.sayFont * 1.25)}
-                    // Starts a little past the join so it never clips a glyph
-                    // that is still drawn on the way in.
-                    strokeDasharray="0 12 100000"
-                  />
+                  <path ref={tailPathRef} id={tailId} d={shape.tail} fill="none" />
+                  {/* A paper halo on the tail's own glyphs clears the way in only
+                      under the letters, so no word is wiped out at the crossing. */}
                   <text
                     ref={tailTextRef}
-                    className="fill-graphite font-serif italic"
+                    className="fill-graphite stroke-paper font-serif italic"
                     fontSize={shape.sayFont}
                     dominantBaseline="central"
+                    strokeWidth={4}
+                    strokeLinejoin="round"
+                    style={{ paintOrder: "stroke" }}
                   >
                     <textPath href={`#${tailId}`}>{SAY.repeat(COPIES)}</textPath>
                   </text>
