@@ -27,8 +27,8 @@ const PAIRS = [
 
 const FEATURES = ["Filler words removed", "Punctuation added", "Emoji by name", "Lists formatted"];
 
-// Em spaces keep the gap between pairs (plain spaces would collapse).
-const GAP = "\u2003".repeat(2);
+// One plain space between pairs keeps the ribbon continuous.
+const GAP = " ";
 const SAY = PAIRS.map((p) => p.say).join(GAP) + GAP;
 const GET = PAIRS.map((p) => p.get.replaceAll(" / ", " ")).join(GAP) + GAP;
 // The offset lives in [-period, 0), so the text must reach one period past the
