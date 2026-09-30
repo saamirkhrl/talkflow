@@ -14,21 +14,6 @@ export const PROMPTS = [
   "Let's clean up the pay button before we ship. Pull the price formatting out into a helper that handles currencies properly, keep the button label short on small screens, and write a couple of tests so we don't break it again next week.",
 ];
 
-export const CODE = [
-  "export function PayButton({ total, onPay }) {",
-  "  const label = `Pay ${total}`;",
-  "",
-  "  return (",
-  "    <button",
-  '      className="pay"',
-  "      onClick={onPay}",
-  "    >",
-  "      {label}",
-  "    </button>",
-  "  );",
-  "}",
-];
-
 export const FAQ: [question: string, answer: string][] = [
   [
     "Is it really free?",

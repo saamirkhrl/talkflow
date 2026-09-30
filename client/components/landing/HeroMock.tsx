@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/cn";
-import { CODE, PROMPTS } from "./content";
+import { PROMPTS } from "./content";
 import { RecDot, Waveform } from "./primitives";
-import { useReducedMotion, useVisitor } from "./visitor";
+import { useReducedMotion } from "./visitor";
 
 type Phase = "idle" | "listening" | "done";
 type Dictation = { pi: number; words: number; phase: Phase };
@@ -61,10 +60,20 @@ function useDictation(reduced: boolean): Dictation {
   return reduced ? { ...START, words: PROMPTS[0].split(" ").length, phase: "done" } : dictation;
 }
 
-// An agent chat with a prompt being dictated into it. The pill mirrors the
-// app's real overlay: a red dot and input levels while fn is held.
+const CORAL = "text-[#d77757]";
+const DIM = "text-[#8d8b86]";
+
+// The mascot and welcome lines Claude Code prints when it starts.
+const BANNER = [
+  [" ▐▛███▜▌ ", "Claude Code"],
+  ["▝▜█████▛▘", "Sonnet 5.5 · Claude Max"],
+  ["  ▘▘ ▝▝  ", "~/checkout-app"],
+];
+
+// A Claude Code session in a Mac terminal, with a prompt being dictated into
+// it. The pill mirrors the app's real overlay: a red dot and input levels
+// while fn is held.
 export function HeroMock() {
-  const { mobile } = useVisitor();
   const reduced = useReducedMotion();
   const { pi, words: shown, phase } = useDictation(reduced);
 
@@ -73,51 +82,73 @@ export function HeroMock() {
 
   return (
     <div className="relative pb-7">
-      <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_30px_60px_-30px_rgba(31,30,34,0.35)]">
-        <div className="flex h-11 items-center gap-3 border-b border-line px-4">
-          <div className="flex gap-[7px]">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-[11px] rounded-full bg-ink/12" />
-            ))}
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1c1b1a] shadow-[0_30px_60px_-30px_rgba(31,30,34,0.55)]">
+        <div className="flex h-[38px] items-center gap-3 border-b border-black/40 bg-[#2a2928] px-3.5">
+          <div className="flex gap-2" aria-hidden="true">
+            <span className="size-3 rounded-full bg-[#ff5f57]" />
+            <span className="size-3 rounded-full bg-[#febc2e]" />
+            <span className="size-3 rounded-full bg-[#28c840]" />
           </div>
-          <span className="flex-1 text-center text-[13px] text-graphite">checkout-app</span>
-          <span className="w-[47px]" />
+          <span className="flex-1 truncate text-center text-[13px] text-[#a3a19c]">checkout-app — claude</span>
+          <span className="w-[52px]" />
         </div>
 
-        <div className="grid min-h-[380px] grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))]">
-          {!mobile && (
-            <div className="overflow-hidden border-r border-line bg-mist py-5 font-mono text-[12.5px] leading-[1.85]">
-              <div className="px-5 pb-3 font-sans text-[13px] text-graphite">PayButton.tsx</div>
-              {CODE.map((line, i) => (
-                <div key={i} className="flex gap-4 px-5 whitespace-pre">
-                  <span className="w-4 text-right text-ink/35">{i + 1}</span>
-                  <span className="text-ink/75">{line}</span>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="flex min-h-[420px] flex-col gap-4 p-4 font-mono text-[12px] leading-[1.55] text-[#e8e6e1] sm:p-5 sm:text-[13px]">
+          <pre className="m-0 font-mono leading-[1.05] whitespace-pre">
+            {BANNER.map(([mascot, text], i) => (
+              <div key={i}>
+                <span className={CORAL}>{mascot}</span>
+                {"  "}
+                <span className={i === 0 ? "font-bold" : DIM}>{text}</span>
+              </div>
+            ))}
+          </pre>
 
-          <div className="flex flex-col gap-4 p-5">
-            <p className="max-w-[40ch] rounded-2xl bg-mist px-4 py-3 text-[15px] text-graphite">
-              All 48 tests pass on main. What should we work on next?
-            </p>
-            <div className="flex-1" />
+          <div className="bg-[#2f2e2c] px-2.5 py-1">
+            <span className={DIM}>&gt; </span>run the tests
+          </div>
+
+          <div>
+            <div>
+              <span className="text-[#4eba65]">⏺ </span>
+              <span className="font-bold">Bash</span>(npm test)
+            </div>
+            <div className={`flex ${DIM}`}>
+              <span className="w-[5ch] shrink-0 whitespace-pre">{"  ⎿  "}</span>
+              <span className="whitespace-pre">{"Tests:  48 passed, 48 total\nTime:   2.4 s"}</span>
+            </div>
+          </div>
+
+          <div>
+            <span>⏺ </span>All 48 tests pass on main. What should we work on next?
+          </div>
+
+          <div className="flex-1" />
+
+          <div>
             <div
-              className={cn(
-                "rounded-2xl border bg-paper px-4 pt-3.5 pb-3 transition-[border-color,box-shadow] duration-300",
-                listening ? "border-ink/40 shadow-[0_0_0_4px_rgba(31,30,34,0.06)]" : "border-line",
-              )}
+              className={`rounded-lg border px-3 py-2 transition-colors duration-300 ${listening ? "border-[#b4b1aa]" : "border-[#5a5855]"}`}
             >
-              <div aria-live="off" className="min-h-[118px] text-[15.5px] leading-[1.6]">
-                <span>{words.slice(0, shown).join(" ")}</span>
-                <span aria-hidden="true" className="ml-0.5 inline-block h-[1.15em] w-0.5 translate-y-[3px] animate-blink bg-ink" />
-                {shown === 0 && <span className="text-ink/40">Ask anything</span>}
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[12px] text-graphite">
-                <span>{shown ? `${shown} words` : ""}</span>
-                <span>Enter to send</span>
+              <div aria-live="off" className="flex min-h-[220px] gap-2 break-words sm:min-h-[124px]">
+                <span aria-hidden="true">&gt;</span>
+                <div className="min-w-0 flex-1">
+                  {shown === 0 ? (
+                    <span className={DIM}>
+                      <span aria-hidden="true" className="animate-blink bg-[#e8e6e1] text-[#1c1b1a]">
+                        T
+                      </span>
+                      ry &quot;fix the double submit in PayButton&quot;
+                    </span>
+                  ) : (
+                    <>
+                      <span>{words.slice(0, shown).join(" ")}</span>
+                      <span aria-hidden="true" className="ml-px inline-block h-[1.2em] w-[0.6em] translate-y-[3px] animate-blink bg-[#e8e6e1]" />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+            <div className={`mt-1.5 px-1 ${DIM}`}>? for shortcuts</div>
           </div>
         </div>
       </div>
@@ -125,7 +156,7 @@ export function HeroMock() {
       <div
         role="status"
         aria-label={listening ? "TalkFlow is listening" : "Hold fn to talk"}
-        className="absolute bottom-0 left-1/2 flex h-12 min-w-[180px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)]"
+        className="absolute bottom-0 left-1/2 flex h-12 min-w-[180px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)] ring-1 ring-white/20"
       >
         {listening ? (
           <>
