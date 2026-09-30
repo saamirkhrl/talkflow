@@ -28,7 +28,7 @@ const PAIRS = [
 const FEATURES = ["Filler words removed", "Punctuation added", "Emoji by name", "Lists formatted"];
 
 // Em spaces keep the gap between pairs (plain spaces would collapse).
-const GAP = "\u2003".repeat(5);
+const GAP = "\u2003".repeat(2);
 const SAY = PAIRS.map((p) => p.say).join(GAP) + GAP;
 const GET = PAIRS.map((p) => p.get.replaceAll(" / ", " ")).join(GAP) + GAP;
 // The offset lives in [-period, 0), so the text must reach one period past the
@@ -290,12 +290,12 @@ export function HeroRibbon() {
   }, [geo, shape]);
 
   return (
-    <div className="pointer-events-none relative sm:-mt-[clamp(56px,9vw,136px)]">
+    <div className="pointer-events-none relative mt-auto sm:-mt-[clamp(40px,min(9vw,18svh),136px)]">
       <p className="sr-only">Spoken words go into TalkFlow and come out as clean, punctuated text.</p>
       <div
         ref={bandRef}
         aria-hidden="true"
-        className="relative h-[210px] w-full overflow-hidden select-none sm:h-[clamp(300px,27vw,400px)]"
+        className="relative h-[210px] w-full overflow-hidden select-none sm:h-[clamp(240px,min(27vw,42svh),400px)]"
       >
         {geo && shape && (
           <>
@@ -379,7 +379,7 @@ export function HeroRibbon() {
 
         <div
           ref={badgesRef}
-          className="absolute bottom-[94px] left-1/2 grid -translate-x-1/2 sm:bottom-[124px]"
+          className="absolute bottom-[84px] left-1/2 grid -translate-x-1/2 sm:bottom-[104px]"
         >
           {FEATURES.map((label, i) => (
             <span
@@ -393,14 +393,14 @@ export function HeroRibbon() {
 
         <div
           ref={pillRef}
-          className="absolute bottom-8 left-1/2 flex h-[52px] w-[128px] -translate-x-1/2 items-center justify-center gap-2.5 rounded-full bg-ink text-paper sm:bottom-10 sm:h-[72px] sm:w-[180px] sm:gap-3.5"
+          className="absolute bottom-8 left-1/2 flex h-[44px] w-[112px] -translate-x-1/2 items-center justify-center gap-2.5 rounded-full bg-ink text-paper sm:bottom-10 sm:h-[56px] sm:w-[144px] sm:gap-3"
         >
           <RecDot className="sm:size-2.5" />
           <span className="sm:hidden">
             <Waveform bars={11} height={22} />
           </span>
           <span className="hidden sm:block">
-            <Waveform bars={16} height={30} />
+            <Waveform bars={14} height={24} />
           </span>
         </div>
       </div>

@@ -31,13 +31,13 @@ export function Nav({ stars }: { stars: number | null }) {
       <nav
         aria-label="Main"
         className={cn(
-          "pointer-events-auto flex w-full items-center gap-1 rounded-full border border-line pr-1.5 pl-3 transition-[max-width,height,background-color,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
+          "pointer-events-auto flex w-full items-center gap-1 rounded-full border border-line pr-3 pl-3 transition-[max-width,height,background-color,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
           scrolled
             ? "h-12 max-w-[700px] bg-mist/75 shadow-[0_12px_32px_-14px_rgba(31,30,34,0.3)] backdrop-blur-xl backdrop-saturate-150"
             : "h-14 max-w-[820px] bg-paper/90 shadow-[0_1px_2px_rgba(31,30,34,0.06)]",
         )}
       >
-        <a href="#top" aria-label="TalkFlow home" className="mr-auto rounded-full">
+        <a href="#top" aria-label="TalkFlow home" className="mr-auto inline-flex items-center rounded-full">
           <Wordmark className={cn("transition-[font-size] duration-500", scrolled ? "text-[19px]" : "text-[21px]")} />
         </a>
 
