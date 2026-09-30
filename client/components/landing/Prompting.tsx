@@ -30,10 +30,6 @@ export function Prompting() {
               </div>
             ))}
           </dl>
-          <p className="mt-4 max-w-[48ch] text-[13px] text-graphite">
-            Speaking pace from the creator&apos;s TalkFlow dashboard. Typing pace is the 40 wpm the dashboard uses to estimate time
-            saved.
-          </p>
         </div>
         <HeroMock />
       </div>
