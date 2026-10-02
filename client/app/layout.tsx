@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Newsreader } from "next/font/google";
+import { Footer } from "@/components/landing/Footer";
+import { Nav } from "@/components/landing/Nav";
+import { VisitorProvider } from "@/components/landing/visitor";
 import "./globals.css";
 
 const newsreader = Newsreader({
@@ -17,10 +20,35 @@ export const metadata: Metadata = {
   description: "Hold fn, speak, and your words are typed wherever your cursor is. Free, open source, and runs entirely on your Mac.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+
+// The real star count, refreshed hourly. While the repo is private (or GitHub
+// is unreachable) there is no count, and the nav shows a plain GitHub link.
+async function getStars(): Promise<number | null> {
+  try {
+    const res = await fetch("https://api.github.com/repos/saamirkhrl/talkflow", {
+      headers: { Accept: "application/vnd.github+json" },
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const repo: { stargazers_count?: unknown } = await res.json();
+    return typeof repo.stargazers_count === "number" ? repo.stargazers_count : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const stars = await getStars();
+
   return (
     <html lang="en" className={newsreader.variable}>
-      <body className="font-sans">{children}</body>
+      <body className="font-sans">
+        <VisitorProvider>
+          <Nav stars={stars} />
+          {children}
+          <Footer />
+        </VisitorProvider>
+      </body>
     </html>
   );
 }

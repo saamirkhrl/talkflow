@@ -16,9 +16,9 @@ function subscribeScroll(onChange: () => void) {
 }
 
 const LINKS = [
-  ["Features", "#features"],
+  ["Features", "/#features"],
   ["Privacy", "/privacy"],
-  ["FAQs", "#faq"],
+  ["FAQs", "/#faq"],
 ];
 
 // A floating pill that tightens and turns to frosted glass once the page moves.
@@ -37,7 +37,7 @@ export function Nav({ stars }: { stars: number | null }) {
             : "h-14 max-w-[820px] bg-paper/90 shadow-[0_1px_2px_rgba(31,30,34,0.06)]",
         )}
       >
-        <a href="#top" aria-label="TalkFlow home" className="mr-auto inline-flex items-center rounded-full">
+        <a href="/#top" aria-label="TalkFlow home" className="mr-auto inline-flex items-center rounded-full">
           <Wordmark className={cn("transition-[font-size] duration-500", scrolled ? "text-[19px]" : "text-[21px]")} />
         </a>
 
@@ -52,7 +52,7 @@ export function Nav({ stars }: { stars: number | null }) {
         )}
 
         <a
-          href={mobile ? "#download" : DOWNLOAD_URL}
+          href={mobile ? "/#download" : DOWNLOAD_URL}
           className={cn(buttonClass.secondary, "mr-1 px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           {SHOW_OS_LOGOS && !mobile && (
