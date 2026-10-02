@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { PROMPTS } from "./content";
 import { RecDot, Waveform } from "./primitives";
 import { useReducedMotion } from "./visitor";
@@ -26,8 +26,8 @@ function useDictation(reduced: boolean): Dictation {
       const words = PROMPTS[pi].split(" ");
       later(() => {
         setDictation({ ...START, pi, phase: "listening" });
-        later(() => step(pi, words, 0), 350);
-      }, 700);
+        later(() => step(pi, words, 0), 650);
+      }, 1600);
     };
 
     const step = (pi: number, words: string[], i: number) => {
@@ -38,18 +38,18 @@ function useDictation(reduced: boolean): Dictation {
             const next = (pi + 1) % PROMPTS.length;
             setDictation({ ...START, pi: next });
             listen(next);
-          }, 1300);
-        }, 300);
+          }, 2800);
+        }, 700);
         return;
       }
       const burst = Math.random() < 0.35 && i + 1 < words.length ? 2 : 1;
       const n = Math.min(words.length, i + burst);
       setDictation((d) => ({ ...d, words: n }));
       const word = words[n - 1];
-      let delay = 70 + Math.random() * 110;
-      if (/[,;]$/.test(word)) delay += 110 + Math.random() * 120;
-      if (/[.?!]$/.test(word)) delay += 180 + Math.random() * 200;
-      if (Math.random() < 0.05) delay += 200;
+      let delay = 110 + Math.random() * 150;
+      if (/[,;]$/.test(word)) delay += 280 + Math.random() * 220;
+      if (/[.?!]$/.test(word)) delay += 620 + Math.random() * 420;
+      if (Math.random() < 0.05) delay += 450;
       later(() => step(pi, words, n), delay);
     };
 
@@ -69,33 +69,6 @@ const BANNER = [
   ["▝▜█████▛▘", "Sonnet 5.5 · Claude Max"],
   ["  ▘▘ ▝▝  ", "~/checkout-app"],
 ];
-
-// One tool call: a green bullet, the call, then its output hanging off a bracket.
-function Tool({ name, arg, children }: { name: string; arg: string; children: ReactNode }) {
-  return (
-    <div>
-      <div>
-        <span className="text-[#4eba65]">⏺ </span>
-        <span className="font-bold">{name}</span>({arg})
-      </div>
-      <div className={`flex ${DIM}`}>
-        <span className="w-[5ch] shrink-0 whitespace-pre">{"  ⎿  "}</span>
-        <span className="min-w-0 whitespace-pre-wrap">{children}</span>
-      </div>
-    </div>
-  );
-}
-
-function Diff({ n, sign, text }: { n: number; sign: "+" | "-"; text: string }) {
-  const add = sign === "+";
-  return (
-    <span className={`block whitespace-pre text-[#e8e6e1] ${add ? "bg-[#1d3b27]" : "bg-[#472126]"}`}>
-      <span className={DIM}>{String(n).padStart(3)} </span>
-      {sign}
-      {text}
-    </span>
-  );
-}
 
 // A Claude Code session in a Mac terminal, with a prompt being dictated into
 // it. The pill mirrors the app's real overlay: a red dot and input levels
@@ -120,7 +93,7 @@ export function HeroMock() {
           <span className="w-[52px]" />
         </div>
 
-        <div className="flex h-[470px] flex-col justify-end gap-3.5 overflow-hidden p-4 font-mono text-[12px] leading-[1.5] text-[#e8e6e1] sm:h-[540px] sm:p-5 sm:text-[13px]">
+        <div className="flex min-h-[420px] flex-col gap-4 p-4 font-mono text-[12px] leading-[1.55] text-[#e8e6e1] sm:p-5 sm:text-[13px]">
           <pre className="m-0 font-mono leading-[1.05] whitespace-pre">
             {BANNER.map(([mascot, text], i) => (
               <div key={i}>
@@ -135,41 +108,28 @@ export function HeroMock() {
             <span className={DIM}>&gt; </span>run the tests
           </div>
 
-          <Tool name="Bash" arg="npm test">
-            <span className="text-[#4eba65]">PASS</span> src/cart.test.ts{"\n"}
-            <span className="text-[#4eba65]">PASS</span> src/checkout.test.ts{"\n"}
-            <span className="text-[#f0616d]">FAIL</span> src/PayButton.test.tsx{"\n"}
-            {"  "}● PayButton › ignores a double click{"\n"}
-            {"    "}expected 1 call, received 2{"\n"}
-            Tests: <span className="text-[#f0616d]">1 failed</span>, 47 passed, 48 total
-          </Tool>
-
-          <Tool name="Read" arg="src/components/PayButton.tsx">
-            Read 64 lines
-          </Tool>
-
-          <Tool name="Update" arg="src/components/PayButton.tsx">
-            Updated with 3 additions and 1 removal
-            <span className="mt-1 block">
-              <Diff n={18} sign="-" text="  <button onClick={() => submit(cart)}>" />
-              <Diff n={18} sign="+" text="  <button disabled={pending} onClick={() => {" />
-              <Diff n={19} sign="+" text="    if (!pending) submit(cart);" />
-              <Diff n={20} sign="+" text="  }}>" />
-            </span>
-          </Tool>
-
-          <Tool name="Bash" arg="npm test">
-            Tests: <span className="text-[#4eba65]">48 passed</span>, 48 total{"\n"}
-            Time:  2.1 s
-          </Tool>
-
           <div>
-            <span>⏺ </span>Fixed the double submit in PayButton, and all 48 tests pass. What should we work on next?
+            <div>
+              <span className="text-[#4eba65]">⏺ </span>
+              <span className="font-bold">Bash</span>(npm test)
+            </div>
+            <div className={`flex ${DIM}`}>
+              <span className="w-[5ch] shrink-0 whitespace-pre">{"  ⎿  "}</span>
+              <span className="whitespace-pre">{"Tests:  48 passed, 48 total\nTime:   2.4 s"}</span>
+            </div>
           </div>
 
           <div>
-            <div className="border-y border-[#5a5855] py-1.5">
-              <div aria-live="off" className="flex min-h-[92px] gap-2 break-words sm:min-h-[44px]">
+            <span>⏺ </span>All 48 tests pass on main. What should we work on next?
+          </div>
+
+          <div className="flex-1" />
+
+          <div>
+            <div
+              className={`rounded-lg border px-3 py-2 transition-colors duration-300 ${listening ? "border-[#b4b1aa]" : "border-[#5a5855]"}`}
+            >
+              <div aria-live="off" className="flex min-h-[220px] gap-2 break-words sm:min-h-[124px]">
                 <span aria-hidden="true">&gt;</span>
                 <div className="min-w-0 flex-1">
                   {shown === 0 ? (
@@ -188,10 +148,7 @@ export function HeroMock() {
                 </div>
               </div>
             </div>
-            <div className={`mt-1 flex justify-between px-1 ${DIM}`}>
-              <span>? for shortcuts</span>
-              <span className="hidden sm:inline">◐ medium · /effort</span>
-            </div>
+            <div className={`mt-1.5 px-1 ${DIM}`}>? for shortcuts</div>
           </div>
         </div>
       </div>
