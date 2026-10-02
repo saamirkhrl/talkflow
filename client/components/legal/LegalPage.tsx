@@ -1,6 +1,4 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { Wordmark } from "@/components/brand/Logo";
 
 // Long-form text styles, scoped to the article so the legal pages need no
 // typography plugin. Headings are sans; only the page title is serif.
@@ -22,12 +20,6 @@ export function EmailLink() {
   return <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
 }
 
-const FOOTER_LINKS = [
-  { href: "/terms", label: "Terms of Use" },
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/", label: "Home" },
-];
-
 type LegalPageProps = {
   title: string;
   lastUpdated: string;
@@ -36,16 +28,8 @@ type LegalPageProps = {
 
 export function LegalPage({ title, lastUpdated, children }: LegalPageProps) {
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line">
-        <div className="mx-auto flex h-16 max-w-[1200px] items-center px-gutter">
-          <Link href="/" aria-label="TalkFlow home" className="rounded-md">
-            <Wordmark />
-          </Link>
-        </div>
-      </header>
-
-      <main className="flex-1 px-gutter py-14 sm:py-20">
+    <>
+      <main className="px-gutter pt-32 pb-14 sm:pt-40 sm:pb-20">
         <article className={`mx-auto max-w-[68ch] text-[17px] leading-[1.7] text-ink ${PROSE}`}>
           <h1 className="font-serif text-[40px] font-normal leading-[1.1] tracking-[-0.02em] sm:text-[52px]">
             {title}
@@ -55,23 +39,6 @@ export function LegalPage({ title, lastUpdated, children }: LegalPageProps) {
           {children}
         </article>
       </main>
-
-      <footer className="border-t border-line">
-        <nav
-          aria-label="Legal"
-          className="mx-auto flex max-w-[1200px] flex-wrap gap-x-6 gap-y-2 px-gutter py-8 text-[14px] text-graphite"
-        >
-          {FOOTER_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="underline decoration-1 underline-offset-[3px] hover:text-ink"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </footer>
-    </div>
+    </>
   );
 }
