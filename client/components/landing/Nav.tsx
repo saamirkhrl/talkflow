@@ -17,7 +17,7 @@ function subscribeScroll(onChange: () => void) {
 
 const LINKS = [
   ["Features", "#features"],
-  ["Privacy", "#privacy"],
+  ["Privacy", "/privacy"],
   ["FAQs", "#faq"],
 ];
 
