@@ -10,7 +10,7 @@ const SPEEDS = [
 export function Prompting() {
   return (
     <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
-      <div className="grid items-center gap-x-12 gap-y-14 lg:grid-cols-[minmax(0,9fr)_minmax(0,15fr)]">
+      <div className="grid items-center gap-x-16 gap-y-14 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div>
           <SectionTitle>Say the whole thought.</SectionTitle>
           <p className="mt-6 max-w-[42ch] text-[18px] text-graphite">
