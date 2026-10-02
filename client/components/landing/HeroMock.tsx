@@ -120,7 +120,7 @@ export function HeroMock() {
           <span className="w-[52px]" />
         </div>
 
-        <div className="flex flex-col gap-3 p-4 font-mono text-[12px] leading-[1.5] text-[#e8e6e1] sm:p-5 sm:text-[13px]">
+        <div className="flex h-[470px] flex-col justify-end gap-3.5 overflow-hidden p-4 font-mono text-[12px] leading-[1.5] text-[#e8e6e1] sm:h-[540px] sm:p-5 sm:text-[13px]">
           <pre className="m-0 font-mono leading-[1.05] whitespace-pre">
             {BANNER.map(([mascot, text], i) => (
               <div key={i}>
@@ -136,9 +136,16 @@ export function HeroMock() {
           </div>
 
           <Tool name="Bash" arg="npm test">
+            <span className="text-[#4eba65]">PASS</span> src/cart.test.ts{"\n"}
+            <span className="text-[#4eba65]">PASS</span> src/checkout.test.ts{"\n"}
             <span className="text-[#f0616d]">FAIL</span> src/PayButton.test.tsx{"\n"}
             {"  "}● PayButton › ignores a double click{"\n"}
+            {"    "}expected 1 call, received 2{"\n"}
             Tests: <span className="text-[#f0616d]">1 failed</span>, 47 passed, 48 total
+          </Tool>
+
+          <Tool name="Read" arg="src/components/PayButton.tsx">
+            Read 64 lines
           </Tool>
 
           <Tool name="Update" arg="src/components/PayButton.tsx">
@@ -162,7 +169,7 @@ export function HeroMock() {
 
           <div>
             <div className="border-y border-[#5a5855] py-1.5">
-              <div aria-live="off" className="flex min-h-[92px] gap-2 break-words sm:min-h-[66px]">
+              <div aria-live="off" className="flex min-h-[92px] gap-2 break-words sm:min-h-[44px]">
                 <span aria-hidden="true">&gt;</span>
                 <div className="min-w-0 flex-1">
                   {shown === 0 ? (
