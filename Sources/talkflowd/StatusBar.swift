@@ -11,10 +11,13 @@ final class StatusBar {
 
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onDashboardClicked: (() -> Void)?
+    var onSetupClicked: (() -> Void)?
 
     init() {
         let menu = NSMenu()
         menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
+            .target = self
+        menu.addItem(withTitle: "Setup...", action: #selector(setupClicked), keyEquivalent: "")
             .target = self
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit talkflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -26,6 +29,10 @@ final class StatusBar {
 
     @objc private func dashboardClicked() {
         onDashboardClicked?()
+    }
+
+    @objc private func setupClicked() {
+        onSetupClicked?()
     }
 
     func setState(_ state: State) {

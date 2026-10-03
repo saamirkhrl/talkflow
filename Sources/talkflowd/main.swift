@@ -76,6 +76,51 @@ if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     exit(0)
 }
 
+// Read-only report of what setup would find: the whisper program, the model,
+// the LaunchAgent, and whether the server answers. Changes nothing.
+if CommandLine.arguments.contains("--enginecheck") {
+    let alive = SpeechEngine.isRespondingBlocking()
+    let report = """
+    whisper-server: \(SpeechEngine.serverBinary() ?? "not found")
+    homebrew: \(SpeechEngine.brewBinary() ?? "not found")
+    model complete: \(SpeechEngine.modelIsComplete) (\(SpeechEngine.modelPath.path))
+    launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
+    server responding on :\(SpeechEngine.port): \(alive)
+    isInstalled: \(SpeechEngine.isInstalled)
+    permissions: microphone=\(Permissions.microphone) accessibility=\(Permissions.accessibility) inputMonitoring=\(Permissions.inputMonitoring)
+    needsSetup: \(Onboarding.needsSetup())
+
+    """
+    let out = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-enginecheck.txt")
+    try? report.write(to: out, atomically: true, encoding: .utf8)
+    exit(0)
+}
+
+// Exercises the real model downloader against a small file and a temp
+// destination, so the download path can be checked without fetching 490 MB.
+// Usage: --downloadtest <url> <destination> <minimum bytes>
+if let index = CommandLine.arguments.firstIndex(of: "--downloadtest") {
+    let rest = Array(CommandLine.arguments.dropFirst(index + 1))
+    guard rest.count == 3, let url = URL(string: rest[0]), let minimum = Int64(rest[2]) else { exit(2) }
+    let out = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-downloadtest.txt")
+    let semaphore = DispatchSemaphore(value: 0)
+    var lastProgress = 0.0
+    let downloader = FileDownloader(
+        destination: URL(fileURLWithPath: rest[1]),
+        minimumBytes: minimum,
+        onProgress: { lastProgress = $0 },
+        onFinish: { error in
+            let size = (try? FileManager.default.attributesOfItem(atPath: rest[1])[.size] as? NSNumber)??.int64Value ?? -1
+            let line = "error: \(error?.localizedDescription ?? "none")\nprogress: \(lastProgress)\nfile size: \(size)\n"
+            try? line.write(to: out, atomically: true, encoding: .utf8)
+            semaphore.signal()
+        }
+    )
+    downloader.start(url: url)
+    semaphore.wait()
+    exit(0)
+}
+
 // Guard against double-launch (e.g. the LaunchAgent's copy already running, then
 // something else launches a second copy) - whichever instance starts second
 // just quits immediately, before setting up any taps or audio, so there's never

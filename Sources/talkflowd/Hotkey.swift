@@ -15,7 +15,12 @@ final class HotkeyMonitor {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    func start() {
+    /// Safe to call repeatedly: it does nothing once the tap exists, and returns
+    /// false (rather than giving up for good) while Input Monitoring is still
+    /// missing, so setup can retry after the user grants it.
+    @discardableResult
+    func start() -> Bool {
+        if tap != nil { return true }
         print("talkflowd: AXIsProcessTrusted at tap setup = \(AXIsProcessTrusted())")
 
         let mask: CGEventMask = (1 << CGEventType.flagsChanged.rawValue)
@@ -31,7 +36,7 @@ final class HotkeyMonitor {
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
             print("talkflowd: CGEvent.tapCreate returned nil - Input Monitoring not granted")
-            return
+            return false
         }
 
         print("talkflowd: event tap created successfully")
@@ -41,6 +46,7 @@ final class HotkeyMonitor {
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         print("talkflowd: event tap enabled = \(CGEvent.tapIsEnabled(tap: tap))")
+        return true
     }
 
     fileprivate func handleEvent(type: CGEventType, event: CGEvent) {
