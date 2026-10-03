@@ -8,11 +8,24 @@ export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`;
 // without permission. Set to false to show text-only download buttons.
 export const SHOW_OS_LOGOS = true;
 
-// The hero demo in "Built for prompting": a request dictated into an agent.
-export const PROMPTS = [
-  "So the checkout form is double submitting when someone taps pay twice on a slow connection. Can you add a loading state that disables the button after the first click and shows a small spinner inside it? Also make sure it resets if the request fails, and add a test for the retry case.",
-  "Let's clean up the pay button before we ship. Pull the price formatting out into a helper that handles currencies properly, keep the button label short on small screens, and write a couple of tests so we don't break it again next week.",
-];
+// What gets dictated into each app in the "Say the whole thought" scroll demo.
+// "\n" marks a line break in the finished text. Like the app, the blank lines
+// around an email's greeting and sign-off only appear once fn is released
+// (Dictation.render runs StructurePolish on the final pass only).
+export const DICTATIONS = {
+  claudeCode:
+    "So the checkout form is double submitting when someone taps pay twice on a slow connection. Can you add a loading state that disables the button after the first click and shows a small spinner inside it? Also make sure it resets if the request fails, and add a test for the retry case.",
+  messages:
+    "Yes, on my way! The train got stuck outside Canal Street for twenty minutes, so I'm running a bit late. Order me the spicy noodles if you can, and the next round is on me.",
+  gmail:
+    "Hi Daniel,\n\nThanks for sending the contract over. I read through it this morning and it all looks good, apart from the payment terms in section four. Could we move those to thirty days instead of fifteen? Happy to jump on a quick call this week if that's easier.\n\nBest, Alex",
+  whatsapp:
+    "Count me in! I'll grab a cheesecake from the bakery on the way, and I can pick up Grandma if she needs a lift. Should be there around one.",
+  slack:
+    "It's merged and on staging. The double submit is gone, and I added a test for the retry case. QA can start whenever they're ready, and if nothing turns up we can ship tomorrow morning.",
+  notion:
+    "Start with onboarding. Most people who drop off do it before day three, so let's rewrite the welcome emails and add a short checklist to the dashboard. We should also keep one person on support rotation so bug fixes don't stall.",
+};
 
 export const FAQ: [question: string, answer: string][] = [
   [
