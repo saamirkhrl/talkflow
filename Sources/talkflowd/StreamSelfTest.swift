@@ -335,7 +335,13 @@ enum StreamSelfTest {
         // turned a punctuated clip into "hey can you check ... let me know".
         let prompt = Transcriber.vocabularyPrompt
         check(prompt.contains("talkflow"), "the whisper prompt names talkflow")
-        check(prompt.contains("Samir"), "the whisper prompt names the user, for sign-offs")
+        check(Transcriber.prompt(forFullName: "Samir Kharel") == "I'm Samir, and I use talkflow, a dictation app.",
+              "the whisper prompt names this Mac's user, for sign-offs")
+        check(Transcriber.prompt(forFullName: "jo") == "I'm Jo, and I use talkflow, a dictation app.",
+              "the user's first name is capitalised")
+        check(Transcriber.prompt(forFullName: "") == "I use talkflow, a dictation app."
+              && Transcriber.prompt(forFullName: "admin2") == "I use talkflow, a dictation app.",
+              "no usable name: the sentence goes without one")
         check(prompt.first?.isUppercase == true && prompt.hasSuffix("."),
               "the whisper prompt is a cased, punctuated sentence", prompt.debugDescription)
         check(Transcriber.multipartBody(wav: Data(), boundary: "b", prompt: prompt).range(of: Data("name=\"prompt\"\r\n\r\n\(prompt)\r\n".utf8)) != nil,

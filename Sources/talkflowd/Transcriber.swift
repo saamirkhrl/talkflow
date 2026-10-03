@@ -125,8 +125,20 @@ enum Transcriber {
     /// The user's name is here for the same reason: a Gmail sign-off came out
     /// "Best some year." With "I'm Samir, ..." even a clip literally saying
     /// "best some year" came back "best Samir", and the other test clips were
-    /// unchanged.
-    static let vocabularyPrompt = "I'm Samir, and I use talkflow, a dictation app."
+    /// unchanged. It is the first name of this Mac's account, not a fixed one:
+    /// a fixed name would push every other user's dictation towards it.
+    static let vocabularyPrompt = prompt(forFullName: NSFullUserName())
+
+    /// "Samir Kharel" -> "I'm Samir, and I use talkflow, a dictation app."
+    /// An account with no usable name gets the sentence without one. Pure, for
+    /// `--streamtest`.
+    static func prompt(forFullName fullName: String) -> String {
+        let first = fullName.split(separator: " ").first.map(String.init) ?? ""
+        guard let initial = first.first, initial.isLetter, first.allSatisfy({ $0.isLetter || "'-".contains($0) }) else {
+            return "I use talkflow, a dictation app."
+        }
+        return "I'm \(initial.uppercased() + first.dropFirst()), and I use talkflow, a dictation app."
+    }
 
     static func multipartBody(wav: Data, boundary: String, prompt: String) -> Data {
         var body = Data()
