@@ -14,9 +14,9 @@ import Foundation
 /// So the LLM is gone from the pipeline entirely. What is left only ever deletes
 /// exact words from a fixed list, which cannot invent or alter anything.
 ///
-/// The cost is that self-corrections are no longer collapsed ("meet at 2, no
-/// wait, 3" stays as spoken). No local model could do that without also
-/// rephrasing, and a rephrase is worse than a stutter.
+/// Self-corrections ("meet at 2, no wait, 3") are collapsed by rules in
+/// SelfCorrection instead, under the same deletion-only rule. No local model
+/// could do it without also rephrasing, and a rephrase is worse than a stutter.
 enum Cleanup {
     /// Only sounds that are never words. "like", "you know" and "i mean" were
     /// here and are deliberately gone: they are real English as often as they are
