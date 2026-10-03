@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 // is unreachable) there is no count, and the nav shows a plain GitHub link.
 async function getStars(): Promise<number | null> {
   try {
-    const res = await fetch("https://api.github.com/repos/talkflowdev/talkflow", {
+    const res = await fetch("https://api.github.com/repos/saamirkhrl/talkflow", {
       headers: { Accept: "application/vnd.github+json" },
       next: { revalidate: 3600 },
     });

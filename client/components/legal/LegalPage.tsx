@@ -14,7 +14,7 @@ const PROSE = [
 ].join(" ");
 
 export const CONTACT_EMAIL = "samir.kharel66@gmail.com";
-export const REPO_URL = "https://github.com/talkflowdev/talkflow";
+export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
 
 export function EmailLink() {
   return <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>;
