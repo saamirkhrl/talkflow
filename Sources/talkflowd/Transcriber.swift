@@ -120,7 +120,12 @@ enum Transcriber {
     /// and no punctuation, and "I often mention talkflow." still wrote
     /// "topflow". This one fixed "top flow" and "talk flow", left silence and
     /// one-word clips as they were without it, and cost no measurable time.
-    static let vocabularyPrompt = "I use talkflow, a dictation app."
+    ///
+    /// The user's name is here for the same reason: a Gmail sign-off came out
+    /// "Best some year." With "I'm Samir, ..." even a clip literally saying
+    /// "best some year" came back "best Samir", and the other test clips were
+    /// unchanged.
+    static let vocabularyPrompt = "I'm Samir, and I use talkflow, a dictation app."
 
     static func multipartBody(wav: Data, boundary: String, prompt: String) -> Data {
         var body = Data()
