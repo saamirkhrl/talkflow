@@ -1,5 +1,6 @@
 "use client";
 
+import { Star } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { Wordmark } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
@@ -71,7 +72,10 @@ export function Nav({ stars }: { stars: number | null }) {
           <GithubIcon size={17} />
           {!mobile && <span>GitHub</span>}
           {!mobile && stars !== null && (
-            <span className="border-l border-paper/25 pl-2 tabular-nums">{stars.toLocaleString("en-US")}</span>
+            <span className="flex items-center gap-1 border-l border-paper/25 pl-2 tabular-nums">
+              <Star size={14} strokeWidth={1.75} className="fill-current" aria-hidden="true" />
+              {stars.toLocaleString("en-US")}
+            </span>
           )}
         </a>
       </nav>
