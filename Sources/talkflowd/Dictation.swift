@@ -129,7 +129,7 @@ final class Dictation {
                 // rather than one per tick.
                 let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
                 let detail = Self.logTranscripts ? ": \(result.text)" : ""
-                print("talkflowd: transcribed \(Self.shape(of: result.text)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
+                print("talkflowd: transcribed \(Self.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
                 self.reconcile(to: final)
                 if !self.field.typedText.isEmpty {
                     StatsStore.shared.recordSession(text: self.field.typedText, durationSeconds: duration)
@@ -159,9 +159,8 @@ final class Dictation {
     static let logTranscripts = ProcessInfo.processInfo.environment["talkflow_LOG_TRANSCRIPTS"] == "1"
 
     /// Size and structure of a transcript, with none of its content.
-    static func shape(of text: String) -> String {
+    static func shape(of text: String, segments: Int = 1) -> String {
         let words = text.split(whereSeparator: { $0.isWhitespace }).count
-        let segments = text.split(separator: "\n").count
         return "\(text.count) chars / \(words) words" + (segments > 1 ? " / \(segments) segments" : "")
     }
 

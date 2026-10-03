@@ -11,6 +11,9 @@ enum Transcriber {
     struct Result {
         let text: String
         let elapsed: TimeInterval
+        /// How many segments whisper returned before they were joined. Logged,
+        /// because a long hold's problems tend to sit at the segment seams.
+        var segments = 1
     }
 
     /// whisper emits these bracketed placeholders instead of words when it hears
@@ -44,12 +47,43 @@ enum Transcriber {
     /// Segments are dropped whole rather than pattern-matched inside a line: a
     /// placeholder is always its own segment, and editing within a segment would
     /// risk touching real words.
-    static func stripPlaceholderSegments(_ text: String) -> String {
-        let segments = text.split(separator: "\n", omittingEmptySubsequences: false)
-        let kept = segments
+    ///
+    /// What is left is joined with a SPACE. A segment boundary is where whisper's
+    /// 30s window ended, which lands wherever the clock says, mid-sentence as
+    /// often as not. Joining with "\n" typed a hard line break into the middle
+    /// of a Gmail dictation ("post about your work\nWins, post about") and the
+    /// capitalisation pass, which treats "\n" as a sentence start, capitalised
+    /// the word after it. Measured on whisper-server: the next segment starts
+    /// lowercase (" and the way that you"), so the capital was ours, not
+    /// whisper's. A paragraph the user wants is spoken ("new paragraph") and
+    /// handled by TextCommands, so nothing real is lost.
+    ///
+    /// whisper also closes its window with a period it did not hear
+    /// ("around the product.\n over the last year"). When the next segment opens
+    /// lowercase the sentence plainly carries on, so that one period is dropped.
+    /// Abbreviations keep theirs.
+    static func joinSegments(_ text: String) -> String {
+        let kept = text.split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !isPlaceholder($0) }
-        return kept.joined(separator: "\n")
+        var joined = ""
+        for segment in kept {
+            if !joined.isEmpty {
+                if segment.first?.isLowercase == true, closesWithCutPeriod(joined) { joined.removeLast() }
+                joined += " "
+            }
+            joined += segment
+        }
+        return joined
+    }
+
+    private static let abbreviations: Set<String> = ["mr", "mrs", "ms", "dr", "prof", "st", "vs", "etc", "e.g", "i.e", "jr", "sr"]
+
+    /// A single "." after an ordinary word - not "...", not "Dr.".
+    private static func closesWithCutPeriod(_ text: String) -> Bool {
+        guard text.hasSuffix("."), !text.hasSuffix("..") else { return false }
+        let lastWord = text.dropLast().split(separator: " ").last.map { $0.lowercased() } ?? ""
+        return !lastWord.isEmpty && !abbreviations.contains(lastWord)
     }
 
     /// Deliberately not the shared session.
@@ -118,8 +152,9 @@ enum Transcriber {
                 completion(nil)
                 return
             }
-            let text = stripPlaceholderSegments(raw).trimmingCharacters(in: .whitespacesAndNewlines)
-            completion(Result(text: text, elapsed: elapsed))
+            let text = joinSegments(raw).trimmingCharacters(in: .whitespacesAndNewlines)
+            let segments = raw.split(separator: "\n").filter { !isPlaceholder(String($0)) }.count
+            completion(Result(text: text, elapsed: elapsed, segments: max(segments, 1)))
         }.resume()
     }
 }
