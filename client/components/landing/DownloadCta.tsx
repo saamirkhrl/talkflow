@@ -5,7 +5,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { DOWNLOAD_URL, SHOW_OS_LOGOS, WISPR_FLOW_PRICE } from "./content";
+import { DOWNLOAD_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
 
@@ -55,8 +55,11 @@ function PriceCompare() {
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
 // price next to the button.
 export function DownloadCta({ align = "center", compare = false }: { align?: "center" | "start"; compare?: boolean }) {
-  const { os, mobile } = useVisitor();
+  const visitor = useVisitor();
+  // Until there's a Windows build, everyone is offered the Mac download.
+  const os = WINDOWS_AVAILABLE ? visitor.os : "mac";
   const other = os === "mac" ? "windows" : "mac";
+  const { mobile } = visitor;
 
   if (mobile) return <CopyLink align={align} compare={compare} />;
 
@@ -69,13 +72,17 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
         </a>
         {compare && <PriceCompare />}
       </div>
-      <a
-        href={DOWNLOAD_URL}
-        className="inline-flex items-center gap-1.5 text-[15px] text-graphite underline decoration-line underline-offset-4 hover:text-ink hover:decoration-ink"
-      >
-        {SHOW_OS_LOGOS && <BrandLogo logo={OS[other].logo} className="size-3.5" />}
-        Also available for {OS[other].label}
-      </a>
+      {WINDOWS_AVAILABLE ? (
+        <a
+          href={DOWNLOAD_URL}
+          className="inline-flex items-center gap-1.5 text-[15px] text-graphite underline decoration-line underline-offset-4 hover:text-ink hover:decoration-ink"
+        >
+          {SHOW_OS_LOGOS && <BrandLogo logo={OS[other].logo} className="size-3.5" />}
+          Also available for {OS[other].label}
+        </a>
+      ) : (
+        <p className="text-[15px] text-graphite">Windows version coming soon</p>
+      )}
     </div>
   );
 }

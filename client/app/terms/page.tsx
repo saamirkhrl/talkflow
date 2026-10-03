@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" lastUpdated="September 29, 2026">
+    <LegalPage title="Terms of Use" lastUpdated="October 2, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -126,13 +126,28 @@ export default function TermsPage() {
         can type.
       </p>
       <p>
-        TalkFlow is an independent project. It is not affiliated with, endorsed by or sponsored by
-        Apple, Microsoft or any other company whose products are named or shown on the site.
+        The app windows in the demos on the site, such as Claude Code, Messages, Gmail, WhatsApp,
+        Slack and Notion, are illustrations we drew to show where TalkFlow types. They are not
+        screenshots, and the people, messages and companies in them are made up.
       </p>
       <p>
-        Apple, Mac, macOS and the Apple logo are trademarks of Apple Inc., registered in the U.S.
-        and other countries. Windows and the Windows logo are trademarks of the Microsoft group of
-        companies. All other product names and logos are trademarks of their respective owners.
+        The site compares TalkFlow with Wispr Flow, including Wispr Flow&apos;s published prices.
+        Those prices were taken from Wispr Flow&apos;s own pricing page on October 2, 2026, and may
+        have changed since.
+      </p>
+      <p>
+        TalkFlow is an independent project. It is not affiliated with, endorsed by or sponsored by
+        Wispr, Apple, Microsoft, Google, Slack, Meta, Notion, Anthropic or any other company whose
+        products are named or shown on the site.
+      </p>
+      <p>
+        Apple, Mac, macOS, Messages and the Apple logo are trademarks of Apple Inc., registered in
+        the U.S. and other countries. Windows and the Windows logo are trademarks of the Microsoft
+        group of companies. Gmail is a trademark of Google LLC. Slack is a trademark of Slack
+        Technologies, LLC. WhatsApp is a trademark of WhatsApp LLC. Notion is a trademark of Notion
+        Labs, Inc. Claude and Claude Code are trademarks of Anthropic, PBC. Wispr Flow is a
+        trademark of its owner. All other product names and logos are trademarks of their
+        respective owners.
       </p>
 
       <h2 id="other-sites">7. Links to other sites</h2>

@@ -8,6 +8,11 @@ export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`;
 // without permission. Set to false to show text-only download buttons.
 export const SHOW_OS_LOGOS = true;
 
+// There is no Windows build yet (see the FAQ). While this is false the site
+// offers only the Mac download and says Windows is coming, instead of
+// advertising a Windows download that doesn't exist.
+export const WINDOWS_AVAILABLE: boolean = false;
+
 // What gets dictated into each app in the "Say the whole thought" scroll demo.
 // "\n" marks a line break in the finished text. Like the app, the blank lines
 // around an email's greeting and sign-off only appear once fn is released
@@ -35,7 +40,7 @@ export const WISPR_FLOW_PRICE = "$15/mo";
 export const FAQ: [question: string, answer: string][] = [
   [
     "How is it different from Wispr Flow?",
-    "Wispr Flow Pro costs $15 a month, and its free plan stops at 2,000 words a week. TalkFlow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
+    "Wispr Flow Pro costs $15 a month, or $12 a month billed yearly, and Wispr Flow's free plan stops at 2,000 words a week on desktop. TalkFlow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
   ],
   [
     "Is it really free?",

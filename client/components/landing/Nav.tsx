@@ -5,7 +5,7 @@ import { Wordmark } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { DOWNLOAD_URL, REPO_URL, SHOW_OS_LOGOS } from "./content";
+import { DOWNLOAD_URL, REPO_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE } from "./content";
 import { GithubIcon } from "./GithubIcon";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
@@ -56,7 +56,7 @@ export function Nav({ stars }: { stars: number | null }) {
           className={cn(buttonClass.secondary, "mr-1 px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           {SHOW_OS_LOGOS && !mobile && (
-            <BrandLogo logo={os === "mac" ? OS_LOGOS.apple : OS_LOGOS.windows} className="size-[15px] -translate-y-px" />
+            <BrandLogo logo={os === "windows" && WINDOWS_AVAILABLE ? OS_LOGOS.windows : OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
           )}
           Download
         </a>

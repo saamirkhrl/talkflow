@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ComponentType, type RefObject } from "react";
 import { useLenis } from "lenis/react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { GmailMock, MessagesMock, NotionMock, SlackMock, WhatsAppMock, type MockProps } from "./AppMocks";
 import { APP_LOGOS } from "./brand-logos.generated";
@@ -163,7 +164,7 @@ export function AppTour() {
           </div>
         </div>
 
-        <figure className="relative h-[min(470px,calc(100svh-150px))] sm:h-[min(530px,calc(100svh-150px))]">
+        <figure className="relative h-[min(470px,calc(100svh-185px))] sm:h-[min(530px,calc(100svh-185px))]">
           <figcaption className="sr-only">
             TalkFlow typing a dictated message into {SCENES[active].name}. Scroll to see it in other apps.
           </figcaption>
@@ -173,6 +174,12 @@ export function AppTour() {
             ))}
           </div>
         </figure>
+        <p className="mt-4 text-center text-[12.5px] text-graphite/80">
+          Illustrations, not screenshots. TalkFlow isn&apos;t affiliated with these apps.{" "}
+          <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
+            Trademarks
+          </Link>
+        </p>
       </div>
     </div>
   );
