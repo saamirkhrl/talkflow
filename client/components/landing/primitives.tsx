@@ -49,3 +49,14 @@ export function SectionTitle({ children, className }: { children: React.ReactNod
     </h2>
   );
 }
+
+// The red, yellow and green window buttons of a Mac window.
+export function Lights({ className }: { className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn("flex shrink-0 gap-2", className)}>
+      <span className="size-3 rounded-full bg-[#ff5f57]" />
+      <span className="size-3 rounded-full bg-[#febc2e]" />
+      <span className="size-3 rounded-full bg-[#28c840]" />
+    </span>
+  );
+}
