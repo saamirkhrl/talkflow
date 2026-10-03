@@ -59,12 +59,6 @@ final class DashboardController: NSWindowController {
             y -= 30
         }
 
-        let footer = NSTextField(labelWithString: "Stored locally on this Mac. Never sent anywhere.")
-        footer.font = .systemFont(ofSize: 11)
-        footer.textColor = .tertiaryLabelColor
-        footer.frame = NSRect(x: 24, y: 20, width: 312, height: 16)
-        container.addSubview(footer)
-
         return container
     }
 
