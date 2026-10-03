@@ -1,8 +1,8 @@
 import AppKit
 
 /// Minimal menu bar indicator: a bars glyph (matching the app icon) tinted by
-/// state, plus a menu with Dashboard and Quit.
-final class StatusBar {
+/// state, plus a menu with Dashboard, the writing style, and Quit.
+final class StatusBar: NSObject, NSMenuDelegate {
     enum State {
         case idle
         case recording
@@ -12,13 +12,30 @@ final class StatusBar {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onDashboardClicked: (() -> Void)?
     var onSetupClicked: (() -> Void)?
+    private var styleItems: [NSMenuItem] = []
 
-    init() {
+    override init() {
+        super.init()
         let menu = NSMenu()
+        menu.delegate = self
         menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
         menu.addItem(withTitle: "Setup...", action: #selector(setupClicked), keyEquivalent: "")
             .target = self
+        menu.addItem(.separator())
+        // The same setting as on the Settings page, one click away.
+        let header = NSMenuItem(title: "Writing style", action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        for style in WritingStyle.allCases {
+            let item = NSMenuItem(title: style.title, action: #selector(styleClicked(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            item.indentationLevel = 1
+            item.toolTip = style.detail
+            menu.addItem(item)
+            styleItems.append(item)
+        }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit talkflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
@@ -33,6 +50,18 @@ final class StatusBar {
 
     @objc private func setupClicked() {
         onSetupClicked?()
+    }
+
+    @objc private func styleClicked(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let style = WritingStyle(rawValue: raw) else { return }
+        Preferences.writingStyle = style
+    }
+
+    /// Ticks the current style each time the menu opens, so a change made on
+    /// the Settings page shows here too.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let current = Preferences.writingStyle.rawValue
+        for item in styleItems { item.state = item.representedObject as? String == current ? .on : .off }
     }
 
     func setState(_ state: State) {

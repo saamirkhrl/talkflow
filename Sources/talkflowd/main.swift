@@ -75,6 +75,20 @@ if CommandLine.arguments.contains("--dashboardshot") {
     dispatchMain()
 }
 
+// Runs the updater's install step (unpack, verify, sign, swap) on a local zip
+// and a target bundle, without downloading or relaunching anything.
+// Usage: --updatetest <zip> <target.app> <version>
+if let index = CommandLine.arguments.firstIndex(of: "--updatetest") {
+    let rest = Array(CommandLine.arguments.dropFirst(index + 1))
+    guard rest.count == 3 else { exit(2) }
+    let work = FileManager.default.temporaryDirectory.appendingPathComponent("talkflow-updatetest-\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+    let failure = Updater.installBundle(zip: URL(fileURLWithPath: rest[0]), in: work, version: rest[2], over: URL(fileURLWithPath: rest[1]))
+    try? FileManager.default.removeItem(at: work)
+    print("updatetest: \(failure ?? "installed")")
+    exit(failure == nil ? 0 : 1)
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     let raw = CommandLine.arguments.dropFirst(index + 1).first ?? ""
     let started = Date()

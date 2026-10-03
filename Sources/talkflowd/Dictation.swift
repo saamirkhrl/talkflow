@@ -69,6 +69,9 @@ final class Dictation {
     private var leadingSpace = ""
     /// `Preferences.typeWhileSpeaking`, fixed for the length of a hold.
     private var liveTyping = false
+    /// `Preferences.writingStyle`, fixed for the length of a hold, so the live
+    /// text and the release pass are written the same way.
+    private var style: WritingStyle = .formal
     /// What was on screen when the key went down (see `ScreenContext`), once
     /// the background read finishes. Nil until then; everything that uses it
     /// works without it.
@@ -97,6 +100,7 @@ final class Dictation {
         lastStreamed = ""
         focusLeft = false
         liveTyping = Preferences.typeWhileSpeaking
+        style = Preferences.writingStyle
         targetAppPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         statusBar.setState(.recording)
@@ -110,7 +114,7 @@ final class Dictation {
             leadingSpace = CursorContext.needsSeparatorBeforeInsertion() ? " " : ""
             startPreviewLoop()
             readContext()
-            if Preferences.aiPolish, !liveTyping {
+            if Preferences.aiPolish, !Self.claudePolishes, !liveTyping {
                 DispatchQueue.global(qos: .userInitiated).async { Polish.prewarm() }
             }
         } catch {
@@ -153,8 +157,8 @@ final class Dictation {
                 // allowed to delete. Paragraph breaks are decided here too, on
                 // the complete text, where inserting one costs one rewrite
                 // rather than one per tick.
-                var final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
-                var verbatim = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, corrections: false)
+                var final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, style: self.style)
+                var verbatim = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, corrections: false, style: self.style)
                 let detail = Self.logTranscripts ? ": \(result.text)" : ""
                 print("talkflowd: transcribed \(Self.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
 
@@ -170,12 +174,21 @@ final class Dictation {
                     verbatim = ScreenContext.chatStyled(verbatim)
                 }
 
-                guard !self.liveTyping, Preferences.aiPolish else {
+                // The punctuation pass may put capitals back, so the style is
+                // applied again to whatever it returns.
+                let style = self.style
+                let names = context?.names ?? []
+                if !self.liveTyping, Self.claudePolishes {
+                    ClaudePolish.run(final, names: names) { polished, error in
+                        if let error { self.overlay.showError(error) }
+                        self.deliver(style.apply(polished), verbatim: verbatim, duration: duration)
+                    }
+                } else if !self.liveTyping, Preferences.aiPolish {
+                    Polish.run(final, names: names) { polished in
+                        self.deliver(style.apply(polished), verbatim: verbatim, duration: duration)
+                    }
+                } else {
                     self.deliver(final, verbatim: verbatim, duration: duration)
-                    return
-                }
-                Polish.run(final, names: context?.names ?? []) { polished in
-                    self.deliver(polished, verbatim: verbatim, duration: duration)
                 }
             }
         }
@@ -258,8 +271,34 @@ final class Dictation {
     /// A failed large-model request costs one retry on the fast server, never
     /// the dictation.
     private func transcribeFinal(wav: Data, completion: @escaping (Transcriber.Result?) -> Void) {
-        let small = transcribeURL
         let prompt = self.prompt
+        guard Preferences.useOpenAITranscription else {
+            transcribeLocally(wav: wav, prompt: prompt, completion: completion)
+            return
+        }
+        // With the user's own OpenAI key. Any failure is shown above the pill
+        // and the dictation is transcribed on this Mac instead - a bad key or
+        // a dropped connection never costs the user what they said.
+        CloudTranscriber.transcribe(wav: wav, prompt: prompt) { [weak self] outcome in
+            switch outcome {
+            case .success(let result):
+                print("talkflowd: final pass via OpenAI \(CloudTranscriber.model) in \(String(format: "%.2f", result.elapsed))s")
+                completion(result)
+            case .failure(let failure):
+                self?.overlay.showError(failure.message + ", used this Mac instead")
+                guard let self else { completion(nil); return }
+                self.transcribeLocally(wav: wav, prompt: prompt, completion: completion)
+            }
+        }
+    }
+
+    /// Whether this hold's punctuation pass goes to Claude.
+    static var claudePolishes: Bool {
+        Preferences.useClaudePunctuation && APIKeys.hasKey(.anthropic)
+    }
+
+    private func transcribeLocally(wav: Data, prompt: String, completion: @escaping (Transcriber.Result?) -> Void) {
+        let small = transcribeURL
         guard Preferences.accurateFinalPass, FinalPassEngine.isReady else {
             Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, completion: completion)
             return
@@ -317,7 +356,7 @@ final class Dictation {
     /// a correction deletes words that are already on screen, and a live update
     /// may only append. The release pass renders with it off as well, as the
     /// fallback when the corrected text costs too much to deliver.
-    static func render(_ transcript: String, leadingSpace: String, structure: Bool, corrections: Bool? = nil) -> String {
+    static func render(_ transcript: String, leadingSpace: String, structure: Bool, corrections: Bool? = nil, style: WritingStyle = .formal) -> String {
         let tidied = Cleanup.tidy(transcript)
         let commanded = TextCommands.applyAll(tidied)
         let withCommands = (corrections ?? structure) ? SelfCorrection.apply(to: commanded) : commanded
@@ -332,7 +371,7 @@ final class Dictation {
         // string. Run earlier and the body after "Dear Sarah,\n\n" keeps whatever
         // case whisper gave it - which is how "can you please" and "best Samir"
         // ended up lowercase at the start of their paragraphs.
-        let cased = TextCommands.capitalizeAfterSentenceEnds(structured)
+        let cased = style.apply(TextCommands.capitalizeAfterSentenceEnds(structured))
         return cased.isEmpty ? "" : leadingSpace + cased
     }
 
@@ -539,7 +578,7 @@ final class Dictation {
                 // A discarded tick (no speech, or a failed request) must leave
                 // the committer untouched, or the next transcript would be
                 // compared against nothing and half of it would commit at once.
-                let rendered = Self.render(result.text, leadingSpace: self.leadingSpace, structure: false)
+                let rendered = Self.render(result.text, leadingSpace: self.leadingSpace, structure: false, style: self.style)
                 guard self.liveTyping else {
                     // Caption only. StreamCommit still runs, to tell the words
                     // that have settled from the ones whisper may revise.
