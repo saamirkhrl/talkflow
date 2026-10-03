@@ -1,7 +1,6 @@
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Newsreader } from "next/font/google";
-import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { Footer } from "@/components/landing/Footer";
 import { Nav } from "@/components/landing/Nav";
 import { SmoothScroll } from "@/components/landing/SmoothScroll";
@@ -54,7 +53,6 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <Footer />
         </VisitorProvider>
         <Analytics />
-        <GoogleAnalytics />
       </body>
     </html>
   );

@@ -23,11 +23,9 @@ export default function PrivacyPage() {
           never saved to disk.
         </li>
         <li>
-          <strong>The website uses Vercel Web Analytics and Google Analytics to count visits,
-          and has no forms.</strong> Google Analytics sets cookies in your browser. Like every
-          website, it can&apos;t be delivered without your browser sending some technical
-          information, such as your IP address, to our hosting provider. None of this applies to
-          the app.
+          <strong>The website has no cookies and no forms, and uses only basic, cookieless
+          analytics.</strong> Like every website, it can&apos;t be delivered without your browser
+          sending some technical information, such as your IP address, to our hosting provider.
         </li>
         <li>
           <strong>We don&apos;t sell or share your personal information</strong>, and we don&apos;t
@@ -100,44 +98,14 @@ export default function PrivacyPage() {
       </ul>
       <p>Our hosting provider is Vercel Inc.</p>
 
-      <h3 id="website-analytics">Analytics on the website</h3>
-      <p>
-        To understand how many people visit the site and which pages they read, the website uses
-        two analytics services. They apply to this website only. The talkflow app doesn&apos;t
-        use them and has no analytics of its own.
-      </p>
-      <ul>
-        <li>
-          <strong>Vercel Web Analytics</strong> counts page views and visits in aggregate. It
-          doesn&apos;t use cookies.
-        </li>
-        <li>
-          <strong>Google Analytics</strong>, provided by Google LLC, collects information about
-          how you use the site, such as the pages you view, how you arrived, your approximate
-          location, and your browser, device and operating system. It sets cookies in your
-          browser (they start with &quot;_ga&quot;) to tell visits apart. We have turned off
-          Google signals and ad personalization, so we don&apos;t use this data for advertising
-          and don&apos;t link it to your Google account. Google processes this data on our behalf
-          under <a href="https://policies.google.com/privacy">Google&apos;s Privacy Policy</a>.
-          You can block it with a content blocker or Google&apos;s{" "}
-          <a href="https://tools.google.com/dlpage/gaoptout">browser opt-out add-on</a>.
-        </li>
-      </ul>
-      <p>
-        We use this only to count visits and improve the site. We don&apos;t combine it with
-        anything that identifies you by name. Our legal basis is our legitimate interest in
-        understanding how the site is used.
-      </p>
-
       <h3 id="website-not">What the site doesn&apos;t do</h3>
       <ul>
+        <li>It doesn&apos;t set cookies.</li>
         <li>
-          It doesn&apos;t set cookies of its own. The only cookies are Google Analytics&apos;,
-          described above.
-        </li>
-        <li>
-          It doesn&apos;t use advertising, ad personalization, tracking pixels or session
-          recording.
+          It doesn&apos;t use advertising, tracking pixels or session recording. It does use Vercel
+          Web Analytics to count page views and visits in aggregate (pages viewed, referrer,
+          country, browser and device type). It doesn&apos;t use cookies for this, doesn&apos;t
+          build a profile of you and doesn&apos;t follow you across other websites.
         </li>
         <li>
           It doesn&apos;t ask you for any personal information. There are no sign-up, contact or
@@ -197,11 +165,11 @@ export default function PrivacyPage() {
 
       <h3 id="website-dnt">&quot;Do Not Track&quot; and Global Privacy Control</h3>
       <p>
-        We don&apos;t sell your data or use it for advertising, and we don&apos;t allow other
-        companies to track you across other websites through our site. Our analytics (see above)
-        don&apos;t currently change their behavior when your browser sends a &quot;Do Not
-        Track&quot; or Global Privacy Control signal. To opt out, use a content blocker or the
-        Google opt-out add-on above.
+        We don&apos;t track visitors across other websites, and we don&apos;t allow other
+        companies to do so through our site. Our aggregate analytics don&apos;t use cookies or
+        build a profile of you. So there&apos;s nothing for a &quot;Do Not
+        Track&quot; or Global Privacy Control signal to switch off. The site works the same way
+        whether or not your browser sends one.
       </p>
 
       <hr />
