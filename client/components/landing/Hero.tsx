@@ -3,7 +3,7 @@ import { HeroRibbon } from "./HeroRibbon";
 
 export function Hero() {
   return (
-    <section id="top" className="relative overflow-hidden pt-[clamp(96px,min(12vw,17svh),136px)]">
+    <section id="top" className="relative overflow-x-clip pt-[clamp(96px,min(12vw,17svh),136px)]">
       <div className="mx-auto flex max-w-[1200px] flex-col items-center px-gutter text-center">
         <p className="mb-6 inline-flex items-center gap-2 rounded-full border border-line bg-white/70 py-1 pr-3.5 pl-1 text-[14px] text-graphite">
           <span className="rounded-full bg-ink px-2.5 py-0.5 text-[12.5px] font-medium text-paper">Free</span>
@@ -17,7 +17,7 @@ export function Hero() {
         <p className="mt-5 max-w-[44ch] text-[clamp(17px,1.6vw,20px)] leading-[1.5] text-graphite">
           Hold fn, speak, and your words are typed wherever your cursor is. Open source, and it never leaves your Mac.
         </p>
-        <div className="mt-7">
+        <div className="relative z-10 mt-7">
           <DownloadCta compare />
         </div>
       </div>
