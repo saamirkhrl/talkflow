@@ -113,6 +113,7 @@ enum StreamSelfTest {
         runWriteVerificationCases()
         runPlaceholderSegmentCases()
         runReleaseSplitCases()
+        runEmailAndListCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -178,6 +179,70 @@ enum StreamSelfTest {
         )
         check(!rendered.contains("BLANK_AUDIO"),
               "no placeholder survives to the screen", rendered.debugDescription)
+    }
+
+    /// The flat email in Gmail: the greeting/sign-off break was only decided at
+    /// release, and in a keystroke app that rewrite (-227 +235 = 246 events)
+    /// exceeded `correctionEventBudget` and was refused, so the email stayed one
+    /// paragraph. These replay a dictation word by word, the way the committer
+    /// delivers it, and pin both halves of the fix: the live steps stay
+    /// append-only, and what is left for the release pass fits the budget.
+    private static func runEmailAndListCases() {
+        report("case: emails and lists reach the screen formatted")
+
+        let emails: [(name: String, raw: String, want: String, fitsBudget: Bool)] = [
+            ("a grade email, greeting and sign-off",
+             "Good morning, Mr. Johnson. I would like to ask you to update my grade in the grade book from a 97 to a 98 so my average will go to a 99. I would really appreciate it if you did that since this semester is about to end. Sincerely, Samira.",
+             "Good morning, Mr. Johnson.\n\nI would like to ask you to update my grade in the grade book from a 97 to a 98 so my average will go to a 99. I would really appreciate it if you did that since this semester is about to end.\n\nSincerely, Samira.", true),
+            ("an email whose body is a numbered list",
+             "Good morning, Emily. The three things that I really like about TalkFlow is number one. It's free. Number two, it's available anywhere. And number three, it's completely open source under the MIT license. So you can use it whenever you want. Best, Samir.",
+             "Good morning, Emily.\n\nThe three things that I really like about TalkFlow is:\n1. It's free.\n2. It's available anywhere.\n3. It's completely open source under the MIT license. So you can use it whenever you want.\n\nBest, Samir.", false) // list rewrite is ~195 events: delivered via Accessibility, refused over keystrokes until the budget is measured
+        ]
+        for email in emails {
+            let words = email.raw.split(separator: " ").map(String.init)
+            var screen = ""
+            var liveAppendOnly = true
+            for count in 1...words.count {
+                let next = Dictation.render(words.prefix(count).joined(separator: " "), leadingSpace: "", structure: false)
+                if FieldSync.edit(from: screen, to: next).deleting > 0 { liveAppendOnly = false }
+                screen = next
+            }
+            check(liveAppendOnly, "\(email.name): every live step is an append")
+
+            let final = Dictation.render(email.raw, leadingSpace: "", structure: true)
+            check(final == email.want, "\(email.name): final text", final.debugDescription)
+
+            let edit = FieldSync.edit(from: screen, to: final)
+            check(Dictation.correctionIsAffordable(deleting: edit.deleting, inserting: edit.inserting, via: .accessibility),
+                  "\(email.name): the release rewrite is deliverable via Accessibility")
+            if email.fitsBudget {
+                check(Dictation.correctionIsAffordable(deleting: edit.deleting, inserting: edit.inserting, via: .keystrokes("test")),
+                      "\(email.name): the release rewrite fits the keystroke budget",
+                  "-\(edit.deleting) +\(edit.inserting.count) = \(Dictation.eventCost(deleting: edit.deleting, inserting: edit.inserting)) events")
+            }
+        }
+
+        let renders: [(String, String, String)] = [
+            ("ordinal cues become a numbered list",
+             "My grocery list is first, milk. Second, eggs. Third, bread.",
+             "My grocery list is:\n1. Milk.\n2. Eggs.\n3. Bread."),
+            ("a single 'number one' is just a phrase",
+             "TalkFlow is number one in my book.",
+             "TalkFlow is number one in my book."),
+            ("a chat greeting with no name is not split",
+             "Hey, what's up with the build today.",
+             "Hey, what's up with the build today."),
+            ("a spoken new paragraph survives the sign-off pass",
+             "Hi Sarah new paragraph can you review the deck and tell me what you think. Thanks, Samir.",
+             "Hi Sarah\n\nCan you review the deck and tell me what you think.\n\nThanks, Samir.")
+        ]
+        for (name, raw, want) in renders {
+            let got = Dictation.render(raw, leadingSpace: "", structure: true)
+            check(got == want, name, got.debugDescription)
+        }
+
+        check(LiveType.isBrowser(bundleID: "com.google.Chrome"), "Chrome gets Shift+Return for line breaks")
+        check(!LiveType.isBrowser(bundleID: "com.tinyspeck.slackmacgap"), "Slack keeps unicode newlines")
     }
 
     /// The release pass deletes text the user can already see, then retypes it,

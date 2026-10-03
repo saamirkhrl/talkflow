@@ -1,7 +1,7 @@
 import Foundation
 
-/// Voice-command text transforms: spoken punctuation, emoji, paragraph breaks and
-/// list cues. Applied once by `Dictation`, to the complete transcript, before any
+/// Voice-command text transforms: spoken punctuation, emoji and paragraph breaks
+/// (numbered lists live in `ListFormat`). Applied once by `Dictation`, to the complete transcript, before any
 /// of it reaches the screen - so a rule is always deciding against the whole
 /// sentence rather than against a fragment that happened to arrive together.
 enum TextCommands {
@@ -310,13 +310,9 @@ enum TextCommands {
     static let newParagraphPattern = try! NSRegularExpression(
         pattern: "\\s*\\bnew paragraph\\b,?\\s*", options: [.caseInsensitive]
     )
-    static let listCuePattern = try! NSRegularExpression(
-        pattern: "\\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth),",
-        options: [.caseInsensitive]
-    )
 
-    /// The whole transcript is formatted in one pass, so the paragraph and list
-    /// rules only ever need to know whether a break would land at the very start
+    /// The whole transcript is formatted in one pass, so the paragraph rule only
+    /// ever needs to know whether a break would land at the very start
     /// of the text (suppressed) or between words (a real separator). These used to
     /// take a `precededBy` argument for text already on screen ahead of this
     /// string; nothing ever passed one.
@@ -324,7 +320,6 @@ enum TextCommands {
         var result = applySpokenPunctuation(text)
         result = applyEmoji(result)
         result = applyParagraphBreaks(result)
-        result = applyListCues(result)
         return result
     }
 
@@ -444,25 +439,6 @@ enum TextCommands {
                 result += "\n\n"
             }
             lastEnd = match.range.location + match.range.length
-        }
-        result += ns.substring(with: NSRange(location: lastEnd, length: ns.length - lastEnd))
-        return result
-    }
-
-    static func applyListCues(_ text: String) -> String {
-        let ns = text as NSString
-        let matches = listCuePattern.matches(in: text, range: NSRange(location: 0, length: ns.length))
-        guard !matches.isEmpty else { return text }
-
-        var result = ""
-        var lastEnd = 0
-        for match in matches {
-            let start = match.range.location
-            result += ns.substring(with: NSRange(location: lastEnd, length: start - lastEnd))
-            if !result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                result += "\n"
-            }
-            lastEnd = start
         }
         result += ns.substring(with: NSRange(location: lastEnd, length: ns.length - lastEnd))
         return result

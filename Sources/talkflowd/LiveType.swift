@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Darwin
 import Foundation
@@ -168,7 +169,41 @@ enum LiveType {
         return chunks
     }
 
+    /// Bundle ids of apps whose text areas are web content. Chrome, Safari and
+    /// the rest ignore a newline that arrives as a unicode key event - Gmail
+    /// showed "...whenever you want.Best, Samir." with both breaks silently
+    /// gone - so they need a real Shift+Return, which every web editor and web
+    /// chat treats as a line break (and which, unlike plain Return, never sends
+    /// a message).
+    private static let browserBundlePrefixes = [
+        "com.google.Chrome", "com.apple.Safari", "org.mozilla.firefox",
+        "company.thebrowser.Browser", "com.microsoft.edgemac", "com.brave.Browser",
+        "com.operasoftware.Opera", "com.vivaldi.Vivaldi", "org.chromium.Chromium",
+    ]
+
+    static func isBrowser(bundleID: String?) -> Bool {
+        guard let bundleID else { return false }
+        return browserBundlePrefixes.contains { bundleID.hasPrefix($0) }
+    }
+
+    private static let returnKeycode: CGKeyCode = 36
+
+    private static func postShiftReturn() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let down = CGEvent(keyboardEventSource: source, virtualKey: returnKeycode, keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: returnKeycode, keyDown: false)
+        down?.flags = .maskShift
+        up?.flags = .maskShift
+        down?.post(tap: .cgSessionEventTap)
+        up?.post(tap: .cgSessionEventTap)
+    }
+
     private static func postUnicode(_ text: String) {
+        if text.count == 1, text.first?.isNewline == true,
+           isBrowser(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) {
+            postShiftReturn()
+            return
+        }
         let source = CGEventSource(stateID: .combinedSessionState)
         let utf16 = Array(text.utf16)
         let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
