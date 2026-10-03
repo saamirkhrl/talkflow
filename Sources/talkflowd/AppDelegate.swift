@@ -29,10 +29,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hotkey.start()
         }
 
+        FinalPassEngine.start()
         print("talkflowd: ready. Hold Fn to dictate.")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         dictation?.abandon()
+        FinalPassEngine.stop()
     }
 }

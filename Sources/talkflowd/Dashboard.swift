@@ -55,6 +55,7 @@ final class DashboardModel: ObservableObject {
     @Published var snapshot = StatsStore.shared.snapshot()
     @Published var days = StatsStore.shared.recentDays(DashboardModel.chartDays)
     @Published var page: DashboardPage = .dashboard
+    let settings = SettingsModel()
 
     static let chartWeeks = 26
 
@@ -68,6 +69,7 @@ final class DashboardModel: ObservableObject {
     }
 
     func refresh() {
+        settings.refresh()
         snapshot = StatsStore.shared.snapshot()
         days = StatsStore.shared.recentDays(DashboardModel.chartDays)
     }
@@ -106,7 +108,8 @@ private struct DashboardView: View {
                 grid
                 chart
             case .settings:
-                Spacer()
+                SettingsView(model: model.settings)
+                Spacer(minLength: 0)
             }
         }
         .padding(.horizontal, 28)
@@ -234,5 +237,98 @@ private struct DashboardView: View {
         guard words > 0 else { return 0.07 }
         let level = min(4, Int((Double(words) / Double(peak) * 4).rounded(.up)))
         return 0.15 + 0.85 * Double(level) / 4
+    }
+}
+
+/// The Settings page's state. An ObservableObject rather than `@State`,
+/// which is a macro in this SDK and needs Xcode's macro plugins to build.
+final class SettingsModel: ObservableObject {
+    @Published var typeWhileSpeaking = Preferences.typeWhileSpeaking {
+        didSet { Preferences.typeWhileSpeaking = typeWhileSpeaking }
+    }
+    @Published var accurateFinalPass = Preferences.accurateFinalPass {
+        didSet {
+            Preferences.accurateFinalPass = accurateFinalPass
+            if accurateFinalPass { FinalPassEngine.start() } else { FinalPassEngine.stop() }
+        }
+    }
+    @Published var aiPolish = Preferences.aiPolish {
+        didSet { Preferences.aiPolish = aiPolish }
+    }
+    @Published var learned = Preferences.learnedWords
+    let polishAvailable = Polish.isAvailable
+
+    func refresh() { learned = Preferences.learnedWords }
+
+    func forget(_ word: String) {
+        Vocabulary.forget(word)
+        refresh()
+    }
+}
+
+/// The Settings page: how dictation is written, and the words it has learned.
+/// Every setting takes effect from the next hold.
+private struct SettingsView: View {
+    @ObservedObject var model: SettingsModel
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                toggle("Type while speaking",
+                       detail: "Off: your words show above the pill and go in once, corrected, when you let go of Fn. On: they are typed into the field as you speak.",
+                       isOn: $model.typeWhileSpeaking)
+                toggle("Accurate final pass",
+                       detail: FinalPassEngine.modelIsComplete
+                           ? "Transcribes the final text with the large model. More accurate, about 0.7s slower."
+                           : "Transcribes the final text with the large model (downloads 574 MB once). More accurate, about 0.7s slower.",
+                       isOn: $model.accurateFinalPass)
+                toggle("AI punctuation",
+                       detail: model.polishAvailable
+                           ? "Apple's on-device model fixes punctuation and line breaks. It never changes your words. Adds 0.5 to 2s."
+                           : "Needs Apple Intelligence, which is not available on this Mac.",
+                       isOn: $model.aiPolish)
+                    .disabled(!model.polishAvailable)
+                learnedWords
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func toggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+                Text(detail).font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+    }
+
+    private var learnedWords: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Learned words").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+            Text(model.learned.isEmpty
+                 ? "When you fix a misheard word right after dictating, talkflow learns the spelling. Nothing learned yet."
+                 : "Spellings learned from your fixes. Click one to remove it.")
+                .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
+                ForEach(model.learned, id: \.self) { word in
+                    Button {
+                        model.forget(word)
+                    } label: {
+                        Text(word + "  x")
+                            .font(.system(size: 12))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .foregroundColor(.ink)
+                            .overlay(Capsule().stroke(Color.line, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
     }
 }
