@@ -353,6 +353,10 @@ final class Dictation {
         // which path had been taken or whether one had been taken at all, and
         // the whole question is which apps accept which kind of write.
         let app = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+        if case let .refused(reason) = outcome {
+            print("talkflowd: refused to rewrite \(app) [-\(edit.deleting) +\(edit.inserting.count)], \(reason); the field keeps what it has")
+            return
+        }
         print("talkflowd: wrote via \(outcome.rawValue) into \(app) [-\(edit.deleting) +\(edit.inserting.count)]")
     }
 

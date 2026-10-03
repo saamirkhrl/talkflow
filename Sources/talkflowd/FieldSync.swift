@@ -51,14 +51,30 @@ final class FieldSync {
         /// app take" was unanswerable from the log while the app appeared
         /// completely dead in Slack, Discord and Terminal.
         case keystrokes(String)
+        /// Nothing was written: the edit needed to delete, and the field said
+        /// the text it would delete is not ours. See `keystrokesMayDelete`.
+        case refused(String)
 
         var rawValue: String {
             switch self {
             case .unchanged: return "unchanged"
             case .accessibility: return "accessibility"
             case let .keystrokes(reason): return "keystrokes (\(reason))"
+            case let .refused(reason): return "nothing, refused (\(reason))"
             }
         }
+    }
+
+    /// Whether a keystroke rewrite may send its backspaces after the AX attempt
+    /// came back as `attempt`. Backspaces delete whatever is in front of the
+    /// caret, ours or not, so when the field has just reported that it is not
+    /// ours they would eat the user's text - "Three things" became "Three t" in
+    /// Gmail exactly this way. Every other refusal is about AX itself (Chrome
+    /// accepts and ignores AX writes, Terminal refuses them), says nothing
+    /// about the text, and keeps the keystroke path. Pure, for `--streamtest`.
+    static func keystrokesMayDelete(after attempt: FieldWriter.Attempt) -> Bool {
+        if case .notOurs = attempt { return false }
+        return true
     }
 
     /// The edit `sync` would make: how many characters come off the end of what
@@ -140,6 +156,10 @@ final class FieldSync {
                 return .accessibility
             }
             reason = attempt.reason
+            if deleteCount > 0, !Self.keystrokesMayDelete(after: attempt) {
+                lastOutcome = .refused(reason)
+                return .refused(reason)
+            }
         }
 
         // One ordered unit on LiveType's serial queue, so a later update can

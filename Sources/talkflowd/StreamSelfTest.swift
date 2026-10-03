@@ -142,6 +142,33 @@ enum StreamSelfTest {
               "readback does not match what was written -> refused")
         check(FieldWriter.landed(caretAfter: 5, expectedCaret: 5, readback: nil, replacement: ""),
               "a pure deletion leaves the caret where the text was removed -> believed")
+
+        // "Three t:" in Gmail. The readback said the text before the caret was
+        // not what we had typed (an earlier live append had lost characters),
+        // the keystroke fallback sent its 109 backspaces anyway, and they reached
+        // five characters too far, into "things". A mismatch the field itself
+        // reports is evidence, and it must stop a deleting keystroke rewrite.
+        report("case: a keystroke rewrite never deletes text the field says is not ours")
+        check(FieldWriter.compare(exactRange: "Three things first, talk", window: "x Three things first, talk", expected: "Three things first, talk") == .exact,
+              "identical text -> exact")
+        check(FieldWriter.compare(exactRange: "post\u{a0}your stuff", window: "post\u{a0}your stuff", expected: "post your stuff") == .equivalent,
+              "Gmail's non-breaking space for a typed space -> equivalent, keystrokes may proceed")
+        check(FieldWriter.compare(exactRange: "a,\nCan you", window: "Dear Sarah,\nCan you", expected: "Sarah,\n\nCan you") == .equivalent,
+              "a blank line the field reports as one newline -> equivalent")
+        check(FieldWriter.compare(exactRange: "ree things t, talk to 50", window: "Three things t, talk to 50", expected: "Three things first, talk to 50") == .different,
+              "characters lost from what we typed -> different")
+        check(FieldWriter.compare(exactRange: nil, window: nil, expected: "anything") == .unreadable,
+              "a field that will not answer -> unreadable, which is not evidence")
+
+        check(!FieldSync.keystrokesMayDelete(after: .notOurs("x")), "a field that says the text is not ours -> no backspaces")
+        check(FieldSync.keystrokesMayDelete(after: .no("AX reported success but the field did not change")),
+              "AX writes that do not land (Chrome) -> keystrokes as before")
+        check(FieldSync.keystrokesMayDelete(after: .no("element does not accept AX text edits")),
+              "an element that refuses AX edits (Terminal) -> keystrokes as before")
+
+        let shape = FieldWriter.describeMismatch(expected: "Three things first, talk", onScreen: "Three t first, talk")
+        check(!shape.contains("talk") && !shape.contains("Three"), "the mismatch log carries no words", shape)
+        check(shape.contains("13 characters before the caret"), "the mismatch log says where the texts diverge", shape)
     }
 
     /// Long audio comes back from whisper-server as several segments, one per

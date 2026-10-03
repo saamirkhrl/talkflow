@@ -29,13 +29,33 @@ enum FieldWriter {
         guard let caret = caretLocation(in: field) else { return .no("no caret") }
 
         let expectedUnits = expected.utf16.count
-        guard caret >= expectedUnits else { return .no("caret is before the text we typed") }
         let start = caret - expectedUnits
 
         // Only proceed if the text there is exactly what we think we typed.
+        //
+        // When it is NOT, that is evidence, and the caller must not answer it by
+        // backspacing over the same text with keystrokes. That is what happened
+        // in Gmail: an earlier live append had lost characters, the readback
+        // here said so, and the keystroke fallback deleted 109 characters
+        // anyway - five past the start of what was ours, leaving "Three t:".
+        // A field that merely stores the same text differently (a non-breaking
+        // space, a blank line kept as one newline) is not evidence of anything,
+        // and keystrokes stay allowed; only the AX write, which addresses exact
+        // offsets, needs an exact match.
         if expectedUnits > 0 {
-            guard let onScreen = string(in: field, location: start, length: expectedUnits),
-                  onScreen == expected else { return .no("text before the caret is not ours") }
+            let exact = start >= 0 ? string(in: field, location: start, length: expectedUnits) : nil
+            let windowStart = max(0, start - 32)
+            let window = string(in: field, location: windowStart, length: caret - windowStart)
+            switch compare(exactRange: exact, window: window, expected: expected) {
+            case .exact:
+                break
+            case .equivalent:
+                return .no("text before the caret is ours, stored with different whitespace")
+            case .unreadable:
+                return .no(start >= 0 ? "text before the caret is unreadable" : "caret is before the text we typed")
+            case .different:
+                return .notOurs("text before the caret is not ours: " + describeMismatch(expected: expected, onScreen: window ?? ""))
+            }
         }
 
         // Ask the element whether it can be edited this way at all before
@@ -90,13 +110,69 @@ enum FieldWriter {
     /// instead of leaving it to be guessed.
     enum Attempt: Equatable {
         case yes
+        /// AX could not or would not do it; keystrokes may.
         case no(String)
+        /// The field itself reports that the text before the caret is not what
+        /// this app typed. Nothing may be deleted on the strength of that.
+        case notOurs(String)
 
         var succeeded: Bool { self == .yes }
         var reason: String {
-            if case let .no(reason) = self { return reason }
-            return ""
+            switch self {
+            case .yes: return ""
+            case let .no(reason), let .notOurs(reason): return reason
+            }
         }
+    }
+
+    enum Match: Equatable { case exact, equivalent, different, unreadable }
+
+    /// Is what the field holds before the caret the text we typed? Pure, for
+    /// `--streamtest`. `exactRange` is the field's text at exactly our offsets;
+    /// `window` is a little more than that, ending at the caret, because a
+    /// field that stores a blank line as one newline shifts the offsets.
+    static func compare(exactRange: String?, window: String?, expected: String) -> Match {
+        if exactRange == expected { return .exact }
+        guard let window else { return exactRange == nil ? .unreadable : .different }
+        return normalized(window).hasSuffix(normalized(expected)) ? .equivalent : .different
+    }
+
+    /// Whitespace as a rich-text field may store it: non-breaking and thin
+    /// spaces for spaces, other line separators for "\n", invisible joiners
+    /// dropped, and a run of newlines counted once.
+    private static func normalized(_ text: String) -> String {
+        var out = String.UnicodeScalarView()
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x00A0, 0x2007, 0x2009, 0x202F: out.append(" ")
+            case 0x000D, 0x0085, 0x2028, 0x2029, 0x000A:
+                if out.last != "\n" { out.append("\n") }
+            case 0x200B, 0xFEFF, 0xFFFC: continue
+            default: out.append(scalar)
+            }
+        }
+        return String(out)
+    }
+
+    /// Where the field and our record diverge, counted back from the caret,
+    /// with the characters described by class only. The log must not carry
+    /// what the user dictated (see `Dictation.logTranscripts`).
+    static func describeMismatch(expected: String, onScreen: String) -> String {
+        let want = Array(normalized(expected)), have = Array(normalized(onScreen))
+        var back = 0
+        while back < want.count, back < have.count, want[want.count - 1 - back] == have[have.count - 1 - back] { back += 1 }
+        func kind(_ index: Int, in chars: [Character]) -> String {
+            guard index >= 0 else { return "nothing" }
+            let c = chars[index]
+            if c == " " { return "space" }
+            if c == "\n" { return "newline" }
+            if c.isLetter { return "letter" }
+            if c.isNumber { return "digit" }
+            if c.isPunctuation { return "punctuation" }
+            return c.unicodeScalars.map { String(format: "U+%04X", $0.value) }.joined()
+        }
+        return "diverges \(back + 1) characters before the caret (expected \(kind(want.count - 1 - back, in: want)), "
+            + "found \(kind(have.count - 1 - back, in: have))); we typed \(expected.count) there"
     }
 
     /// What the focused element will and will not accept, read-only, for
