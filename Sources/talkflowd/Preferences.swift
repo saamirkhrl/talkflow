@@ -36,4 +36,40 @@ enum Preferences {
         get { defaults.stringArray(forKey: "learnedWords") ?? [] }
         set { defaults.set(newValue, forKey: "learnedWords") }
     }
+
+    /// How dictated text is written: capitals and full stops, casual, or all
+    /// lowercase. Settings and the menu bar menu both change it.
+    static var writingStyle: WritingStyle {
+        get { WritingStyle(rawValue: defaults.string(forKey: "writingStyle") ?? "") ?? .formal }
+        set {
+            defaults.set(newValue.rawValue, forKey: "writingStyle")
+            NotificationCenter.default.post(name: .writingStyleChanged, object: nil)
+        }
+    }
+
+    /// Transcribe the final text with OpenAI, using the user's own key. The
+    /// live caption stays on the local model either way.
+    static var useOpenAITranscription: Bool {
+        get { defaults.bool(forKey: "useOpenAITranscription") }
+        set { defaults.set(newValue, forKey: "useOpenAITranscription") }
+    }
+
+    /// Run the punctuation pass with Claude, using the user's own key, in
+    /// place of Apple's on-device model.
+    static var useClaudePunctuation: Bool {
+        get { defaults.bool(forKey: "useClaudePunctuation") }
+        set { defaults.set(newValue, forKey: "useClaudePunctuation") }
+    }
+
+    /// Which Claude model the punctuation pass uses.
+    static var claudeModel: ClaudePolish.Model {
+        get { ClaudePolish.Model(rawValue: defaults.string(forKey: "claudeModel") ?? "") ?? .opus }
+        set { defaults.set(newValue.rawValue, forKey: "claudeModel") }
+    }
+}
+
+extension Notification.Name {
+    /// Posted when the writing style changes, so the menu and the Settings
+    /// page stay in step whichever one changed it.
+    static let writingStyleChanged = Notification.Name("talkflowWritingStyleChanged")
 }

@@ -116,6 +116,8 @@ enum StreamSelfTest {
         runEmailAndListCases()
         runSelfCorrectionCases()
         runInsertOnceCases()
+        runWritingStyleCases()
+        runUpdaterCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -808,6 +810,44 @@ enum StreamSelfTest {
         check(Dictation.correctionIsAffordable(deleting: 422, inserting: String(repeating: "x", count: 471),
                                                via: .accessibility),
               "-422 +471 via accessibility is allowed, because it is verified")
+    }
+
+    /// Settings: Formal / Casual / all lowercase. Only case and the closing
+    /// full stop may change - never a word.
+    private static func runWritingStyleCases() {
+        let text = "Hi Sarah. I'm sure I'll send it, and I think it's fine."
+        check(WritingStyle.formal.apply(text) == text, "formal leaves the text alone")
+        check(WritingStyle.lowercase.apply(text) == "hi sarah. i'm sure i'll send it, and i think it's fine.",
+              "lowercase lowercases every letter", WritingStyle.lowercase.apply(text).debugDescription)
+        check(WritingStyle.casual.apply(text) == "hi sarah. I'm sure I'll send it, and I think it's fine",
+              "casual lowercases, keeps I, drops the closing full stop", WritingStyle.casual.apply(text).debugDescription)
+        check(WritingStyle.casual.apply("Wait for it...") == "wait for it...", "casual keeps an ellipsis")
+        check(WritingStyle.casual.apply("Is it in the inbox? Yes. ") == "is it in the inbox? yes ",
+              "casual keeps trailing whitespace", WritingStyle.casual.apply("Is it in the inbox? Yes. ").debugDescription)
+        check(WritingStyle.casual.apply("ice is nice") == "ice is nice", "casual does not touch i inside words")
+        let rendered = Dictation.render("can you check the deck period thanks", leadingSpace: " ", structure: true, style: .lowercase)
+        check(rendered == " can you check the deck. thanks", "render applies the style after casing", rendered.debugDescription)
+        for style in WritingStyle.allCases {
+            let raw = "Dear Sarah, can you send the file. Thanks, Samir."
+            let styled = style.apply(raw)
+            check(SelfCorrection.tokenize(styled).map(\.norm) == SelfCorrection.tokenize(raw).map(\.norm),
+                  "\(style.rawValue) keeps every word")
+        }
+    }
+
+    /// GitHub release parsing and version order, for the update check.
+    private static func runUpdaterCases() {
+        check(Updater.isNewer("0.2.0", than: "0.1.0"), "0.2.0 is newer than 0.1.0")
+        check(Updater.isNewer("0.10.0", than: "0.9.2"), "versions compare numerically, not as text")
+        check(!Updater.isNewer("0.1", than: "0.1.0"), "a missing part counts as zero")
+        check(!Updater.isNewer("0.1.0", than: "0.2.0"), "an older release is not offered")
+        let json = #"{"tag_name":"v0.2.0","draft":false,"prerelease":false,"html_url":"https://github.com/x/y/releases/v0.2.0","assets":[{"name":"notes.txt","browser_download_url":"https://e/notes.txt"},{"name":"talkflow-0.2.0.zip","browser_download_url":"https://e/talkflow-0.2.0.zip"}]}"#
+        let release = Updater.parse(Data(json.utf8))
+        check(release?.version == "0.2.0", "the v prefix is dropped from the tag", String(describing: release))
+        check(release?.zipURL.absoluteString == "https://e/talkflow-0.2.0.zip", "the zip asset is chosen")
+        check(Updater.parse(Data(#"{"tag_name":"v1.0.0","assets":[]}"#.utf8)) == nil, "a release with no zip is ignored")
+        check(Updater.parse(Data(#"{"tag_name":"v1.0.0","prerelease":true,"assets":[{"name":"a.zip","browser_download_url":"https://e/a.zip"}]}"#.utf8)) == nil,
+              "a prerelease is not offered")
     }
 
     private static func runCase(_ testCase: Case) {
