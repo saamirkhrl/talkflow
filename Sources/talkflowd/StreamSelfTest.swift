@@ -260,6 +260,20 @@ enum StreamSelfTest {
             ("a chat greeting with no name is not split",
              "Hey, what's up with the build today.",
              "Hey, what's up with the build today."),
+            // The Gmail dictation: whisper put no comma or period before
+            // "best", so the sign-off was never found.
+            ("a sign-off with no punctuation before it, in an email",
+             "Good morning Emily. Thank you so much again for using talkflow best Samira",
+             "Good morning Emily.\n\nThank you so much again for using talkflow\n\nBest Samira"),
+            ("'the best option' is prose, not a sign-off",
+             "Good morning Emily. I looked at all three vendors and this is the best option we have right now.",
+             "Good morning Emily.\n\nI looked at all three vendors and this is the best option we have right now."),
+            ("a chat message ending 'thanks Sam' is not an email",
+             "Can you send me the file before the meeting today please thanks Sam",
+             "Can you send me the file before the meeting today please thanks Sam"),
+            ("without a greeting a bare closer stays in the sentence",
+             "I asked everyone on the team who did the launch video best Sam",
+             "I asked everyone on the team who did the launch video best Sam"),
             ("a spoken new paragraph survives the sign-off pass",
              "Hi Sarah new paragraph can you review the deck and tell me what you think. Thanks, Samir.",
              "Hi Sarah\n\nCan you review the deck and tell me what you think.\n\nThanks, Samir.")
