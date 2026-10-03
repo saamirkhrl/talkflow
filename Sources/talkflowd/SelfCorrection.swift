@@ -79,6 +79,9 @@ enum SelfCorrection {
         /// "sorry" and "actually" also open a new thought ("Paris, sorry, Tom
         /// will go instead"), so their replacement must end its clause.
         let needsClauseEnd: Bool
+        /// Whether an ordinary word may be swapped for another after it. "I
+        /// like both, I mean really both" shows why "I mean" may not.
+        var trustsPlainWords: Bool { strong || words == ["or", "rather"] || words == ["correction"] }
     }
 
     /// Fixed phrases. Longest first, so "or rather" wins over "rather".
@@ -129,7 +132,9 @@ enum SelfCorrection {
             guard span.map(\.norm) == marker.words else { continue }
             guard !span.dropFirst().contains(where: { $0.leading.contains("\n") }),
                   !tokens[end].leading.contains("\n") else { continue }
-            if !marker.strong, tokens[index - 1].trailingPunctuation == nil { continue }
+            // "at 3pm actually, let's make that Tuesday": a lead-in that
+            // restates the sentence sets the marker off just as well.
+            if !marker.strong, tokens[index - 1].trailingPunctuation == nil, leadIn(at: end, in: tokens) == 0 { continue }
             found.append((marker, end))
         }
         return found
@@ -137,9 +142,16 @@ enum SelfCorrection {
 
     // MARK: - Rules
 
-    /// "to Friday, wait no, Thursday": a typed word before the marker (plus
-    /// up to two words after it) is replaced by a word of the same kind after
-    /// the marker, followed by the same words again ("2 pm, no wait, 3 pm").
+    /// "to Friday, wait no, Thursday", "tomorrow at 3pm. Actually, let's make
+    /// that Tuesday at 2pm.": the phrase that ends at the marker is replaced
+    /// by the phrase of the same shape after it. The two are aligned unit by
+    /// unit, and every pair must either be the same word said again ("at",
+    /// "the", "pm") or two values of the same kind (a day for a day, a number
+    /// for a number, a name for a name). So "tomorrow at 3pm" -> "Tuesday at
+    /// 2pm", "Monday the 5th" -> "Tuesday the 6th", "at 3 in the park" -> "at 4
+    /// in the park" and "tell John" -> "tell Mike" are one rule. The shortest
+    /// phrase that aligns wins, so as little as possible is deleted.
+    ///
     /// A time said as several numbers is one unit on either side: "3 p.m.
     /// Wait actually no 7 30 p.m." replaces "3" with "7 30", and "2 30, no
     /// wait, 3" replaces all of "2 30" rather than leaving "2 3".
@@ -147,53 +159,17 @@ enum SelfCorrection {
         for m in tokens.indices {
             for (marker, markerEnd) in markers(at: m, in: tokens) {
                 let staticLead = leadIn(at: markerEnd, in: tokens)
-                for restCount in 0...2 {
-                    let head = m - restCount - 1
-                    guard head >= 0 else { continue }
-                    let kind = self.kind(of: tokens, at: head)
-                    let plainWord = kind == .other && restCount == 0 && marker.strong
-                        && isPlainSwap(tokens, head: head, marker: m)
-                    guard kind != .other || plainWord else { continue }
-
-                    var start = head
-                    if kind == .number {
-                        while start > 0, head - start < 2, self.kind(of: tokens, at: start - 1) == .number,
-                              tokens[start - 1].trailingPunctuation == nil { start -= 1 }
-                    }
-                    // What may sit between the marker and the replacement: a
-                    // restating lead-in ("let's make that"), or the words that
-                    // came right before the replaced span said again ("tell
-                    // John, actually tell Mike", "March 5th, no wait, March 6th").
-                    var leads = [staticLead]
-                    for k in [3, 2, 1] where start - k >= 0 && markerEnd + k < tokens.count {
-                        let before = tokens[(start - k)..<start], again = tokens[markerEnd..<(markerEnd + k)]
-                        if before.map(\.norm) == again.map(\.norm),
-                           !before.contains(where: { $0.trailingPunctuation != nil }),
-                           !again.contains(where: { $0.trailingPunctuation != nil }) { leads.append(k) }
-                    }
-                    if kind == .other { leads = [] } // plain words get no lead-in
-                    for lead in leads + (leads.contains(0) ? [] : [0]) {
-                        let after = markerEnd + lead
-                        guard after < tokens.count,
-                              kind == self.kind(of: tokens, at: after) else { continue }
-                        var repairHead = 1
-                        if kind == .number {
-                            while repairHead < 3, after + repairHead < tokens.count,
-                                  tokens[after + repairHead - 1].trailingPunctuation == nil,
-                                  self.kind(of: tokens, at: after + repairHead) == .number { repairHead += 1 }
-                        }
-                        let reparandum = start..<m
-                        let restEnd = after + repairHead + restCount
-                        guard restEnd <= tokens.count else { continue }
-                        // The replaced span cannot reach back across a sentence.
-                        guard !tokens[reparandum.dropLast()].contains(where: \.endsSentence),
-                              !tokens[reparandum.dropFirst()].contains(where: { $0.leading.contains("\n") }) else { continue }
-                        guard tokens[(head + 1)..<m].map(\.norm) == tokens[(after + repairHead)..<restEnd].map(\.norm) else { continue }
-                        if kind == .name || kind == .other || marker.needsClauseEnd {
-                            guard restEnd == tokens.count || tokens[restEnd - 1].trailingPunctuation != nil else { continue }
-                        }
-                        if kind == .other, stutterWords.contains(tokens[after].norm) { continue }
-                        return delete(tokens, start..<after)
+                // A weak marker that only the lead-in set off needs that lead-in.
+                let setOff = marker.strong || tokens[m - 1].trailingPunctuation != nil
+                for lead in staticLead > 0 ? (setOff ? [staticLead, 0] : [staticLead]) : [0] {
+                    let after = markerEnd + lead
+                    guard after < tokens.count else { continue }
+                    let old = unitsBackward(from: m, in: tokens)
+                    let new = unitsForward(from: after, in: tokens)
+                    for n in 1...maxUnits where n <= old.count && n <= new.count {
+                        let olds = Array(old.prefix(n).reversed()), news = Array(new.prefix(n))
+                        guard aligns(olds, news, tokens: tokens, marker: marker, lead: lead) else { continue }
+                        return delete(tokens, olds[0].range.lowerBound..<after)
                     }
                 }
             }
@@ -201,20 +177,106 @@ enum SelfCorrection {
         return nil
     }
 
-    /// An ordinary word swapped for another ("I like cats, wait no, dogs.")
-    /// is trusted only when the marker is unmistakable, the old word is set
-    /// off by punctuation, and neither word is a function word - "There is no
-    /// wait, fine" must not lose "is".
-    private static func isPlainSwap(_ tokens: [Token], head: Int, marker m: Int) -> Bool {
-        let word = tokens[head]
-        return word.trailingPunctuation != nil && !stutterWords.contains(word.norm)
+    /// Longest old or new phrase, in units: "at 3 in the park" is five.
+    private static let maxUnits = 6
+
+    /// A value (a run of numbers counts as one) or a single other word.
+    private struct Unit {
+        let range: Range<Int>
+        let kind: Kind
+        let norm: String
+    }
+
+    /// Units ending right before `end`, nearest first, that stay inside one
+    /// sentence and one line and have no punctuation inside them: only the
+    /// unit right before the marker may carry a comma or a full stop.
+    private static func unitsBackward(from end: Int, in tokens: [Token]) -> [Unit] {
+        var units: [Unit] = []
+        var i = end - 1
+        while i >= 0, units.count < maxUnits {
+            if !units.isEmpty {
+                guard tokens[i].trailingPunctuation == nil || isAbbreviation(tokens[i]),
+                      !tokens[i + 1].leading.contains("\n") else { break }
+            }
+            var start = i
+            if kind(of: tokens, at: i) == .number {
+                while start > 0, i - start < 2, kind(of: tokens, at: start - 1) == .number,
+                      tokens[start - 1].trailingPunctuation == nil,
+                      !tokens[start].leading.contains("\n") { start -= 1 }
+            }
+            units.append(unit(start..<(i + 1), in: tokens))
+            i = start - 1
+        }
+        return units
+    }
+
+    /// Units starting at `start`, in order, up to the first punctuation: a
+    /// replacement ends where its clause does.
+    private static func unitsForward(from start: Int, in tokens: [Token]) -> [Unit] {
+        var units: [Unit] = []
+        var i = start
+        while i < tokens.count, units.count < maxUnits {
+            if i > start { guard !tokens[i].leading.contains("\n") else { break } }
+            var end = i + 1
+            if kind(of: tokens, at: i) == .number {
+                while end < tokens.count, end - i < 3, tokens[end - 1].trailingPunctuation == nil,
+                      kind(of: tokens, at: end) == .number,
+                      !tokens[end].leading.contains("\n") { end += 1 }
+            }
+            units.append(unit(i..<end, in: tokens))
+            if let p = tokens[end - 1].trailingPunctuation, !isAbbreviation(tokens[end - 1]) || p != "." { break }
+            i = end
+        }
+        return units
+    }
+
+    private static func unit(_ range: Range<Int>, in tokens: [Token]) -> Unit {
+        let kind = range.count > 1 ? .number : self.kind(of: tokens, at: range.lowerBound)
+        return Unit(range: range, kind: kind, norm: tokens[range].map(\.norm).joined(separator: " "))
+    }
+
+    /// "p.m." and "a.m." end in a full stop that ends nothing.
+    private static func isAbbreviation(_ token: Token) -> Bool {
+        ["p.m", "a.m"].contains(token.norm)
+    }
+
+    /// Whether `new` can stand in for `old`, pair by pair. At least one value
+    /// must change; an ordinary word may change only on its own after an
+    /// unmistakable marker ("I like cats, wait no, dogs.", "the red folder,
+    /// wait no, the blue folder."), or next to a changed value ("Sarah from sales, sorry, Tom from
+    /// marketing."). A changed name or plain word, and any marker that also
+    /// opens new thoughts ("sorry", "actually"), needs the replacement to end
+    /// its clause: "Paris, sorry, Tom will go instead" is not a correction.
+    private static func aligns(_ old: [Unit], _ new: [Unit], tokens: [Token], marker: Marker, lead: Int) -> Bool {
+        var changedValues = 0, changedWords: [Int] = [], changedName = false
+        for (index, (o, r)) in zip(old, new).enumerated() where o.norm != r.norm {
+            guard o.kind == r.kind else { return false }
+            if o.kind == .other {
+                guard !stutterWords.contains(o.norm), !stutterWords.contains(r.norm) else { return false }
+                changedWords.append(index)
+            } else {
+                changedValues += 1
+                if o.kind == .name { changedName = true }
+            }
+        }
+        if changedValues == 0 {
+            // "There is no wait, fine" must not lose "is": the old word is set
+            // off by punctuation, and nothing restates the sentence first.
+            guard changedWords.count == 1, lead == 0, marker.trustsPlainWords,
+                  tokens[old[old.count - 1].range.upperBound - 1].trailingPunctuation != nil else { return false }
+        }
+        if marker.needsClauseEnd || changedName || !changedWords.isEmpty {
+            let end = new[new.count - 1].range.upperBound
+            guard end == tokens.count || tokens[end - 1].trailingPunctuation != nil else { return false }
+        }
+        return true
     }
 
     private static let leadIns: [[String]] = [
         ["let's", "make", "that"], ["let's", "make", "it"], ["make", "that"], ["make", "it"],
         ["let's", "say"], ["let's", "do"], ["let's", "go", "with"], ["i", "meant", "to", "say"],
         ["i", "mean", "to", "say"], ["i", "meant"], ["i", "mean"], ["i", "said"], ["it", "should", "be"],
-        ["it", "is"], ["it's"]
+        ["it", "is"], ["it's"], ["how", "about"]
     ]
 
     /// How many words at `index` restate the sentence before the replacement
