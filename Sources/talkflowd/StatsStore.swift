@@ -67,6 +67,17 @@ final class StatsStore {
         let estimatedMinutesSaved: Int
     }
 
+    /// Words per day for the last `count` days, oldest first, ending today.
+    func recentDays(_ count: Int) -> [(date: Date, words: Int)] {
+        queue.sync {
+            let calendar = Calendar.current
+            return (0..<count).reversed().compactMap { offset in
+                guard let day = calendar.date(byAdding: .day, value: -offset, to: Date()) else { return nil }
+                return (day, data.dailyWordCounts[Self.dayKey(day)] ?? 0)
+            }
+        }
+    }
+
     /// Synchronous snapshot for the dashboard - reads happen on the same serial
     /// queue as writes so this always reflects the latest saved state.
     func snapshot() -> Snapshot {
