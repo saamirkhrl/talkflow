@@ -23,9 +23,9 @@ export default function PrivacyPage() {
           never saved to disk.
         </li>
         <li>
-          <strong>The website has no cookies, no analytics and no forms.</strong> Like every
-          website, it can&apos;t be delivered without your browser sending some technical
-          information, such as your IP address, to our hosting provider.
+          <strong>The website has no cookies and no forms, and uses only basic, cookieless
+          analytics.</strong> Like every website, it can&apos;t be delivered without your browser
+          sending some technical information, such as your IP address, to our hosting provider.
         </li>
         <li>
           <strong>We don&apos;t sell or share your personal information</strong>, and we don&apos;t
@@ -102,7 +102,10 @@ export default function PrivacyPage() {
       <ul>
         <li>It doesn&apos;t set cookies.</li>
         <li>
-          It doesn&apos;t use analytics, advertising, tracking pixels or session recording.
+          It doesn&apos;t use advertising, tracking pixels or session recording. It does use Vercel
+          Web Analytics to count page views and visits in aggregate (pages viewed, referrer,
+          country, browser and device type). It doesn&apos;t use cookies for this, doesn&apos;t
+          build a profile of you and doesn&apos;t follow you across other websites.
         </li>
         <li>
           It doesn&apos;t ask you for any personal information. There are no sign-up, contact or
@@ -162,8 +165,9 @@ export default function PrivacyPage() {
 
       <h3 id="website-dnt">&quot;Do Not Track&quot; and Global Privacy Control</h3>
       <p>
-        We don&apos;t track visitors over time or across other websites, and we don&apos;t allow
-        other companies to do so through our site. So there&apos;s nothing for a &quot;Do Not
+        We don&apos;t track visitors across other websites, and we don&apos;t allow other
+        companies to do so through our site. Our aggregate analytics don&apos;t use cookies or
+        build a profile of you. So there&apos;s nothing for a &quot;Do Not
         Track&quot; or Global Privacy Control signal to switch off. The site works the same way
         whether or not your browser sends one.
       </p>

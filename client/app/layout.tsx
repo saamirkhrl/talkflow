@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Newsreader } from "next/font/google";
 import { Footer } from "@/components/landing/Footer";
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           {children}
           <Footer />
         </VisitorProvider>
+        <Analytics />
       </body>
     </html>
   );
