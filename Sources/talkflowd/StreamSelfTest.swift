@@ -283,6 +283,15 @@ enum StreamSelfTest {
             check(got == want, name, got.debugDescription)
         }
 
+        // whisper copies the prompt's style: a terse "Vocabulary: talkflow."
+        // turned a punctuated clip into "hey can you check ... let me know".
+        let prompt = Transcriber.vocabularyPrompt
+        check(prompt.contains("talkflow"), "the whisper prompt names talkflow")
+        check(prompt.first?.isUppercase == true && prompt.hasSuffix("."),
+              "the whisper prompt is a cased, punctuated sentence", prompt.debugDescription)
+        check(Transcriber.multipartBody(wav: Data(), boundary: "b", prompt: prompt).range(of: Data("name=\"prompt\"\r\n\r\n\(prompt)\r\n".utf8)) != nil,
+              "the prompt is sent as its own form field")
+
         check(LiveType.isBrowser(bundleID: "com.google.Chrome"), "Chrome gets Shift+Return for line breaks")
         check(!LiveType.isBrowser(bundleID: "com.tinyspeck.slackmacgap"), "Slack keeps unicode newlines")
     }
