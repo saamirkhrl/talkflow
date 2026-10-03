@@ -30,7 +30,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         FinalPassEngine.start()
+        stopOnSIGTERM()
         print("talkflowd: ready. Hold Fn to dictate.")
+    }
+
+    private var termination: DispatchSourceSignal?
+
+    /// launchd and deploy.sh stop talkflow with SIGTERM, which ends the
+    /// process without `applicationWillTerminate`, so the final-pass server
+    /// it started would be left running. Caught here instead.
+    private func stopOnSIGTERM() {
+        signal(SIGTERM, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        source.setEventHandler { [weak self] in
+            self?.dictation?.abandon()
+            FinalPassEngine.stop()
+            exit(0)
+        }
+        source.resume()
+        termination = source
     }
 
     func applicationWillTerminate(_ notification: Notification) {
