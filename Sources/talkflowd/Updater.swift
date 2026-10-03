@@ -16,7 +16,7 @@ import Foundation
 @MainActor
 final class Updater: ObservableObject {
     static let shared = Updater()
-    static let repository = "saamirkhrl/talkflow"
+    static let repository = "talkflowdev/talkflow"
     nonisolated static let signingIdentity = "talkflow Local Dev"
 
     struct Release: Equatable {

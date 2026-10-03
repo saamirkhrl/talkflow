@@ -100,7 +100,7 @@ Needs macOS 13 or newer, and the Swift toolchain (`xcode-select --install`).
 if it is missing.
 
 ```bash
-git clone https://github.com/saamirkhrl/talkflow.git
+git clone https://github.com/talkflowdev/talkflow.git
 cd talkflow
 ./install.sh
 ```
