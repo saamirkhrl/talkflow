@@ -2,7 +2,16 @@
 // against the app's source; keep it that way when editing.
 
 export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
-export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`;
+// The newest Mac build itself, not the releases page: GitHub serves the asset
+// named here from whichever release is latest, so the link never goes stale.
+// release.sh publishes the zip under exactly this name.
+export const MAC_DOWNLOAD_URL = `${REPO_URL}/releases/latest/download/talkflow-macos.zip`;
+export const RELEASES_URL = `${REPO_URL}/releases`;
+// Under "macOS" in the list of builds. The release is a universal binary.
+export const MAC_BUILD_DETAIL = "Apple Silicon and Intel, macOS 13+";
+// Served from this site (client/public/install.sh): downloads the latest
+// release, installs it to /Applications and opens it.
+export const INSTALL_SCRIPT_PATH = "/install.sh";
 
 // Apple's and Microsoft's trademark guidelines restrict use of their logos
 // without permission. Set to false to show text-only download buttons.
@@ -48,7 +57,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Does anything get sent to the cloud?",
-    "No. Your audio goes to one place: the speech engine running on your own Mac. The text is typed straight into the app you're using. There's no account, no analytics and no update check.",
+    "No. Your audio goes to one place: the speech engine running on your own Mac. The text is typed straight into the app you're using. There's no account and no analytics. The only other request it makes is to GitHub, to see if there's a newer version when you open the dashboard, and an update only installs when you click it.",
   ],
   [
     "Which key do I hold?",

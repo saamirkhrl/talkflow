@@ -6,7 +6,7 @@ import { Wordmark } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { DOWNLOAD_URL, REPO_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE } from "./content";
+import { MAC_DOWNLOAD_URL, REPO_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE } from "./content";
 import { GithubIcon } from "./GithubIcon";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
@@ -53,12 +53,13 @@ export function Nav({ stars }: { stars: number | null }) {
         )}
 
         <a
-          href={mobile ? "/#download" : DOWNLOAD_URL}
-          {...(mobile ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+          // A Mac downloads the build straight away. Phones, and Windows
+          // until there is a Windows build, go to the download section.
+          href={mobile || (os === "windows" && !WINDOWS_AVAILABLE) ? "/#download" : MAC_DOWNLOAD_URL}
           className={cn(buttonClass.secondary, "mr-1 px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           {SHOW_OS_LOGOS && !mobile && (
-            <BrandLogo logo={os === "windows" && WINDOWS_AVAILABLE ? OS_LOGOS.windows : OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
+            <BrandLogo logo={os === "windows" ? OS_LOGOS.windows : OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
           )}
           Download
         </a>

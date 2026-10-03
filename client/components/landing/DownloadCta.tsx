@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, Link2 } from "lucide-react";
-import { useState } from "react";
+import { Check, Copy, Download, ExternalLink, Layers, Link2 } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { DOWNLOAD_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
+import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, MAC_DOWNLOAD_URL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
 
@@ -50,43 +50,144 @@ function PriceCompare() {
   );
 }
 
-// Desktop visitors get a download for their OS plus a link for the other one.
-// Phones can't run talkflow, so they get a way to carry the link to a computer
+// Desktop visitors get the button for their own OS: on a Mac it downloads the
+// latest build straight away; on Windows it says the Windows build is coming.
+// Under it, the one-line Terminal install and a menu of every build. Phones
+// can't run talkflow, so they get a way to carry the link to a computer
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
 // price next to the button.
 export function DownloadCta({ align = "center", compare = false }: { align?: "center" | "start"; compare?: boolean }) {
-  const visitor = useVisitor();
-  // Until there's a Windows build, everyone is offered the Mac download.
-  const os = WINDOWS_AVAILABLE ? visitor.os : "mac";
-  const other = os === "mac" ? "windows" : "mac";
-  const { mobile } = visitor;
+  const { os, mobile } = useVisitor();
 
   if (mobile) return <CopyLink align={align} compare={compare} />;
 
   return (
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
-        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
-          {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
-          Download for {OS[os].label}
-        </a>
+        {os === "mac" || WINDOWS_AVAILABLE ? (
+          <a href={MAC_DOWNLOAD_URL} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
+            Download for {OS[os].label}
+          </a>
+        ) : (
+          <span aria-disabled="true" className={cn(buttonClass.secondary, "h-13 cursor-default px-7 text-[17px] text-graphite hover:bg-transparent")}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
+            Windows version coming soon
+          </span>
+        )}
         {compare && <PriceCompare />}
       </div>
-      {WINDOWS_AVAILABLE ? (
-        <a
-          href={DOWNLOAD_URL}
-          target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[15px] text-graphite underline decoration-line underline-offset-4 hover:text-ink hover:decoration-ink"
+      <InstallCommand />
+    </div>
+  );
+}
+
+// "https://<this site>" while the page is open; empty while rendering on the
+// server, where there is no address yet.
+function useOrigin(): string {
+  return useSyncExternalStore(noopSubscribe, () => location.origin, () => "");
+}
+const noopSubscribe = () => () => {};
+
+// The one-line Terminal install, copyable, and the button that lists every
+// build. The command names this site, so it is right on whatever domain the
+// page is served from.
+function InstallCommand() {
+  const origin = useOrigin();
+  const [copied, setCopied] = useState(false);
+  const command = `curl -fsSL ${origin}${INSTALL_SCRIPT_PATH} | bash`;
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex h-11 min-w-0 items-center gap-3 rounded-full border border-line pl-4 pr-1.5 font-mono text-[13px]">
+        <span aria-hidden="true" className="select-none text-graphite">$</span>
+        <code className="truncate text-ink">{command}</code>
+        <button
+          type="button"
+          aria-label={copied ? "Copied" : "Copy install command"}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(command);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1600);
+            } catch {
+              setCopied(false);
+            }
+          }}
+          className="inline-flex size-8 flex-none items-center justify-center rounded-full text-graphite transition-colors hover:bg-ink/5 hover:text-ink"
         >
-          {SHOW_OS_LOGOS && <BrandLogo logo={OS[other].logo} className="size-3.5" />}
-          Also available for {OS[other].label}
-        </a>
-      ) : (
-        <p className="text-[15px] text-graphite">Windows version coming soon</p>
+          {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+        </button>
+      </div>
+      <OtherBuilds />
+    </div>
+  );
+}
+
+// A small menu of every build, for anyone who wants the other OS or the
+// GitHub release page.
+function OtherBuilds() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: Event) => {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-label="Other builds"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Other builds"
+        onClick={() => setOpen((value) => !value)}
+        className={cn(buttonClass.secondary, "size-11", open && "bg-ink/5")}
+      >
+        <Layers size={17} aria-hidden="true" />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-2 w-80 rounded-2xl border border-line bg-paper p-1.5 text-left shadow-[0_12px_40px_rgb(0_0_0/0.12)]"
+        >
+          <p className="px-3 pb-1 pt-2 text-[12px] tracking-[0.01em] text-graphite">All builds</p>
+          <a role="menuitem" href={MAC_DOWNLOAD_URL} onClick={() => setOpen(false)} className={menuItem}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS.mac.logo} className="size-4 flex-none" />}
+            <span className="flex flex-col">
+              <span className="text-[15px] text-ink">macOS</span>
+              <span className="text-[12px] text-graphite">{MAC_BUILD_DETAIL}</span>
+            </span>
+            <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
+          </a>
+          <div role="menuitem" aria-disabled="true" className={cn(menuItem, "cursor-default hover:bg-transparent")}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none opacity-60" />}
+            <span className="flex flex-col">
+              <span className="text-[15px] text-graphite">Windows</span>
+              <span className="text-[12px] text-graphite">Coming soon</span>
+            </span>
+          </div>
+          <a role="menuitem" href={RELEASES_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={cn(menuItem, "border-t border-line rounded-t-none mt-1 pt-3")}>
+            <span className="text-[14px] text-graphite">All releases on GitHub</span>
+            <ExternalLink size={14} aria-hidden="true" className="ml-auto text-graphite" />
+          </a>
+        </div>
       )}
     </div>
   );
 }
+
+const menuItem = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-ink/5";
 
 function CopyLink({ align, compare }: { align: "center" | "start"; compare: boolean }) {
   const [copied, setCopied] = useState(false);
