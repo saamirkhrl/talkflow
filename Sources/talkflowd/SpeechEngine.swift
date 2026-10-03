@@ -54,7 +54,7 @@ enum SpeechEngine {
 
     /// Any HTTP answer at all means the server is up; whisper-server serves a
     /// small HTML page at `/`.
-    static func isResponding(completion: @escaping (Bool) -> Void) {
+    static func isResponding(port: Int = port, completion: @escaping (Bool) -> Void) {
         var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/")!)
         request.timeoutInterval = 1.5
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
@@ -66,10 +66,10 @@ enum SpeechEngine {
     }
 
     /// Blocking variant for background threads.
-    static func isRespondingBlocking() -> Bool {
+    static func isRespondingBlocking(port: Int = port) -> Bool {
         let semaphore = DispatchSemaphore(value: 0)
         var alive = false
-        isResponding { alive = $0; semaphore.signal() }
+        isResponding(port: port) { alive = $0; semaphore.signal() }
         semaphore.wait()
         return alive
     }
@@ -162,10 +162,10 @@ enum SpeechEngine {
     }
 
     /// Polls until the server answers. Loading the model takes a few seconds.
-    static func waitUntilResponding(timeout: TimeInterval) -> Bool {
+    static func waitUntilResponding(port: Int = port, timeout: TimeInterval) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if isRespondingBlocking() { return true }
+            if isRespondingBlocking(port: port) { return true }
             Thread.sleep(forTimeInterval: 0.5)
         }
         return false
@@ -181,6 +181,96 @@ enum SpeechEngine {
         do { try process.run() } catch { return -1 }
         process.waitUntilExit()
         return process.terminationStatus
+    }
+}
+
+/// The large model, for the final pass only.
+///
+/// small.en stays the live engine: it re-transcribes the whole buffer every
+/// 0.7s, and only something that fast keeps the caption current. The final
+/// pass runs once, after the key is released, and is the only transcript that
+/// reaches the document, so that is where accuracy pays. Measured on this M4
+/// against the warm small.en server: 1.11s vs 0.36s for 5s of speech, 2.62s vs
+/// 1.49s for 46s. Earlier large-v3-turbo was rejected for being 2-4x slower,
+/// but that was as the live engine, where it ran every tick.
+///
+/// Owned by this process rather than a LaunchAgent: it is optional, it is
+/// fetched in the background on first use, and when it is missing or does not
+/// answer the final pass simply goes to small.en. A child process dies with
+/// talkflow (launchd ends the job's process group), so nothing is left behind.
+enum FinalPassEngine {
+    static let port = 8179
+    static let modelFileName = "ggml-large-v3-turbo-q5_0.bin"
+    static let modelDownloadURL = URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin")!
+    /// The real file is 574,041,195 bytes.
+    static let minimumModelBytes: Int64 = 570_000_000
+
+    static var modelPath: URL {
+        SpeechEngine.modelPath.deletingLastPathComponent().appendingPathComponent(modelFileName)
+    }
+    static var inferenceURL: URL { URL(string: "http://127.0.0.1:\(port)/inference")! }
+
+    /// Set once the server has answered. Read on the main thread at release.
+    private(set) static var isReady = false
+    private static var process: Process?
+    private static var downloader: FileDownloader?
+
+    static var modelIsComplete: Bool {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: modelPath.path)
+        return ((attributes?[.size] as? NSNumber)?.int64Value ?? 0) >= minimumModelBytes
+    }
+
+    /// Starts the server, downloading the model first if it is not there yet.
+    /// Does nothing when the setting is off. Safe to call more than once.
+    static func start() {
+        guard Preferences.accurateFinalPass, process == nil, downloader == nil else { return }
+        guard modelIsComplete else {
+            print("talkflowd: downloading the final-pass model in the background")
+            let download = FileDownloader(destination: modelPath, minimumBytes: minimumModelBytes, onProgress: { _ in }) { error in
+                DispatchQueue.main.async {
+                    downloader = nil
+                    if let error { print("talkflowd: final-pass model download failed: \(error.localizedDescription)") } else { start() }
+                }
+            }
+            downloader = download
+            download.start(url: modelDownloadURL)
+            return
+        }
+        DispatchQueue.global(qos: .utility).async { launch() }
+    }
+
+    static func stop() {
+        process?.terminate()
+        process = nil
+        isReady = false
+    }
+
+    private static func launch() {
+        // Left over from a run that did not exit cleanly: use it.
+        if SpeechEngine.isRespondingBlocking(port: port) {
+            DispatchQueue.main.async { isReady = true }
+            return
+        }
+        guard let binary = SpeechEngine.serverBinary() else { return }
+        let server = Process()
+        server.executableURL = URL(fileURLWithPath: binary)
+        server.arguments = ["-m", modelPath.path, "--host", "127.0.0.1", "--port", String(port), "-nt"]
+        try? FileManager.default.createDirectory(at: SpeechEngine.logDirectory, withIntermediateDirectories: true)
+        let logURL = SpeechEngine.logDirectory.appendingPathComponent("whisper-server-final.log")
+        if !FileManager.default.fileExists(atPath: logURL.path) { FileManager.default.createFile(atPath: logURL.path, contents: nil) }
+        if let log = try? FileHandle(forWritingTo: logURL) {
+            log.truncateFile(atOffset: 0)
+            server.standardOutput = log
+            server.standardError = log
+        }
+        do { try server.run() } catch {
+            print("talkflowd: could not start the final-pass server: \(error.localizedDescription)")
+            return
+        }
+        DispatchQueue.main.async { process = server }
+        let up = SpeechEngine.waitUntilResponding(port: port, timeout: 30)
+        print(up ? "talkflowd: final-pass model ready" : "talkflowd: final-pass server did not answer; using small.en")
+        DispatchQueue.main.async { isReady = up }
     }
 }
 

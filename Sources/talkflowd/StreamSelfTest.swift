@@ -115,6 +115,9 @@ enum StreamSelfTest {
         runReleaseSplitCases()
         runEmailAndListCases()
         runSelfCorrectionCases()
+        runInsertOnceCases()
+        runWritingStyleCases()
+        runUpdaterCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -298,7 +301,7 @@ enum StreamSelfTest {
             // "best", so the sign-off was never found.
             ("a sign-off with no punctuation before it, in an email",
              "Good morning Emily. Thank you so much again for using talkflow best Samira",
-             "Good morning Emily.\n\nThank you so much again for using talkflow\n\nBest Samira"),
+             "Good morning Emily.\n\nThank you so much again for using talkflow\n\nBest, Samira"),
             ("'the best option' is prose, not a sign-off",
              "Good morning Emily. I looked at all three vendors and this is the best option we have right now.",
              "Good morning Emily.\n\nI looked at all three vendors and this is the best option we have right now."),
@@ -629,6 +632,128 @@ enum StreamSelfTest {
         check(appended == longVerbatim, "long: the append loses no words when the correction is refused", appended.debugDescription)
     }
 
+    /// The default mode: the caption shows the words while speaking, and the
+    /// field is written once at release. Plus the rules that fit the text to
+    /// where it lands, and the two that only ever take punctuation, casing and
+    /// spellings from elsewhere.
+    private static func runInsertOnceCases() {
+        report("case: insert once at release, fitted to the field")
+
+        // Nothing is on screen before release, so the corrected text - even
+        // a correction at the very start of a long dictation, which the live
+        // mode had to refuse over keystrokes - goes in as one pure insert.
+        let long = "Let's move the review to Friday, wait no, Thursday, and then we can go over the launch plan, the pricing page, the onboarding emails, the support docs and everything else the team has been working on for the last month so that nothing is left for the week after"
+        let final = Dictation.render(long, leadingSpace: "", structure: true)
+        let insert = FieldSync.edit(from: "", to: final)
+        check(insert.deleting == 0 && insert.inserting == final && final.hasPrefix("Let's move the review to Thursday,"),
+              "insert-once: an early correction goes in with the rest, deleting nothing", final.debugDescription)
+
+        // Caption: settled words solid, the rest dimmed; a revised word is
+        // never shown as settled.
+        let parts = Dictation.captionParts(committed: " Let's meet", rendered: " Let's meet at 3")
+        check(parts.settled == "Let's meet" && parts.pending == " at 3", "caption: settled and pending split", "\(parts)")
+        let revised = Dictation.captionParts(committed: " Let's meet to", rendered: " Let's meet two")
+        check(revised.settled.isEmpty && revised.pending == "Let's meet two", "caption: a revised word is shown dimmed", "\(revised)")
+
+        // Mid-sentence: lowercase the first word, unless it is I, an acronym
+        // or a name.
+        check(ScreenContext.continuesSentence(after: "Thanks for the notes and"), "context: no sentence end before the caret continues it")
+        check(!ScreenContext.continuesSentence(after: "Thanks for the notes. "), "context: after a full stop starts fresh")
+        check(!ScreenContext.continuesSentence(after: "Hi Sarah,\n"), "context: a new line starts fresh")
+        check(!ScreenContext.continuesSentence(after: ""), "context: an empty field starts fresh")
+        check(!ScreenContext.continuesSentence(after: nil), "context: an unreadable field starts fresh")
+        let lowered: [(String, String)] = [
+            (" Great work on the deck.", " great work on the deck."),
+            (" I think so.", " I think so."),
+            (" NASA called.", " NASA called."),
+            (" Samantha said yes.", " Samantha said yes."),
+            (" I'm in.", " I'm in.")
+        ]
+        for (raw, want) in lowered {
+            let got = ScreenContext.lowercasingStart(raw, names: ["Samantha"])
+            check(got == want, "context: lowercasing \(raw.debugDescription)", got.debugDescription)
+        }
+
+        // Chat apps: a one-sentence message drops its final period.
+        let chats: [(String, String)] = [
+            ("Sounds good, see you at 5.", "Sounds good, see you at 5"),
+            ("See you at 3 p.m.", "See you at 3 p.m."),
+            ("Are you coming?", "Are you coming?"),
+            ("Thanks. See you soon.", "Thanks. See you soon."),
+            ("Wait...", "Wait..."),
+            ("Hi,\n\nSee you.", "Hi,\n\nSee you.")
+        ]
+        for (raw, want) in chats {
+            let got = ScreenContext.chatStyled(raw)
+            check(got == want, "chat: \(raw.debugDescription)", got.debugDescription)
+        }
+        check(ScreenContext.isChat(bundleID: "com.tinyspeck.slackmacgap") && !ScreenContext.isChat(bundleID: "com.apple.Notes"),
+              "chat: Slack is a chat, Notes is not")
+
+        // Prompt: names and learned words appended as a plain sentence.
+        check(ScreenContext.prompt(names: [], learned: []) == Transcriber.vocabularyPrompt, "prompt: unchanged with no context")
+        let prompt = ScreenContext.prompt(names: ["Siobhan", "Acme"], learned: ["Kubernetes", "siobhan"])
+        check(prompt == Transcriber.vocabularyPrompt + " Names and words here: Siobhan, Acme, Kubernetes.",
+              "prompt: names then learned words, without duplicates", prompt)
+        let names = ScreenContext.names(in: ["Samantha Lee", "Inbox", "Re: launch plan with Priya Patel and the team"])
+        check(names.contains("Samantha") && names.contains("Lee") && !names.contains("Inbox"),
+              "names: a recipient chip counts, interface labels do not", "\(names)")
+
+        // Lists whisper wrote without commas, and the sign-off comma: the
+        // dictation from the screenshot.
+        let screenshot = Dictation.render("Hey Samantha, thank you for getting back with me in the email. I guess three things that I need you to do is first pick up the water, second upload your resume to our app, and then third tell other people about our app. And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time. Best Samir.", leadingSpace: "", structure: true)
+        check(screenshot == "Hey Samantha,\n\nThank you for getting back with me in the email. I guess three things that I need you to do is:\n1. Pick up the water\n2. Upload your resume to our app\n3. Tell other people about our app. And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time.\n\nBest, Samir.",
+              "list: bare ordinals become a list, and the sign-off gets its comma", screenshot.debugDescription)
+        let prose: [String] = [
+            "At first I hated it, but the second time was great.",
+            "Wait a second, the first thing is the budget.",
+            "I came first and my sister came second.",
+            "The first draft was fine and the second one was better.",
+            "Thanks Sam."
+        ]
+        for text in prose {
+            let got = Dictation.render(text, leadingSpace: "", structure: true)
+            check(got == text, "list: prose stays prose: \(text.debugDescription)", got.debugDescription)
+        }
+        let bare = Dictation.render("I need three things. First pick up the water, second upload your resume, third tell people about our app.", leadingSpace: "", structure: true)
+        check(bare == "I need three things.\n1. Pick up the water\n2. Upload your resume\n3. Tell people about our app.",
+              "list: a comma-less chain after its own sentence", bare.debugDescription)
+        check(StructurePolish.punctuateSignOff("Body.\n\nThanks Sarah") == "Body.\n\nThanks, Sarah", "sign-off: comma added")
+        check(StructurePolish.punctuateSignOff("Body.\n\nBest, Samir.") == "Body.\n\nBest, Samir.", "sign-off: an existing comma stays")
+        check(StructurePolish.punctuateSignOff("We should thank Sarah") == "We should thank Sarah", "sign-off: not a sign-off paragraph")
+
+        // AI punctuation: only punctuation, casing and line breaks come from
+        // the model. This is its real answer from a probe on this Mac, with
+        // "is" changed to "are".
+        let original = "I guess three things that I need you to do is first pick up the water, second upload your resume. Best Samir."
+        let suggestion = "I guess three things that I need you to do are: first, pick up the water; second, upload your resume. Best, Samir."
+        let merged = Polish.merge(original: original, suggestion: suggestion, names: ["Samir"])
+        check(merged == "I guess three things that I need you to do is first, pick up the water; second, upload your resume. Best, Samir.",
+              "polish: a changed word is ignored, punctuation is taken", merged.debugDescription)
+        check(SelfCorrection.isDeletionOnly(original: original, result: merged) && SelfCorrection.isDeletionOnly(original: merged, result: original),
+              "polish: the merge has exactly the original's words")
+        let invented = Polish.merge(original: "meet at 3 tomorrow", suggestion: "Let's meet at 3 PM tomorrow!")
+        check(invented == "meet at 3 tomorrow!", "polish: invented words are dropped", invented.debugDescription)
+        let lowered2 = Polish.merge(original: "Thanks Samir and I will call", suggestion: "thanks samir, and i will call.", names: ["Samir"])
+        check(lowered2 == "thanks Samir, and I will call.", "polish: names and I keep their capitals", lowered2.debugDescription)
+        let broken = Polish.merge(original: "Hi Sarah, the deck is ready.", suggestion: "Hi Sarah,\n\nThe deck is ready.")
+        check(broken == "Hi Sarah,\n\nThe deck is ready.", "polish: a line break between kept words is taken", broken.debugDescription)
+        let empty = Polish.merge(original: "keep this", suggestion: "")
+        check(empty == "keep this", "polish: an empty answer changes nothing")
+
+        // Vocabulary: a fixed spelling between unchanged neighbours is
+        // learned; a rewrite is not.
+        let known: (String) -> Bool = { $0 != "Shivon" } // what NSSpellChecker answered on this Mac
+        let learned = Vocabulary.fixes(inserted: "Thanks Shivon for the notes.", fieldText: "Thanks Siobhan for the notes.", isKnown: known)
+        check(learned == ["Siobhan"], "vocabulary: a corrected name is learned", "\(learned)")
+        let rewrite = Vocabulary.fixes(inserted: "Let's meet on Friday at noon.", fieldText: "Let's meet on Thursday at noon.", isKnown: known)
+        check(rewrite.isEmpty, "vocabulary: a different word is not a spelling fix", "\(rewrite)")
+        let untouched = Vocabulary.fixes(inserted: "Thanks Shivon for the notes.", fieldText: "Thanks Shivon for the notes.", isKnown: known)
+        check(untouched.isEmpty, "vocabulary: nothing changed, nothing learned")
+        check(Vocabulary.isKnownWord("Thursday") && !Vocabulary.isKnownWord("Shivon"), "vocabulary: the real spell checker agrees")
+        check(Vocabulary.distance("kitten", "sitting") == 3 && Vocabulary.distance("", "abc") == 3, "vocabulary: edit distance")
+    }
+
     /// The release pass deletes text the user can already see, then retypes it,
     /// and no write path can prove the retype arrived. When it does not, the
     /// field is left with the start of the dictation, a hole, and the tail -
@@ -685,6 +810,44 @@ enum StreamSelfTest {
         check(Dictation.correctionIsAffordable(deleting: 422, inserting: String(repeating: "x", count: 471),
                                                via: .accessibility),
               "-422 +471 via accessibility is allowed, because it is verified")
+    }
+
+    /// Settings: Formal / Casual / all lowercase. Only case and the closing
+    /// full stop may change - never a word.
+    private static func runWritingStyleCases() {
+        let text = "Hi Sarah. I'm sure I'll send it, and I think it's fine."
+        check(WritingStyle.formal.apply(text) == text, "formal leaves the text alone")
+        check(WritingStyle.lowercase.apply(text) == "hi sarah. i'm sure i'll send it, and i think it's fine.",
+              "lowercase lowercases every letter", WritingStyle.lowercase.apply(text).debugDescription)
+        check(WritingStyle.casual.apply(text) == "hi sarah. I'm sure I'll send it, and I think it's fine",
+              "casual lowercases, keeps I, drops the closing full stop", WritingStyle.casual.apply(text).debugDescription)
+        check(WritingStyle.casual.apply("Wait for it...") == "wait for it...", "casual keeps an ellipsis")
+        check(WritingStyle.casual.apply("Is it in the inbox? Yes. ") == "is it in the inbox? yes ",
+              "casual keeps trailing whitespace", WritingStyle.casual.apply("Is it in the inbox? Yes. ").debugDescription)
+        check(WritingStyle.casual.apply("ice is nice") == "ice is nice", "casual does not touch i inside words")
+        let rendered = Dictation.render("can you check the deck period thanks", leadingSpace: " ", structure: true, style: .lowercase)
+        check(rendered == " can you check the deck. thanks", "render applies the style after casing", rendered.debugDescription)
+        for style in WritingStyle.allCases {
+            let raw = "Dear Sarah, can you send the file. Thanks, Samir."
+            let styled = style.apply(raw)
+            check(SelfCorrection.tokenize(styled).map(\.norm) == SelfCorrection.tokenize(raw).map(\.norm),
+                  "\(style.rawValue) keeps every word")
+        }
+    }
+
+    /// GitHub release parsing and version order, for the update check.
+    private static func runUpdaterCases() {
+        check(Updater.isNewer("0.2.0", than: "0.1.0"), "0.2.0 is newer than 0.1.0")
+        check(Updater.isNewer("0.10.0", than: "0.9.2"), "versions compare numerically, not as text")
+        check(!Updater.isNewer("0.1", than: "0.1.0"), "a missing part counts as zero")
+        check(!Updater.isNewer("0.1.0", than: "0.2.0"), "an older release is not offered")
+        let json = #"{"tag_name":"v0.2.0","draft":false,"prerelease":false,"html_url":"https://github.com/x/y/releases/v0.2.0","assets":[{"name":"notes.txt","browser_download_url":"https://e/notes.txt"},{"name":"talkflow-0.2.0.zip","browser_download_url":"https://e/talkflow-0.2.0.zip"}]}"#
+        let release = Updater.parse(Data(json.utf8))
+        check(release?.version == "0.2.0", "the v prefix is dropped from the tag", String(describing: release))
+        check(release?.zipURL.absoluteString == "https://e/talkflow-0.2.0.zip", "the zip asset is chosen")
+        check(Updater.parse(Data(#"{"tag_name":"v1.0.0","assets":[]}"#.utf8)) == nil, "a release with no zip is ignored")
+        check(Updater.parse(Data(#"{"tag_name":"v1.0.0","prerelease":true,"assets":[{"name":"a.zip","browser_download_url":"https://e/a.zip"}]}"#.utf8)) == nil,
+              "a prerelease is not offered")
     }
 
     private static func runCase(_ testCase: Case) {

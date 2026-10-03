@@ -6,7 +6,8 @@ import Foundation
 /// a request costs only inference: measured on this M4 with small.en, 0.30s for
 /// 5.8s of speech and 1.25s for 39s. That is what makes transcribing once, at the
 /// end of the hold, feel instant rather than like waiting. large-v3-turbo and
-/// medium.en took 2-4x as long and were dropped.
+/// medium.en took 2-4x as long and were dropped as the live engine; turbo is
+/// back for the final pass only (see `FinalPassEngine`).
 enum Transcriber {
     struct Result {
         let text: String
@@ -149,10 +150,11 @@ enum Transcriber {
         wav: Data,
         serverURL: URL,
         timeout: TimeInterval = 20,
+        prompt: String = vocabularyPrompt,
         completion: @escaping (Result?) -> Void
     ) {
         let boundary = "talkflow-\(UUID().uuidString)"
-        let body = multipartBody(wav: wav, boundary: boundary, prompt: vocabularyPrompt)
+        let body = multipartBody(wav: wav, boundary: boundary, prompt: prompt)
 
         var request = URLRequest(url: serverURL)
         request.httpMethod = "POST"

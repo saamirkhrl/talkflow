@@ -26,8 +26,170 @@ final class OverlayController {
 
     func hide() {
         panel?.orderOut(nil)
+        captionPanel?.orderOut(nil)
         levelHistory = Array(repeating: 0, count: barCount)
         renderBars()
+    }
+
+    // MARK: - Caption
+
+    private var captionPanel: NSPanel?
+    private var captionLabel: NSTextField?
+    private let captionMaxWidth: CGFloat = 560
+    private let captionPadding: CGFloat = 14
+    /// Only the end of a long dictation is shown: what you are saying now is
+    /// what you look at.
+    private let captionMaxCharacters = 240
+
+    /// Shows what has been heard so far above the pill. `settled` is the part
+    /// two transcripts already agree on and is drawn solid; the rest may still
+    /// be revised by whisper, so it is drawn dimmed. Nothing here touches the
+    /// user's document - this is the live view, the field is written once at
+    /// release.
+    func showCaption(settled: String, pending: String) {
+        let full = settled + pending
+        guard !full.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if captionPanel == nil { buildCaptionPanel() }
+        guard let captionPanel, let captionLabel, let screen = NSScreen.main else { return }
+
+        // Trim from the front at a word boundary, keeping the solid/dim split.
+        var cut = max(0, full.count - captionMaxCharacters)
+        if cut > 0, let space = full.dropFirst(cut).firstIndex(of: " ") {
+            cut = full.distance(from: full.startIndex, to: space) + 1
+        }
+        let settledShown = String(settled.dropFirst(min(cut, settled.count)))
+        let pendingShown = String(pending.dropFirst(max(0, cut - settled.count)))
+        let text = NSMutableAttributedString()
+        let font = NSFont.systemFont(ofSize: 15, weight: .medium)
+        if cut > 0 { text.append(NSAttributedString(string: "... ", attributes: [.font: font, .foregroundColor: NSColor.white.withAlphaComponent(0.55)])) }
+        text.append(NSAttributedString(string: settledShown.replacingOccurrences(of: "\n", with: " "),
+                                       attributes: [.font: font, .foregroundColor: NSColor.white]))
+        text.append(NSAttributedString(string: pendingShown.replacingOccurrences(of: "\n", with: " "),
+                                       attributes: [.font: font, .foregroundColor: NSColor.white.withAlphaComponent(0.55)]))
+        captionLabel.attributedStringValue = text
+
+        let textWidth = captionMaxWidth - 2 * captionPadding
+        let fitted = text.boundingRect(with: NSSize(width: textWidth, height: 400),
+                                       options: [.usesLineFragmentOrigin, .usesFontLeading]).size
+        let width = min(captionMaxWidth, ceil(fitted.width) + 2 * captionPadding + 2)
+        let height = ceil(fitted.height) + 2 * captionPadding - 6
+        let pillTop = screen.frame.minY + 70 + self.height
+        captionPanel.setFrame(NSRect(x: screen.frame.midX - width / 2, y: pillTop + 10, width: width, height: height), display: true)
+        captionLabel.frame = NSRect(x: captionPadding, y: captionPadding - 3, width: width - 2 * captionPadding, height: ceil(fitted.height))
+        captionPanel.orderFrontRegardless()
+    }
+
+    private func buildCaptionPanel() {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 44),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.88).cgColor
+        container.layer?.cornerRadius = 14
+        container.autoresizingMask = [.width, .height]
+
+        let label = NSTextField(labelWithString: "")
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.cell?.wraps = true
+        label.isSelectable = false
+        container.addSubview(label)
+
+        panel.contentView = container
+        captionPanel = panel
+        captionLabel = label
+    }
+
+    // MARK: - Error notice
+
+    private var noticePanel: NSPanel?
+    private var noticeLabel: NSTextField?
+    private var noticeHide: DispatchWorkItem?
+
+    /// A short error above the pill (a rejected API key, a cloud service that
+    /// did not answer). It outlives `hide()`: the pill goes the moment the
+    /// text is in, and the user still has to be able to read why it came out
+    /// the way it did. Clears itself after a few seconds.
+    func showError(_ message: String) {
+        DispatchQueue.main.async { [self] in
+            print("talkflowd: pill error: \(message)")
+            if noticePanel == nil { buildNoticePanel() }
+            guard let noticePanel, let noticeLabel, let screen = NSScreen.main else { return }
+            let text = NSAttributedString(string: message, attributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: NSColor.white
+            ])
+            noticeLabel.attributedStringValue = text
+            let maxText: CGFloat = 480
+            let fitted = text.boundingRect(with: NSSize(width: maxText, height: 200),
+                                           options: [.usesLineFragmentOrigin, .usesFontLeading]).size
+            let dot: CGFloat = 8, gap: CGFloat = 8, padding: CGFloat = 14
+            let width = ceil(fitted.width) + dot + gap + 2 * padding + 2
+            let height = max(32, ceil(fitted.height) + 16)
+            // Above the pill, and above the caption when one is showing.
+            let pillTop = screen.frame.minY + 70 + self.height
+            let captionTop = captionPanel?.isVisible == true ? (captionPanel?.frame.maxY ?? pillTop) : pillTop
+            noticePanel.setFrame(NSRect(x: screen.frame.midX - width / 2, y: captionTop + 10, width: width, height: height), display: true)
+            noticePanel.contentView?.subviews.first?.frame = NSRect(x: padding, y: (height - dot) / 2, width: dot, height: dot)
+            noticeLabel.frame = NSRect(x: padding + dot + gap, y: (height - ceil(fitted.height)) / 2 - 1,
+                                       width: ceil(fitted.width) + 2, height: ceil(fitted.height))
+            noticePanel.orderFrontRegardless()
+
+            noticeHide?.cancel()
+            let hide = DispatchWorkItem { [weak self] in self?.noticePanel?.orderOut(nil) }
+            noticeHide = hide
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: hide)
+        }
+    }
+
+    private func buildNoticePanel() {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 32),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.ignoresMouseEvents = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.88).cgColor
+        container.layer?.cornerRadius = 12
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor.systemRed.withAlphaComponent(0.6).cgColor
+        container.autoresizingMask = [.width, .height]
+
+        let dot = NSView()
+        dot.wantsLayer = true
+        dot.layer?.backgroundColor = NSColor.systemRed.cgColor
+        dot.layer?.cornerRadius = 4
+        container.addSubview(dot)
+
+        let label = NSTextField(labelWithString: "")
+        label.maximumNumberOfLines = 0
+        label.lineBreakMode = .byWordWrapping
+        label.isSelectable = false
+        container.addSubview(label)
+
+        panel.contentView = container
+        noticePanel = panel
+        noticeLabel = label
     }
 
     /// Called from the recorder's audio tap (background thread) with the newest level.
