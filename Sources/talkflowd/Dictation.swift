@@ -187,7 +187,13 @@ final class Dictation {
     static func render(_ transcript: String, leadingSpace: String, structure: Bool) -> String {
         let tidied = Cleanup.tidy(transcript)
         let withCommands = TextCommands.applyAll(tidied)
-        let structured = structure ? StructurePolish.apply(to: withCommands) : withCommands
+        // Live: only the greeting break, which is final as soon as it is typed.
+        // Release: sign-off, then lists. The email pass goes first so the list
+        // pass sees the greeting and sign-off as their own paragraphs and never
+        // swallows the sign-off into the last item.
+        let structured = structure
+            ? ListFormat.apply(to: StructurePolish.apply(to: withCommands))
+            : StructurePolish.apply(to: withCommands, signOff: false)
         // Capitalisation runs last, once the paragraph breaks are actually in the
         // string. Run earlier and the body after "Dear Sarah,\n\n" keeps whatever
         // case whisper gave it - which is how "can you please" and "best Samir"

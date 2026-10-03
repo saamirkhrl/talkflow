@@ -16,10 +16,12 @@ import NaturalLanguage
 /// matched by rule. Deterministic, instant, and it covers the case that actually
 /// matters when dictating an email.
 enum StructurePolish {
-    /// An email opener: "Dear Mr. Clark,", "Hi Sarah,", "Hey,". Deliberately
-    /// allows "." inside (for "Mr.") and stops at the first comma.
+    /// An email opener: "Dear Mr. Clark,", "Hi Sarah,", "Good morning,". Hi, Hey
+    /// and Hello need a name after them - a bare "Hey, what's up" is chat, not an
+    /// email, and must not be split in two. Deliberately allows "." inside (for
+    /// "Mr.") and stops at the first comma.
     private static let greetingPattern = try! NSRegularExpression(
-        pattern: "^(?:Dear|Hi|Hey|Hello|Good morning|Good afternoon|Good evening)\\b[^,]{0,40},"
+        pattern: "^(?:(?:Hi|Hey|Hello)\\s+[^,]{1,40}|Dear\\b[^,]{0,40}|Good (?:morning|afternoon|evening)\\b[^,]{0,40}),"
     )
 
     /// A sign-off plus a name at the very end: "Best, Samir", "Thanks Sarah",
@@ -49,10 +51,40 @@ enum StructurePolish {
     )
 
     /// Returns the text with blank lines inserted between sections.
-    static func apply(to text: String) -> String {
-        guard text.count > 40 else { return text } // not worth the work this short
+    ///
+    /// `signOff: false` is the live-typing mode: only the greeting break is
+    /// decided. A greeting is final the moment the sentence after it begins, so
+    /// the break can be appended mid-hold; a sign-off match flickers while words
+    /// are still arriving. Deciding the greeting early is what keeps the release
+    /// rewrite short - it only ever has to touch the tail, which is the difference
+    /// between a rewrite that fits the keystroke budget and one that is refused
+    /// (the flat, unformatted email in Gmail).
+    static func apply(to text: String, signOff: Bool = true) -> String {
+        // Text that already has line breaks (a spoken "new paragraph") must keep
+        // them: the clause pass below re-joins with spaces and would flatten
+        // them. Treat only its first and last line as candidates.
+        if text.contains("\n") { return applyAroundBreaks(text, signOff: signOff) }
+        return applySingleLine(text, greeting: true, signOff: signOff)
+    }
 
-        let (clauses, forced) = split(text)
+    private static func applyAroundBreaks(_ text: String, signOff: Bool) -> String {
+        var lines = text.components(separatedBy: "\n")
+        guard let firstIndex = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
+              let lastIndex = lines.lastIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
+        else { return text }
+        lines[firstIndex] = applySingleLine(lines[firstIndex], greeting: true, signOff: false)
+        if signOff {
+            lines[lastIndex] = applySingleLine(lines[lastIndex], greeting: firstIndex == lastIndex, signOff: true)
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private static func applySingleLine(_ text: String, greeting: Bool, signOff: Bool) -> String {
+        // The greeting has no length guard on purpose: the live path decides it
+        // as words arrive, and a threshold would make the break appear late, in
+        // the middle of text already typed - an edit the live path refuses. A
+        // sign-off is only ever decided at release, so it keeps the guard.
+        let (clauses, forced) = split(text, greeting: greeting, signOff: signOff && text.count > 40)
         guard clauses.count >= 2, !forced.isEmpty else { return text }
 
         // Reassembling has to reproduce the original exactly, or the clause
@@ -67,7 +99,7 @@ enum StructurePolish {
     /// own paragraph. Sentence boundaries come from NLTokenizer so that "Dear Mr.
     /// Clark" isn't cut after the abbreviation; the greeting and sign-off are
     /// then peeled off the first and last sentence.
-    static func split(_ text: String) -> (clauses: [String], forcedBreaks: Set<Int>) {
+    static func split(_ text: String, greeting: Bool = true, signOff: Bool = true) -> (clauses: [String], forcedBreaks: Set<Int>) {
         let tokenizer = NLTokenizer(unit: .sentence)
         tokenizer.string = text
         var clauses = tokenizer.tokens(for: text.startIndex..<text.endIndex)
@@ -77,7 +109,7 @@ enum StructurePolish {
 
         var forced = Set<Int>()
 
-        if let first = clauses.first,
+        if greeting, let first = clauses.first,
            let match = firstMatch(greetingPattern, in: first),
            match.upperBound < first.endIndex {
             let greeting = String(first[..<match.upperBound])
@@ -93,7 +125,7 @@ enum StructurePolish {
             }
         }
 
-        if clauses.count > 1, let last = clauses.last, let match = firstMatch(signOffPattern, in: last) {
+        if signOff, clauses.count > 1, let last = clauses.last, let match = firstMatch(signOffPattern, in: last) {
             if match.lowerBound == last.startIndex {
                 // Whisper already ended a sentence before the closer, so the
                 // sign-off is a clause of its own and just needs its own break.
