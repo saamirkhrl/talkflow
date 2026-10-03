@@ -81,25 +81,46 @@ enum SelfCorrection {
         let needsClauseEnd: Bool
     }
 
-    /// Longest first, so "or rather" wins over "rather".
+    /// Fixed phrases. Longest first, so "or rather" wins over "rather".
     private static let markers: [Marker] = [
-        Marker(words: ["wait", "no"], strong: true, needsClauseEnd: false),
-        Marker(words: ["no", "wait"], strong: true, needsClauseEnd: false),
         Marker(words: ["or", "rather"], strong: false, needsClauseEnd: false),
         Marker(words: ["make", "that"], strong: false, needsClauseEnd: false),
-        Marker(words: ["no", "no"], strong: false, needsClauseEnd: false),
         Marker(words: ["i", "mean"], strong: false, needsClauseEnd: false),
-        Marker(words: ["sorry"], strong: false, needsClauseEnd: true),
-        Marker(words: ["actually"], strong: false, needsClauseEnd: true),
         Marker(words: ["rather"], strong: false, needsClauseEnd: false)
     ]
+
+    /// Words people chain into one correction: "wait no", "no wait", "wait
+    /// actually", "Wait actually no", "actually no", "sorry". Seen in real
+    /// dictation, so they are matched as a run (up to three) rather than as a
+    /// list of every ordering.
+    private static let runWords: Set<String> = ["wait", "no", "actually", "sorry"]
+
+    /// The marker made of the run of `runWords` starting at `index`, if any.
+    /// - A lone "no" is never one: "Is it Friday? No, Thursday." is an answer.
+    /// - Two or more words including "wait" are a correction whatever the
+    ///   punctuation ("Friday wait no Thursday").
+    /// - A run without "wait" or "no" ("sorry", "actually") also opens new
+    ///   thoughts, so its replacement must end its clause.
+    private static func run(at index: Int, in tokens: [Token]) -> Marker? {
+        var words: [String] = []
+        var i = index
+        while i < tokens.count, words.count < 3, runWords.contains(tokens[i].norm),
+              i == index || !tokens[i].leading.contains("\n") {
+            words.append(tokens[i].norm)
+            i += 1
+        }
+        guard !words.isEmpty, words != ["no"] else { return nil }
+        let hasWait = words.contains("wait")
+        return Marker(words: words, strong: hasWait && words.count >= 2,
+                      needsClauseEnd: !hasWait && !words.contains("no"))
+    }
 
     /// Markers starting at `index` that are set off the way a correction is.
     /// Returns (marker, index of the first token after it).
     private static func markers(at index: Int, in tokens: [Token]) -> [(Marker, Int)] {
         guard index > 0 else { return [] } // nothing before it to replace
         var found: [(Marker, Int)] = []
-        for marker in markers {
+        for marker in markers + [run(at: index, in: tokens)].compactMap({ $0 }) {
             let end = index + marker.words.count
             guard end < tokens.count else { continue } // nothing after it either
             let span = tokens[index..<end]
@@ -114,26 +135,41 @@ enum SelfCorrection {
 
     // MARK: - Rules
 
-    /// "to Friday, wait no, Thursday": the token(s) before the marker are
-    /// replaced by the same number of tokens after it. The first of each must
-    /// be the same kind, and any further words must repeat exactly ("2 pm, no
-    /// wait, 3 pm").
+    /// "to Friday, wait no, Thursday": a typed word before the marker (plus
+    /// up to two words after it) is replaced by a word of the same kind after
+    /// the marker, followed by the same words again ("2 pm, no wait, 3 pm").
+    /// A time said as several numbers is one unit on either side: "3 p.m.
+    /// Wait actually no 7 30 p.m." replaces "3" with "7 30", and "2 30, no
+    /// wait, 3" replaces all of "2 30" rather than leaving "2 3".
     private static func typedRepair(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
             for (marker, after) in markers(at: m, in: tokens) {
-                for k in 1...3 where m - k >= 0 && after + k <= tokens.count {
-                    let reparandum = (m - k)..<m
-                    let repair = after..<(after + k)
+                for restCount in 0...2 {
+                    let head = m - restCount - 1
+                    guard head >= 0 else { continue }
+                    let kind = self.kind(of: tokens, at: head)
+                    guard kind != .other, kind == self.kind(of: tokens, at: after) else { continue }
+
+                    var start = head
+                    var repairHead = 1
+                    if kind == .number {
+                        while start > 0, head - start < 2, self.kind(of: tokens, at: start - 1) == .number,
+                              tokens[start - 1].trailingPunctuation == nil { start -= 1 }
+                        while repairHead < 3, after + repairHead < tokens.count,
+                              tokens[after + repairHead - 1].trailingPunctuation == nil,
+                              self.kind(of: tokens, at: after + repairHead) == .number { repairHead += 1 }
+                    }
+                    let reparandum = start..<m
+                    let restEnd = after + repairHead + restCount
+                    guard restEnd <= tokens.count else { continue }
                     // The replaced span cannot reach back across a sentence.
                     guard !tokens[reparandum.dropLast()].contains(where: \.endsSentence),
                           !tokens[reparandum.dropFirst()].contains(where: { $0.leading.contains("\n") }) else { continue }
-                    let kind = self.kind(of: tokens, at: m - k)
-                    guard kind != .other, kind == self.kind(of: tokens, at: after) else { continue }
-                    guard tokens[reparandum.dropFirst()].map(\.norm) == tokens[repair.dropFirst()].map(\.norm) else { continue }
+                    guard tokens[(head + 1)..<m].map(\.norm) == tokens[(after + repairHead)..<restEnd].map(\.norm) else { continue }
                     if kind == .name || marker.needsClauseEnd {
-                        guard repair.upperBound == tokens.count || tokens[repair.upperBound - 1].trailingPunctuation != nil else { continue }
+                        guard restEnd == tokens.count || tokens[restEnd - 1].trailingPunctuation != nil else { continue }
                     }
-                    return delete(tokens, (m - k)..<after)
+                    return delete(tokens, start..<after)
                 }
             }
         }
