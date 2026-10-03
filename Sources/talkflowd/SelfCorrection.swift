@@ -143,7 +143,10 @@ enum SelfCorrection {
     /// wait, 3" replaces all of "2 30" rather than leaving "2 3".
     private static func typedRepair(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
-            for (marker, after) in markers(at: m, in: tokens) {
+            for (marker, markerEnd) in markers(at: m, in: tokens) {
+                // "wait, actually let's make that 4pm": the lead-in goes too.
+                let after = markerEnd + leadIn(at: markerEnd, in: tokens)
+                guard after < tokens.count else { continue }
                 for restCount in 0...2 {
                     let head = m - restCount - 1
                     guard head >= 0 else { continue }
@@ -174,6 +177,25 @@ enum SelfCorrection {
             }
         }
         return nil
+    }
+
+    private static let leadIns: [[String]] = [
+        ["let's", "make", "that"], ["let's", "make", "it"], ["make", "that"], ["make", "it"],
+        ["let's", "say"], ["let's", "do"], ["i", "meant"]
+    ]
+
+    /// How many words at `index` restate the sentence before the replacement
+    /// ("let's make that"). Only when a word still follows, and only when they
+    /// run on without punctuation or a line break.
+    private static func leadIn(at index: Int, in tokens: [Token]) -> Int {
+        for phrase in leadIns where index + phrase.count < tokens.count {
+            let span = tokens[index..<(index + phrase.count)]
+            guard span.map(\.norm) == phrase,
+                  !span.contains(where: { $0.trailingPunctuation != nil }),
+                  !span.contains(where: { $0.leading.contains("\n") }) else { continue }
+            return phrase.count
+        }
+        return 0
     }
 
     /// "I went home, I mean I went to the office": the words after the marker

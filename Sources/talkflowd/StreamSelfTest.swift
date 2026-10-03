@@ -372,6 +372,10 @@ enum StreamSelfTest {
             ("Meet at 2 30, no wait, 3.", "Meet at 3."),
             ("I'll be there Friday, wait, Saturday.", "I'll be there Saturday."),
             ("We meet Friday, actually no, Saturday.", "We meet Saturday."),
+            // The replacement restates the sentence: "let's make that 4pm".
+            ("Let's meet tomorrow at 7pm. Wait, actually let's make that 4pm.", "Let's meet tomorrow at 4pm."),
+            ("Meet at 2, no wait, make that 3.", "Meet at 3."),
+            ("Let's do Friday, wait no, let's do Thursday.", "Let's do Thursday."),
             // stutters and restarts
             ("the the meeting is at noon", "the meeting is at noon"),
             ("The the meeting is at noon.", "The meeting is at noon."),
