@@ -34,7 +34,7 @@ enum TypeSelfTest {
 
         let frame = NSRect(x: 200, y: 200, width: 560, height: 220)
         let window = NSWindow(contentRect: frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.title = "TalkFlow LiveType self-test"
+        window.title = "talkflow LiveType self-test"
         let view = NSTextView(frame: frame)
         view.isEditable = true
         view.isRichText = false

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="680" height="710" viewBox="0 0 680 710" role="img">
-<title>How TalkFlow works</title>
+<title>How talkflow works</title>
 <desc>You hold Fn and the mic records. While you talk, Whisper, an AI model on your Mac, listens every 0.7 seconds, simple rules tidy the words, and words are typed once they stop changing. When you let go, Whisper listens to the whole recording again, the rules tidy it and add email layout, missing words are typed, and earlier mistakes are fixed only if safe. Everything is typed into your app and checked.</desc>
 <style>
   text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }

@@ -5,7 +5,7 @@ import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "What the TalkFlow website and app do and do not do with your information. Dictation happens on your own Mac.",
+    "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac.",
 };
 
 export default function PrivacyPage() {
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
 
       <h2 id="who-we-are">Who we are</h2>
       <p>
-        TalkFlow is run by Samir Kharel, an individual developer (&quot;we&quot;, &quot;us&quot;,
+        talkflow is run by Samir Kharel, an individual developer (&quot;we&quot;, &quot;us&quot;,
         &quot;our&quot;). You can contact us at <EmailLink />.
       </p>
       <p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
       <ul>
         <li>this website;</li>
         <li>
-          official releases of the TalkFlow app downloaded from this website or from{" "}
+          official releases of the talkflow app downloaded from this website or from{" "}
           <a href={REPO_URL}>{REPO_URL}</a>;
         </li>
         <li>emails you send us.</li>
@@ -68,12 +68,12 @@ export default function PrivacyPage() {
           apply.
         </li>
         <li>
-          <strong>The apps you dictate into.</strong> Once TalkFlow types your words into another
+          <strong>The apps you dictate into.</strong> Once talkflow types your words into another
           app, such as a chat app, an email client or a document, that text is handled by that app
           and its provider under their own privacy policies.
         </li>
         <li>
-          <strong>Modified versions of TalkFlow.</strong> TalkFlow is open source, so anyone can
+          <strong>Modified versions of talkflow.</strong> talkflow is open source, so anyone can
           build and share their own version. Those versions may work differently, and this policy
           doesn&apos;t describe them.
         </li>
@@ -152,7 +152,7 @@ export default function PrivacyPage() {
 
       <h3 id="website-downloads">Downloads</h3>
       <p>
-        If you download or view TalkFlow on GitHub, GitHub receives your request, including your IP
+        If you download or view talkflow on GitHub, GitHub receives your request, including your IP
         address, and handles it under the{" "}
         <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">
           GitHub Privacy Statement
@@ -173,7 +173,7 @@ export default function PrivacyPage() {
       <h2 id="app">Part 2: The app</h2>
 
       <h3 id="app-how">How dictation works</h3>
-      <p>When you hold the TalkFlow hotkey (the fn key), the app:</p>
+      <p>When you hold the talkflow hotkey (the fn key), the app:</p>
       <ol>
         <li>records sound from your microphone and keeps it in your computer&apos;s memory;</li>
         <li>
@@ -189,7 +189,7 @@ export default function PrivacyPage() {
       </ol>
       <p>
         <strong>Audio is never saved to disk.</strong> It stays in memory only, until your next
-        dictation or until you quit TalkFlow.
+        dictation or until you quit talkflow.
       </p>
       <p>
         The speech engine is a program on your computer. It is not a cloud server, and your audio
@@ -210,7 +210,7 @@ export default function PrivacyPage() {
 
       <h3 id="app-setup">Setting up the app</h3>
       <p>
-        When you set TalkFlow up, you download other software. Those services see your IP address
+        When you set talkflow up, you download other software. Those services see your IP address
         when you download, and handle it under their own privacy policies:
       </p>
       <ul>
@@ -231,11 +231,11 @@ export default function PrivacyPage() {
           <strong>Usage stats.</strong> Totals of words dictated, number of dictations and speaking
           time, and words per day. These power the stats you see in the app. They contain no text
           and no audio. They are stored in a file at{" "}
-          <code>~/Library/Application Support/TalkFlow/stats.json</code>.
+          <code>~/Library/Application Support/talkflow/stats.json</code>.
         </li>
         <li>
           <strong>A technical log.</strong> The app writes a log at{" "}
-          <code>~/Library/Logs/TalkFlow/talkflow.log</code>. It grows until you delete it. For each
+          <code>~/Library/Logs/talkflow/talkflow.log</code>. It grows until you delete it. For each
           dictation it records technical details, such as its length and timing and the name of the
           app you dictated into. It does not record your words.
         </li>
@@ -246,43 +246,43 @@ export default function PrivacyPage() {
         </li>
       </ul>
       <p>
-        These files are not encrypted by TalkFlow. They are protected by your macOS user account,
+        These files are not encrypted by talkflow. They are protected by your macOS user account,
         and by FileVault disk encryption if you have it turned on.
       </p>
       <p>
         <strong>Deleting them.</strong> You can delete these files at any time. Deleting the
-        TalkFlow app may not delete them, so remove the files above if you want them gone.
+        talkflow app may not delete them, so remove the files above if you want them gone.
       </p>
 
       <h3 id="app-reads">What the app reads while you dictate</h3>
       <p>
-        Through macOS Accessibility, TalkFlow reads the one character before your cursor, so it can
+        Through macOS Accessibility, talkflow reads the one character before your cursor, so it can
         add a space when needed, and the text it typed itself. It never reads whole documents. This
-        happens in memory, and that text isn&apos;t saved or sent anywhere. TalkFlow never uses the
+        happens in memory, and that text isn&apos;t saved or sent anywhere. talkflow never uses the
         clipboard.
       </p>
 
       <h3 id="app-permissions">Permissions the app asks for</h3>
       <p>
         You can turn any of these off at any time in <strong>System Settings &gt; Privacy &amp;
-        Security</strong>, but TalkFlow won&apos;t work without them.
+        Security</strong>, but talkflow won&apos;t work without them.
       </p>
       <ul>
         <li>
-          <strong>Microphone.</strong> macOS asks you to approve this, so TalkFlow can hear you.
+          <strong>Microphone.</strong> macOS asks you to approve this, so talkflow can hear you.
         </li>
         <li>
-          <strong>Accessibility.</strong> You grant this yourself in System Settings. TalkFlow uses
+          <strong>Accessibility.</strong> You grant this yourself in System Settings. talkflow uses
           it to type the text into the app you&apos;re using, and for the reading described above.
         </li>
         <li>
-          <strong>Input Monitoring.</strong> You grant this yourself in System Settings. TalkFlow
+          <strong>Input Monitoring.</strong> You grant this yourself in System Settings. talkflow
           uses it listen-only, to notice when you press and release the fn key. It sees only
           modifier keys, never the characters you type.
         </li>
       </ul>
 
-      <h3 id="app-outside">Things outside TalkFlow&apos;s control</h3>
+      <h3 id="app-outside">Things outside talkflow&apos;s control</h3>
       <p>
         Some things that happen on your Mac are up to you, your organization or other companies, not
         us:
@@ -297,10 +297,10 @@ export default function PrivacyPage() {
           <strong>Your operating system.</strong> macOS may make its own network connections, for
           example when it checks a newly downloaded app before first opening it. If you have chosen
           to share Mac analytics with Apple, macOS may also send Apple crash reports that involve
-          TalkFlow. Apple&apos;s privacy policy covers those.
+          talkflow. Apple&apos;s privacy policy covers those.
         </li>
         <li>
-          <strong>Work computers.</strong> If you use TalkFlow on a computer managed by your
+          <strong>Work computers.</strong> If you use talkflow on a computer managed by your
           employer or school, their security and monitoring tools and policies may also apply.
         </li>
       </ul>

@@ -9,7 +9,7 @@ import Foundation
 // every debugging session today that looked like "nothing happened" was
 // actually this: a real session with output going nowhere anyone could see.
 let logURL = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent("Library/Logs/TalkFlow/talkflow.log")
+    .appendingPathComponent("Library/Logs/talkflow/talkflow.log")
 try? FileManager.default.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 freopen(logURL.path, "a", stdout)
 freopen(logURL.path, "a", stderr)

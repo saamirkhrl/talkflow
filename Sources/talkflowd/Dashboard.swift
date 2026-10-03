@@ -10,7 +10,7 @@ final class DashboardController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "TalkFlow Dashboard"
+        window.title = "talkflow Dashboard"
         window.center()
         window.isReleasedWhenClosed = false
         self.init(window: window)

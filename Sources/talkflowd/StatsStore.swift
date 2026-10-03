@@ -20,7 +20,7 @@ final class StatsStore {
 
     private init() {
         let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/TalkFlow")
+            .appendingPathComponent("Library/Application Support/talkflow")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("stats.json")
         load()

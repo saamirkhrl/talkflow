@@ -149,14 +149,14 @@ final class Dictation {
 
     /// The log used to carry every transcript verbatim, which made it a plaintext
     /// record of everything the user has ever dictated, sitting in
-    /// `~/Library/Logs/TalkFlow/talkflow.log` indefinitely. The numbers are what
+    /// `~/Library/Logs/talkflow/talkflow.log` indefinitely. The numbers are what
     /// diagnosis actually needs - a lost release pass shows up as a character
     /// count that does not match the edit that followed it - so those stay and
     /// the words do not.
     ///
-    /// Set `TALKFLOW_LOG_TRANSCRIPTS=1` in the LaunchAgent to put the text back
+    /// Set `talkflow_LOG_TRANSCRIPTS=1` in the LaunchAgent to put the text back
     /// while chasing a bug that needs it.
-    static let logTranscripts = ProcessInfo.processInfo.environment["TALKFLOW_LOG_TRANSCRIPTS"] == "1"
+    static let logTranscripts = ProcessInfo.processInfo.environment["talkflow_LOG_TRANSCRIPTS"] == "1"
 
     /// Size and structure of a transcript, with none of its content.
     static func shape(of text: String) -> String {

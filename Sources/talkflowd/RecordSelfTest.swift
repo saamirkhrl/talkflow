@@ -68,13 +68,13 @@ enum RecordSelfTest {
         // needed to verify anything - it exists only for a human to listen to
         // when the microphone itself is the suspect. That is rare, and leaving a
         // recording of the user in $TMPDIR after every run is not the default
-        // worth having. Opt in with TALKFLOW_KEEP_TEST_AUDIO=1.
-        if ProcessInfo.processInfo.environment["TALKFLOW_KEEP_TEST_AUDIO"] == "1" {
+        // worth having. Opt in with talkflow_KEEP_TEST_AUDIO=1.
+        if ProcessInfo.processInfo.environment["talkflow_KEEP_TEST_AUDIO"] == "1" {
             let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-rectest.wav")
             try? wav.write(to: url)
             report("wrote \(url.path)")
         } else {
-            report("audio not written to disk (TALKFLOW_KEEP_TEST_AUDIO=1 to keep it)")
+            report("audio not written to disk (talkflow_KEEP_TEST_AUDIO=1 to keep it)")
         }
 
         let done = DispatchSemaphore(value: 0)

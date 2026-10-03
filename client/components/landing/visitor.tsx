@@ -6,7 +6,7 @@ type Os = "mac" | "windows";
 
 type Visitor = {
   os: Os;
-  // Phones and narrow windows can't install TalkFlow, so they get a
+  // Phones and narrow windows can't install talkflow, so they get a
   // "copy link" button instead of a download.
   mobile: boolean;
 };

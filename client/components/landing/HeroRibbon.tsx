@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RecDot, Waveform } from "./primitives";
 
-// What was said, and what TalkFlow typed. The clean side is the real output of
+// What was said, and what talkflow typed. The clean side is the real output of
 // `talkflowd --formattest` (HANDOFF.md, "Self-test flags") for Whisper's
 // transcript of the spoken side. On the spoken side, [um] is a filler the app
 // drops, {question mark} a spoken command it turns into a symbol, and <first> a
@@ -576,7 +576,7 @@ export function HeroRibbon() {
 
   return (
     <div ref={rootRef} className="pointer-events-none relative mt-auto sm:-mt-[clamp(40px,min(9vw,18svh),136px)]">
-      <p className="sr-only">Spoken words go into TalkFlow and come out as clean, punctuated text.</p>
+      <p className="sr-only">Spoken words go into talkflow and come out as clean, punctuated text.</p>
       <div
         ref={bandRef}
         aria-hidden="true"

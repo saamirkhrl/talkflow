@@ -17,7 +17,7 @@ final class StatusBar {
         menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit TalkFlow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit talkflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
         item.button?.image = Self.barsImage
         item.button?.image?.isTemplate = true
@@ -60,9 +60,9 @@ final class StatusBar {
 private extension StatusBar.State {
     var description: String {
         switch self {
-        case .idle: return "TalkFlow - idle"
-        case .recording: return "TalkFlow - recording"
-        case .processing: return "TalkFlow - processing"
+        case .idle: return "talkflow - idle"
+        case .recording: return "talkflow - recording"
+        case .processing: return "talkflow - processing"
         }
     }
 }

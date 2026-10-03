@@ -37,7 +37,7 @@ export function Nav({ stars }: { stars: number | null }) {
             : "h-14 max-w-[820px] bg-paper/90 shadow-[0_1px_2px_rgba(31,30,34,0.06)]",
         )}
       >
-        <a href="/#top" aria-label="TalkFlow home" className="mr-auto inline-flex items-center rounded-full">
+        <a href="/#top" aria-label="talkflow home" className="mr-auto inline-flex items-center rounded-full">
           <Wordmark className={cn("transition-[font-size] duration-500", scrolled ? "text-[19px]" : "text-[21px]")} />
         </a>
 
@@ -63,7 +63,7 @@ export function Nav({ stars }: { stars: number | null }) {
 
         <a
           href={REPO_URL}
-          aria-label={stars === null ? "TalkFlow on GitHub" : `Star TalkFlow on GitHub (${stars} stars)`}
+          aria-label={stars === null ? "talkflow on GitHub" : `Star talkflow on GitHub (${stars} stars)`}
           className={cn(buttonClass.primary, "px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           <GithubIcon size={17} />

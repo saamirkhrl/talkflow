@@ -16,7 +16,7 @@ export function HowItWorks() {
           </div>
           <div>
             <h3 className="text-[19px] font-semibold">1. Hold fn</h3>
-            <p className="mt-1.5 text-graphite">The Globe key in the corner of your keyboard. TalkFlow starts listening.</p>
+            <p className="mt-1.5 text-graphite">The Globe key in the corner of your keyboard. talkflow starts listening.</p>
           </div>
         </li>
         <li className={STEP}>
@@ -40,7 +40,7 @@ export function HowItWorks() {
           </div>
           <div>
             <h3 className="text-[19px] font-semibold">3. Let go</h3>
-            <p className="mt-1.5 text-graphite">TalkFlow finishes the last words and fixes punctuation. The text is already where your cursor was.</p>
+            <p className="mt-1.5 text-graphite">talkflow finishes the last words and fixes punctuation. The text is already where your cursor was.</p>
           </div>
         </li>
       </ol>

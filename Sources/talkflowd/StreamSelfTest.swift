@@ -195,8 +195,8 @@ enum StreamSelfTest {
              "Good morning, Mr. Johnson. I would like to ask you to update my grade in the grade book from a 97 to a 98 so my average will go to a 99. I would really appreciate it if you did that since this semester is about to end. Sincerely, Samira.",
              "Good morning, Mr. Johnson.\n\nI would like to ask you to update my grade in the grade book from a 97 to a 98 so my average will go to a 99. I would really appreciate it if you did that since this semester is about to end.\n\nSincerely, Samira.", true),
             ("an email whose body is a numbered list",
-             "Good morning, Emily. The three things that I really like about TalkFlow is number one. It's free. Number two, it's available anywhere. And number three, it's completely open source under the MIT license. So you can use it whenever you want. Best, Samir.",
-             "Good morning, Emily.\n\nThe three things that I really like about TalkFlow is:\n1. It's free.\n2. It's available anywhere.\n3. It's completely open source under the MIT license. So you can use it whenever you want.\n\nBest, Samir.", false) // list rewrite is ~195 events: delivered via Accessibility, refused over keystrokes until the budget is measured
+             "Good morning, Emily. The three things that I really like about talkflow is number one. It's free. Number two, it's available anywhere. And number three, it's completely open source under the MIT license. So you can use it whenever you want. Best, Samir.",
+             "Good morning, Emily.\n\nThe three things that I really like about talkflow is:\n1. It's free.\n2. It's available anywhere.\n3. It's completely open source under the MIT license. So you can use it whenever you want.\n\nBest, Samir.", false) // list rewrite is ~195 events: delivered via Accessibility, refused over keystrokes until the budget is measured
         ]
         for email in emails {
             let words = email.raw.split(separator: " ").map(String.init)
@@ -227,8 +227,8 @@ enum StreamSelfTest {
              "My grocery list is first, milk. Second, eggs. Third, bread.",
              "My grocery list is:\n1. Milk.\n2. Eggs.\n3. Bread."),
             ("a single 'number one' is just a phrase",
-             "TalkFlow is number one in my book.",
-             "TalkFlow is number one in my book."),
+             "talkflow is number one in my book.",
+             "talkflow is number one in my book."),
             ("a greeting whisper wrote without a comma",
              "Good morning Emily. Three things I really like about it are fast. Thank you so much for using it. Best, Samir.",
              "Good morning Emily.\n\nThree things I really like about it are fast. Thank you so much for using it.\n\nBest, Samir."),
