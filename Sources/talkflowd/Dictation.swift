@@ -128,9 +128,10 @@ final class Dictation {
                 // the complete text, where inserting one costs one rewrite
                 // rather than one per tick.
                 let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true)
+                let verbatim = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, corrections: false)
                 let detail = Self.logTranscripts ? ": \(result.text)" : ""
                 print("talkflowd: transcribed \(Self.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
-                self.reconcile(to: final)
+                self.reconcile(to: final, verbatim: verbatim)
                 if !self.field.typedText.isEmpty {
                     StatsStore.shared.recordSession(text: self.field.typedText, durationSeconds: duration)
                 }
@@ -183,9 +184,16 @@ final class Dictation {
     /// moves; it is decided once, at the end, when the whole text is known.
     /// A spoken "new paragraph" is different and stays live - it lands at the
     /// tail, where an append can carry it, with nothing after it to disturb.
-    static func render(_ transcript: String, leadingSpace: String, structure: Bool) -> String {
+    ///
+    /// `corrections` (default: same as `structure`) collapses spoken
+    /// self-corrections, stutters and hedges - see `SelfCorrection`. Never live:
+    /// a correction deletes words that are already on screen, and a live update
+    /// may only append. The release pass renders with it off as well, as the
+    /// fallback when the corrected text costs too much to deliver.
+    static func render(_ transcript: String, leadingSpace: String, structure: Bool, corrections: Bool? = nil) -> String {
         let tidied = Cleanup.tidy(transcript)
-        let withCommands = TextCommands.applyAll(tidied)
+        let commanded = TextCommands.applyAll(tidied)
+        let withCommands = (corrections ?? structure) ? SelfCorrection.apply(to: commanded) : commanded
         // Live: only the greeting break, which is final as soon as it is typed.
         // Release: sign-off, then lists. The email pass goes first so the list
         // pass sees the greeting and sign-off as their own paragraphs and never
@@ -230,21 +238,56 @@ final class Dictation {
     /// atomic, verified call and size is irrelevant. Via keystrokes it is one
     /// droppable event per character, so it runs only while it is small enough to
     /// trust.
-    private func reconcile(to final: String) {
-        if let appended = FieldSync.appendOnlyTarget(current: field.typedText, final: final),
+    ///
+    /// `verbatim` is the same render without `SelfCorrection`. A spoken
+    /// correction deletes words, which shifts every later word index, and the
+    /// append is word-aligned with what the live path typed - which never had
+    /// corrections applied. Aligned to `final`, "Friday, wait no," going missing
+    /// would make the append skip three words. So the append is aligned to
+    /// `verbatim`, and `verbatim` is also the fallback when the corrected text
+    /// costs more than can be delivered.
+    private func reconcile(to final: String, verbatim: String) {
+        // Corrections entirely in the tail that was never shown (and any short
+        // hold, where nothing was shown): the corrected text is itself a pure
+        // append, so the false start never reaches the screen at all.
+        if final.hasPrefix(field.typedText) {
+            if final != field.typedText { syncField(to: final) }
+            return
+        }
+
+        if let appended = FieldSync.appendOnlyTarget(current: field.typedText, final: verbatim),
            appended != field.typedText {
             syncField(to: appended)
         }
 
-        let edit = FieldSync.edit(from: field.typedText, to: final)
-        guard edit.deleting > 0 || !edit.inserting.isEmpty else { return }
+        let plan = Self.correctionTarget(screen: field.typedText, corrected: final, verbatim: verbatim, via: field.lastOutcome)
+        if let note = plan.note { print("talkflowd: \(note)") }
+        if let target = plan.target { syncField(to: target) }
+    }
 
-        guard Self.correctionIsAffordable(deleting: edit.deleting, inserting: edit.inserting, via: field.lastOutcome) else {
-            let events = Self.eventCost(deleting: edit.deleting, inserting: edit.inserting)
-            print("talkflowd: refused the correction pass, -\(edit.deleting) +\(edit.inserting.count) = \(events) keystroke events is more than can be delivered reliably; the dictation stays as it was spoken")
-            return
+    /// Which text the correction half of the release pass should write, if any.
+    /// The corrected render when it can be delivered; otherwise the uncorrected
+    /// one, so a self-correction too far back to afford does not also cost the
+    /// user the sign-off break or a repaired word near the end; otherwise
+    /// nothing, and the words on screen stay as they are. Pure, so
+    /// `--streamtest` pins it.
+    static func correctionTarget(screen: String, corrected: String, verbatim: String, via outcome: FieldSync.Outcome) -> (target: String?, note: String?) {
+        guard screen != corrected else { return (nil, nil) }
+        let full = FieldSync.edit(from: screen, to: corrected)
+        if correctionIsAffordable(deleting: full.deleting, inserting: full.inserting, via: outcome) { return (corrected, nil) }
+
+        let fullCost = "-\(full.deleting) +\(full.inserting.count) = \(eventCost(deleting: full.deleting, inserting: full.inserting)) keystroke events"
+        guard corrected != verbatim else {
+            return (nil, "refused the correction pass, \(fullCost) is more than can be delivered reliably; the dictation stays as it was spoken")
         }
-        syncField(to: final)
+        guard screen != verbatim else {
+            return (nil, "skipped a self-correction, \(fullCost) is more than can be delivered reliably; the false start stays")
+        }
+        let rest = FieldSync.edit(from: screen, to: verbatim)
+        if correctionIsAffordable(deleting: rest.deleting, inserting: rest.inserting, via: outcome) {
+            return (verbatim, "skipped a self-correction, \(fullCost) is more than can be delivered reliably; applied the rest of the release pass")
+        }
+        return (nil, "refused the correction pass including a self-correction, \(fullCost) is more than can be delivered reliably; the dictation stays as it was spoken")
     }
 
     /// What a rewrite costs in key events: one per deleted character, one per

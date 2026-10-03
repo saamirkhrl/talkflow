@@ -114,6 +114,7 @@ enum StreamSelfTest {
         runPlaceholderSegmentCases()
         runReleaseSplitCases()
         runEmailAndListCases()
+        runSelfCorrectionCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -270,6 +271,135 @@ enum StreamSelfTest {
 
         check(LiveType.isBrowser(bundleID: "com.google.Chrome"), "Chrome gets Shift+Return for line breaks")
         check(!LiveType.isBrowser(bundleID: "com.tinyspeck.slackmacgap"), "Slack keeps unicode newlines")
+    }
+
+    /// Spoken self-corrections, stutters and comma-set hedges are collapsed at
+    /// release by `SelfCorrection`, which may only delete whole words. The
+    /// negatives matter more than the positives: deleting a word the user
+    /// meant is worse than leaving a false start in.
+    private static func runSelfCorrectionCases() {
+        report("case: self-corrections collapse, and nothing the user meant is deleted")
+
+        let pure: [(String, String)] = [
+            // corrections: marker plus a replacement of the same kind
+            ("let's change that to Friday, wait no, Thursday", "let's change that to Thursday"),
+            ("let's change that to Friday wait no Thursday", "let's change that to Thursday"),
+            ("Meet at 2, no wait, 3.", "Meet at 3."),
+            ("Meet at 2 pm, no wait, 3 pm.", "Meet at 3 pm."),
+            ("Meet at 2. No wait, 3.", "Meet at 3."),
+            ("Send it to Sarah, sorry, Sam.", "Send it to Sam."),
+            ("We met on Monday, actually, Tuesday.", "We met on Tuesday."),
+            ("Let's do it tomorrow, scratch that, let's do it Monday.", "Let's do it Monday."),
+            ("We'll go. Scratch that, we'll stay.", "We'll stay."),
+            ("I went home, I mean I went to the office.", "I went to the office."),
+            // stutters and restarts
+            ("the the meeting is at noon", "the meeting is at noon"),
+            ("The the meeting is at noon.", "The meeting is at noon."),
+            ("I I think so.", "I think so."),
+            ("we should we should go now", "we should go now"),
+            // hedges, only where commas set them off
+            ("Basically, we need more users.", "We need more users."),
+            ("It was, you know, kind of weird.", "It was kind of weird."),
+            ("That's the plan, I guess.", "That's the plan."),
+            // negatives: must come back untouched
+            ("No, I don't think so.", "No, I don't think so."),
+            ("Wait, let me check.", "Wait, let me check."),
+            ("I actually liked it.", "I actually liked it."),
+            ("Is Friday or Thursday better?", "Is Friday or Thursday better?"),
+            // Decided: emphasis, not a correction. Nothing precedes the
+            // marker, so there is nothing for it to replace.
+            ("no no no I love it", "no no no I love it"),
+            ("I like both, I mean really both.", "I like both, I mean really both."),
+            ("I'm sorry, Sarah, I can't make it.", "I'm sorry, Sarah, I can't make it."),
+            ("I can't make it to Paris, sorry, Tom will go instead.", "I can't make it to Paris, sorry, Tom will go instead."),
+            ("I'll pay 20, actually, 30 is fine.", "I'll pay 20, actually, 30 is fine."),
+            ("There is no wait time on Friday.", "There is no wait time on Friday."),
+            ("I know that that is true.", "I know that that is true."),
+            ("I gave her her book.", "I gave her her book."),
+            ("It was very very good.", "It was very very good."),
+            ("I guess so.", "I guess so."),
+            ("I kind of like it.", "I kind of like it."),
+            ("You know the answer.", "You know the answer."),
+            ("It was good, kind of.", "It was good, kind of."),
+            ("Please scratch that itch.", "Please scratch that itch."),
+            // Collapsing would need "three coffees", an insertion; "Order
+            // three." would drop a word the user meant. Left alone.
+            ("Order two coffees, make that three.", "Order two coffees, make that three."),
+            ("I would like a coffee.", "I would like a coffee.")
+        ]
+        for (raw, want) in pure {
+            let got = SelfCorrection.apply(to: raw)
+            check(got == want, "\(raw.debugDescription) -> \(want.debugDescription)", got.debugDescription)
+        }
+
+        // The guard that makes corruption impossible by construction.
+        check(SelfCorrection.isDeletionOnly(original: "meet at 2, no wait, 3", result: "meet at 3"),
+              "guard: deleting words is accepted")
+        check(!SelfCorrection.isDeletionOnly(original: "meet at 2", result: "meet at 3"),
+              "guard: a changed word is refused")
+        check(!SelfCorrection.isDeletionOnly(original: "meet at 2", result: "at meet 2"),
+              "guard: reordered words are refused")
+        check(!SelfCorrection.isDeletionOnly(original: "meet at 2", result: "meet me at 2"),
+              "guard: an inserted word is refused")
+
+        // Through the real pipeline: live steps stay append-only (the live
+        // render never applies corrections), the final text is corrected, and
+        // the release pass reports what it costs.
+        let dictations: [(name: String, raw: String, want: String)] = [
+            ("a correction at the end of a short dictation",
+             "Let's change the meeting to Friday, wait no, Thursday.",
+             "Let's change the meeting to Thursday."),
+            ("a stutter in an email",
+             "Hi Sarah, the the deck is ready for review. Thanks, Samir.",
+             "Hi Sarah,\n\nThe deck is ready for review.\n\nThanks, Samir.")
+        ]
+        for dictation in dictations {
+            let words = dictation.raw.split(separator: " ").map(String.init)
+            var screen = ""
+            var liveAppendOnly = true
+            for count in 1...words.count {
+                let next = Dictation.render(words.prefix(count).joined(separator: " "), leadingSpace: "", structure: false)
+                if FieldSync.edit(from: screen, to: next).deleting > 0 { liveAppendOnly = false }
+                screen = next
+            }
+            check(liveAppendOnly, "\(dictation.name): every live step is an append")
+            let final = Dictation.render(dictation.raw, leadingSpace: "", structure: true)
+            check(final == dictation.want, "\(dictation.name): final text", final.debugDescription)
+            let verbatim = Dictation.render(dictation.raw, leadingSpace: "", structure: true, corrections: false)
+            let plan = Dictation.correctionTarget(screen: screen, corrected: final, verbatim: verbatim, via: .keystrokes("test"))
+            let edit = FieldSync.edit(from: screen, to: final)
+            check(plan.target == final, "\(dictation.name): the release rewrite fits the keystroke budget",
+                  "-\(edit.deleting) +\(edit.inserting.count) = \(Dictation.eventCost(deleting: edit.deleting, inserting: edit.inserting)) events")
+            report("     release [-\(edit.deleting) +\(edit.inserting.count)] = \(Dictation.eventCost(deleting: edit.deleting, inserting: edit.inserting)) events")
+        }
+
+        // Nothing typed live yet (a short hold): the corrected text is a pure
+        // append, so it goes straight in and the false start is never shown.
+        let short = Dictation.render("Meet at 2, no wait, 3.", leadingSpace: "", structure: true)
+        check(Dictation.correctionTarget(screen: "", corrected: short, verbatim: "Meet at 2, no wait, 3.", via: .keystrokes("test")).target == short,
+              "a short hold types only the corrected text")
+
+        // A correction early in a long dictation over keystrokes: the rewrite
+        // is from the correction to the end, which is past the budget. It is
+        // skipped, the rest of the release pass still runs, and no word on
+        // screen is lost.
+        let long = "Let's move the review to Friday, wait no, Thursday, and then we can go over the launch plan, the pricing page, the onboarding emails, the support docs and everything else the team has been working on for the last month so that nothing is left for the week after"
+        let liveScreen = Dictation.render(long, leadingSpace: "", structure: false)
+        let longVerbatim = Dictation.render(long, leadingSpace: "", structure: true, corrections: false)
+        let longFinal = Dictation.render(long, leadingSpace: "", structure: true)
+        check(longFinal.hasPrefix("Let's move the review to Thursday, and then"), "long: the final text is corrected", longFinal.debugDescription)
+        let keys = Dictation.correctionTarget(screen: liveScreen, corrected: longFinal, verbatim: longVerbatim, via: .keystrokes("test"))
+        check(keys.target != longFinal, "long: the early correction is refused over keystrokes")
+        check(keys.note?.contains("self-correction") == true, "long: the log says a self-correction was skipped", keys.note ?? "no note")
+        let ax = Dictation.correctionTarget(screen: liveScreen, corrected: longFinal, verbatim: longVerbatim, via: .accessibility)
+        check(ax.target == longFinal, "long: the same correction is applied via Accessibility")
+
+        // The held-back words are appended aligned to the uncorrected text.
+        // Aligned to the corrected text, deleting "Friday, wait no," shifts the
+        // word index by three and the append would drop words.
+        let partial = Dictation.render("Let's move the review to Friday, wait no, Thursday, and then we", leadingSpace: "", structure: false)
+        let appended = FieldSync.appendOnlyTarget(current: partial, final: longVerbatim) ?? partial
+        check(appended == longVerbatim, "long: the append loses no words when the correction is refused", appended.debugDescription)
     }
 
     /// The release pass deletes text the user can already see, then retypes it,
