@@ -6,7 +6,7 @@ import Foundation
 /// a request costs only inference: measured on this M4 with small.en, 0.30s for
 /// 5.8s of speech and 1.25s for 39s. That is what makes transcribing once, at the
 /// end of the hold, feel instant rather than like waiting. large-v3-turbo and
-/// medium.en took 2-4x as long and were dropped (see HANDOFF.md).
+/// medium.en took 2-4x as long and were dropped.
 enum Transcriber {
     struct Result {
         let text: String
