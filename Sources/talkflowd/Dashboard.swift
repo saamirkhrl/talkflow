@@ -29,9 +29,32 @@ final class DashboardController: NSWindowController {
     }
 }
 
+enum DashboardPage: String, CaseIterable {
+    case dashboard = "Dashboard"
+    case settings = "Settings"
+}
+
+/// Splits minutes into the two largest whole units, e.g. 879 -> 14 h 39 min,
+/// 4000 -> 2 d 18 h. Units: min, h, d, wk, mo (30 d), yr (365 d).
+func timeSavedParts(minutes: Int) -> [(value: String, unit: String)] {
+    let units: [(name: String, minutes: Int)] = [
+        ("yr", 365 * 24 * 60), ("mo", 30 * 24 * 60), ("wk", 7 * 24 * 60),
+        ("d", 24 * 60), ("h", 60), ("min", 1)
+    ]
+    var remaining = max(minutes, 0)
+    var parts: [(value: String, unit: String)] = []
+    for unit in units where remaining >= unit.minutes {
+        parts.append((String(remaining / unit.minutes), unit.name))
+        remaining %= unit.minutes
+        if parts.count == 2 { break }
+    }
+    return parts.isEmpty ? [("0", "min")] : parts
+}
+
 final class DashboardModel: ObservableObject {
     @Published var snapshot = StatsStore.shared.snapshot()
     @Published var days = StatsStore.shared.recentDays(14)
+    @Published var page: DashboardPage = .dashboard
 
     func refresh() {
         snapshot = StatsStore.shared.snapshot()
@@ -66,12 +89,17 @@ private struct DashboardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
-            hero
-            grid
-            chart
-            Text("Time saved compares your speaking time with typing the same words at 40 wpm. Stays on your Mac.")
-                .font(.system(size: 11))
-                .foregroundColor(.graphite)
+            switch model.page {
+            case .dashboard:
+                hero
+                grid
+                chart
+                Text("Time saved compares your speaking time with typing the same words at 40 wpm. Stays on your Mac.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.graphite)
+            case .settings:
+                Spacer()
+            }
         }
         .padding(.horizontal, 28)
         .padding(.top, 40)
@@ -81,22 +109,38 @@ private struct DashboardView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 26, height: 26)
-            Text("Your dictation stats")
-                .font(.system(size: 15, weight: .medium))
+                .frame(width: 40, height: 40)
+            Text("talkflow")
+                .font(.system(size: 28, weight: .regular, design: .serif))
             Spacer()
-            if s.dayStreak > 0 {
-                Text("\(s.dayStreak) day streak")
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .overlay(Capsule().stroke(Color.line, lineWidth: 1))
-            }
+            pageSwitch
         }
         .foregroundColor(.ink)
+    }
+
+    private var pageSwitch: some View {
+        HStack(spacing: 2) {
+            ForEach(DashboardPage.allCases, id: \.self) { page in
+                let selected = model.page == page
+                Button {
+                    model.page = page
+                } label: {
+                    Text(page.rawValue)
+                        .font(.system(size: 12, weight: .medium))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .foregroundColor(selected ? Color.paper : Color.ink)
+                        .background(Capsule().fill(selected ? Color.ink : Color.clear))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .overlay(Capsule().stroke(Color.line, lineWidth: 1))
     }
 
     private var hero: some View {
@@ -115,12 +159,12 @@ private struct DashboardView: View {
     }
 
     private var grid: some View {
-        let tiles: [(String, String, String)] = [
-            ("Words today", s.todayWords.formatted(), ""),
-            ("Speed", "\(s.averageWPM)", "wpm"),
-            ("Day streak", "\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days"),
-            ("Time saved", "\(s.estimatedMinutesSaved)", "min"),
-            ("Dictations", s.totalSessions.formatted(), "")
+        let tiles: [(String, [(value: String, unit: String)])] = [
+            ("Words today", [(s.todayWords.formatted(), "")]),
+            ("Speed", [("\(s.averageWPM)", "wpm")]),
+            ("Day streak", [("\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days")]),
+            ("Time saved", timeSavedParts(minutes: s.estimatedMinutesSaved)),
+            ("Dictations", [(s.totalSessions.formatted(), "")])
         ]
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 3), spacing: 0) {
             ForEach(tiles, id: \.0) { tile in
@@ -129,13 +173,16 @@ private struct DashboardView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.graphite)
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(tile.1)
-                            .font(.system(size: 30, weight: .regular, design: .serif))
-                            .monospacedDigit()
-                        if !tile.2.isEmpty {
-                            Text(tile.2)
-                                .font(.system(size: 12))
-                                .foregroundColor(.graphite)
+                        ForEach(Array(tile.1.enumerated()), id: \.offset) { _, part in
+                            Text(part.value)
+                                .font(.system(size: 30, weight: .regular, design: .serif))
+                                .monospacedDigit()
+                            if !part.unit.isEmpty {
+                                Text(part.unit)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.graphite)
+                                    .padding(.trailing, 2)
+                            }
                         }
                     }
                     .foregroundColor(.ink)
