@@ -301,6 +301,17 @@ enum StreamSelfTest {
             ("without a greeting a bare closer stays in the sentence",
              "I asked everyone on the team who did the launch video best Sam",
              "I asked everyone on the team who did the launch video best Sam"),
+            // Gmail showed "3 p.M." and "p.M. Where": the capitalisation pass
+            // treated the period inside "p.m." as a sentence end.
+            ("a.m. and p.m. keep their case",
+             "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works.",
+             "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works."),
+            ("e.g. and i.e. are not sentence ends",
+             "Bring snacks, e.g. chips, i.e. anything salty.",
+             "Bring snacks, e.g. chips, i.e. anything salty."),
+            ("a spoken period still starts a sentence",
+             "that is all period see you tomorrow",
+             "That is all. See you tomorrow"),
             ("a spoken new paragraph survives the sign-off pass",
              "Hi Sarah new paragraph can you review the deck and tell me what you think. Thanks, Samir.",
              "Hi Sarah\n\nCan you review the deck and tell me what you think.\n\nThanks, Samir.")

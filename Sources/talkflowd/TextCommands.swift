@@ -378,21 +378,45 @@ enum TextCommands {
     /// continues a sentence already on screen ("and then we left"), and forcing a
     /// capital there would be wrong more often than right. Whisper capitalises
     /// genuine sentence openings by itself.
+    ///
+    /// A period only ends a sentence when whitespace follows it and it does not
+    /// close an abbreviation. Without both, Gmail got "3 p.M. Where we can
+    /// talk": the "m" of "p.m." was taken for a sentence start, and so was the
+    /// word whisper had deliberately left lowercase after it.
     static func capitalizeAfterSentenceEnds(_ text: String) -> String {
         var characters = Array(text)
         var startOfSentence = false
+        var afterMark = false // just passed .!?, still waiting for whitespace
         for index in characters.indices {
             let character = characters[index]
-            if startOfSentence, character.isLetter {
+            if character == "\n" {
+                startOfSentence = true
+                afterMark = false
+            } else if afterMark {
+                afterMark = false
+                startOfSentence = character.isWhitespace
+            } else if startOfSentence, character.isLetter {
                 characters[index] = Character(character.uppercased())
                 startOfSentence = false
-            } else if ".!?\n".contains(character) {
-                startOfSentence = true
+            } else if ".!?".contains(character) {
+                afterMark = !(character == "." && endsAbbreviation(characters, at: index))
+                startOfSentence = false
             } else if !character.isWhitespace {
                 startOfSentence = false
             }
         }
         return String(characters)
+    }
+
+    private static let abbreviations: Set<String> = [
+        "a.m.", "p.m.", "e.g.", "i.e.", "etc.", "vs.", "approx.", "mr.", "mrs.", "ms.", "dr.", "prof.", "st."
+    ]
+
+    /// Whether the "." at `index` closes one of `abbreviations`.
+    private static func endsAbbreviation(_ characters: [Character], at index: Int) -> Bool {
+        var start = index
+        while start > 0, characters[start - 1].isLetter || characters[start - 1] == "." { start -= 1 }
+        return abbreviations.contains(String(characters[start...index]).lowercased())
     }
 
     static func applyEmoji(_ text: String) -> String {
