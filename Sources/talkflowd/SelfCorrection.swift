@@ -86,6 +86,7 @@ enum SelfCorrection {
         Marker(words: ["or", "rather"], strong: false, needsClauseEnd: false),
         Marker(words: ["make", "that"], strong: false, needsClauseEnd: false),
         Marker(words: ["i", "mean"], strong: false, needsClauseEnd: false),
+        Marker(words: ["correction"], strong: false, needsClauseEnd: false),
         Marker(words: ["rather"], strong: false, needsClauseEnd: false)
     ]
 
@@ -93,7 +94,7 @@ enum SelfCorrection {
     /// actually", "Wait actually no", "actually no", "sorry". Seen in real
     /// dictation, so they are matched as a run (up to three) rather than as a
     /// list of every ordering.
-    private static let runWords: Set<String> = ["wait", "no", "actually", "sorry"]
+    private static let runWords: Set<String> = ["oh", "wait", "no", "actually", "sorry"]
 
     /// The marker made of the run of `runWords` starting at `index`, if any.
     /// - A lone "no" is never one: "Is it Friday? No, Thursday." is an answer.
@@ -109,7 +110,8 @@ enum SelfCorrection {
             words.append(tokens[i].norm)
             i += 1
         }
-        guard !words.isEmpty, words != ["no"] else { return nil }
+        // A lone "no" is an answer and a lone "oh" is an exclamation.
+        guard !words.isEmpty, words != ["no"], words != ["oh"] else { return nil }
         let hasWait = words.contains("wait")
         return Marker(words: words, strong: hasWait && words.count >= 2,
                       needsClauseEnd: !hasWait && !words.contains("no"))
@@ -144,44 +146,75 @@ enum SelfCorrection {
     private static func typedRepair(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
             for (marker, markerEnd) in markers(at: m, in: tokens) {
-                // "wait, actually let's make that 4pm": the lead-in goes too.
-                let after = markerEnd + leadIn(at: markerEnd, in: tokens)
-                guard after < tokens.count else { continue }
+                let staticLead = leadIn(at: markerEnd, in: tokens)
                 for restCount in 0...2 {
                     let head = m - restCount - 1
                     guard head >= 0 else { continue }
                     let kind = self.kind(of: tokens, at: head)
-                    guard kind != .other, kind == self.kind(of: tokens, at: after) else { continue }
+                    let plainWord = kind == .other && restCount == 0 && marker.strong
+                        && isPlainSwap(tokens, head: head, marker: m)
+                    guard kind != .other || plainWord else { continue }
 
                     var start = head
-                    var repairHead = 1
                     if kind == .number {
                         while start > 0, head - start < 2, self.kind(of: tokens, at: start - 1) == .number,
                               tokens[start - 1].trailingPunctuation == nil { start -= 1 }
-                        while repairHead < 3, after + repairHead < tokens.count,
-                              tokens[after + repairHead - 1].trailingPunctuation == nil,
-                              self.kind(of: tokens, at: after + repairHead) == .number { repairHead += 1 }
                     }
-                    let reparandum = start..<m
-                    let restEnd = after + repairHead + restCount
-                    guard restEnd <= tokens.count else { continue }
-                    // The replaced span cannot reach back across a sentence.
-                    guard !tokens[reparandum.dropLast()].contains(where: \.endsSentence),
-                          !tokens[reparandum.dropFirst()].contains(where: { $0.leading.contains("\n") }) else { continue }
-                    guard tokens[(head + 1)..<m].map(\.norm) == tokens[(after + repairHead)..<restEnd].map(\.norm) else { continue }
-                    if kind == .name || marker.needsClauseEnd {
-                        guard restEnd == tokens.count || tokens[restEnd - 1].trailingPunctuation != nil else { continue }
+                    // What may sit between the marker and the replacement: a
+                    // restating lead-in ("let's make that"), or the words that
+                    // came right before the replaced span said again ("tell
+                    // John, actually tell Mike", "March 5th, no wait, March 6th").
+                    var leads = [staticLead]
+                    for k in [3, 2, 1] where start - k >= 0 && markerEnd + k < tokens.count {
+                        let before = tokens[(start - k)..<start], again = tokens[markerEnd..<(markerEnd + k)]
+                        if before.map(\.norm) == again.map(\.norm),
+                           !before.contains(where: { $0.trailingPunctuation != nil }),
+                           !again.contains(where: { $0.trailingPunctuation != nil }) { leads.append(k) }
                     }
-                    return delete(tokens, start..<after)
+                    if kind == .other { leads = [] } // plain words get no lead-in
+                    for lead in leads + (leads.contains(0) ? [] : [0]) {
+                        let after = markerEnd + lead
+                        guard after < tokens.count,
+                              kind == self.kind(of: tokens, at: after) else { continue }
+                        var repairHead = 1
+                        if kind == .number {
+                            while repairHead < 3, after + repairHead < tokens.count,
+                                  tokens[after + repairHead - 1].trailingPunctuation == nil,
+                                  self.kind(of: tokens, at: after + repairHead) == .number { repairHead += 1 }
+                        }
+                        let reparandum = start..<m
+                        let restEnd = after + repairHead + restCount
+                        guard restEnd <= tokens.count else { continue }
+                        // The replaced span cannot reach back across a sentence.
+                        guard !tokens[reparandum.dropLast()].contains(where: \.endsSentence),
+                              !tokens[reparandum.dropFirst()].contains(where: { $0.leading.contains("\n") }) else { continue }
+                        guard tokens[(head + 1)..<m].map(\.norm) == tokens[(after + repairHead)..<restEnd].map(\.norm) else { continue }
+                        if kind == .name || kind == .other || marker.needsClauseEnd {
+                            guard restEnd == tokens.count || tokens[restEnd - 1].trailingPunctuation != nil else { continue }
+                        }
+                        if kind == .other, stutterWords.contains(tokens[after].norm) { continue }
+                        return delete(tokens, start..<after)
+                    }
                 }
             }
         }
         return nil
     }
 
+    /// An ordinary word swapped for another ("I like cats, wait no, dogs.")
+    /// is trusted only when the marker is unmistakable, the old word is set
+    /// off by punctuation, and neither word is a function word - "There is no
+    /// wait, fine" must not lose "is".
+    private static func isPlainSwap(_ tokens: [Token], head: Int, marker m: Int) -> Bool {
+        let word = tokens[head]
+        return word.trailingPunctuation != nil && !stutterWords.contains(word.norm)
+    }
+
     private static let leadIns: [[String]] = [
         ["let's", "make", "that"], ["let's", "make", "it"], ["make", "that"], ["make", "it"],
-        ["let's", "say"], ["let's", "do"], ["i", "meant"]
+        ["let's", "say"], ["let's", "do"], ["let's", "go", "with"], ["i", "meant", "to", "say"],
+        ["i", "mean", "to", "say"], ["i", "meant"], ["i", "mean"], ["i", "said"], ["it", "should", "be"],
+        ["it", "is"], ["it's"]
     ]
 
     /// How many words at `index` restate the sentence before the replacement
@@ -219,13 +252,16 @@ enum SelfCorrection {
         return nil
     }
 
-    /// "let's do it tomorrow, scratch that, let's do it Monday": drops the
+    private static let retractVerbs: Set<String> = ["scratch", "strike", "ignore", "disregard"]
+
+    /// "let's do it tomorrow, scratch that (or strike / ignore / disregard that),
+    /// let's do it Monday": drops the
     /// clause before the marker. "scratch that" must be set off by punctuation
     /// on both sides - "scratch that itch" is not a command - and something must
     /// follow it to be what was meant instead.
     private static func scratchThat(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices.dropFirst() where m + 2 < tokens.count {
-            guard tokens[m].norm == "scratch", tokens[m + 1].norm == "that",
+            guard retractVerbs.contains(tokens[m].norm), tokens[m + 1].norm == "that",
                   tokens[m - 1].trailingPunctuation != nil,
                   tokens[m + 1].trailingPunctuation != nil,
                   !tokens[m + 1].leading.contains("\n"),
@@ -348,7 +384,7 @@ enum SelfCorrection {
     private static func isNumeral(_ word: String) -> Bool {
         var body = Substring(word)
         if body.hasPrefix("$") { body = body.dropFirst() }
-        for suffix in ["am", "pm", "%"] where body.hasSuffix(suffix) { body = body.dropLast(suffix.count) }
+        for suffix in ["am", "pm", "%", "st", "nd", "rd", "th"] where body.hasSuffix(suffix) { body = body.dropLast(suffix.count) }
         return !body.isEmpty && body.first!.isNumber && body.allSatisfy { $0.isNumber || $0 == ":" || $0 == "." || $0 == "," }
     }
 
