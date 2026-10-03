@@ -4,8 +4,9 @@
 export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
 // The newest Mac build itself, not the releases page: GitHub serves the asset
 // named here from whichever release is latest, so the link never goes stale.
-// release.sh publishes the zip under exactly this name.
-export const MAC_DOWNLOAD_URL = `${REPO_URL}/releases/latest/download/talkflow-macos.zip`;
+// release.sh publishes the disk image under exactly this name (and a zip of
+// the same app, which install.sh and the in-app updater use).
+export const MAC_DOWNLOAD_URL = `${REPO_URL}/releases/latest/download/talkflow-macos.dmg`;
 export const RELEASES_URL = `${REPO_URL}/releases`;
 // Under "macOS" in the list of builds. The release is a universal binary.
 export const MAC_BUILD_DETAIL = "Apple Silicon and Intel, macOS 13+";
