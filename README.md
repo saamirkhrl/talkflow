@@ -3,10 +3,11 @@
 macOS dictation. Hold **Fn**, speak, the words appear in whatever text field you
 are typing in. Local transcription, no cloud, no account.
 
-Works in native apps, Electron apps (Cursor, Discord, Slack, VS Code) and
-terminals, because it can write either through the Accessibility API or as
-paced synthetic keystrokes, and it checks which one an app actually honours
-rather than assuming.
+Works in native apps, Electron apps (Cursor, Discord, Claude) and terminals,
+because it can write either through the Accessibility API or as paced synthetic
+keystrokes, and it checks which one an app actually honours rather than
+assuming. See [Known limitations](#known-limitations) for what has and has not
+been tested.
 
 ## How it works
 
@@ -60,18 +61,93 @@ and was rejected by its own safety check on real transcripts. Filler removal and
 email structure are deterministic rules that can only delete from a fixed list
 or add whitespace.
 
-## Build and install
+## Install
+
+Needs macOS 13 or newer, and the Swift toolchain (`xcode-select --install`).
+[Homebrew](https://brew.sh) is used to install the speech engine; setup tells you
+if it is missing.
 
 ```bash
-./deploy.sh   # release build, installs to /Applications/talkflow.app,
-              # signs with a stable local identity so the Accessibility,
-              # Input Monitoring and microphone grants survive rebuilds,
-              # and restarts the LaunchAgent
+git clone https://github.com/saamirkhrl/talkflow.git
+cd talkflow
+./install.sh
 ```
 
-Needs a local `whisper-server` on `127.0.0.1:8178` with `ggml-small.en.bin`
-resident, run as a LaunchAgent so the model stays warm. Transcription costs
-about 0.35s warm, and 60s of speech transcribes in about 1.5s.
+That builds the app, installs it to `/Applications/talkflow.app` (or
+`~/Applications` if `/Applications` is not writable) and opens it. The first
+launch opens a setup window that walks you through everything:
+
+1. **Microphone** so it can hear you.
+2. **Accessibility** so it can type into the app you are using.
+3. **Input Monitoring** so it can tell when you hold Fn.
+4. **Speech engine**: installs `whisper-cpp` with Homebrew, downloads the English
+   model (about 490 MB) and starts a local server. One time, needs the internet.
+5. **Try it** in a text box, plus an option to open talkflow at login.
+
+Setup reopens by itself if a permission is ever turned off, and you can open it
+any time from the menu bar icon (**Setup...**).
+
+macOS ties permissions to the app's code signature. `install.sh` signs ad hoc,
+which works, but you will have to grant the permissions again after each rebuild.
+To avoid that, create a self-signed code-signing certificate named
+`talkflow Local Dev` in Keychain Access (Certificate Assistant > Create a
+Certificate > Code Signing); `install.sh` uses it automatically when present.
+
+The app is not notarized, so installing a downloaded copy would show a Gatekeeper
+warning. Building from source with `install.sh` does not.
+
+### Privacy
+
+- Audio is captured in memory, sent to a Whisper server on `127.0.0.1`, and
+  never written to disk. Nothing is sent over the internet.
+- Your dictation stats are a local JSON file in
+  `~/Library/Application Support/TalkFlow/stats.json`.
+- The only network use is setup: Homebrew and the model download from Hugging
+  Face.
+- Input Monitoring is used for modifier keys only (Fn). It does not log typing.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Holding Fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Input Monitoring was just granted, press **Restart talkflow**. |
+| The emoji picker or dictation opens when you press Fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
+| Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. |
+| A permission toggle is on but it still fails | Remove talkflow from that list in System Settings, run **Setup...** again and re-grant it. This happens after a rebuild with a different signature. |
+| Anything else | `~/Library/Logs/talkflow/talkflow.log` |
+
+### Uninstall
+
+```bash
+launchctl bootout gui/$(id -u)/com.samir.talkflow.whisperserver 2>/dev/null
+rm -f ~/Library/LaunchAgents/com.samir.talkflow.whisperserver.plist
+rm -rf /Applications/talkflow.app ~/Library/Application\ Support/TalkFlow
+brew uninstall whisper-cpp   # only if nothing else uses it
+```
+
+Then remove talkflow from the lists in System Settings > Privacy & Security.
+
+## Known limitations
+
+- Only English (`small.en`).
+- Writing method per app was measured on 2026-08-10: Notes-style native fields
+  take Accessibility writes; Cursor, Discord, Terminal, Claude and Chrome (Gmail)
+  take paced keystrokes. **Slack and VS Code have not been verified.** Details
+  and the measurements are in `HANDOFF.md`.
+- Keystroke delivery cannot confirm that every event arrived, so very long
+  corrections over keystrokes are refused rather than risked. Your words stay as
+  you said them.
+- Not notarized (see Install). The login item and the speech engine's LaunchAgent
+  are named `com.samir.talkflow...`; that is just an identifier.
+
+## Development
+
+```bash
+./deploy.sh   # developer loop: release build, installs to /Applications/talkflow.app,
+              # re-signs with the "talkflow Local Dev" identity (keeps the permission
+              # grants across rebuilds) and restarts the LaunchAgent.
+              # Assumes a Mac that is already set up. New machines use install.sh.
+```
 
 `swift build` on its own changes nothing that is running. Use `deploy.sh`.
 
@@ -84,6 +160,7 @@ $B --streamtest              # append-only streaming: replays whisper revision
 $B --typetest                # the writing layer, against the real event pipeline
 $B --rectest 3               # mic capture, WAV header, transcription round trip
 $B --formattest "raw text"   # the text pipeline, no microphone
+$B --enginecheck             # read-only: setup state (engine, model, permissions)
 $B --focusprobe              # read-only: what the focused element accepts
 $B --writetest [seconds]     # which write path the app you focus accepts
 $B --newlinetest [seconds]   # whether a newline sends the message in a chat app
@@ -108,6 +185,9 @@ while you are typing.
 | `StructurePolish.swift` | email greeting and sign-off paragraph breaks |
 | `Cleanup.swift` | filler-word removal |
 | `Hotkey.swift` | Fn key via CGEventTap |
+| `Onboarding.swift` | first-run setup window: permissions, speech engine, try it |
+| `Permissions.swift` | microphone, Accessibility, Input Monitoring: status, requests, deep links |
+| `SpeechEngine.swift` | finds or installs whisper-server, downloads the model, manages its LaunchAgent |
 
 `HANDOFF.md` carries the detail: what is measured, what is verified, which bugs
 are already fixed, and which dead ends not to repeat.
