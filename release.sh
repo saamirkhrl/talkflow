@@ -1,6 +1,9 @@
 #!/bin/bash
-# Builds talkflow.app, zips it, and publishes it as a GitHub release that the
-# in-app updater (Sources/talkflowd/Updater.swift) picks up.
+# Builds talkflow.app and publishes it as a GitHub release in two forms:
+#   talkflow-macos.dmg  what the website's download button gives people: open
+#                       it and drag talkflow onto Applications.
+#   talkflow-macos.zip  what the in-app updater (Sources/talkflowd/Updater.swift)
+#                       and the website's install.sh unpack.
 #
 #   ./release.sh 0.2.0            build, tag v0.2.0, publish the release
 #   ./release.sh 0.2.0 --dry-run  build and zip only, publish nothing
@@ -19,10 +22,11 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLIST="$PROJECT_DIR/Packaging/Info.plist"
 OUT="$PROJECT_DIR/.build/release-artifacts"
 APP="$OUT/talkflow.app"
-# Always this name: the website links to
-# github.com/<repo>/releases/latest/download/talkflow-macos.zip, which GitHub
-# serves from whichever release is newest.
+# Always these names: the website links to
+# github.com/<repo>/releases/latest/download/<name>, which GitHub serves from
+# whichever release is newest.
 ZIP="$OUT/talkflow-macos.zip"
+DMG="$OUT/talkflow-macos.dmg"
 # One binary for Apple Silicon and Intel Macs.
 ARCHS=(--arch arm64 --arch x86_64)
 
@@ -55,11 +59,23 @@ codesign --force --deep --sign - "$APP"
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ZIP"
 echo "    $(du -h "$ZIP" | cut -f1)  $ZIP"
 
+echo "==> Making $DMG"
+# The window people see when they open it: the app, and a shortcut to
+# Applications to drag it onto.
+STAGE="$OUT/dmg"
+mkdir -p "$STAGE"
+ditto "$APP" "$STAGE/talkflow.app"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -quiet -volname "talkflow" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG"
+rm -rf "$STAGE"
+hdiutil verify -quiet "$DMG"
+echo "    $(du -h "$DMG" | cut -f1)  $DMG"
+
 if [ "$DRY_RUN" = "--dry-run" ]; then
     echo "==> Dry run: nothing published. Revert Packaging/Info.plist if this was only a test."
     exit 0
 fi
 
 echo "==> Publishing v$VERSION"
-gh release create "v$VERSION" "$ZIP" --title "talkflow $VERSION" --generate-notes --target "$(git rev-parse HEAD)"
+gh release create "v$VERSION" "$DMG" "$ZIP" --title "talkflow $VERSION" --generate-notes --target "$(git rev-parse HEAD)"
 echo "==> Done. Commit Packaging/Info.plist (version $VERSION, build $BUILD)."
