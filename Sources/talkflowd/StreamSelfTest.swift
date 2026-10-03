@@ -278,6 +278,13 @@ enum StreamSelfTest {
             ("ordinal cues become a numbered list",
              "My grocery list is first, milk. Second, eggs. Third, bread.",
              "My grocery list is:\n1. Milk.\n2. Eggs.\n3. Bread."),
+            // From Gmail: the third item was left inside the second.
+            ("'third of all' continues a list",
+             "Three things, first, talk to 50 customers. Second, build in public and third of all you could submit your product to Product Hunt.",
+             "Three things:\n1. Talk to 50 customers.\n2. Build in public\n3. You could submit your product to Product Hunt."),
+            ("a lone 'first of all' is prose",
+             "First of all, thanks for coming to the meeting today.",
+             "First of all, thanks for coming to the meeting today."),
             ("a single 'number one' is just a phrase",
              "I think talkflow is number one in my book.",
              "I think talkflow is number one in my book."),

@@ -26,14 +26,16 @@ enum ListFormat {
         "sixth": 6, "seventh": 7, "eighth": 8, "ninth": 9, "tenth": 10,
     ]
 
-    /// "number two", "number 2", or an ordinal followed by a comma ("second,").
-    /// Ordinals demand the comma because "first" and "second" are ordinary words
-    /// ("wait a second"); "number N" is a cue on its own. A leading "and"/"then"
+    /// "number two", "number 2", an ordinal followed by a comma ("second,"), or
+    /// an ordinal plus "of all" ("third of all"). Bare ordinals demand the comma
+    /// because "first" and "second" are ordinary words ("wait a second");
+    /// "number N" and "N of all" are cues on their own - a lone "First of all,
+    /// thanks" still stays prose, because a list needs a chain from 1. A leading "and"/"then"
     /// belongs to the cue ("and number three"). Trailing punctuation is eaten so
     /// the item doesn't start with a stray comma or period.
     private static let cuePattern = try! NSRegularExpression(
         pattern: "(?:\\b(?:and|then)\\s+)?\\b(?:number\\s+(one|two|three|four|five|six|seven|eight|nine|ten|\\d{1,2})\\b"
-            + "|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)(?=\\s*,))[,.:]?\\s*",
+            + "|(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)(?:\\s+of\\s+all\\b|(?=\\s*,)))[,.:]?\\s*",
         options: [.caseInsensitive]
     )
 
