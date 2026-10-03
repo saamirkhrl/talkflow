@@ -91,7 +91,7 @@ function Initials({ name, className }: { name: string; className?: string }) {
 /* ------------------------------------------------------------------ Messages */
 
 const MESSAGE_THREADS = [
-  { name: "Maya Chen", preview: "we got a table outside at the noodle place on 5th 🍜", time: "6:14 PM" },
+  { name: "Maya Chen", preview: "we grabbed a table outside, the whole YC batch is here lol", time: "6:14 PM" },
   { name: "Mom", preview: "Did you get home ok? Call me tomorrow", time: "Yesterday" },
   { name: "Jordan Lee", preview: "haha yes exactly, that's the one", time: "Yesterday" },
   { name: "Sam Rivera", preview: "Sent the photos from Saturday", time: "Tuesday" },
@@ -161,7 +161,7 @@ export function MessagesMock({ text, d }: MockProps) {
             Today 6:12 PM
           </p>
           <Bubble>are you still coming tonight?</Bubble>
-          <Bubble>we got a table outside at the noodle place on 5th 🍜</Bubble>
+          <Bubble>we grabbed a table outside, the whole YC batch is here lol</Bubble>
           {sent && (
             <>
               <Bubble me className="mt-2 animate-[pop-in_280ms_ease-out]">
@@ -191,12 +191,12 @@ export function MessagesMock({ text, d }: MockProps) {
 /* --------------------------------------------------------------------- Gmail */
 
 const INBOX = [
-  { from: "Daniel Okafor", subject: "Contract for the spring campaign", snippet: "Hi Alex, attached is the contract we talked about", time: "9:41 AM", unread: true },
-  { from: "Figma", subject: "Maya commented on Checkout v3", snippet: "\"Can we try the button full width on mobile?\"", time: "8:15 AM", unread: true },
+  { from: "Daniel Okafor", subject: "Following up from Tuesday", snippet: "Great meeting you. Could you send over the deck?", time: "9:41 AM", unread: true },
+  { from: "Hacker News", subject: "Your post is on the front page", snippet: "Show HN: We built the waitlist we wished existed", time: "8:15 AM", unread: true },
   { from: "Lena Fischer", subject: "Offsite dates", snippet: "Does the week of the 20th work for everyone?", time: "Oct 1", unread: false },
   { from: "Stripe", subject: "Your September payout", snippet: "Your payout of $4,812.20 is on its way", time: "Oct 1", unread: false },
   { from: "Tom Becker", subject: "Re: Q4 roadmap", snippet: "Agree on cutting the referral work for now", time: "Sep 30", unread: false },
-  { from: "GitHub", subject: "[checkout-app] PR #214 merged", snippet: "Merged #214 into main", time: "Sep 30", unread: false },
+  { from: "GitHub", subject: "[waitlist] PR #214 merged", snippet: "Merged #214 into main", time: "Sep 30", unread: false },
 ];
 
 const GMAIL_NAV: [ReactNode, string, string?][] = [
@@ -282,7 +282,7 @@ export function GmailMock({ text, d }: MockProps) {
             </span>
           </div>
           <div className="mx-4 flex h-9 shrink-0 items-center border-b border-black/10">
-            Re: Contract for the spring campaign
+            Re: Following up from Tuesday
           </div>
           <div className="min-h-0 flex-1 overflow-hidden px-4 pt-3 leading-[1.5] whitespace-pre-wrap">
             <FieldText typed={body} placeholder="" caret="bg-black" />
@@ -442,7 +442,7 @@ export function WhatsAppMock({ text, d }: MockProps) {
 
 /* --------------------------------------------------------------------- Slack */
 
-const SLACK_CHANNELS = ["general", "checkout-launch", "design", "random"];
+const SLACK_CHANNELS = ["general", "launch", "eng", "random"];
 
 function SlackMessage({ name, color, time, children, className }: {
   name: string;
@@ -491,7 +491,7 @@ export function SlackMock({ text, d }: MockProps) {
               key={c}
               className={cn(
                 "mx-2 flex h-7 items-center gap-1.5 rounded-md px-2",
-                c === "checkout-launch" && "bg-[#1164a3] font-semibold text-white",
+                c === "launch" && "bg-[#1164a3] font-semibold text-white",
               )}
             >
               <Hash size={13} strokeWidth={2} />
@@ -510,16 +510,16 @@ export function SlackMock({ text, d }: MockProps) {
         <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-tl-lg">
           <header className="flex h-11 shrink-0 items-center gap-1 border-b border-black/10 px-4 text-[15px] font-bold">
             <Hash size={15} strokeWidth={2.25} />
-            checkout-launch
+            launch
             <ChevronDown size={14} strokeWidth={2.5} className="text-black/50" />
           </header>
 
           <div className="flex min-h-0 flex-1 flex-col justify-end *:shrink-0 gap-3.5 overflow-hidden px-4 pb-3">
             <SlackMessage name="Tom Becker" color="bg-[#2bac76]" time="9:48 AM">
-              Copy for the new pay button is in Figma, shout if anything reads weird 🙏
+              Show HN post is in the doc, shout if anything reads weird 🙏
             </SlackMessage>
             <SlackMessage name="Priya Shah" color="bg-[#e8912d]" time="10:02 AM">
-              Morning! Where are we on the payment fix? Would love to get it in front of QA today.
+              Are we good for tomorrow? Last time we hit the front page the waitlist fell over 😅
             </SlackMessage>
             {sent && (
               <SlackMessage name="Alex Kim" color="bg-[#5b8def]" time="10:06 AM" className="animate-[pop-in_280ms_ease-out]">
@@ -539,7 +539,7 @@ export function SlackMock({ text, d }: MockProps) {
               <Code size={14} strokeWidth={2} className="hidden sm:block" />
             </div>
             <div className="min-h-9 px-3 py-2 leading-[1.45] break-words">
-              <FieldText typed={typed} placeholder="Message #checkout-launch" caret="bg-black" />
+              <FieldText typed={typed} placeholder="Message #launch" caret="bg-black" />
             </div>
             <div className="flex h-9 items-center gap-3.5 px-2.5 text-black/55">
               <span className="grid size-6 place-items-center rounded-full bg-black/6">
@@ -571,8 +571,8 @@ export function SlackMock({ text, d }: MockProps) {
 const NOTION_PAGES = [
   ["📝", "Meeting notes"],
   ["🗺️", "Roadmap"],
-  ["🚀", "Launch plan"],
-  ["🧾", "Checkout retro"],
+  ["📈", "Investor updates"],
+  ["🚀", "Launch retro"],
   ["📚", "Team wiki"],
 ];
 
@@ -604,7 +604,7 @@ export function NotionMock({ text, d }: MockProps) {
             key={name}
             className={cn(
               "mx-1.5 flex h-7 items-center gap-2 rounded-md px-1.5",
-              name === "Checkout retro" && "bg-black/5 font-medium text-[#37352f]",
+              name === "Launch retro" && "bg-black/5 font-medium text-[#37352f]",
             )}
           >
             <span className="w-4 text-center text-[13px]">{icon}</span>
@@ -616,9 +616,9 @@ export function NotionMock({ text, d }: MockProps) {
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[42px] shrink-0 items-center gap-2 px-3.5 text-[12.5px]">
           <Lights className="mr-2 sm:hidden" />
-          <span className="truncate text-black/50">🚀 Launch plan</span>
+          <span className="truncate text-black/50">📝 Meeting notes</span>
           <span className="text-black/30">/</span>
-          <span className="truncate">🧾 Checkout retro</span>
+          <span className="truncate">🚀 Launch retro</span>
           <span className="ml-auto flex items-center gap-3.5 text-black/50">
             <span className="hidden sm:inline">Share</span>
             <Star size={15} strokeWidth={1.75} />
@@ -627,21 +627,21 @@ export function NotionMock({ text, d }: MockProps) {
         </header>
 
         <div className="min-h-0 flex-1 overflow-hidden px-[clamp(20px,7%,52px)] pt-5 leading-[1.55]">
-          <div className="text-[34px] leading-none">🧾</div>
-          <h3 className="mt-3 text-[26px] leading-[1.2] font-bold tracking-[-0.01em]">Checkout retro</h3>
+          <div className="text-[34px] leading-none">🚀</div>
+          <h3 className="mt-3 text-[26px] leading-[1.2] font-bold tracking-[-0.01em]">Launch retro</h3>
           <div className="mt-2.5 flex gap-6 text-[12.5px]">
             <span className="w-16 text-black/45">Date</span>
             <span>October 2, 2026</span>
           </div>
           <div className="mt-1 flex gap-6 text-[12.5px]">
             <span className="w-16 text-black/45">Team</span>
-            <span className="rounded bg-[#e3e2e0] px-1.5">Payments</span>
+            <span className="rounded bg-[#e3e2e0] px-1.5">Growth</span>
           </div>
 
           <h4 className="mt-5 text-[17px] font-semibold">What went well</h4>
           <ul className="mt-1 list-disc pl-5 marker:text-[#37352f]">
-            <li>No double charges since the pay button fix shipped.</li>
-            <li>Support tickets about checkout are down by half.</li>
+            <li>Front page of Hacker News for most of the day.</li>
+            <li>About 2,400 waitlist signups, and the site stayed up.</li>
           </ul>
 
           <h4 className="mt-4 text-[17px] font-semibold">Next sprint</h4>

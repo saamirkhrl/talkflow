@@ -14,17 +14,17 @@ export const SHOW_OS_LOGOS = true;
 // (Dictation.render runs StructurePolish on the final pass only).
 export const DICTATIONS = {
   claudeCode:
-    "So the checkout form is double submitting when someone taps pay twice on a slow connection. Can you add a loading state that disables the button after the first click and shows a small spinner inside it? Also make sure it resets if the request fails, and add a test for the retry case.",
+    "Okay, we're launching on Hacker News tomorrow morning and I'm worried the waitlist falls over. Can you add rate limiting per IP, move the welcome email onto a queue so it doesn't block the request, and write a quick load test so we can see where it breaks? Also make sure we're not logging anyone's email in plain text.",
   messages:
-    "Yes, on my way! The train got stuck outside Canal Street for twenty minutes, so I'm running a bit late. Order me the spicy noodles if you can, and the next round is on me.",
+    "Yes, on my way! Parking around South Park is a nightmare, so I'm running about ten minutes late. Order me whatever you're having, and the next round is on me.",
   gmail:
-    "Hi Daniel,\n\nThanks for sending the contract over. I read through it this morning and it all looks good, apart from the payment terms in section four. Could we move those to thirty days instead of fifteen? Happy to jump on a quick call this week if that's easier.\n\nBest, Alex",
+    "Hi Daniel,\n\nThanks for making time on Tuesday. As promised, the deck and our latest numbers are attached. Launch week brought in about 2,400 signups, mostly from Hacker News, and we're aiming to close the round in the next three weeks. Happy to walk your partners through it whenever suits them.\n\nBest, Alex",
   whatsapp:
     "Count me in! I'll grab a cheesecake from the bakery on the way, and I can pick up Grandma if she needs a lift. Should be there around one.",
   slack:
-    "It's merged and on staging. The double submit is gone, and I added a test for the retry case. QA can start whenever they're ready, and if nothing turns up we can ship tomorrow morning.",
+    "We're good. Rate limiting is in, the welcome emails go through a queue now, and I load tested it to about 2,000 requests a second. I'll post at 8 a.m. Pacific, so try to be around for the first couple of hours to answer comments.",
   notion:
-    "Start with onboarding. Most people who drop off do it before day three, so let's rewrite the welcome emails and add a short checklist to the dashboard. We should also keep one person on support rotation so bug fixes don't stall.",
+    "Start with onboarding. Most people who drop off do it before day three, so let's rewrite the welcome emails and add a short checklist to the dashboard. We should also reply to every Hacker News comment we missed, since that thread is still sending signups.",
 };
 
 export const FAQ: [question: string, answer: string][] = [

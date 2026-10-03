@@ -13,7 +13,6 @@ const USER_BG = "bg-[#373737]";
 const ADDED = "bg-[#225c2b]";
 const REMOVED = "bg-[#7a2936]";
 const ADDED_WORD = "bg-[#38a660]";
-const REMOVED_WORD = "bg-[#b3596b]";
 
 // One blank terminal row.
 function Gap() {
@@ -106,72 +105,63 @@ export function ClaudeCodeMock({ text, d }: { text: string; d: Dictation }) {
     <div className="flex h-full flex-col bg-[#1a1a1a] font-mono text-[11.5px] text-[#e8e6e3] [--lh:16px] sm:text-[12.5px] sm:[--lh:18px]">
       <div className="flex h-[34px] shrink-0 items-center border-b border-black/50 bg-[#2a2a2a] px-3.5 font-sans">
         <Lights />
-        <span className="flex-1 truncate px-3 text-center text-[12.5px] text-[#a8a8a8]">✳ Cart total rounding fix</span>
+        <span className="flex-1 truncate px-3 text-center text-[12.5px] text-[#a8a8a8]">✳ Waitlist signups fix</span>
         <span className="w-[52px]" />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-3 pt-2 pb-2.5 leading-(--lh) *:shrink-0 sm:px-3.5">
-        <UserMessage>some cart totals come out a cent off, can you find out why?</UserMessage>
+        <UserMessage>signups from the landing page stopped showing up in the dashboard, can you look?</UserMessage>
         <Gap />
-        <Tool name="Search" arg='pattern: "lineTotal", path: "src"'>
-          Found <span className="font-bold">3</span> files
+        <Tool name="Search" arg='pattern: "waitlist", path: "src"'>
+          Found <span className="font-bold">4</span> files
           <Expand />
         </Tool>
         <Gap />
-        <Tool name="Read" arg="src/lib/money.ts">
-          Read <span className="font-bold">42</span> lines
+        <Tool name="Read" arg="src/app/api/waitlist/route.ts">
+          Read <span className="font-bold">38</span> lines
           <Expand />
         </Tool>
         <Gap />
         <Bullet>
-          Each line total is rounded before the lines are added up, so the rounding errors stack. I&apos;ll add up cents
-          and round once.
+          The route responds before the insert finishes, and the function is frozen as soon as it responds, so most
+          writes never land. I&apos;ll await the insert.
         </Bullet>
         <Gap />
-        <Tool name="Update" arg="src/lib/money.ts">
+        <Tool name="Update" arg="src/app/api/waitlist/route.ts">
           <div>
-            Updated <span className="font-bold">src/lib/money.ts</span> with <span className="font-bold">2</span> additions
-            and <span className="font-bold">1</span> removal
+            Updated <span className="font-bold">src/app/api/waitlist/route.ts</span> with{" "}
+            <span className="font-bold">1</span> addition and <span className="font-bold">1</span> removal
           </div>
-          <DiffRow n={11}>export function cartTotal(items: CartItem[]) {"{"}</DiffRow>
-          <DiffRow n={12} sign="-">
-            {"  const "}
-            <span className={REMOVED_WORD}>total</span>
-            {" = sum(items.map("}
-            <span className={REMOVED_WORD}>lineTotal</span>
-            {"));"}
+          <DiffRow n={14}>{"  const { email } = await req.json();"}</DiffRow>
+          <DiffRow n={15} sign="-">
+            {"  db.insert(waitlist).values({ email });"}
           </DiffRow>
-          <DiffRow n={12} sign="+">
-            {"  const "}
-            <span className={ADDED_WORD}>cents</span>
-            {" = sum(items.map("}
-            <span className={ADDED_WORD}>lineCents</span>
-            {"));"}
+          <DiffRow n={15} sign="+">
+            {"  "}
+            <span className={ADDED_WORD}>await </span>
+            {"db.insert(waitlist).values({ email });"}
           </DiffRow>
-          <DiffRow n={13} sign="+">
-            {"  const total = cents / 100;"}
-          </DiffRow>
-          <DiffRow n={14}>{"  return formatPrice(total);"}</DiffRow>
+          <DiffRow n={16}>{"  return Response.json({ ok: true });"}</DiffRow>
         </Tool>
         <Gap />
-        <Tool name="Bash" arg="npm test -- money">
+        <Tool name="Bash" arg="npm test -- waitlist">
           <div>
-            <span className="bg-[#4eba65] px-[1ch] font-bold text-[#1a1a1a]">PASS</span> src/lib/money.test.ts
+            <span className="bg-[#4eba65] px-[1ch] font-bold text-[#1a1a1a]">PASS</span> src/app/api/waitlist/route.test.ts
           </div>
           <div className="whitespace-pre">
             {"  "}
-            <span className={GREEN}>✓</span> adds line items in cents <span className={DIM}>(3 ms)</span>
+            <span className={GREEN}>✓</span> saves the email before responding <span className={DIM}>(14 ms)</span>
           </div>
           <div className="whitespace-pre">
             {"  "}
-            <span className={GREEN}>✓</span> rounds once, at display <span className={DIM}>(1 ms)</span>
+            <span className={GREEN}>✓</span> rejects a malformed email <span className={DIM}>(3 ms)</span>
           </div>
-          <div className={DIM}>… +6 lines (ctrl+o to expand)</div>
+          <div className={DIM}>… +4 lines (ctrl+o to expand)</div>
         </Tool>
         <Gap />
         <Bullet>
-          Fixed. Totals are now added up in cents and rounded once, so the cart and the receipt always agree. All 9 money
-          tests pass.
+          Fixed. The insert is awaited now, so every signup is saved before the response goes out. All 6 waitlist tests
+          pass.
         </Bullet>
         <Gap />
         <div className={DIM}>✻ Worked for 1m 12s</div>
