@@ -71,6 +71,25 @@ enum StructurePolish {
         pattern: "^(?:Mr|Mrs|Ms|Dr|Prof)\\.?\\s+[A-Z][A-Za-z]*\\.?$|^[A-Z][A-Za-z]*\\.?$"
     )
 
+    /// A sign-off paragraph whisper wrote without its comma: "Best Samir." /
+    /// "Thanks Sarah". Group 1 is the closer, group 2 the name.
+    private static let commaLessSignOff = try! NSRegularExpression(
+        pattern: "^((?i:best regards|best wishes|best|thanks again|thanks|thank you|regards|sincerely|cheers|talk soon))\\s+([A-Z][A-Za-z'-]*\\.?)$"
+    )
+
+    /// "Best Samir." -> "Best, Samir." Only on a final paragraph that `apply`
+    /// already split off as a sign-off, so a sentence ending "...thanks Sam"
+    /// is never touched. Adds one comma; no word changes. Pure, for
+    /// `--streamtest`.
+    static func punctuateSignOff(_ text: String) -> String {
+        guard let breakRange = text.range(of: "\n\n", options: .backwards) else { return text }
+        let last = String(text[breakRange.upperBound...])
+        let ns = last as NSString
+        guard let match = commaLessSignOff.firstMatch(in: last, range: NSRange(location: 0, length: ns.length)) else { return text }
+        let closer = ns.substring(with: match.range(at: 1)), name = ns.substring(with: match.range(at: 2))
+        return String(text[..<breakRange.upperBound]) + closer + ", " + name
+    }
+
     /// Returns the text with blank lines inserted between sections.
     ///
     /// `signOff: false` is the live-typing mode: only the greeting break is

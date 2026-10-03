@@ -39,6 +39,48 @@ enum ListFormat {
         options: [.caseInsensitive]
     )
 
+    /// A bare ordinal with no comma: "is first pick up the water, second upload
+    /// your resume, and then third tell people". Whisper rarely writes the
+    /// comma after a spoken ordinal, so on their own these are prose ("the
+    /// first time", "wait a second"); they count only as a whole chain from
+    /// "first", see `bareChain`.
+    private static let bareCuePattern = try! NSRegularExpression(
+        pattern: "(?:\\b(?:and|then)\\s+){0,2}\\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\\b[,.:]?\\s*",
+        options: [.caseInsensitive]
+    )
+
+    /// Words that make the ordinal after them an adjective: "the first time",
+    /// "at first", "a second opinion".
+    private static let adjectiveLeads: Set<String> = [
+        "the", "a", "an", "my", "our", "your", "his", "her", "their", "its", "this", "that", "at", "every",
+        "each", "for", "in", "on", "to", "of", "was", "be", "came", "come", "finished", "went"
+    ]
+
+    /// The bare ordinals in `paragraph` that form a list: first, second, third
+    /// in order with none skipped, at least two of them, each later one
+    /// opening a clause (after a comma or full stop, or with "and"/"then"),
+    /// and "first" not used as an adjective.
+    private static func bareChain(in paragraph: String) -> [(range: NSRange, value: Int)] {
+        let ns = paragraph as NSString
+        var chain: [(range: NSRange, value: Int)] = []
+        for match in bareCuePattern.matches(in: paragraph, range: NSRange(location: 0, length: ns.length)) {
+            guard let value = value(of: ns.substring(with: match.range(at: 1))) else { continue }
+            let joined = match.range(at: 1).location > match.range.location // "and then third"
+            let before = ns.substring(to: match.range.location).trimmingCharacters(in: .whitespaces)
+            let previousWord = before.split(separator: " ").last.map { $0.lowercased() } ?? ""
+            if value == 1, chain.count <= 1 {
+                // A later "first" replaces an unanswered earlier one.
+                chain = adjectiveLeads.contains(previousWord) ? [] : [(match.range, 1)]
+                continue
+            }
+            guard let last = chain.last, value == last.value + 1 else { continue }
+            let opensClause = joined || before.hasSuffix(",") || before.hasSuffix(".") || before.hasSuffix(";")
+            guard opensClause else { continue }
+            chain.append((match.range, value))
+        }
+        return chain.count >= 2 ? chain : []
+    }
+
     static func apply(to text: String) -> String {
         text.components(separatedBy: "\n\n").map(format(paragraph:)).joined(separator: "\n\n")
     }
@@ -58,6 +100,8 @@ enum ListFormat {
             if chain.isEmpty { if cue.value == 1 { chain.append(cue) } }
             else if cue.value > chain[chain.count - 1].value { chain.append(cue) }
         }
+        let bare = bareChain(in: paragraph)
+        if bare.count > chain.count { chain = bare }
         guard chain.count >= 2 else { return paragraph }
 
         var items: [String] = []
@@ -67,6 +111,9 @@ enum ListFormat {
             var item = ns.substring(with: NSRange(location: start, length: end - start))
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             guard !item.isEmpty else { return paragraph } // cue with nothing after it
+            // "pick up the water," - the comma separated the spoken items and
+            // means nothing at the end of a line.
+            if index + 1 < chain.count, item.hasSuffix(",") || item.hasSuffix(";") { item.removeLast() }
             item = item.prefix(1).uppercased() + item.dropFirst()
             items.append("\(cue.value). \(item)")
         }
