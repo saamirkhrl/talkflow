@@ -44,6 +44,15 @@ enum StructurePolish {
             + "(?:[a-z]+(?:\\s*,)?\\s*)?[A-Z][A-Za-z]*\\.?)\\s*$"
     )
 
+    /// A comma-less greeting that is a whole sentence on its own: "Good morning
+    /// Emily." Whisper often drops the comma, and without it the pattern above
+    /// never matched, so the break was skipped. Requires a capitalised name (an
+    /// optional title plus one or two words) and the sentence end, so "Good
+    /// morning everyone I hope" is not touched.
+    private static let bareGreetingPattern = try! NSRegularExpression(
+        pattern: "^(?:Good (?:morning|afternoon|evening)|Dear|Hi|Hey|Hello)\\s+(?:(?:Mr|Mrs|Ms|Dr|Prof)\\.?\\s+)?[A-Z][A-Za-z'-]*(?:\\s+[A-Z][A-Za-z'-]*)?[.!]$"
+    )
+
     /// A name or title left over after the greeting's comma: "Mr. Joseph",
     /// "Sarah". Kept with the greeting rather than pushed into the body.
     private static let greetingNamePattern = try! NSRegularExpression(
@@ -109,7 +118,10 @@ enum StructurePolish {
 
         var forced = Set<Int>()
 
-        if greeting, let first = clauses.first,
+        if greeting, clauses.count > 1, let first = clauses.first,
+           bareGreetingPattern.firstMatch(in: first, range: NSRange(location: 0, length: (first as NSString).length)) != nil {
+            forced.insert(1)
+        } else if greeting, let first = clauses.first,
            let match = firstMatch(greetingPattern, in: first),
            match.upperBound < first.endIndex {
             let greeting = String(first[..<match.upperBound])
