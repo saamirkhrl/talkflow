@@ -27,6 +27,42 @@ final class DashboardController: NSWindowController {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
+
+    /// `--dashboardshot`: draws the dashboard with the real stats, both chart
+    /// styles, light and dark, a tooltip showing, to PNGs in the temporary
+    /// directory - so the layout can be checked without a screen. Read-only;
+    /// the remembered chart style is put back.
+    @MainActor
+    static func renderSnapshots() -> [URL] {
+        _ = NSApplication.shared // the header reads NSApp's icon
+        let saved = UserDefaults.standard.string(forKey: "dashboardChart")
+        defer { UserDefaults.standard.set(saved, forKey: "dashboardChart") }
+        let model = DashboardModel()
+        var written: [URL] = []
+        for style in ChartStyle.allCases {
+            model.chartStyle = style
+            model.hovered = style == .grid ? model.days.count - 1 : DashboardModel.chartWeeks - 1
+            for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
+                    let renderer = ImageRenderer(content: DashboardView(model: model)
+                        .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light))
+                    renderer.scale = 2
+                    guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                          let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { return }
+                    let url = URL(fileURLWithPath: NSTemporaryDirectory())
+                        .appendingPathComponent("talkflow-dashboard-\(style == .grid ? "grid" : "bars")-\(name).png")
+                    try? png.write(to: url)
+                    written.append(url)
+                }
+            }
+        }
+        return written
+    }
+}
+
+enum ChartStyle: String, CaseIterable {
+    case grid = "Grid"
+    case bars = "Weekly bars"
 }
 
 enum DashboardPage: String, CaseIterable {
@@ -56,6 +92,12 @@ final class DashboardModel: ObservableObject {
     @Published var days = StatsStore.shared.recentDays(DashboardModel.chartDays)
     @Published var page: DashboardPage = .dashboard
     let settings = SettingsModel()
+    /// Grid or bars, remembered between launches.
+    @Published var chartStyle = ChartStyle(rawValue: UserDefaults.standard.string(forKey: "dashboardChart") ?? "") ?? .grid {
+        didSet { UserDefaults.standard.set(chartStyle.rawValue, forKey: "dashboardChart") }
+    }
+    /// The day (grid) or week (bars) under the pointer, for the tooltip.
+    @Published var hovered: Int?
 
     static let chartWeeks = 26
 
@@ -208,28 +250,207 @@ private struct DashboardView: View {
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
     }
 
+    // MARK: - Activity chart
+
+    /// One cell of the grid: a 14pt tile plus the 4pt gap, which is part of
+    /// the hover target so the pointer is never between tiles.
+    private let cell: CGFloat = 18
+    private let tile: CGFloat = 14
+    /// Room for the weekday (grid) or value (bars) labels on the left.
+    private let axisWidth: CGFloat = 30
+    /// Room for the month labels.
+    private let monthHeight: CGFloat = 16
+
+    private var weeks: [[(date: Date, words: Int)]] {
+        stride(from: 0, to: model.days.count, by: 7).map { Array(model.days[$0..<min($0 + 7, model.days.count)]) }
+    }
+
     private var chart: some View {
-        let peak = max(model.days.map(\.words).max() ?? 0, 1)
-        let columns = stride(from: 0, to: model.days.count, by: 7).map {
-            Array(model.days[$0..<min($0 + 7, model.days.count)].enumerated())
-        }
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("Last \(DashboardModel.chartWeeks) weeks")
-                .font(.system(size: 12))
-                .foregroundColor(.graphite)
-            HStack(alignment: .top, spacing: 4) {
-                ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
-                    VStack(spacing: 4) {
-                        ForEach(column, id: \.offset) { _, day in
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(Color.ink.opacity(shade(day.words, peak: peak)))
-                                .frame(width: 15, height: 15)
-                                .help("\(day.date.formatted(.dateTime.month().day())): \(day.words) words")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Last \(DashboardModel.chartWeeks) weeks")
+                    .font(.system(size: 12))
+                    .foregroundColor(.graphite)
+                Spacer()
+                Menu {
+                    ForEach(ChartStyle.allCases, id: \.self) { style in
+                        Button(style.rawValue) {
+                            model.hovered = nil
+                            model.chartStyle = style
                         }
                     }
+                } label: {
+                    // Styled like the Dashboard / Settings switch.
+                    HStack(spacing: 4) {
+                        Text(model.chartStyle.rawValue)
+                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.ink)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .overlay(Capsule().stroke(Color.line, lineWidth: 1))
+                    .contentShape(Capsule())
                 }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+            }
+            switch model.chartStyle {
+            case .grid: contributionGrid
+            case .bars: weeklyBars
             }
         }
+    }
+
+    /// GitHub-style: a column per week, a row per weekday, darker for more
+    /// words. Month names along the top, weekdays down the side, today
+    /// outlined, and the day's count above the tile under the pointer.
+    private var contributionGrid: some View {
+        let peak = max(model.days.map(\.words).max() ?? 0, 1)
+        let weeks = self.weeks
+        let width = axisWidth + CGFloat(weeks.count) * cell
+        let height = monthHeight + 7 * cell
+        return ZStack(alignment: .topLeading) {
+            ForEach(monthLabels(weeks), id: \.column) { label in
+                Text(label.name)
+                    .font(.system(size: 10))
+                    .foregroundColor(.graphite)
+                    .offset(x: axisWidth + CGFloat(label.column) * cell + 2, y: 0)
+            }
+            ForEach(weekdayLabels, id: \.row) { label in
+                Text(label.name)
+                    .font(.system(size: 10))
+                    .foregroundColor(.graphite)
+                    .offset(x: 0, y: monthHeight + CGFloat(label.row) * cell + 2)
+            }
+            ForEach(Array(model.days.enumerated()), id: \.offset) { index, day in
+                let isToday = Calendar.current.isDateInToday(day.date)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.ink.opacity(shade(day.words, peak: peak)))
+                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(Color.ink.opacity(isToday ? 1 : 0), lineWidth: 1.5))
+                    .opacity(model.hovered == nil || model.hovered == index ? 1 : 0.55)
+                    .frame(width: tile, height: tile)
+                    .frame(width: cell, height: cell)
+                    .contentShape(Rectangle())
+                    .onHover { inside in hover(index, inside) }
+                    .offset(x: axisWidth + CGFloat(index / 7) * cell, y: monthHeight + CGFloat(index % 7) * cell)
+            }
+            if let index = model.hovered, model.days.indices.contains(index) {
+                let day = model.days[index]
+                tooltip("\(dayName(day.date)): \(day.words.formatted()) \(day.words == 1 ? "word" : "words")",
+                        x: axisWidth + CGFloat(index / 7) * cell + cell / 2, y: monthHeight + CGFloat(index % 7) * cell - 4,
+                        width: width)
+            }
+        }
+        .frame(width: width, height: height, alignment: .topLeading)
+    }
+
+    /// One bar per week, on the same 26 weeks: easier to compare totals than
+    /// shades. One series, so no legend; the axis shows 0 and the peak.
+    private var weeklyBars: some View {
+        let weeks = self.weeks
+        let totals = weeks.map { $0.reduce(0) { $0 + $1.words } }
+        let peak = max(totals.max() ?? 0, 1)
+        let width = axisWidth + CGFloat(weeks.count) * cell
+        let plotTop: CGFloat = 8, plotHeight = 7 * cell - plotTop
+        let baseline = plotTop + plotHeight
+        return ZStack(alignment: .topLeading) {
+            // Recessive axis: a hairline at the peak and the baseline.
+            Rectangle().fill(Color.line).frame(width: width - axisWidth, height: 0.5).offset(x: axisWidth, y: plotTop)
+            Rectangle().fill(Color.line).frame(width: width - axisWidth, height: 1).offset(x: axisWidth, y: baseline)
+            Text(compact(peak)).font(.system(size: 10)).foregroundColor(.graphite).offset(x: 0, y: plotTop - 6)
+            Text("0").font(.system(size: 10)).foregroundColor(.graphite).offset(x: 0, y: baseline - 7)
+            ForEach(Array(totals.enumerated()), id: \.offset) { index, total in
+                let barHeight = total == 0 ? 0 : max(2, plotHeight * CGFloat(total) / CGFloat(peak))
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    TopRoundedBar(radius: 3)
+                        .fill(Color.ink.opacity(model.hovered == nil || model.hovered == index ? 0.8 : 0.3))
+                        .frame(width: cell - 4, height: barHeight)
+                }
+                .frame(width: cell, height: plotHeight)
+                .contentShape(Rectangle())
+                .onHover { inside in hover(index, inside) }
+                .offset(x: axisWidth + CGFloat(index) * cell, y: plotTop)
+            }
+            ForEach(monthLabels(weeks), id: \.column) { label in
+                Text(label.name)
+                    .font(.system(size: 10))
+                    .foregroundColor(.graphite)
+                    .offset(x: axisWidth + CGFloat(label.column) * cell, y: baseline + 3)
+            }
+            if let index = model.hovered, weeks.indices.contains(index), let first = weeks[index].first, let last = weeks[index].last {
+                let barHeight = totals[index] == 0 ? 0 : max(2, plotHeight * CGFloat(totals[index]) / CGFloat(peak))
+                tooltip("\(first.date.formatted(.dateTime.month(.abbreviated).day())) - \(last.date.formatted(.dateTime.month(.abbreviated).day())): \(totals[index].formatted()) words",
+                        x: axisWidth + CGFloat(index) * cell + cell / 2, y: baseline - barHeight - 4, width: width)
+            }
+        }
+        .frame(width: width, height: monthHeight + 7 * cell, alignment: .topLeading)
+    }
+
+    private func hover(_ index: Int, _ inside: Bool) {
+        if inside { model.hovered = index } else if model.hovered == index { model.hovered = nil }
+    }
+
+    /// A dark label centred above (x, y), kept inside the chart's width.
+    private func tooltip(_ text: String, x: CGFloat, y: CGFloat, width: CGFloat) -> some View {
+        let estimated = CGFloat(text.count) * 6.2 + 16
+        let centre = min(max(x, estimated / 2), width - estimated / 2)
+        return Text(text)
+            .font(.system(size: 11, weight: .medium))
+            .monospacedDigit()
+            .foregroundColor(.paper)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.ink))
+            .position(x: centre, y: max(10, y - 10))
+            .allowsHitTesting(false)
+    }
+
+    /// "Today, Oct 3", "Yesterday, Oct 2", else "Thu, Oct 1".
+    private func dayName(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let monthDay = date.formatted(.dateTime.month(.abbreviated).day())
+        if calendar.isDateInToday(date) { return "Today, \(monthDay)" }
+        if calendar.isDateInYesterday(date) { return "Yesterday, \(monthDay)" }
+        return date.formatted(.dateTime.weekday(.abbreviated)) + ", " + monthDay
+    }
+
+    /// The short month name over the first week that starts in it, skipped
+    /// when the next one is too close to fit (the partial first month).
+    private func monthLabels(_ weeks: [[(date: Date, words: Int)]]) -> [(column: Int, name: String)] {
+        let calendar = Calendar.current
+        var labels: [(column: Int, name: String)] = []
+        var previousMonth = -1
+        for (column, week) in weeks.enumerated() {
+            guard let first = week.first else { continue }
+            let month = calendar.component(.month, from: first.date)
+            if month != previousMonth {
+                labels.append((column, first.date.formatted(.dateTime.month(.abbreviated))))
+                previousMonth = month
+            }
+        }
+        if labels.count > 1, labels[1].column - labels[0].column < 3 { labels.removeFirst() }
+        return labels
+    }
+
+    /// Mon, Wed and Fri, on whichever rows they fall for this locale's first
+    /// weekday - as GitHub labels it.
+    private var weekdayLabels: [(row: Int, name: String)] {
+        let calendar = Calendar.current
+        let symbols = calendar.shortWeekdaySymbols // Sunday first
+        return (0..<7).compactMap { row in
+            let weekday = (calendar.firstWeekday - 1 + row) % 7 // 0 = Sunday
+            return [1, 3, 5].contains(weekday) ? (row, symbols[weekday]) : nil
+        }
+    }
+
+    /// 4512 -> "4.5k".
+    private func compact(_ value: Int) -> String {
+        value >= 1000 ? String(format: "%.1fk", Double(value) / 1000) : String(value)
     }
 
     /// Empty days stay faint; the rest step up in four shades relative to the busiest day.
@@ -237,6 +458,24 @@ private struct DashboardView: View {
         guard words > 0 else { return 0.07 }
         let level = min(4, Int((Double(words) / Double(peak) * 4).rounded(.up)))
         return 0.15 + 0.85 * Double(level) / 4
+    }
+}
+
+/// A bar rounded only at its data end, square on the baseline it stands on.
+private struct TopRoundedBar: Shape {
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let r = min(radius, rect.width / 2, rect.height)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + r))
+        path.addQuadCurve(to: CGPoint(x: rect.minX + r, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + r), control: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
     }
 }
 

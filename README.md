@@ -192,6 +192,8 @@ $B --streamtest              # append-only streaming: replays whisper revision
 $B --typetest                # the writing layer, against the real event pipeline
 $B --rectest 3               # mic capture, WAV header, transcription round trip
 $B --formattest "raw text"   # the text pipeline, no microphone
+$B --dashboardshot           # renders the dashboard (grid, bars, light, dark) to
+                             #   PNGs in $TMPDIR, to check its layout
 $B --enginecheck             # read-only: setup state (engine, model, permissions)
 $B --focusprobe              # read-only: what the focused element accepts
 $B --writetest [seconds]     # which write path the app you focus accepts
