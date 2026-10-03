@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ComponentType, type RefObject } from "react";
+import { useLenis } from "lenis/react";
 import { cn } from "@/lib/cn";
 import { GmailMock, MessagesMock, NotionMock, SlackMock, WhatsAppMock, type MockProps } from "./AppMocks";
 import { APP_LOGOS } from "./brand-logos.generated";
@@ -81,17 +82,26 @@ function Pill({ listening }: { listening: boolean }) {
   );
 }
 
-function SceneView({ scene, active, reduced }: { scene: Scene; active: boolean; reduced: boolean }) {
-  const d = useDictation(scene.text, active, reduced, scene.sends);
+// Where a scene sits relative to the one on show: the next ones wait just
+// below, the ones already passed sink back behind it.
+type Place = "before" | "active" | "after";
+
+const PLACE = {
+  // On top, turns opaque fast so the window underneath never shows through.
+  active:
+    "z-10 opacity-100 [transition:opacity_180ms_ease-out,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
+  before:
+    "pointer-events-none -translate-y-3 scale-[0.95] opacity-0 [transition:opacity_380ms_ease-in_140ms,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
+  after:
+    "pointer-events-none translate-y-10 opacity-0 [transition:opacity_380ms_ease-in_140ms,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
+};
+
+function SceneView({ scene, place, reduced }: { scene: Scene; place: Place; reduced: boolean }) {
+  const d = useDictation(scene.text, place === "active", reduced, scene.sends);
   const { Mock } = scene;
 
   return (
-    <div
-      className={cn(
-        "absolute inset-0 transition-[opacity,translate,scale] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]",
-        active ? "opacity-100" : "pointer-events-none translate-y-3 scale-[0.98] opacity-0",
-      )}
-    >
+    <div className={cn("absolute inset-0", PLACE[place])}>
       <div className="absolute inset-x-0 top-0 bottom-9 overflow-hidden rounded-xl border border-black/12 shadow-[0_30px_60px_-30px_rgba(31,30,34,0.5)]">
         <Mock text={scene.text} d={d} />
       </div>
@@ -109,13 +119,17 @@ export function AppTour() {
   const active = useActiveScene(track);
   const reduced = useReducedMotion();
 
+  const lenis = useLenis();
+
   // Scrolls to the middle of a scene's share of the track.
   const show = (i: number) => {
     const el = track.current;
     if (!el) return;
     const top = el.getBoundingClientRect().top + scrollY;
     const range = el.offsetHeight - innerHeight;
-    scrollTo({ top: top + (range * (i + 0.5)) / SCENES.length, behavior: reduced ? "auto" : "smooth" });
+    const target = top + (range * (i + 0.5)) / SCENES.length;
+    if (lenis) lenis.scrollTo(target, { duration: 1.1 });
+    else scrollTo({ top: target, behavior: reduced ? "auto" : "smooth" });
   };
 
   return (
@@ -155,7 +169,7 @@ export function AppTour() {
           </figcaption>
           <div aria-hidden="true">
             {SCENES.map((s, i) => (
-              <SceneView key={s.name} scene={s} active={i === active} reduced={reduced} />
+              <SceneView key={s.name} scene={s} place={i < active ? "before" : i > active ? "after" : "active"} reduced={reduced} />
             ))}
           </div>
         </figure>
