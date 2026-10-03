@@ -27,7 +27,16 @@ export const DICTATIONS = {
     "Start with onboarding. Most people who drop off do it before day three, so let's rewrite the welcome emails and add a short checklist to the dashboard. We should also reply to every Hacker News comment we missed, since that thread is still sending signups.",
 };
 
+// Wispr Flow Pro's monthly price, from wisprflow.ai/pricing (checked
+// 2026-10-02: $15/user/mo billed monthly, $12 billed yearly). Shown struck
+// through next to the hero download button. Re-check before changing copy.
+export const WISPR_FLOW_PRICE = "$15/mo";
+
 export const FAQ: [question: string, answer: string][] = [
+  [
+    "How is it different from Wispr Flow?",
+    "Wispr Flow Pro costs $15 a month, and its free plan stops at 2,000 words a week. TalkFlow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
+  ],
   [
     "Is it really free?",
     "Yes. No trial, no tiers, no subscription. TalkFlow is open source under the MIT License and runs on your own Mac, so there's nothing to pay for.",
