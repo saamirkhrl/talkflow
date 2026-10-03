@@ -13,19 +13,46 @@ been tested.
 
 ![How talkflow works: hold Fn, Whisper transcribes on your Mac, simple rules tidy the text, settled words are typed into your app](docs/how-it-works.svg)
 
-The only AI model is Whisper (`ggml-small.en`, running locally in
-`whisper-server`). It turns speech into text and supplies most of the
-capitalisation and punctuation itself. Everything after it is plain rules. It is
-sent no prompt, just the audio.
+Speech is transcribed by Whisper, running locally in `whisper-server`:
+`ggml-small.en` while you speak, and `large-v3-turbo` for the final text when it
+is installed (it downloads once, 574 MB, and is optional). It supplies most of
+the capitalisation and punctuation itself; everything after it is plain rules.
+Its prompt carries your name, names visible on screen around the caret, and
+spellings talkflow has learned from your fixes.
 
 ```
-Fn held -> mic -> in-memory PCM -> whisper-server (local, warm)
+Fn held -> mic -> in-memory PCM -> whisper-server small.en (local, warm)
         -> every 0.7s: transcribe the whole buffer so far
-        -> StreamCommit: which words have stopped changing?
-        -> FieldSync: append them to the focused field
-Fn released -> final transcript -> append what was held back,
-                                   then correct, if that can be delivered
+        -> show it in the caption above the pill (settled words solid)
+        -> in the background: read names and the text before the caret
+Fn released -> final transcript (large-v3-turbo, else small.en)
+            -> rules: corrections, lists, email breaks, casing for where it lands
+            -> optional: AI punctuation (on-device, never changes a word)
+            -> one write into the focused field
 ```
+
+**Insert once, at release.** Nothing is typed while you speak, so nothing on
+screen is ever deleted and retyped, and every correction is free - the false
+start in "meet at 2, no wait, 3" never reaches the field. This is what makes it
+feel smooth. The write is one verified Accessibility call where the app allows
+it, else one paced keystroke insert (no deletes, so nothing can be lost; the
+clipboard is never touched). If the app you were in lost focus, the text goes
+to the clipboard instead of being dropped.
+
+**Fitted to where it lands.** Mid-sentence, the first word is lowercased (not
+"I", acronyms or names). In chat apps a one-sentence message drops its final
+period. Names on screen and learned words go into Whisper's prompt: measured on
+"Can Niamh and Saoirse join us", small.en alone wrote "Neevan Sersha" and
+large-v3-turbo with the on-screen names wrote both correctly.
+
+**Learning from your fixes.** When you correct a word Whisper misspelled (a
+word the macOS dictionary does not know, replaced between the same two
+neighbours), the spelling is learned. Settings lists learned words; click one
+to remove it.
+
+**Type while speaking (Settings).** The original live mode, described in the
+next two paragraphs, is still there for anyone who wants text in the field as
+they talk.
 
 **Live typing is append-only.** Whisper revises what it already said as more
 audio arrives ("to" becomes "two", punctuation slides), so typing each new
@@ -55,11 +82,16 @@ read back?) and falls through to keystrokes when it cannot be confirmed. That
 one check is the difference between working everywhere and looking completely
 dead in half the apps you use.
 
-**No LLM in the pipeline.** Local models were tried for filler removal and
-structure; every one of them rewrote the user's words instead of editing them
-and was rejected by its own safety check on real transcripts. Filler removal and
-email structure are deterministic rules that can only delete from a fixed list
-or add whitespace.
+**No language model writes your text.** Local models were tried for filler
+removal and structure; every one of them rewrote the user's words instead of
+editing them and was rejected by its own safety check on real transcripts.
+Filler removal and email structure are deterministic rules that can only delete
+from a fixed list or add whitespace and punctuation. The optional AI punctuation
+setting (off by default; it adds 0.5-2s) uses Apple's on-device model, which
+also rewrote words when tested ("is" became "are") - so its answer is aligned
+word by word with yours and only the punctuation, casing and line breaks around
+words it left alone are used. The words that reach the field are always the
+words you said.
 
 ## Install
 
@@ -187,4 +219,8 @@ while you are typing.
 | `Hotkey.swift` | Fn key via CGEventTap |
 | `Onboarding.swift` | first-run setup window: permissions, speech engine, try it |
 | `Permissions.swift` | microphone, Accessibility, Input Monitoring: status, requests, deep links |
-| `SpeechEngine.swift` | finds or installs whisper-server, downloads the model, manages its LaunchAgent |
+| `SpeechEngine.swift` | finds or installs whisper-server, downloads the model, manages its LaunchAgent; `FinalPassEngine` runs large-v3-turbo for the final pass |
+| `ScreenContext.swift` | read-only snapshot at key-down: text before the caret, names on screen, app; casing and chat style |
+| `Polish.swift` | optional on-device AI punctuation, merged so no word can change |
+| `Vocabulary.swift` | learns spellings from the user's fixes |
+| `Preferences.swift` | the Settings page's values |
