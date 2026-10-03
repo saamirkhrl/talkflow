@@ -353,6 +353,17 @@ enum StreamSelfTest {
             ("Let's do it tomorrow, scratch that, let's do it Monday.", "Let's do it Monday."),
             ("We'll go. Scratch that, we'll stay.", "We'll stay."),
             ("I went home, I mean I went to the office.", "I went to the office."),
+            // From a Gmail dictation: markers people chain, and a time said as
+            // two numbers.
+            ("Let's have a meeting on Thursday, wait actually Saturday at 3 p.m.",
+             "Let's have a meeting on Saturday at 3 p.m."),
+            ("Let's meet at 3 p.m. Wait actually no 7 30 p.m. where we can talk.",
+             "Let's meet at 7 30 p.m. where we can talk."),
+            ("Let's actually have a meeting on Thursday, wait actually Saturday at 3 p.m. Wait actually no 7 30 p.m. where we can talk about your product.",
+             "Let's actually have a meeting on Saturday at 7 30 p.m. where we can talk about your product."),
+            ("Meet at 2 30, no wait, 3.", "Meet at 3."),
+            ("I'll be there Friday, wait, Saturday.", "I'll be there Saturday."),
+            ("We meet Friday, actually no, Saturday.", "We meet Saturday."),
             // stutters and restarts
             ("the the meeting is at noon", "the meeting is at noon"),
             ("The the meeting is at noon.", "The meeting is at noon."),
@@ -364,6 +375,9 @@ enum StreamSelfTest {
             ("That's the plan, I guess.", "That's the plan."),
             // negatives: must come back untouched
             ("No, I don't think so.", "No, I don't think so."),
+            // An answer, not a correction: a lone "no" is never a marker.
+            ("Is it Friday? No, Thursday.", "Is it Friday? No, Thursday."),
+            ("I'll be there at 5, wait for me.", "I'll be there at 5, wait for me."),
             ("Wait, let me check.", "Wait, let me check."),
             ("I actually liked it.", "I actually liked it."),
             ("Is Friday or Thursday better?", "Is Friday or Thursday better?"),
