@@ -66,7 +66,7 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
   return (
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
-        <a href={DOWNLOAD_URL} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+        <a href={DOWNLOAD_URL} target="_blank" rel="noopener noreferrer" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
           {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
           Download for {OS[os].label}
         </a>
@@ -75,6 +75,7 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
       {WINDOWS_AVAILABLE ? (
         <a
           href={DOWNLOAD_URL}
+          target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-[15px] text-graphite underline decoration-line underline-offset-4 hover:text-ink hover:decoration-ink"
         >
           {SHOW_OS_LOGOS && <BrandLogo logo={OS[other].logo} className="size-3.5" />}

@@ -66,7 +66,7 @@ export function Privacy() {
               privacy policy
             </a>
             , and the code is on{" "}
-            <a href={REPO_URL} className="text-paper underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="text-paper underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
               GitHub
             </a>
             .

@@ -53,6 +53,7 @@ export function Nav({ stars }: { stars: number | null }) {
 
         <a
           href={mobile ? "/#download" : DOWNLOAD_URL}
+          {...(mobile ? {} : { target: "_blank", rel: "noopener noreferrer" })}
           className={cn(buttonClass.secondary, "mr-1 px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           {SHOW_OS_LOGOS && !mobile && (
@@ -63,6 +64,7 @@ export function Nav({ stars }: { stars: number | null }) {
 
         <a
           href={REPO_URL}
+          target="_blank" rel="noopener noreferrer"
           aria-label={stars === null ? "talkflow on GitHub" : `Star talkflow on GitHub (${stars} stars)`}
           className={cn(buttonClass.primary, "px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >

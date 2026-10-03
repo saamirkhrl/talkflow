@@ -48,7 +48,7 @@ export default function TermsPage() {
       <h2 id="app-license">2. The app has its own license</h2>
       <p>
         talkflow is a free dictation app for macOS. A Windows version is planned. Its source code is
-        published at <a href={REPO_URL}>{REPO_URL}</a> under the MIT License (see the LICENSE file
+        published at <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a> under the MIT License (see the LICENSE file
         at the root of the repository).
       </p>
       <p>
@@ -66,7 +66,7 @@ export default function TermsPage() {
 
       <h2 id="getting-the-app">3. Getting the app</h2>
       <p>
-        Please download talkflow only from this site or from <a href={REPO_URL}>{REPO_URL}</a>. We
+        Please download talkflow only from this site or from <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a>. We
         can&apos;t vouch for copies from anywhere else, including modified versions that other
         people build and share under the license.
       </p>

@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         <li>this website;</li>
         <li>
           official releases of the talkflow app downloaded from this website or from{" "}
-          <a href={REPO_URL}>{REPO_URL}</a>;
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a>;
         </li>
         <li>emails you send us.</li>
       </ul>
