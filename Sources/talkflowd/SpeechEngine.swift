@@ -196,8 +196,11 @@ enum SpeechEngine {
 ///
 /// Owned by this process rather than a LaunchAgent: it is optional, it is
 /// fetched in the background on first use, and when it is missing or does not
-/// answer the final pass simply goes to small.en. A child process dies with
-/// talkflow (launchd ends the job's process group), so nothing is left behind.
+/// answer the final pass simply goes to small.en. A child process does NOT die
+/// with talkflow on its own - measured, one outlived a deploy's SIGTERM with
+/// launchd as its new parent - so talkflow stops it on SIGTERM (AppDelegate),
+/// a later run adopts one that is still answering, and `stop` ends an adopted
+/// one too.
 enum FinalPassEngine {
     static let port = 8179
     static let modelFileName = "ggml-large-v3-turbo-q5_0.bin"
@@ -239,10 +242,17 @@ enum FinalPassEngine {
         DispatchQueue.global(qos: .utility).async { launch() }
     }
 
+    /// Ends the server: ours, or one adopted from an earlier run, matched by
+    /// its exact model path and port so nothing else is touched.
     static func stop() {
         process?.terminate()
         process = nil
         isReady = false
+        let killer = Process()
+        killer.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        killer.arguments = ["-f", "\(modelPath.path) --host 127.0.0.1 --port \(port)"]
+        try? killer.run()
+        killer.waitUntilExit()
     }
 
     private static func launch() {
