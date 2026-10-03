@@ -8,7 +8,7 @@ final class DashboardController: NSWindowController {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -53,12 +53,23 @@ func timeSavedParts(minutes: Int) -> [(value: String, unit: String)] {
 
 final class DashboardModel: ObservableObject {
     @Published var snapshot = StatsStore.shared.snapshot()
-    @Published var days = StatsStore.shared.recentDays(14)
+    @Published var days = StatsStore.shared.recentDays(DashboardModel.chartDays)
     @Published var page: DashboardPage = .dashboard
+
+    static let chartWeeks = 26
+
+    /// Enough days to fill `chartWeeks` columns, the last one running up to today,
+    /// so the first day always lands on the first row of its column.
+    static var chartDays: Int {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: Date())
+        let sinceWeekStart = (weekday - calendar.firstWeekday + 7) % 7
+        return (chartWeeks - 1) * 7 + sinceWeekStart + 1
+    }
 
     func refresh() {
         snapshot = StatsStore.shared.snapshot()
-        days = StatsStore.shared.recentDays(14)
+        days = StatsStore.shared.recentDays(DashboardModel.chartDays)
     }
 }
 
@@ -94,9 +105,6 @@ private struct DashboardView: View {
                 hero
                 grid
                 chart
-                Text("Time saved compares your speaking time with typing the same words at 40 wpm. Stays on your Mac.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.graphite)
             case .settings:
                 Spacer()
             }
@@ -104,7 +112,7 @@ private struct DashboardView: View {
         .padding(.horizontal, 28)
         .padding(.top, 40)
         .padding(.bottom, 24)
-        .frame(width: 560, height: 600)
+        .frame(width: 560, height: 620)
         .background(Color.paper)
     }
 
@@ -199,21 +207,32 @@ private struct DashboardView: View {
 
     private var chart: some View {
         let peak = max(model.days.map(\.words).max() ?? 0, 1)
+        let columns = stride(from: 0, to: model.days.count, by: 7).map {
+            Array(model.days[$0..<min($0 + 7, model.days.count)].enumerated())
+        }
         return VStack(alignment: .leading, spacing: 10) {
-            Text("Last 14 days")
+            Text("Last \(DashboardModel.chartWeeks) weeks")
                 .font(.system(size: 12))
                 .foregroundColor(.graphite)
-            HStack(alignment: .bottom, spacing: 6) {
-                ForEach(Array(model.days.enumerated()), id: \.offset) { index, day in
-                    let isToday = index == model.days.count - 1
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(isToday ? Color.ink : Color.ink.opacity(0.18))
-                        .frame(height: max(4, 70 * CGFloat(day.words) / CGFloat(peak)))
-                        .frame(maxWidth: .infinity)
-                        .help("\(day.date.formatted(.dateTime.month().day())): \(day.words) words")
+            HStack(alignment: .top, spacing: 4) {
+                ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
+                    VStack(spacing: 4) {
+                        ForEach(column, id: \.offset) { _, day in
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(Color.ink.opacity(shade(day.words, peak: peak)))
+                                .frame(width: 15, height: 15)
+                                .help("\(day.date.formatted(.dateTime.month().day())): \(day.words) words")
+                        }
+                    }
                 }
             }
-            .frame(height: 70, alignment: .bottom)
         }
+    }
+
+    /// Empty days stay faint; the rest step up in four shades relative to the busiest day.
+    private func shade(_ words: Int, peak: Int) -> Double {
+        guard words > 0 else { return 0.07 }
+        let level = min(4, Int((Double(words) / Double(peak) * 4).rounded(.up)))
+        return 0.15 + 0.85 * Double(level) / 4
     }
 }
