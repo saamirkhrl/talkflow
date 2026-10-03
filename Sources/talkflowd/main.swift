@@ -66,6 +66,15 @@ if let index = CommandLine.arguments.firstIndex(of: "--rectest") {
 // Drives the exact formatting chain the hotkey uses, on text supplied on the
 // command line, so the whole post-transcription path can be checked without a
 // microphone.
+// Read-only: renders the dashboard to PNGs for checking its layout.
+if CommandLine.arguments.contains("--dashboardshot") {
+    Task { @MainActor in
+        for url in DashboardController.renderSnapshots() { print("talkflowd: wrote \(url.path)") }
+        exit(0)
+    }
+    dispatchMain()
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     let raw = CommandLine.arguments.dropFirst(index + 1).first ?? ""
     let started = Date()
