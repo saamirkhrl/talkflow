@@ -109,13 +109,20 @@ enum Transcriber {
         return URLSession(configuration: configuration)
     }()
 
-    static func transcribe(
-        wav: Data,
-        serverURL: URL,
-        timeout: TimeInterval = 20,
-        completion: @escaping (Result?) -> Void
-    ) {
-        let boundary = "talkflow-\(UUID().uuidString)"
+    /// Sent with every request as whisper's initial prompt, which biases its
+    /// spelling towards the words in it. Without it the app's own name came out
+    /// as "top flow" and "talk flow" in real dictation.
+    ///
+    /// Edit this sentence to teach whisper other names it mishears. Keep it a
+    /// normal, capitalised, punctuated sentence: whisper imitates the prompt's
+    /// STYLE as well as its words. Measured on the local server: the terse
+    /// "Vocabulary: talkflow." made an unrelated clip come back with no capitals
+    /// and no punctuation, and "I often mention talkflow." still wrote
+    /// "topflow". This one fixed "top flow" and "talk flow", left silence and
+    /// one-word clips as they were without it, and cost no measurable time.
+    static let vocabularyPrompt = "I use talkflow, a dictation app."
+
+    static func multipartBody(wav: Data, boundary: String, prompt: String) -> Data {
         var body = Data()
         func append(_ string: String) { body.append(contentsOf: Array(string.utf8)) }
 
@@ -125,7 +132,22 @@ enum Transcriber {
         body.append(wav)
         append("\r\n--\(boundary)\r\n")
         append("Content-Disposition: form-data; name=\"response_format\"\r\n\r\ntext\r\n")
+        if !prompt.isEmpty {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n\(prompt)\r\n")
+        }
         append("--\(boundary)--\r\n")
+        return body
+    }
+
+    static func transcribe(
+        wav: Data,
+        serverURL: URL,
+        timeout: TimeInterval = 20,
+        completion: @escaping (Result?) -> Void
+    ) {
+        let boundary = "talkflow-\(UUID().uuidString)"
+        let body = multipartBody(wav: wav, boundary: boundary, prompt: vocabularyPrompt)
 
         var request = URLRequest(url: serverURL)
         request.httpMethod = "POST"
