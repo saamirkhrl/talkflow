@@ -83,7 +83,7 @@ enum RecordSelfTest {
                 // Same rule as the live path: the log records the shape, not the
                 // words. See Dictation.logTranscripts.
                 let detail = Dictation.logTranscripts ? ": \(result.text)" : ""
-                report("transcribed \(Dictation.shape(of: result.text)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
+                report("transcribed \(Dictation.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
             } else {
                 report("FAIL transcription request failed")
                 failures += 1

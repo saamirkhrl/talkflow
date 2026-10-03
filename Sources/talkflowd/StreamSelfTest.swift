@@ -156,29 +156,53 @@ enum StreamSelfTest {
              "and that was the last thing I wanted to go over"),
             ("a blank segment between two real ones",
              "first part of what I said\n [BLANK_AUDIO]\n second part of what I said",
-             "first part of what I said\nsecond part of what I said"),
-            ("real multi-segment speech is untouched",
+             "first part of what I said second part of what I said"),
+            // This used to pin "\n" between the segments. A segment boundary is
+            // where whisper's 30s window ended, not a paragraph the user asked
+            // for: it put a hard line break mid-sentence in a Gmail dictation and
+            // capitalised the word after it ("about your work\nWins, post").
+            ("real multi-segment speech joins with a space",
              "the first segment of a long dictation\n and the second segment of it",
-             "the first segment of a long dictation\nand the second segment of it"),
+             "the first segment of a long dictation and the second segment of it"),
+            // Measured from whisper-server: a 32s clip came back as
+            // "...around the product.\n over the last year." The period is
+            // whisper closing its window, not the user's sentence end.
+            ("a period whisper put at a mid-sentence cut is dropped",
+             "the community that formed around the product.\n over the last year.",
+             "the community that formed around the product over the last year."),
+            ("a real sentence end at a cut is kept",
+             "that is all for today.\n Next week we start.",
+             "that is all for today. Next week we start."),
+            ("an abbreviation at a cut keeps its period",
+             "I spoke to Dr.\n smith about it",
+             "I spoke to Dr. smith about it"),
             ("a transcript that is nothing but a placeholder",
              "[BLANK_AUDIO]",
              "")
         ]
 
         for (name, raw, want) in cases {
-            let got = Transcriber.stripPlaceholderSegments(raw)
+            let got = Transcriber.joinSegments(raw)
             check(got == want, name, "got \(got.debugDescription), wanted \(want.debugDescription)")
         }
 
         // The rendered result is what actually reaches the field, so check the
         // whole chain and not just the strip.
         let rendered = Dictation.render(
-            Transcriber.stripPlaceholderSegments("and that was the last thing I wanted to go over\n [BLANK_AUDIO]"),
+            Transcriber.joinSegments("and that was the last thing I wanted to go over\n [BLANK_AUDIO]"),
             leadingSpace: "",
             structure: true
         )
         check(!rendered.contains("BLANK_AUDIO"),
               "no placeholder survives to the screen", rendered.debugDescription)
+
+        let joined = Dictation.render(
+            Transcriber.joinSegments("so post about your work\n wins, post about your losses"),
+            leadingSpace: "",
+            structure: true
+        )
+        check(joined == "So post about your work wins, post about your losses",
+              "a segment cut neither breaks the line nor capitalises the next word", joined.debugDescription)
     }
 
     /// The flat email in Gmail: the greeting/sign-off break was only decided at
@@ -227,8 +251,8 @@ enum StreamSelfTest {
              "My grocery list is first, milk. Second, eggs. Third, bread.",
              "My grocery list is:\n1. Milk.\n2. Eggs.\n3. Bread."),
             ("a single 'number one' is just a phrase",
-             "talkflow is number one in my book.",
-             "talkflow is number one in my book."),
+             "I think talkflow is number one in my book.",
+             "I think talkflow is number one in my book."),
             ("a greeting whisper wrote without a comma",
              "Good morning Emily. Three things I really like about it are fast. Thank you so much for using it. Best, Samir.",
              "Good morning Emily.\n\nThree things I really like about it are fast. Thank you so much for using it.\n\nBest, Samir."),
