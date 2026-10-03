@@ -17,7 +17,10 @@ swift build -c release
 
 echo "==> Stopping running instance"
 launchctl bootout "gui/$UID_NUM/com.samir.talkflow" 2>/dev/null || true
-pkill -f "talkflow.app/Contents/MacOS/talkflowd" 2>/dev/null || true
+# -i: the bundle on disk is "TalkFlow.app", and a case-sensitive match missed
+# every copy not started by the LaunchAgent (one opened from Finder kept
+# running the previous build next to the new one).
+pkill -if "talkflow.app/Contents/MacOS/talkflowd" 2>/dev/null || true
 sleep 1
 
 echo "==> Installing bundle"
