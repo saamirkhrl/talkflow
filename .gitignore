@@ -1,2 +1,22 @@
 .build/
+.swiftpm/
 .DS_Store
+
+# Local tooling and personal config: never commit these
+.claude/
+.playwright-mcp/
+.superpowers/
+
+# Secrets and signing material
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.cer
+*.mobileprovision
+
+# Logs and recordings can contain dictated text or screen contents
+*.log
+*.mp4
+*.mov
