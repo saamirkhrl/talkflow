@@ -18,7 +18,8 @@ export const metadata: Metadata = {
     default: "TalkFlow: talk to your computer, for free",
     template: "%s | TalkFlow",
   },
-  description: "Hold fn, speak, and your words are typed wherever your cursor is. Free, open source, and runs entirely on your Mac.",
+  description:
+    "The free, open-source Wispr Flow alternative. Hold fn, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac.",
 };
 
 
