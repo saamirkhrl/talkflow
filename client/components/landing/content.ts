@@ -1,7 +1,7 @@
 // Copy and demo data for the landing page. Every product claim here is checked
 // against the app's source; keep it that way when editing.
 
-export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
+export const REPO_URL = "https://github.com/talkflowdev/talkflow";
 export const DOWNLOAD_URL = `${REPO_URL}/releases/latest`;
 
 // Apple's and Microsoft's trademark guidelines restrict use of their logos
