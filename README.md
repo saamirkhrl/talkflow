@@ -132,8 +132,8 @@ Then remove talkflow from the lists in System Settings > Privacy & Security.
 - Only English (`small.en`).
 - Writing method per app was measured on 2026-08-10: Notes-style native fields
   take Accessibility writes; Cursor, Discord, Terminal, Claude and Chrome (Gmail)
-  take paced keystrokes. **Slack and VS Code have not been verified.** Details
-  and the measurements are in `HANDOFF.md`.
+  take paced keystrokes. **Slack and VS Code have not been verified.** Run
+  `--writetest` to see which path an app takes.
 - Keystroke delivery cannot confirm that every event arrived, so very long
   corrections over keystrokes are refused rather than risked. Your words stay as
   you said them.
@@ -188,6 +188,3 @@ while you are typing.
 | `Onboarding.swift` | first-run setup window: permissions, speech engine, try it |
 | `Permissions.swift` | microphone, Accessibility, Input Monitoring: status, requests, deep links |
 | `SpeechEngine.swift` | finds or installs whisper-server, downloads the model, manages its LaunchAgent |
-
-`HANDOFF.md` carries the detail: what is measured, what is verified, which bugs
-are already fixed, and which dead ends not to repeat.
