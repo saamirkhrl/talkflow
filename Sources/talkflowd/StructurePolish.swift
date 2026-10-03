@@ -44,6 +44,18 @@ enum StructurePolish {
             + "(?:[a-z]+(?:\\s*,)?\\s*)?[A-Z][A-Za-z]*\\.?)\\s*$"
     )
 
+    /// A sign-off whisper ran straight into the last sentence: "...for using
+    /// talkflow best Samira", no comma, no period. The last two words, a closer
+    /// then a capitalised name, after a lowercase word or digit (anything
+    /// punctuated is the pattern above's job).
+    ///
+    /// Only tried when the same text opened with an email greeting. Without
+    /// that, "...today please thanks Sam" is a chat message and "...who did the
+    /// launch video best Sam" is a sentence, and neither is split.
+    private static let bareSignOffPattern = try! NSRegularExpression(
+        pattern: "(?<=[\\p{Ll}\\d])\\s+((?i:best regards|best wishes|best|regards|sincerely|cheers|thanks)\\s+[A-Z][A-Za-z'-]*\\.?)\\s*$"
+    )
+
     /// A comma-less greeting that is a whole sentence on its own: "Good morning
     /// Emily." Whisper often drops the comma, and without it the pattern above
     /// never matched, so the break was skipped. Requires a capitalised name (an
@@ -81,19 +93,21 @@ enum StructurePolish {
         guard let firstIndex = lines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }),
               let lastIndex = lines.lastIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
         else { return text }
-        lines[firstIndex] = applySingleLine(lines[firstIndex], greeting: true, signOff: false)
+        let firstLine = lines[firstIndex]
+        lines[firstIndex] = applySingleLine(firstLine, greeting: true, signOff: false)
         if signOff {
-            lines[lastIndex] = applySingleLine(lines[lastIndex], greeting: firstIndex == lastIndex, signOff: true)
+            lines[lastIndex] = applySingleLine(lines[lastIndex], greeting: firstIndex == lastIndex, signOff: true,
+                                               afterGreeting: lines[firstIndex] != firstLine)
         }
         return lines.joined(separator: "\n")
     }
 
-    private static func applySingleLine(_ text: String, greeting: Bool, signOff: Bool) -> String {
+    private static func applySingleLine(_ text: String, greeting: Bool, signOff: Bool, afterGreeting: Bool = false) -> String {
         // The greeting has no length guard on purpose: the live path decides it
         // as words arrive, and a threshold would make the break appear late, in
         // the middle of text already typed - an edit the live path refuses. A
         // sign-off is only ever decided at release, so it keeps the guard.
-        let (clauses, forced) = split(text, greeting: greeting, signOff: signOff && text.count > 40)
+        let (clauses, forced) = split(text, greeting: greeting, signOff: signOff && text.count > 40, afterGreeting: afterGreeting)
         guard clauses.count >= 2, !forced.isEmpty else { return text }
 
         // Reassembling has to reproduce the original exactly, or the clause
@@ -108,7 +122,7 @@ enum StructurePolish {
     /// own paragraph. Sentence boundaries come from NLTokenizer so that "Dear Mr.
     /// Clark" isn't cut after the abbreviation; the greeting and sign-off are
     /// then peeled off the first and last sentence.
-    static func split(_ text: String, greeting: Bool = true, signOff: Bool = true) -> (clauses: [String], forcedBreaks: Set<Int>) {
+    static func split(_ text: String, greeting: Bool = true, signOff: Bool = true, afterGreeting: Bool = false) -> (clauses: [String], forcedBreaks: Set<Int>) {
         let tokenizer = NLTokenizer(unit: .sentence)
         tokenizer.string = text
         var clauses = tokenizer.tokens(for: text.startIndex..<text.endIndex)
@@ -137,7 +151,11 @@ enum StructurePolish {
             }
         }
 
-        if signOff, clauses.count > 1, let last = clauses.last, let match = firstMatch(signOffPattern, in: last) {
+        // The bare form needs an email around it: a greeting here, or on the
+        // first line when spoken paragraph breaks split the text.
+        let isEmail = afterGreeting || forced.contains(1)
+        if signOff, clauses.count > 1, let last = clauses.last,
+           let match = firstMatch(signOffPattern, in: last) ?? (isEmail ? firstMatch(bareSignOffPattern, in: last) : nil) {
             if match.lowerBound == last.startIndex {
                 // Whisper already ended a sentence before the closer, so the
                 // sign-off is a clause of its own and just needs its own break.
