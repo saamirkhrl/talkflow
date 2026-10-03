@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>TalkFlow</string>
+    <string>talkflow</string>
     <key>CFBundleIdentifier</key>
     <string>com.samir.talkflow</string>
     <key>CFBundleExecutable</key>
@@ -21,7 +21,7 @@
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>TalkFlow needs microphone access to transcribe your dictation on-device with Whisper.</string>
+    <string>talkflow needs microphone access to transcribe your dictation on-device with Whisper.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>

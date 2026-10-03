@@ -63,7 +63,7 @@ function useActiveScene(track: RefObject<HTMLDivElement | null>): number {
   return active;
 }
 
-// The overlay TalkFlow shows at the bottom of the screen: a red dot and input
+// The overlay talkflow shows at the bottom of the screen: a red dot and input
 // levels while fn is held.
 function Pill({ listening }: { listening: boolean }) {
   return (
@@ -166,7 +166,7 @@ export function AppTour() {
 
         <figure className="relative h-[min(470px,calc(100svh-185px))] sm:h-[min(530px,calc(100svh-185px))]">
           <figcaption className="sr-only">
-            TalkFlow typing a dictated message into {SCENES[active].name}. Scroll to see it in other apps.
+            talkflow typing a dictated message into {SCENES[active].name}. Scroll to see it in other apps.
           </figcaption>
           <div aria-hidden="true">
             {SCENES.map((s, i) => (
@@ -175,7 +175,7 @@ export function AppTour() {
           </div>
         </figure>
         <p className="mt-4 text-center text-[12.5px] text-graphite/80">
-          TalkFlow isn&apos;t affiliated with these apps.{" "}
+          talkflow isn&apos;t affiliated with these apps.{" "}
           <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
             Trademarks
           </Link>

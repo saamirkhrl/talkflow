@@ -23,7 +23,7 @@ export function Privacy() {
             Your voice never leaves your Mac.
           </h2>
           <p className="mt-6 max-w-[50ch] text-[18px] text-fog">
-            TalkFlow sends your audio to exactly one place: a speech engine running on your own computer. Nothing is uploaded,
+            talkflow sends your audio to exactly one place: a speech engine running on your own computer. Nothing is uploaded,
             because there&apos;s nowhere to upload it to.
           </p>
 

@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* TalkFlow palette, taken from the app itself: ink is the app icon's
+/* talkflow palette, taken from the app itself: ink is the app icon's
    background, paper is the page, and rec is the red the menu bar icon turns
    while recording (used only to mean "listening"). */
 @theme {

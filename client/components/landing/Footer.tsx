@@ -19,7 +19,7 @@ export function Footer() {
           </div>
         </div>
         <p aria-hidden="true" className="mt-16 pb-6 text-center font-serif text-[clamp(72px,22.5vw,290px)] leading-[0.8] tracking-[-0.04em] whitespace-nowrap select-none">
-          TalkFlow
+          talkflow
         </p>
       </div>
     </footer>

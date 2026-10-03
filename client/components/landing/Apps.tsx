@@ -68,7 +68,7 @@ export function Apps() {
           </span>
         </h2>
         <p className="mx-auto mt-6 max-w-[44ch] text-[18px] text-graphite">
-          TalkFlow types into whichever text field has your cursor. No copying, no pasting.
+          talkflow types into whichever text field has your cursor. No copying, no pasting.
         </p>
       </div>
     </section>

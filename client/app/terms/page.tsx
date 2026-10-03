@@ -5,7 +5,7 @@ import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description:
-    "The terms for using the TalkFlow website. The TalkFlow app is covered by its own open-source license.",
+    "The terms for using the talkflow website. The talkflow app is covered by its own open-source license.",
 };
 
 export default function TermsPage() {
@@ -14,7 +14,7 @@ export default function TermsPage() {
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
-          These terms cover this website. The TalkFlow app is covered by its own open-source
+          These terms cover this website. The talkflow app is covered by its own open-source
           license, the MIT License.
         </li>
         <li>
@@ -22,11 +22,11 @@ export default function TermsPage() {
           the law requires.
         </li>
         <li>
-          The code is open. The TalkFlow name and logo are not, so please don&apos;t use them in a
+          The code is open. The talkflow name and logo are not, so please don&apos;t use them in a
           way that makes something look official when it isn&apos;t.
         </li>
         <li>
-          Other companies&apos; names and logos belong to them. TalkFlow is not affiliated with any
+          Other companies&apos; names and logos belong to them. talkflow is not affiliated with any
           of them.
         </li>
         <li>
@@ -47,7 +47,7 @@ export default function TermsPage() {
 
       <h2 id="app-license">2. The app has its own license</h2>
       <p>
-        TalkFlow is a free dictation app for macOS. A Windows version is planned. Its source code is
+        talkflow is a free dictation app for macOS. A Windows version is planned. Its source code is
         published at <a href={REPO_URL}>{REPO_URL}</a> under the MIT License (see the LICENSE file
         at the root of the repository).
       </p>
@@ -57,16 +57,16 @@ export default function TermsPage() {
       </p>
       <p>
         If these terms and the license ever disagree about the app or its code, the license wins.
-        These terms cover everything else: the site itself and the TalkFlow name and logo.
+        These terms cover everything else: the site itself and the talkflow name and logo.
       </p>
       <p>
-        TalkFlow uses whisper.cpp (MIT License) and OpenAI&apos;s Whisper speech model (MIT
+        talkflow uses whisper.cpp (MIT License) and OpenAI&apos;s Whisper speech model (MIT
         License). Each is covered by its own license, which you can find in its repository.
       </p>
 
       <h2 id="getting-the-app">3. Getting the app</h2>
       <p>
-        Please download TalkFlow only from this site or from <a href={REPO_URL}>{REPO_URL}</a>. We
+        Please download talkflow only from this site or from <a href={REPO_URL}>{REPO_URL}</a>. We
         can&apos;t vouch for copies from anywhere else, including modified versions that other
         people build and share under the license.
       </p>
@@ -81,38 +81,38 @@ export default function TermsPage() {
       <ul>
         <li>try to break or overload the site, or get into the systems that host it without permission;</li>
         <li>use the site to spread malware or anything unlawful;</li>
-        <li>copy the site to make a look-alike that people could mistake for the official TalkFlow site;</li>
-        <li>pretend to be us, or suggest that you speak for the TalkFlow project when you don&apos;t.</li>
+        <li>copy the site to make a look-alike that people could mistake for the official talkflow site;</li>
+        <li>pretend to be us, or suggest that you speak for the talkflow project when you don&apos;t.</li>
       </ul>
       <p>We may block access for anyone who does these things.</p>
 
-      <h2 id="name-and-logo">5. The TalkFlow name and logo</h2>
+      <h2 id="name-and-logo">5. The talkflow name and logo</h2>
       <p>
-        The code is open source. The TalkFlow name and logo are not. They tell people which releases
+        The code is open source. The talkflow name and logo are not. They tell people which releases
         come from this project.
       </p>
       <p>
-        The MIT License covers the code. It does not give anyone permission to use the TalkFlow name
+        The MIT License covers the code. It does not give anyone permission to use the talkflow name
         or logo.
       </p>
       <p>You may:</p>
       <ul>
         <li>
-          use the name &quot;TalkFlow&quot; to refer to the project truthfully, for example
-          &quot;works with TalkFlow&quot;, &quot;a review of TalkFlow&quot; or &quot;based on
-          TalkFlow&quot;;
+          use the name &quot;talkflow&quot; to refer to the project truthfully, for example
+          &quot;works with talkflow&quot;, &quot;a review of talkflow&quot; or &quot;based on
+          talkflow&quot;;
         </li>
         <li>link to the site or the repository.</li>
       </ul>
       <p>Please don&apos;t:</p>
       <ul>
         <li>
-          use the TalkFlow name or logo for a fork, modified version or related product in a way
-          that suggests it is the official TalkFlow, or that we made or endorse it. If you publish a
+          use the talkflow name or logo for a fork, modified version or related product in a way
+          that suggests it is the official talkflow, or that we made or endorse it. If you publish a
           fork, please give it a different name and icon;
         </li>
         <li>
-          use the TalkFlow logo to suggest that we endorse you, your product or your organization.
+          use the talkflow logo to suggest that we endorse you, your product or your organization.
         </li>
       </ul>
       <p>If you&apos;re not sure whether a use is fine, email us and ask.</p>
@@ -120,23 +120,23 @@ export default function TermsPage() {
       <h2 id="other-companies">6. Other companies&apos; names and logos</h2>
       <p>
         The site shows the names and logos of other companies&apos; apps as examples of places you
-        can type. TalkFlow types into the focused text field of most Mac apps. We have not tested
-        every app, and apps can change how they handle typed text, so TalkFlow may not work in every
+        can type. talkflow types into the focused text field of most Mac apps. We have not tested
+        every app, and apps can change how they handle typed text, so talkflow may not work in every
         app or in every version of an app. We use these names and logos only to describe where you
         can type.
       </p>
       <p>
         The app windows in the demos on the site, such as Claude Code, Messages, Gmail, WhatsApp,
-        Slack and Notion, are illustrations we drew to show where TalkFlow types. They are not
+        Slack and Notion, are illustrations we drew to show where talkflow types. They are not
         screenshots, and the people, messages and companies in them are made up.
       </p>
       <p>
-        The site compares TalkFlow with Wispr Flow, including Wispr Flow&apos;s published prices.
+        The site compares talkflow with Wispr Flow, including Wispr Flow&apos;s published prices.
         Those prices were taken from Wispr Flow&apos;s own pricing page on October 2, 2026, and may
         have changed since.
       </p>
       <p>
-        TalkFlow is an independent project. It is not affiliated with, endorsed by or sponsored by
+        talkflow is an independent project. It is not affiliated with, endorsed by or sponsored by
         Wispr, Apple, Microsoft, Google, Slack, Meta, Notion, Anthropic or any other company whose
         products are named or shown on the site.
       </p>
@@ -158,7 +158,7 @@ export default function TermsPage() {
       </p>
 
       <h2 id="no-warranty">8. No warranty</h2>
-      <p>TalkFlow and this site are free. They are provided &quot;as is&quot; and &quot;as available&quot;.</p>
+      <p>talkflow and this site are free. They are provided &quot;as is&quot; and &quot;as available&quot;.</p>
       <p>
         For the app, the warranty disclaimer in the MIT License applies. For the site, and for the
         app to the extent the license doesn&apos;t already cover it, we make no promises of any kind,
@@ -167,7 +167,7 @@ export default function TermsPage() {
         suit your particular purpose, or that they don&apos;t infringe anyone else&apos;s rights.
       </p>
       <p>
-        In plain terms: speech recognition makes mistakes. TalkFlow may mishear you, type the wrong
+        In plain terms: speech recognition makes mistakes. talkflow may mishear you, type the wrong
         words, type into the wrong place or type nothing at all. Check what it typed before you send
         it or rely on it, especially for anything important such as medical, legal, financial or
         safety-related text.
@@ -256,7 +256,7 @@ export default function TermsPage() {
           and the app.
         </li>
         <li>
-          <strong>Transfer.</strong> If someone else takes over the TalkFlow project, such as a new
+          <strong>Transfer.</strong> If someone else takes over the talkflow project, such as a new
           maintainer or organization, we may transfer these terms to them. This won&apos;t reduce
           your rights under these terms.
         </li>

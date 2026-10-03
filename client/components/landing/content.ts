@@ -40,11 +40,11 @@ export const WISPR_FLOW_PRICE = "$15/mo";
 export const FAQ: [question: string, answer: string][] = [
   [
     "How is it different from Wispr Flow?",
-    "Wispr Flow Pro costs $15 a month, or $12 a month billed yearly, and Wispr Flow's free plan stops at 2,000 words a week on desktop. TalkFlow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
+    "Wispr Flow Pro costs $15 a month, or $12 a month billed yearly, and Wispr Flow's free plan stops at 2,000 words a week on desktop. talkflow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
   ],
   [
     "Is it really free?",
-    "Yes. No trial, no tiers, no subscription. TalkFlow is open source under the MIT License and runs on your own Mac, so there's nothing to pay for.",
+    "Yes. No trial, no tiers, no subscription. talkflow is open source under the MIT License and runs on your own Mac, so there's nothing to pay for.",
   ],
   [
     "Does anything get sent to the cloud?",
@@ -60,11 +60,11 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Which languages does it support?",
-    "English. TalkFlow uses Whisper's English speech model, which is fast and accurate for English but doesn't transcribe other languages.",
+    "English. talkflow uses Whisper's English speech model, which is fast and accurate for English but doesn't transcribe other languages.",
   ],
   [
     "Does it work offline?",
-    "Yes. Once it's set up, turn off Wi-Fi and TalkFlow works exactly the same.",
+    "Yes. Once it's set up, turn off Wi-Fi and talkflow works exactly the same.",
   ],
   [
     "What do I need to run it?",
@@ -72,7 +72,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
 ];
 
-// What the TalkFlow dashboard shows, with example numbers.
+// What the talkflow dashboard shows, with example numbers.
 export const DASHBOARD = [
   { label: "Words dictated", value: "44,612", unit: "" },
   { label: "Average speed", value: "145", unit: "wpm" },

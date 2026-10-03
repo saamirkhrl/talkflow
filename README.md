@@ -1,4 +1,4 @@
-# TalkFlow
+# talkflow
 
 macOS dictation. Hold **Fn**, speak, the words appear in whatever text field you
 are typing in. Local transcription, no cloud, no account.
@@ -10,7 +10,7 @@ rather than assuming.
 
 ## How it works
 
-![How TalkFlow works: hold Fn, Whisper transcribes on your Mac, simple rules tidy the text, settled words are typed into your app](docs/how-it-works.svg)
+![How talkflow works: hold Fn, Whisper transcribes on your Mac, simple rules tidy the text, settled words are typed into your app](docs/how-it-works.svg)
 
 The only AI model is Whisper (`ggml-small.en`, running locally in
 `whisper-server`). It turns speech into text and supplies most of the
@@ -63,7 +63,7 @@ or add whitespace.
 ## Build and install
 
 ```bash
-./deploy.sh   # release build, installs to /Applications/TalkFlow.app,
+./deploy.sh   # release build, installs to /Applications/talkflow.app,
               # signs with a stable local identity so the Accessibility,
               # Input Monitoring and microphone grants survive rebuilds,
               # and restarts the LaunchAgent
@@ -78,7 +78,7 @@ about 0.35s warm, and 60s of speech transcribes in about 1.5s.
 ## Self-tests
 
 ```bash
-B=/Applications/TalkFlow.app/Contents/MacOS/talkflowd
+B=/Applications/talkflow.app/Contents/MacOS/talkflowd
 $B --streamtest              # append-only streaming: replays whisper revision
                              #   sequences, asserts zero mid-stream deletes
 $B --typetest                # the writing layer, against the real event pipeline

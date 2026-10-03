@@ -15,8 +15,8 @@ const newsreader = Newsreader({
 
 export const metadata: Metadata = {
   title: {
-    default: "TalkFlow: talk to your computer, for free",
-    template: "%s | TalkFlow",
+    default: "talkflow: talk to your computer, for free",
+    template: "%s | talkflow",
   },
   description:
     "The free, open-source Wispr Flow alternative. Hold fn, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac.",

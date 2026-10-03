@@ -13,7 +13,7 @@ import Foundation
 ///     3. It's open source.
 ///
 /// Pure string transform, run once at release on the whole transcript (never
-/// live: whether "number one" opens a list or is just a phrase - "TalkFlow is
+/// live: whether "number one" opens a list or is just a phrase - "talkflow is
 /// number one" - cannot be known until the second item is spoken).
 ///
 /// The spoken cue is a command, like "new paragraph", so it is consumed and

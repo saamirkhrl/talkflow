@@ -19,7 +19,7 @@ function PriceCompare() {
   return (
     <p className="flex items-center gap-3.5 leading-none">
       <span className="sr-only">
-        Wispr Flow Pro costs {WISPR_FLOW_PRICE}. TalkFlow is free.
+        Wispr Flow Pro costs {WISPR_FLOW_PRICE}. talkflow is free.
       </span>
       <span aria-hidden="true" className="flex flex-col items-start gap-1.5">
         <span className="text-[12px] tracking-[0.01em] text-graphite">Wispr Flow Pro</span>
@@ -51,7 +51,7 @@ function PriceCompare() {
 }
 
 // Desktop visitors get a download for their OS plus a link for the other one.
-// Phones can't run TalkFlow, so they get a way to carry the link to a computer
+// Phones can't run talkflow, so they get a way to carry the link to a computer
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
 // price next to the button.
 export function DownloadCta({ align = "center", compare = false }: { align?: "center" | "start"; compare?: boolean }) {
@@ -112,7 +112,7 @@ function CopyLink({ align, compare }: { align: "center" | "start"; compare: bool
         {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
         {copied ? "Link copied" : "Copy link for your computer"}
       </button>
-      <p className="text-[15px] text-graphite">TalkFlow runs on your computer, not your phone. Open this page on your Mac to download it.</p>
+      <p className="text-[15px] text-graphite">talkflow runs on your computer, not your phone. Open this page on your Mac to download it.</p>
     </div>
   );
 }
