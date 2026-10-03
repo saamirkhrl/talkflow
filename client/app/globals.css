@@ -56,8 +56,14 @@
   }
 
   html {
-    scroll-behavior: smooth;
     scroll-padding-top: 96px;
+  }
+
+  /* Lenis smooths scrolling once it starts; CSS smoothing would fight it. */
+  @media (prefers-reduced-motion: no-preference) {
+    html:not(.lenis) {
+      scroll-behavior: smooth;
+    }
   }
 
   body {

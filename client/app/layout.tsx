@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader } from "next/font/google";
 import { Footer } from "@/components/landing/Footer";
 import { Nav } from "@/components/landing/Nav";
+import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { VisitorProvider } from "@/components/landing/visitor";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={newsreader.variable}>
       <body className="font-sans">
+        <SmoothScroll />
         <VisitorProvider>
           <Nav stars={stars} />
           {children}
