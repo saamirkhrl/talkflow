@@ -1,0 +1,234 @@
+# Builds talkflow for Windows: the rule tests, whisper.cpp's server for x64 and
+# arm64, both installers, and smoke tests of each. On a published release (or
+# a manual run with a tag) it attaches talkflow-windows-x64-setup.exe and
+# talkflow-windows-arm64-setup.exe to that release, next to the Mac assets.
+# It never creates a release. release-manifest.yml runs after it ("Windows")
+# and adds the installers to talkflow-release.json.
+name: Windows
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach installers to (e.g. v0.1.4)"
+        required: true
+  pull_request:
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows.yml"
+      - "Sources/talkflowd/TextCommands.swift"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.event.release.tag_name || inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+env:
+  WHISPER_CPP_TAG: v1.9.4
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - id: v
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag="${RELEASE_TAG:-$INPUT_TAG}"
+          if [ -n "$tag" ]; then
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "bad tag: $tag" >&2; exit 1; }
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Emoji table matches the Mac app
+        run: python windows/tools/gen_emoji.py --check
+      - name: Rule tests (every Swift --streamtest pair, plus the Mac's own outputs)
+        run: dotnet test windows/Talkflow.Core.Tests -c Release --logger "console;verbosity=normal"
+
+  engine:
+    # whisper-server.exe from whisper.cpp source. x64 with MSVC and runtime CPU
+    # dispatch (one DLL per instruction set); arm64 cross-compiled with clang,
+    # as whisper.cpp's own release does. OpenMP off, so the only runtime DLLs
+    # needed are the MSVC ones copied next to the exe.
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch whisper.cpp ${{ env.WHISPER_CPP_TAG }}
+        run: git clone --depth 1 --branch $env:WHISPER_CPP_TAG https://github.com/ggml-org/whisper.cpp.git whisper.cpp
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch == 'arm64' && 'amd64_arm64' || 'amd64' }}
+      - name: Build (x64)
+        if: matrix.arch == 'x64'
+        working-directory: whisper.cpp
+        run: |
+          cmake -S . -B build -A x64 -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
+            -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
+          cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS --target whisper-server
+      - name: Build (arm64)
+        if: matrix.arch == 'arm64'
+        working-directory: whisper.cpp
+        shell: cmd
+        run: |
+          choco install ninja -y --no-progress
+          cmake -S . -B build -G "Ninja Multi-Config" -DCMAKE_TOOLCHAIN_FILE=cmake/arm64-windows-llvm.cmake ^
+            -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON ^
+            -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
+          cmake --build build --config Release --target whisper-server
+      - name: Collect the engine and its runtime
+        shell: pwsh
+        run: |
+          $bin = "whisper.cpp/build/bin/Release"
+          New-Item -ItemType Directory -Force engine | Out-Null
+          Copy-Item "$bin/whisper-server.exe" engine/
+          Copy-Item "$bin/*.dll" engine/
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          $crt = Get-ChildItem "$($redist.FullName)\${{ matrix.arch }}" -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1
+          Copy-Item "$($crt.FullName)\*.dll" engine/
+          Copy-Item whisper.cpp/samples/jfk.wav .
+          Copy-Item whisper.cpp/LICENSE engine/whisper.cpp-LICENSE.txt
+          Get-ChildItem engine | Format-Table Name, Length
+          dumpbin /dependents engine/whisper-server.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-${{ matrix.arch }}
+          path: |
+            engine/
+            jfk.wav
+          if-no-files-found: error
+
+  engine-smoke:
+    # Run each engine on its own architecture, with nothing but the shipped files.
+    needs: engine
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-${{ matrix.arch }}
+          path: dl
+      - name: Fetch a small test model
+        shell: pwsh
+        run: curl.exe -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+      - name: Transcribe a real recording
+        shell: pwsh
+        run: ./windows/tests/smoke-engine.ps1 -EngineDir dl/engine -Model ggml-tiny.en.bin -Wav dl/jfk.wav
+
+  package:
+    needs: [version, test, engine, engine-smoke]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-${{ matrix.arch }}
+          path: dl
+      - name: Publish talkflow (self-contained, win-${{ matrix.arch }})
+        run: |
+          dotnet publish windows/Talkflow -c Release -r win-${{ matrix.arch }} --self-contained true `
+            -p:Version=${{ needs.version.outputs.version }} -o out/app
+          Copy-Item -Recurse dl/engine out/app/engine
+          Copy-Item LICENSE out/app/LICENSE.txt
+      - name: Install Inno Setup if needed
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc /Q "/DAppVersion=${{ needs.version.outputs.version }}" "/DArch=${{ matrix.arch }}" "/DSourceDir=$PWD\out\app" "/O$PWD\dist" windows\installer\talkflow.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
+          Get-ChildItem dist | Format-Table Name, Length
+      - name: Install, run, uninstall (x64 runs here; arm64 is checked on an Arm runner below)
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-x64-setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.arch }}
+          path: dist/talkflow-windows-${{ matrix.arch }}-setup.exe
+          if-no-files-found: error
+
+  install-smoke-arm64:
+    needs: package
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-arm64
+          path: dist
+      - name: Install, run, uninstall on Windows on Arm
+        shell: pwsh
+        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-arm64-setup.exe
+
+  publish:
+    needs: [version, package, install-smoke-arm64]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          path: dist
+          merge-multiple: true
+      - name: Attach the installers to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | tee existing.txt
+          # Only ever add Windows installers to a release that already has the Mac build.
+          grep -qx 'talkflow-macos.dmg' existing.txt || { echo "release $TAG has no talkflow-macos.dmg; refusing" >&2; exit 1; }
+          gh release upload "$TAG" dist/talkflow-windows-x64-setup.exe dist/talkflow-windows-arm64-setup.exe --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
