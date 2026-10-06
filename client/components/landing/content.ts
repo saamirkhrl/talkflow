@@ -22,6 +22,49 @@ export const SHOW_OS_LOGOS = true;
 // offers only the Mac download and says Windows is coming, instead of
 // advertising a Windows download that doesn't exist.
 export const WINDOWS_AVAILABLE: boolean = false;
+// A native Windows on Arm build. While false, the Arm choice serves the x64
+// installer, which Windows on Arm runs through its built-in emulation.
+export const WINDOWS_ARM64_AVAILABLE: boolean = false;
+
+// Every build the site offers, by the path it is served from:
+// talkflow.live/download/<id> redirects to that release asset (see
+// app/download/[build]/route.ts). The README links to these paths too.
+//
+// The Mac release is one universal app (Apple Silicon and Intel in the same
+// binary), so both Mac paths serve the same disk image. Give one its own
+// asset name here if separate builds are ever published.
+export type BuildId = "mac-apple-silicon" | "mac-intel" | "windows-x64" | "windows-arm64";
+export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; detail: string; asset: string; available: boolean }> = {
+  "mac-apple-silicon": {
+    os: "mac",
+    label: "Apple Silicon",
+    detail: "Macs with an M1, M2, M3, M4 or newer chip",
+    asset: "talkflow-macos.dmg",
+    available: true,
+  },
+  "mac-intel": {
+    os: "mac",
+    label: "Intel",
+    detail: "Macs with an Intel processor",
+    asset: "talkflow-macos.dmg",
+    available: true,
+  },
+  "windows-x64": {
+    os: "windows",
+    label: "x64",
+    detail: "Most Windows PCs (Intel or AMD processor)",
+    asset: "talkflow-windows-x64-setup.exe",
+    available: WINDOWS_AVAILABLE,
+  },
+  "windows-arm64": {
+    os: "windows",
+    label: "Arm",
+    detail: "Windows on Arm (Snapdragon and other Arm processors)",
+    asset: WINDOWS_ARM64_AVAILABLE ? "talkflow-windows-arm64-setup.exe" : "talkflow-windows-x64-setup.exe",
+    available: WINDOWS_AVAILABLE,
+  },
+};
+export const buildUrl = (id: BuildId) => `${REPO_URL}/releases/latest/download/${BUILDS[id].asset}`;
 
 // What gets dictated into each app in the "Say the whole thought" scroll demo.
 // "\n" marks a line break in the finished text. Like the app, the blank lines

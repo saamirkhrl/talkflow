@@ -1,11 +1,12 @@
 "use client";
 
 import { Check, Copy, Download, ExternalLink, Layers, Link2 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, MAC_DOWNLOAD_URL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
+import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
 
@@ -66,10 +67,11 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
         {os === "mac" || WINDOWS_AVAILABLE ? (
-          <a href={MAC_DOWNLOAD_URL} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+          // Opens the chooser for this OS (Apple Silicon or Intel; x64 or Arm).
+          <Link href={`/download/${os}`} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
             {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
             Download for {OS[os].label}
-          </a>
+          </Link>
         ) : (
           <span aria-disabled="true" className={cn(buttonClass.secondary, "h-13 cursor-default px-7 text-[17px] text-graphite hover:bg-transparent")}>
             {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
@@ -163,21 +165,32 @@ function OtherBuilds() {
           className="absolute right-0 top-full z-20 mt-2 w-80 rounded-2xl border border-line bg-paper p-1.5 text-left shadow-[0_12px_40px_rgb(0_0_0/0.12)]"
         >
           <p className="px-3 pb-1 pt-2 text-[12px] tracking-[0.01em] text-graphite">All builds</p>
-          <a role="menuitem" href={MAC_DOWNLOAD_URL} onClick={() => setOpen(false)} className={menuItem}>
+          <Link role="menuitem" href="/download/mac" onClick={() => setOpen(false)} className={menuItem}>
             {SHOW_OS_LOGOS && <BrandLogo logo={OS.mac.logo} className="size-4 flex-none" />}
             <span className="flex flex-col">
               <span className="text-[15px] text-ink">macOS</span>
               <span className="text-[12px] text-graphite">{MAC_BUILD_DETAIL}</span>
             </span>
             <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
-          </a>
-          <div role="menuitem" aria-disabled="true" className={cn(menuItem, "cursor-default hover:bg-transparent")}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none opacity-60" />}
-            <span className="flex flex-col">
-              <span className="text-[15px] text-graphite">Windows</span>
-              <span className="text-[12px] text-graphite">Coming soon</span>
-            </span>
-          </div>
+          </Link>
+          {WINDOWS_AVAILABLE ? (
+            <Link role="menuitem" href="/download/windows" onClick={() => setOpen(false)} className={menuItem}>
+              {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none" />}
+              <span className="flex flex-col">
+                <span className="text-[15px] text-ink">Windows</span>
+                <span className="text-[12px] text-graphite">x64 and Arm, Windows 10 and 11</span>
+              </span>
+              <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
+            </Link>
+          ) : (
+            <div role="menuitem" aria-disabled="true" className={cn(menuItem, "cursor-default hover:bg-transparent")}>
+              {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none opacity-60" />}
+              <span className="flex flex-col">
+                <span className="text-[15px] text-graphite">Windows</span>
+                <span className="text-[12px] text-graphite">Coming soon</span>
+              </span>
+            </div>
+          )}
           <a role="menuitem" href={RELEASES_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={cn(menuItem, "border-t border-line rounded-t-none mt-1 pt-3")}>
             <span className="text-[14px] text-graphite">All releases on GitHub</span>
             <ExternalLink size={14} aria-hidden="true" className="ml-auto text-graphite" />
