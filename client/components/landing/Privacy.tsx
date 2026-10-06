@@ -3,7 +3,7 @@ import { REPO_URL } from "./content";
 
 const FACTS = [
   ["Runs on your Mac", "Speech is recognized by OpenAI's Whisper model, running through whisper.cpp on your own processor."],
-  ["No cloud, no account", "No sign-in, no analytics, no crash reports and no update checks. It works the same with Wi-Fi off."],
+  ["No cloud, no account", "No sign-in, no analytics and no crash reports. It works the same with Wi-Fi off; when you're online it only asks GitHub whether there's a newer version."],
   ["Audio is never saved", "Your voice is kept in memory only, never written to disk, and replaced by your next dictation."],
   ["Open source", "Every line is public under the MIT License, so you don't have to take our word for any of this."],
 ];

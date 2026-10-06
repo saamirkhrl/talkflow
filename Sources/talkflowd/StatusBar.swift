@@ -1,7 +1,8 @@
 import AppKit
 
 /// Minimal menu bar indicator: a bars glyph (matching the app icon) tinted by
-/// state, plus a menu with Dashboard, the writing style, and Quit.
+/// state, plus a menu with Dashboard, the writing style, and Quit (and
+/// "Update to X.Y.Z..." while a newer version is available).
 final class StatusBar: NSObject, NSMenuDelegate {
     enum State {
         case idle
@@ -12,12 +13,23 @@ final class StatusBar: NSObject, NSMenuDelegate {
     private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     var onDashboardClicked: (() -> Void)?
     var onSetupClicked: (() -> Void)?
+    /// Opens the dashboard, where the Update button is.
+    var onUpdateClicked: (() -> Void)?
     private var styleItems: [NSMenuItem] = []
+    private let updateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let updateSeparator = NSMenuItem.separator()
 
     override init() {
         super.init()
         let menu = NSMenu()
         menu.delegate = self
+        // Only while a newer version is available (see setUpdate).
+        updateItem.action = #selector(updateClicked)
+        updateItem.target = self
+        updateItem.isHidden = true
+        updateSeparator.isHidden = true
+        menu.addItem(updateItem)
+        menu.addItem(updateSeparator)
         menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
         menu.addItem(withTitle: "Setup...", action: #selector(setupClicked), keyEquivalent: "")
@@ -50,6 +62,17 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     @objc private func setupClicked() {
         onSetupClicked?()
+    }
+
+    @objc private func updateClicked() {
+        onUpdateClicked?()
+    }
+
+    /// Shows "Update to X.Y.Z..." at the top of the menu, or hides it (nil).
+    func setUpdate(version: String?) {
+        updateItem.title = version.map { "Update to \($0)..." } ?? ""
+        updateItem.isHidden = version == nil
+        updateSeparator.isHidden = version == nil
     }
 
     @objc private func styleClicked(_ sender: NSMenuItem) {

@@ -49,8 +49,13 @@ Setup walks you through it:
 - Optional: in Settings you can add your own OpenAI key (transcription) or
   Anthropic key (punctuation). That step then goes to that provider. It is off
   unless you add a key.
-- The app checks GitHub for updates when you open the dashboard. Updates
-  install only when you click.
+- The app checks GitHub for updates shortly after it starts (when you are
+  online), every few hours while it runs, and when you open the dashboard. It
+  downloads only the release's small manifest file (or asks the GitHub API,
+  for older releases). A newer version shows in the menu bar menu and as one
+  notification. Updates install only when you click, and not at all if the
+  download does not match the release's sha256 checksum. See
+  [docs/releases.md](docs/releases.md).
 - Your data lives in one folder, `~/Library/Application Support/talkflow/`:
   `stats.json` for your stats, `settings.json` for your settings and learned
   words.

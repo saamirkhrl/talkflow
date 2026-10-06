@@ -32,8 +32,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         FinalPassEngine.start()
+        startUpdateChecks()
         stopOnSIGTERM()
         print("talkflowd: ready. Hold Fn to dictate.")
+    }
+
+    /// Shortly after launch when online, then every few hours. A newer version
+    /// shows as a menu bar item and one notification; both open the dashboard,
+    /// where installing is still a click.
+    @MainActor
+    private func startUpdateChecks() {
+        statusBar.onUpdateClicked = { [weak self] in self?.dashboard.show() }
+        UpdateNotice.shared.onOpen = { [weak self] in self?.dashboard.show() }
+        UpdateNotice.shared.start()
+        Updater.shared.onAvailabilityChange = { [weak self] version in self?.statusBar.setUpdate(version: version) }
+        Updater.shared.startBackgroundChecks()
     }
 
     private var termination: DispatchSourceSignal?

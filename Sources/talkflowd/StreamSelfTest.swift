@@ -854,6 +854,59 @@ enum StreamSelfTest {
         check(Updater.parse(Data(#"{"tag_name":"v1.0.0","assets":[]}"#.utf8)) == nil, "a release with no zip is ignored")
         check(Updater.parse(Data(#"{"tag_name":"v1.0.0","prerelease":true,"assets":[{"name":"a.zip","browser_download_url":"https://e/a.zip"}]}"#.utf8)) == nil,
               "a prerelease is not offered")
+        check(release?.sha256 == nil, "an API release without a digest has no checksum")
+        let digested = Updater.parse(Data(#"{"tag_name":"v0.2.0","assets":[{"name":"talkflow-macos.zip","digest":"sha256:F24AF5EB6080C9E6667C30BB9B3BACC06C0C558543E08B2474037036706DF59A","browser_download_url":"https://e/t.zip"}]}"#.utf8))
+        check(digested?.sha256 == "f24af5eb6080c9e6667c30bb9b3bacc06c0c558543e08b2474037036706df59a",
+              "GitHub's asset digest is used as the checksum", String(describing: digested))
+        runManifestCases()
+    }
+
+    /// talkflow-release.json (docs/releases.md), the first thing the update
+    /// check reads.
+    private static func runManifestCases() {
+        let sha = String(repeating: "ab", count: 32)
+        func manifest(version: String = "0.2.0", schema: String = "1", platforms: String) -> Updater.Manifest? {
+            let json = #"{"schema":\#(schema),"version":"\#(version)","tag":"v\#(version)","published":"2026-10-05T12:00:00Z","notesUrl":"https://github.com/x/y/releases/tag/v\#(version)","notes":"","platforms":{\#(platforms)}}"#
+            return Updater.parseManifest(Data(json.utf8))
+        }
+        let mac = #""macos":{"universal":{"update":{"name":"talkflow-macos.zip","url":"https://e/talkflow-macos.zip","sha256":"\#(sha)","size":123},"installer":{"name":"talkflow-macos.dmg","url":"https://e/talkflow-macos.dmg","sha256":"\#(sha)","size":456}}}"#
+        let windows = #""windows":{"x64":{"update":{"name":"talkflow-windows-x64-setup.exe","url":"https://e/w.exe","sha256":"\#(sha)","size":1}}}"#
+
+        let newer = manifest(platforms: mac + "," + windows + #","linux":{}"#)
+        check(newer?.release?.version == "0.2.0", "manifest: the macOS update is read", String(describing: newer))
+        check(newer?.release?.zipURL.absoluteString == "https://e/talkflow-macos.zip", "manifest: the update zip is chosen, not the dmg")
+        check(newer?.release?.sha256 == sha, "manifest: the update's sha256 is kept for the download check")
+        check(newer?.release?.pageURL?.absoluteString == "https://github.com/x/y/releases/tag/v0.2.0", "manifest: notesUrl is the release page")
+        check(newer?.release.map { Updater.isNewer($0.version, than: "0.1.3") } == true, "manifest: a newer version is offered")
+
+        let same = manifest(version: "0.1.3", platforms: mac)
+        check(same?.release.map { Updater.isNewer($0.version, than: "0.1.3") } == false, "manifest: the same version is not offered")
+
+        let windowsOnly = manifest(platforms: windows + #","linux":{}"#)
+        check(windowsOnly != nil && windowsOnly?.release == nil, "manifest: no macOS entry means no update", String(describing: windowsOnly))
+        let installerOnly = manifest(platforms: #""macos":{"universal":{"installer":{"name":"talkflow-macos.dmg","url":"https://e/d.dmg","sha256":"\#(sha)","size":1}}}"#)
+        check(installerOnly != nil && installerOnly?.release == nil, "manifest: a dmg alone is not an update")
+
+        let unknown = manifest(platforms: mac + #","plan9":{"mips":{"update":{"url":"https://e/x"}}},"windows":{"riscv":{"update":{}}}"#)
+        check(unknown?.release?.zipURL.absoluteString == "https://e/talkflow-macos.zip", "manifest: unknown platforms and arches are ignored")
+        let otherArch = manifest(platforms: #""macos":{"arm64":{"update":{"name":"a.zip","url":"https://e/a.zip","sha256":"\#(sha)","size":1}}}"#)
+        check(otherArch != nil && otherArch?.release == nil, "manifest: only the universal macOS build is used")
+
+        check(Updater.parseManifest(Data("not json".utf8)) == nil, "manifest: bad JSON is rejected")
+        check(Updater.parseManifest(Data("[1,2]".utf8)) == nil, "manifest: a JSON array is rejected")
+        check(manifest(schema: "2", platforms: mac) == nil, "manifest: an unknown schema is rejected")
+        let badSum = manifest(platforms: #""macos":{"universal":{"update":{"name":"z","url":"https://e/z.zip","sha256":"1234","size":1}}}"#)
+        check(badSum != nil && badSum?.release == nil, "manifest: an entry without a full sha256 is not offered")
+        let plainHTTP = manifest(platforms: #""macos":{"universal":{"update":{"name":"z","url":"http://e/z.zip","sha256":"\#(sha)","size":1}}}"#)
+        check(plainHTTP != nil && plainHTTP?.release == nil, "manifest: an http (not https) update URL is not offered")
+
+        // The download check: sha256("abc") is a published test vector.
+        let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-sha256-\(UUID().uuidString)")
+        try? Data("abc".utf8).write(to: file)
+        check(Updater.sha256Hex(of: file) == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+              "the download's sha256 is computed correctly")
+        try? FileManager.default.removeItem(at: file)
+        check(Updater.sha256Hex(of: file) == nil, "a missing download has no sha256")
     }
 
     private static func runCase(_ testCase: Case) {

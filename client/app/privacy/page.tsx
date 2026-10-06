@@ -10,17 +10,19 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 3, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="October 5, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
           <strong>The app works on your Mac.</strong> Your speech is turned into text on your own
-          computer. The app makes no network connections other than to the speech engine on your own
-          Mac. We don&apos;t receive your audio, your text or your usage stats.
+          computer, by a speech engine running on your Mac. Apart from that, the app only asks GitHub
+          whether a newer version exists (see{" "}<a href="#app-updates">Update checks</a>), and contacts
+          OpenAI or Anthropic only if you add your own API key. We don&apos;t receive your audio, your
+          text or your usage stats.
         </li>
         <li>
-          <strong>The app has no accounts, no telemetry and no update checks.</strong> Audio is
-          never saved to disk.
+          <strong>The app has no accounts and no telemetry.</strong> It checks GitHub for updates,
+          and an update installs only when you click. Audio is never saved to disk.
         </li>
         <li>
           <strong>The website has no cookies and no forms, and uses only basic, cookieless
@@ -203,9 +205,26 @@ export default function PrivacyPage() {
       <h3 id="app-receive">What we receive from the app</h3>
       <p>
         Nothing. The app doesn&apos;t send your audio, your text, your stats or any other
-        information to us or to anyone else. There are no accounts, no telemetry, no analytics, no
-        crash reports sent to us and no update checks. The only network connection the app makes is
-        to the speech engine on your own Mac.
+        information to us. There are no accounts, no telemetry, no analytics and no crash reports
+        sent to us. Apart from the speech engine on your own Mac, the app connects only to GitHub to
+        check for updates (below), and to OpenAI or Anthropic if you add your own API key in Settings.
+      </p>
+
+      <h3 id="app-updates">Update checks</h3>
+      <p>
+        When it is online, the app asks GitHub whether a newer version exists: shortly after it
+        starts, every few hours while it runs, and when you open the dashboard. It downloads a small
+        public file listing the latest release (if that file is missing, it asks GitHub&apos;s
+        release API instead). The request sends nothing about you or your dictation. Like any web
+        request, it reaches GitHub with your IP address, and it names the app and its version (for
+        example &quot;talkflow/0.1.4&quot;). GitHub&apos;s privacy statement covers that request; we
+        don&apos;t receive it.
+      </p>
+      <p>
+        When a newer version exists, the app says so. Nothing is downloaded or installed until you
+        click to update, and the download is checked against the release&apos;s published checksum
+        before it is installed. Without an internet connection, the app works the same and simply
+        checks again later.
       </p>
       <p>
         Because we don&apos;t receive anything from the app, we can&apos;t see, recover or delete
@@ -312,7 +331,7 @@ export default function PrivacyPage() {
       <h3 id="app-future">Future versions</h3>
       <p>
         This part describes the app as of the &quot;Last updated&quot; date above. If we ever add a
-        feature that sends any information off your Mac, such as update checks or crash reports, we
+        feature that sends any other information off your Mac, such as crash reports, we
         will update this policy before releasing that version and describe the change in the release
         notes.
       </p>
@@ -416,8 +435,8 @@ export default function PrivacyPage() {
         data handling are also noted in the release notes.
       </p>
       <p>
-        Because the app doesn&apos;t connect to the internet for updates, we can&apos;t notify you
-        inside the app. Please check this page or the release notes when you update. See also our{" "}
+        The app tells you when a new version is available, but not when this policy changes. Please
+        check this page or the release notes when you update. See also our{" "}
         <Link href="/terms">Terms of Use</Link>.
       </p>
 

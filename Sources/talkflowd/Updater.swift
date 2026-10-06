@@ -1,11 +1,20 @@
 import AppKit
+import CryptoKit
 import Foundation
+import Network
 
 /// Checks GitHub Releases for a newer talkflow and installs it in place.
 ///
-/// A release is expected to carry a zip of `talkflow.app` (see `release.sh`),
-/// tagged `v<CFBundleShortVersionString>`. Installing swaps the bundle the app
-/// is running from, re-signs it, and relaunches.
+/// A release carries `talkflow-release.json` (see `scripts/release-manifest.py`
+/// and docs/releases.md), which names the macOS update zip and its sha256.
+/// Releases from before the manifest existed are read through the GitHub API
+/// instead, taking the first zip attached. Either way the zip holds
+/// `talkflow.app`, tagged `v<CFBundleShortVersionString>`. Installing checks
+/// the download against the manifest's sha256, swaps the bundle the app is
+/// running from, re-signs it, and relaunches. Nothing installs without a click.
+///
+/// Checked shortly after launch once the network is up, every few hours while
+/// running, and when the dashboard opens (`checkIfStale`).
 ///
 /// Re-signing matters: macOS ties the microphone, Accessibility and Input
 /// Monitoring grants to the code signature, and a release zip is signed
@@ -16,13 +25,27 @@ import Foundation
 @MainActor
 final class Updater: ObservableObject {
     static let shared = Updater()
-    static let repository = "saamirkhrl/talkflow"
+    nonisolated static let repository = "saamirkhrl/talkflow"
     nonisolated static let signingIdentity = "talkflow Local Dev"
+
+    /// Every app asks this one URL; GitHub serves it from the newest release.
+    nonisolated static let manifestURL = URL(string: "https://github.com/\(repository)/releases/latest/download/talkflow-release.json")!
 
     struct Release: Equatable {
         let version: String
         let zipURL: URL
         let pageURL: URL?
+        /// Lowercase hex. From the manifest, or GitHub's own digest of the
+        /// asset when the API has one; nil only for an older release without
+        /// either, which is installed unchecked as before.
+        var sha256: String? = nil
+    }
+
+    /// What `talkflow-release.json` says. `release` is nil when the release
+    /// has no macOS update build, which means there is nothing to offer.
+    struct Manifest: Equatable {
+        let version: String
+        let release: Release?
     }
 
     enum State: Equatable {
@@ -35,15 +58,33 @@ final class Updater: ObservableObject {
         case failed(String)
     }
 
-    @Published private(set) var state: State = .idle
+    @Published private(set) var state: State = .idle {
+        didSet { stateChanged() }
+    }
     private var lastCheck: Date?
+    private var lastSuccess: Date?
+    private var lastBackgroundAttempt: Date?
+
+    /// The version on offer, or nil when there is none; for the menu bar
+    /// item. Not called while a check is running, so the item does not
+    /// flicker while an already-known update is re-checked.
+    var onAvailabilityChange: ((String?) -> Void)?
+
+    private var pathMonitor: NWPathMonitor?
+    private var online = false
+    private var timer: Timer?
+    static let backgroundInterval: TimeInterval = 6 * 3600
+    /// The least time between two background attempts, so a flapping
+    /// connection or an unreachable GitHub is not asked over and over.
+    static let backgroundRetry: TimeInterval = 15 * 60
 
     nonisolated static var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
-    /// Checks when the dashboard opens, at most every few hours, so the
-    /// header already knows when the user looks at it.
+    /// Checks when the dashboard opens, at most every few hours (a successful
+    /// background check counts), so the header already knows when the user
+    /// looks at it.
     func checkIfStale() {
         if let lastCheck, Date().timeIntervalSince(lastCheck) < 6 * 3600 { return }
         if case .checking = state { return }
@@ -51,33 +92,125 @@ final class Updater: ObservableObject {
     }
 
     func check() {
+        check(quietly: false)
+    }
+
+    /// Starts the launch and periodic checks. The first one runs a few
+    /// seconds after the network is reachable; while offline nothing is
+    /// attempted. Background checks fail quietly: the state stays what it
+    /// was, so an error never replaces a known update or appears unasked.
+    func startBackgroundChecks() {
+        guard pathMonitor == nil else { return }
+        let monitor = NWPathMonitor()
+        monitor.pathUpdateHandler = { [weak self] path in
+            let up = path.status == .satisfied
+            DispatchQueue.main.async { self?.networkChanged(up) }
+        }
+        monitor.start(queue: DispatchQueue.global(qos: .utility))
+        pathMonitor = monitor
+        timer = Timer.scheduledTimer(withTimeInterval: Self.backgroundRetry, repeats: true) { [weak self] _ in
+            DispatchQueue.main.async { self?.backgroundCheck() }
+        }
+    }
+
+    private func networkChanged(_ up: Bool) {
+        let cameOnline = up && !online
+        online = up
+        guard cameOnline else { return }
+        // Not in the middle of launch or of a reconnect.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in self?.backgroundCheck() }
+    }
+
+    private func backgroundCheck() {
+        guard online else { return }
+        let now = Date()
+        if let lastSuccess, now.timeIntervalSince(lastSuccess) < Self.backgroundInterval { return }
+        if let lastBackgroundAttempt, now.timeIntervalSince(lastBackgroundAttempt) < Self.backgroundRetry { return }
+        check(quietly: true)
+    }
+
+    private func check(quietly: Bool) {
         switch state {
         case .checking, .downloading, .installing: return
         default: break
         }
+        let previous = state
         state = .checking
-        lastCheck = Date()
+        // A quiet failure leaves `lastCheck` alone, so opening the dashboard
+        // still checks (and shows the error) as it always has.
+        if quietly { lastBackgroundAttempt = Date() } else { lastCheck = Date() }
         DispatchQueue.global(qos: .utility).async { _ = Self.localIdentityHash }
-        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(Self.repository)/releases/latest")!)
+        Self.fetchLatest { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let release):
+                    self.lastSuccess = Date()
+                    self.lastCheck = self.lastSuccess
+                    self.state = release.map { .available($0) } ?? .upToDate
+                case .failure(let failure):
+                    if quietly { print("talkflowd: update check failed: \(failure.message)") }
+                    self.state = quietly ? previous : .failed(failure.message)
+                }
+            }
+        }
+    }
+
+    private func stateChanged() {
+        switch state {
+        case .checking:
+            return
+        case .available(let release):
+            onAvailabilityChange?(release.version)
+            UpdateNotice.shared.announce(version: release.version)
+        default:
+            onAvailabilityChange?(nil)
+        }
+    }
+
+    struct CheckFailure: Error {
+        let message: String
+    }
+
+    /// The newer release, nil when up to date. The manifest first; the
+    /// GitHub API when there is no manifest (a release from before it) or
+    /// one this build can't read.
+    nonisolated private static func fetchLatest(_ done: @escaping (Result<Release?, CheckFailure>) -> Void) {
+        var request = URLRequest(url: manifestURL)
         request.timeoutInterval = 15
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("talkflow/\(Self.currentVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("talkflow/\(currentVersion)", forHTTPHeaderField: "User-Agent")
         URLSession.shared.dataTask(with: request) { data, response, error in
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let next: State
             if let error {
-                next = .failed("Could not reach GitHub: \(error.localizedDescription)")
+                done(.failure(CheckFailure(message: "Could not reach GitHub: \(error.localizedDescription)")))
+                return
+            }
+            if (200..<300).contains(code), let manifest = data.flatMap(parseManifest) {
+                done(.success(manifest.release.flatMap { isNewer($0.version, than: currentVersion) ? $0 : nil }))
+                return
+            }
+            fetchFromAPI(done)
+        }.resume()
+    }
+
+    nonisolated private static func fetchFromAPI(_ done: @escaping (Result<Release?, CheckFailure>) -> Void) {
+        var request = URLRequest(url: URL(string: "https://api.github.com/repos/\(repository)/releases/latest")!)
+        request.timeoutInterval = 15
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("talkflow/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            if let error {
+                done(.failure(CheckFailure(message: "Could not reach GitHub: \(error.localizedDescription)")))
             } else if code == 404 {
                 // No release published yet.
-                next = .upToDate
+                done(.success(nil))
             } else if !(200..<300).contains(code) {
-                next = .failed(code == 403 ? "GitHub rate limit reached, try again later" : "GitHub returned \(code)")
-            } else if let release = data.flatMap(Self.parse) {
-                next = Self.isNewer(release.version, than: Self.currentVersion) ? .available(release) : .upToDate
+                done(.failure(CheckFailure(message: code == 403 ? "GitHub rate limit reached, try again later" : "GitHub returned \(code)")))
+            } else if let release = data.flatMap(parse) {
+                done(.success(isNewer(release.version, than: currentVersion) ? release : nil))
             } else {
-                next = .failed("The latest release has no talkflow zip attached")
+                done(.failure(CheckFailure(message: "The latest release has no talkflow zip attached")))
             }
-            DispatchQueue.main.async { self.state = next }
         }.resume()
     }
 
@@ -111,6 +244,17 @@ final class Updater: ObservableObject {
             } catch {
                 DispatchQueue.main.async { self.state = .failed("Download failed: \(error.localizedDescription)") }
                 return
+            }
+            if let expected = release.sha256 {
+                let actual = Self.sha256Hex(of: zip)
+                guard actual == expected else {
+                    try? FileManager.default.removeItem(at: work)
+                    print("talkflowd: update \(release.version) refused: sha256 \(actual ?? "unreadable"), expected \(expected)")
+                    DispatchQueue.main.async {
+                        self.state = .failed("The download did not match the release's checksum, so it was not installed")
+                    }
+                    return
+                }
             }
             DispatchQueue.main.async { self.state = .installing }
             let result = Self.installBundle(zip: zip, in: work, version: release.version, over: target)
@@ -204,7 +348,51 @@ final class Updater: ObservableObject {
               let zip = assets.first(where: { ($0["name"] as? String)?.lowercased().hasSuffix(".zip") == true }),
               let link = zip["browser_download_url"] as? String, let url = URL(string: link) else { return nil }
         let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-        return Release(version: version, zipURL: url, pageURL: (json["html_url"] as? String).flatMap(URL.init(string:)))
+        // GitHub records "sha256:<hex>" for assets uploaded since mid 2025.
+        let digest = (zip["digest"] as? String)?.lowercased()
+        let sha256 = digest.flatMap { $0.hasPrefix("sha256:") ? String($0.dropFirst(7)) : nil }.flatMap { isSHA256($0) ? $0 : nil }
+        return Release(version: version, zipURL: url, pageURL: (json["html_url"] as? String).flatMap(URL.init(string:)), sha256: sha256)
+    }
+
+    /// Reads `talkflow-release.json` (schema 1, see docs/releases.md). Nil
+    /// when it is not JSON or not a schema this build knows. Platforms other
+    /// than macOS, and any other keys, are ignored. The macOS entry counts
+    /// only with an https URL and a well-formed sha256.
+    nonisolated static func parseManifest(_ data: Data) -> Manifest? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["schema"] as? Int == 1,
+              let version = json["version"] as? String, !version.isEmpty,
+              let platforms = json["platforms"] as? [String: Any] else { return nil }
+        let page = (json["notesUrl"] as? String).flatMap(URL.init(string:))
+        var release: Release?
+        if let macos = platforms["macos"] as? [String: Any],
+           let universal = macos["universal"] as? [String: Any],
+           let update = universal["update"] as? [String: Any],
+           let link = update["url"] as? String, let url = URL(string: link), url.scheme == "https",
+           let sha256 = (update["sha256"] as? String)?.lowercased(), isSHA256(sha256) {
+            release = Release(version: version, zipURL: url, pageURL: page, sha256: sha256)
+        }
+        return Manifest(version: version, release: release)
+    }
+
+    nonisolated static func isSHA256(_ text: String) -> Bool {
+        text.count == 64 && text.allSatisfy(\.isHexDigit)
+    }
+
+    /// Lowercase hex sha256 of a file, read in pieces. Nil if unreadable.
+    nonisolated static func sha256Hex(of url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        do {
+            // nil or empty at the end of the file.
+            while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+                hasher.update(data: chunk)
+            }
+        } catch {
+            return nil
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     /// "0.10.0" is newer than "0.9.2"; missing parts count as zero.
