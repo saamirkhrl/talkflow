@@ -174,9 +174,13 @@ sealed class Dictation
         {
             // Typing while the shortcut's keys are still down would send
             // Ctrl+letters. Wait (briefly) for the user to let go.
-            for (int i = 0; i < 30 && _app.Hotkey.AnyKeyHeld(); i++) await Task.Delay(50);
+            for (int i = 0; i < 100 && _app.Hotkey.AnyKeyHeld(); i++) await Task.Delay(50);
             var now = FocusTarget.Current();
-            if (_target is null || !now.SameAppAs(_target) || now.IsTalkflow && !_app.IsTryItFocused)
+            if (_app.Hotkey.AnyKeyHeld())
+            {
+                ToClipboard(final, "a key of the shortcut was still held");
+            }
+            else if (_target is null || !now.SameAppAs(_target) || now.IsTalkflow && !_app.IsTryItFocused)
             {
                 ToClipboard(final, "focus moved to another app");
             }

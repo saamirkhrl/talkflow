@@ -117,6 +117,8 @@ sealed class HotkeyListener : IDisposable
     uint _threadId;
     volatile HotkeySpec _spec;
     bool _active;
+    /// <summary>The shortcut fired while a Win key was down; that Win key's release must not open Start.</summary>
+    bool _winUsed;
     bool _recording;
     readonly HashSet<int> _recorded = new();
 
@@ -217,6 +219,7 @@ sealed class HotkeyListener : IDisposable
                 if (!_active && spec.SatisfiedBy(_down))
                 {
                     _active = true;
+                    _winUsed = _down.Contains(HotkeySpec.LWin) || _down.Contains(HotkeySpec.RWin);
                     fire = Pressed;
                 }
                 else if (_active && !repeat && !spec.Contains(vk))
@@ -236,9 +239,16 @@ sealed class HotkeyListener : IDisposable
                     fire = Released;
                 }
                 swallow = wasActive && spec.Contains(vk) && !spec.IsModifier(vk);
-                // Releasing Win alone opens Start. A neutral key event in
-                // between tells Windows the Win key was part of a shortcut.
-                if (wasActive && vk is HotkeySpec.LWin or HotkeySpec.RWin) SuppressStartMenu();
+                // Releasing Win opens Start unless another key came between
+                // its press and release, whichever key of the shortcut is let
+                // go first. The real key-up is held back and replayed after a
+                // neutral key, so Windows sees the Win key used in a shortcut.
+                if (_winUsed && vk is HotkeySpec.LWin or HotkeySpec.RWin)
+                {
+                    if (!_down.Contains(HotkeySpec.LWin) && !_down.Contains(HotkeySpec.RWin)) _winUsed = false;
+                    ReleaseWinQuietly((ushort)vk);
+                    swallow = true;
+                }
             }
         }
 
@@ -247,10 +257,10 @@ sealed class HotkeyListener : IDisposable
         return swallow ? (IntPtr)1 : Native.CallNextHookEx(_hook, nCode, wParam, lParam);
     }
 
-    static void SuppressStartMenu()
+    static void ReleaseWinQuietly(ushort win)
     {
         const ushort unassigned = 0xE8;
-        var inputs = new[] { Native.Key(unassigned, false), Native.Key(unassigned, true) };
+        var inputs = new[] { Native.Key(unassigned, false), Native.Key(unassigned, true), Native.Key(win, true, extended: true) };
         Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Native.INPUT>());
     }
 
