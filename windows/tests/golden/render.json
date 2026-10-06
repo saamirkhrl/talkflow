@@ -1,0 +1,3442 @@
+[
+ {
+  "input": "send me the red heart emoji",
+  "expected": "Send me the ❤️"
+ },
+ {
+  "input": "heart emoji",
+  "expected": "❤️"
+ },
+ {
+  "input": "I love it blue heart emoji.",
+  "expected": "I love it 💙"
+ },
+ {
+  "input": "Great job, green heart emoji, see you",
+  "expected": "Great job, 💚 see you"
+ },
+ {
+  "input": "That is so yellow heart emojis",
+  "expected": "That is so 💛"
+ },
+ {
+  "input": "send me the orange heart emoji",
+  "expected": "Send me the 🧡"
+ },
+ {
+  "input": "purple heart emoji",
+  "expected": "💜"
+ },
+ {
+  "input": "I love it black heart emoji.",
+  "expected": "I love it 🖤"
+ },
+ {
+  "input": "Great job, white heart emoji, see you",
+  "expected": "Great job, 🤍 see you"
+ },
+ {
+  "input": "That is so brown heart emojis",
+  "expected": "That is so 🤎"
+ },
+ {
+  "input": "send me the broken heart emoji",
+  "expected": "Send me the 💔"
+ },
+ {
+  "input": "sparkling heart emoji",
+  "expected": "💖"
+ },
+ {
+  "input": "I love it growing heart emoji.",
+  "expected": "I love it 💗"
+ },
+ {
+  "input": "Great job, beating heart emoji, see you",
+  "expected": "Great job, 💓 see you"
+ },
+ {
+  "input": "That is so revolving hearts emojis",
+  "expected": "That is so 💞"
+ },
+ {
+  "input": "send me the two hearts emoji",
+  "expected": "Send me the 💕"
+ },
+ {
+  "input": "heart exclamation emoji",
+  "expected": "❣️"
+ },
+ {
+  "input": "I love it love letter emoji.",
+  "expected": "I love it 💌"
+ },
+ {
+  "input": "Great job, kiss mark emoji, see you",
+  "expected": "Great job, 💋 see you"
+ },
+ {
+  "input": "That is so kiss emojis",
+  "expected": "That is so 😘"
+ },
+ {
+  "input": "send me the love emoji",
+  "expected": "Send me the 😍"
+ },
+ {
+  "input": "hug emoji",
+  "expected": "🤗"
+ },
+ {
+  "input": "I love it cupid emoji.",
+  "expected": "I love it 💘"
+ },
+ {
+  "input": "Great job, grinning face emoji, see you",
+  "expected": "Great job, 😀 see you"
+ },
+ {
+  "input": "That is so grin emojis",
+  "expected": "That is so 😁"
+ },
+ {
+  "input": "send me the smiley face emoji",
+  "expected": "Send me the 😊"
+ },
+ {
+  "input": "smiling face emoji",
+  "expected": "😊"
+ },
+ {
+  "input": "I love it happy face emoji.",
+  "expected": "I love it 😊"
+ },
+ {
+  "input": "Great job, smile emoji, see you",
+  "expected": "Great job, 😊 see you"
+ },
+ {
+  "input": "That is so smiley emojis",
+  "expected": "That is so 😊"
+ },
+ {
+  "input": "send me the blush emoji",
+  "expected": "Send me the ☺️"
+ },
+ {
+  "input": "sweat smile emoji",
+  "expected": "😅"
+ },
+ {
+  "input": "I love it laughing emoji.",
+  "expected": "I love it 😂"
+ },
+ {
+  "input": "Great job, crying laughing emoji, see you",
+  "expected": "Great job, 😂 see you"
+ },
+ {
+  "input": "That is so rofl emojis",
+  "expected": "That is so 🤣"
+ },
+ {
+  "input": "send me the rolling on the floor emoji",
+  "expected": "Send me the rolling on the floor emoji"
+ },
+ {
+  "input": "upside down face emoji",
+  "expected": "🙃"
+ },
+ {
+  "input": "I love it melting face emoji.",
+  "expected": "I love it 🫠"
+ },
+ {
+  "input": "Great job, wink emoji, see you",
+  "expected": "Great job, 😉 see you"
+ },
+ {
+  "input": "That is so yum emojis",
+  "expected": "That is so 😋"
+ },
+ {
+  "input": "send me the tongue out emoji",
+  "expected": "Send me the 😛"
+ },
+ {
+  "input": "silly face emoji",
+  "expected": "🤪"
+ },
+ {
+  "input": "I love it money face emoji.",
+  "expected": "I love it 🤑"
+ },
+ {
+  "input": "Great job, hugging face emoji, see you",
+  "expected": "Great job, 🤗 see you"
+ },
+ {
+  "input": "That is so shushing face emojis",
+  "expected": "That is so 🤫"
+ },
+ {
+  "input": "send me the thinking emoji",
+  "expected": "Send me the 🤔"
+ },
+ {
+  "input": "thinking face emoji",
+  "expected": "🤔"
+ },
+ {
+  "input": "I love it zipper face emoji.",
+  "expected": "I love it 🤐"
+ },
+ {
+  "input": "Great job, raised eyebrow emoji, see you",
+  "expected": "Great job, 🤨 see you"
+ },
+ {
+  "input": "That is so neutral face emojis",
+  "expected": "That is so 😐"
+ },
+ {
+  "input": "send me the expressionless emoji",
+  "expected": "Send me the 😑"
+ },
+ {
+  "input": "no mouth emoji",
+  "expected": "😶"
+ },
+ {
+  "input": "I love it smirk emoji.",
+  "expected": "I love it 😏"
+ },
+ {
+  "input": "Great job, unamused emoji, see you",
+  "expected": "Great job, 😒 see you"
+ },
+ {
+  "input": "That is so rolling eyes emojis",
+  "expected": "That is so 🙄"
+ },
+ {
+  "input": "send me the grimace emoji",
+  "expected": "Send me the 😬"
+ },
+ {
+  "input": "lying face emoji",
+  "expected": "🤥"
+ },
+ {
+  "input": "I love it relieved face emoji.",
+  "expected": "I love it 😌"
+ },
+ {
+  "input": "Great job, pensive emoji, see you",
+  "expected": "Great job, 😔 see you"
+ },
+ {
+  "input": "That is so sleepy face emojis",
+  "expected": "That is so 😪"
+ },
+ {
+  "input": "send me the drooling emoji",
+  "expected": "Send me the 🤤"
+ },
+ {
+  "input": "sleeping face emoji",
+  "expected": "😴"
+ },
+ {
+  "input": "I love it mask face emoji.",
+  "expected": "I love it 😷"
+ },
+ {
+  "input": "Great job, sick face emoji, see you",
+  "expected": "Great job, 🤒 see you"
+ },
+ {
+  "input": "That is so nauseated emojis",
+  "expected": "That is so 🤢"
+ },
+ {
+  "input": "send me the vomiting emoji",
+  "expected": "Send me the 🤮"
+ },
+ {
+  "input": "sneezing emoji",
+  "expected": "🤧"
+ },
+ {
+  "input": "I love it hot face emoji.",
+  "expected": "I love it 🥵"
+ },
+ {
+  "input": "Great job, cold face emoji, see you",
+  "expected": "Great job, 🥶 see you"
+ },
+ {
+  "input": "That is so woozy emojis",
+  "expected": "That is so 🥴"
+ },
+ {
+  "input": "send me the dizzy face emoji",
+  "expected": "Send me the 😵"
+ },
+ {
+  "input": "exploding head emoji",
+  "expected": "🤯"
+ },
+ {
+  "input": "I love it mind blown emoji.",
+  "expected": "I love it 🤯"
+ },
+ {
+  "input": "Great job, cowboy emoji, see you",
+  "expected": "Great job, 🤠 see you"
+ },
+ {
+  "input": "That is so partying face emojis",
+  "expected": "That is so 🥳"
+ },
+ {
+  "input": "send me the disguised face emoji",
+  "expected": "Send me the 🥸"
+ },
+ {
+  "input": "cool emoji",
+  "expected": "😎"
+ },
+ {
+  "input": "I love it sunglasses emoji.",
+  "expected": "I love it 😎"
+ },
+ {
+  "input": "Great job, nerd face emoji, see you",
+  "expected": "Great job, 🤓 see you"
+ },
+ {
+  "input": "That is so monocle emojis",
+  "expected": "That is so 🧐"
+ },
+ {
+  "input": "send me the confused face emoji",
+  "expected": "Send me the 😕"
+ },
+ {
+  "input": "worried face emoji",
+  "expected": "😟"
+ },
+ {
+  "input": "I love it frowning face emoji.",
+  "expected": "I love it 🙁"
+ },
+ {
+  "input": "Great job, astonished emoji, see you",
+  "expected": "Great job, 😲 see you"
+ },
+ {
+  "input": "That is so flushed face emojis",
+  "expected": "That is so 😳"
+ },
+ {
+  "input": "send me the pleading face emoji",
+  "expected": "Send me the 🥺"
+ },
+ {
+  "input": "fearful emoji",
+  "expected": "😨"
+ },
+ {
+  "input": "I love it anxious face emoji.",
+  "expected": "I love it 😰"
+ },
+ {
+  "input": "Great job, crying emoji, see you",
+  "expected": "Great job, 😢 see you"
+ },
+ {
+  "input": "That is so sad emojis",
+  "expected": "That is so 😢"
+ },
+ {
+  "input": "send me the loudly crying emoji",
+  "expected": "Send me the 😭"
+ },
+ {
+  "input": "sobbing emoji",
+  "expected": "😭"
+ },
+ {
+  "input": "I love it screaming emoji.",
+  "expected": "I love it 😱"
+ },
+ {
+  "input": "Great job, confounded emoji, see you",
+  "expected": "Great job, 😖 see you"
+ },
+ {
+  "input": "That is so persevering emojis",
+  "expected": "That is so 😣"
+ },
+ {
+  "input": "send me the disappointed face emoji",
+  "expected": "Send me the 😞"
+ },
+ {
+  "input": "weary face emoji",
+  "expected": "😩"
+ },
+ {
+  "input": "I love it tired face emoji.",
+  "expected": "I love it 😫"
+ },
+ {
+  "input": "Great job, yawning face emoji, see you",
+  "expected": "Great job, 🥱 see you"
+ },
+ {
+  "input": "That is so triumph emojis",
+  "expected": "That is so 😤"
+ },
+ {
+  "input": "send me the pouting face emoji",
+  "expected": "Send me the 😡"
+ },
+ {
+  "input": "angry emoji",
+  "expected": "😠"
+ },
+ {
+  "input": "I love it angry face emoji.",
+  "expected": "I love it 😠"
+ },
+ {
+  "input": "Great job, cursing face emoji, see you",
+  "expected": "Great job, 🤬 see you"
+ },
+ {
+  "input": "That is so smiling devil emojis",
+  "expected": "That is so 😈"
+ },
+ {
+  "input": "send me the devil emoji",
+  "expected": "Send me the 👿"
+ },
+ {
+  "input": "clown emoji",
+  "expected": "🤡"
+ },
+ {
+  "input": "I love it ogre emoji.",
+  "expected": "I love it 👹"
+ },
+ {
+  "input": "Great job, goblin emoji, see you",
+  "expected": "Great job, 👺 see you"
+ },
+ {
+  "input": "That is so alien emojis",
+  "expected": "That is so 👽"
+ },
+ {
+  "input": "send me the robot emoji",
+  "expected": "Send me the 🤖"
+ },
+ {
+  "input": "skull emoji",
+  "expected": "💀"
+ },
+ {
+  "input": "I love it ghost emoji.",
+  "expected": "I love it 👻"
+ },
+ {
+  "input": "Great job, poop emoji, see you",
+  "expected": "Great job, 💩 see you"
+ },
+ {
+  "input": "That is so smiling cat emojis",
+  "expected": "That is so 😸"
+ },
+ {
+  "input": "send me the heart eyes cat emoji",
+  "expected": "Send me the 😻"
+ },
+ {
+  "input": "crying cat emoji",
+  "expected": "😿"
+ },
+ {
+  "input": "I love it heart eyes emoji.",
+  "expected": "I love it 😍"
+ },
+ {
+  "input": "Great job, star struck emoji, see you",
+  "expected": "Great job, 🤩 see you"
+ },
+ {
+  "input": "That is so thumbs up emojis",
+  "expected": "That is so 👍"
+ },
+ {
+  "input": "send me the thumbs down emoji",
+  "expected": "Send me the 👎"
+ },
+ {
+  "input": "clap emoji",
+  "expected": "👏"
+ },
+ {
+  "input": "I love it wave emoji.",
+  "expected": "I love it 👋"
+ },
+ {
+  "input": "Great job, waving hand emoji, see you",
+  "expected": "Great job, 👋 see you"
+ },
+ {
+  "input": "That is so raised hand emojis",
+  "expected": "That is so ✋"
+ },
+ {
+  "input": "send me the vulcan salute emoji",
+  "expected": "Send me the 🖖"
+ },
+ {
+  "input": "ok hand emoji",
+  "expected": "👌"
+ },
+ {
+  "input": "I love it pinch emoji.",
+  "expected": "I love it 🤏"
+ },
+ {
+  "input": "Great job, victory hand emoji, see you",
+  "expected": "Great job, ✌️ see you"
+ },
+ {
+  "input": "That is so peace sign emojis",
+  "expected": "That is so ✌️"
+ },
+ {
+  "input": "send me the crossed fingers emoji",
+  "expected": "Send me the 🤞"
+ },
+ {
+  "input": "love you gesture emoji",
+  "expected": "🤟"
+ },
+ {
+  "input": "I love it horns emoji.",
+  "expected": "I love it 🤘"
+ },
+ {
+  "input": "Great job, call me hand emoji, see you",
+  "expected": "Great job, 🤙 see you"
+ },
+ {
+  "input": "That is so point left emojis",
+  "expected": "That is so 👈"
+ },
+ {
+  "input": "send me the point right emoji",
+  "expected": "Send me the 👉"
+ },
+ {
+  "input": "point up emoji",
+  "expected": "👆"
+ },
+ {
+  "input": "I love it point down emoji.",
+  "expected": "I love it 👇"
+ },
+ {
+  "input": "Great job, middle finger emoji, see you",
+  "expected": "Great job, 🖕 see you"
+ },
+ {
+  "input": "That is so raised fist emojis",
+  "expected": "That is so ✊"
+ },
+ {
+  "input": "send me the fist bump emoji",
+  "expected": "Send me the 👊"
+ },
+ {
+  "input": "open hands emoji",
+  "expected": "👐"
+ },
+ {
+  "input": "I love it palms up emoji.",
+  "expected": "I love it 🤲"
+ },
+ {
+  "input": "Great job, handshake emoji, see you",
+  "expected": "Great job, 🤝 see you"
+ },
+ {
+  "input": "That is so folded hands emojis",
+  "expected": "That is so 🙏"
+ },
+ {
+  "input": "send me the pray emoji",
+  "expected": "Send me the 🙏"
+ },
+ {
+  "input": "writing hand emoji",
+  "expected": "✍️"
+ },
+ {
+  "input": "I love it nail polish emoji.",
+  "expected": "I love it 💅"
+ },
+ {
+  "input": "Great job, selfie emoji, see you",
+  "expected": "Great job, 🤳 see you"
+ },
+ {
+  "input": "That is so muscle emojis",
+  "expected": "That is so 💪"
+ },
+ {
+  "input": "send me the flexed biceps emoji",
+  "expected": "Send me the 💪"
+ },
+ {
+  "input": "brain emoji",
+  "expected": "🧠"
+ },
+ {
+  "input": "I love it tooth emoji.",
+  "expected": "I love it 🦷"
+ },
+ {
+  "input": "Great job, bone emoji, see you",
+  "expected": "Great job, 🦴 see you"
+ },
+ {
+  "input": "That is so eye emojis",
+  "expected": "That is so 👁️"
+ },
+ {
+  "input": "send me the eyes emoji",
+  "expected": "Send me the 👀"
+ },
+ {
+  "input": "tongue emoji",
+  "expected": "👅"
+ },
+ {
+  "input": "I love it ear emoji.",
+  "expected": "I love it 👂"
+ },
+ {
+  "input": "Great job, nose emoji, see you",
+  "expected": "Great job, 👃 see you"
+ },
+ {
+  "input": "That is so footprints emojis",
+  "expected": "That is so 👣"
+ },
+ {
+  "input": "send me the high five emoji",
+  "expected": "Send me the 🙌"
+ },
+ {
+  "input": "raised hands emoji",
+  "expected": "🙌"
+ },
+ {
+  "input": "I love it shrug emoji.",
+  "expected": "I love it 🤷"
+ },
+ {
+  "input": "Great job, person shrugging emoji, see you",
+  "expected": "Great job, 🤷 see you"
+ },
+ {
+  "input": "That is so facepalm emojis",
+  "expected": "That is so 🤦"
+ },
+ {
+  "input": "send me the baby emoji",
+  "expected": "Send me the 👶"
+ },
+ {
+  "input": "police officer emoji",
+  "expected": "👮"
+ },
+ {
+  "input": "I love it detective emoji.",
+  "expected": "I love it 🕵️"
+ },
+ {
+  "input": "Great job, construction worker emoji, see you",
+  "expected": "Great job, 👷 see you"
+ },
+ {
+  "input": "That is so prince emojis",
+  "expected": "That is so 🤴"
+ },
+ {
+  "input": "send me the princess emoji",
+  "expected": "Send me the 👸"
+ },
+ {
+  "input": "ninja emoji",
+  "expected": "🥷"
+ },
+ {
+  "input": "I love it santa emoji.",
+  "expected": "I love it 🎅"
+ },
+ {
+  "input": "Great job, superhero emoji, see you",
+  "expected": "Great job, 🦸 see you"
+ },
+ {
+  "input": "That is so supervillain emojis",
+  "expected": "That is so 🦹"
+ },
+ {
+  "input": "send me the mage emoji",
+  "expected": "Send me the 🧙"
+ },
+ {
+  "input": "wizard emoji",
+  "expected": "🧙"
+ },
+ {
+  "input": "I love it fairy emoji.",
+  "expected": "I love it 🧚"
+ },
+ {
+  "input": "Great job, vampire emoji, see you",
+  "expected": "Great job, 🧛 see you"
+ },
+ {
+  "input": "That is so mermaid emojis",
+  "expected": "That is so 🧜"
+ },
+ {
+  "input": "send me the elf emoji",
+  "expected": "Send me the 🧝"
+ },
+ {
+  "input": "zombie emoji",
+  "expected": "🧟"
+ },
+ {
+  "input": "I love it dancer emoji.",
+  "expected": "I love it 💃"
+ },
+ {
+  "input": "Great job, dancing man emoji, see you",
+  "expected": "Great job, 🕺 see you"
+ },
+ {
+  "input": "That is so running emojis",
+  "expected": "That is so 🏃"
+ },
+ {
+  "input": "send me the walking emoji",
+  "expected": "Send me the 🚶"
+ },
+ {
+  "input": "swimming emoji",
+  "expected": "🏊"
+ },
+ {
+  "input": "I love it surfing emoji.",
+  "expected": "I love it 🏄"
+ },
+ {
+  "input": "Great job, biking emoji, see you",
+  "expected": "Great job, 🚴 see you"
+ },
+ {
+  "input": "That is so climbing emojis",
+  "expected": "That is so 🧗"
+ },
+ {
+  "input": "send me the lifting weights emoji",
+  "expected": "Send me the 🏋️"
+ },
+ {
+  "input": "yoga emoji",
+  "expected": "🧘"
+ },
+ {
+  "input": "I love it dog emoji.",
+  "expected": "I love it 🐶"
+ },
+ {
+  "input": "Great job, cat emoji, see you",
+  "expected": "Great job, 🐱 see you"
+ },
+ {
+  "input": "That is so monkey emojis",
+  "expected": "That is so 🐵"
+ },
+ {
+  "input": "send me the see no evil emoji",
+  "expected": "Send me the 🙈"
+ },
+ {
+  "input": "hear no evil emoji",
+  "expected": "🙉"
+ },
+ {
+  "input": "I love it speak no evil emoji.",
+  "expected": "I love it 🙊"
+ },
+ {
+  "input": "Great job, gorilla emoji, see you",
+  "expected": "Great job, 🦍 see you"
+ },
+ {
+  "input": "That is so wolf emojis",
+  "expected": "That is so 🐺"
+ },
+ {
+  "input": "send me the fox emoji",
+  "expected": "Send me the 🦊"
+ },
+ {
+  "input": "raccoon emoji",
+  "expected": "🦝"
+ },
+ {
+  "input": "I love it lion emoji.",
+  "expected": "I love it 🦁"
+ },
+ {
+  "input": "Great job, tiger emoji, see you",
+  "expected": "Great job, 🐯 see you"
+ },
+ {
+  "input": "That is so horse emojis",
+  "expected": "That is so 🐴"
+ },
+ {
+  "input": "send me the unicorn emoji",
+  "expected": "Send me the 🦄"
+ },
+ {
+  "input": "zebra emoji",
+  "expected": "🦓"
+ },
+ {
+  "input": "I love it deer emoji.",
+  "expected": "I love it 🦌"
+ },
+ {
+  "input": "Great job, cow emoji, see you",
+  "expected": "Great job, 🐮 see you"
+ },
+ {
+  "input": "That is so pig emojis",
+  "expected": "That is so 🐷"
+ },
+ {
+  "input": "send me the ram emoji",
+  "expected": "Send me the 🐏"
+ },
+ {
+  "input": "sheep emoji",
+  "expected": "🐑"
+ },
+ {
+  "input": "I love it goat emoji.",
+  "expected": "I love it 🐐"
+ },
+ {
+  "input": "Great job, camel emoji, see you",
+  "expected": "Great job, 🐫 see you"
+ },
+ {
+  "input": "That is so llama emojis",
+  "expected": "That is so 🦙"
+ },
+ {
+  "input": "send me the giraffe emoji",
+  "expected": "Send me the 🦒"
+ },
+ {
+  "input": "elephant emoji",
+  "expected": "🐘"
+ },
+ {
+  "input": "I love it rhino emoji.",
+  "expected": "I love it 🦏"
+ },
+ {
+  "input": "Great job, hippo emoji, see you",
+  "expected": "Great job, 🦛 see you"
+ },
+ {
+  "input": "That is so mouse emojis",
+  "expected": "That is so 🐭"
+ },
+ {
+  "input": "send me the hamster emoji",
+  "expected": "Send me the 🐹"
+ },
+ {
+  "input": "rabbit emoji",
+  "expected": "🐰"
+ },
+ {
+  "input": "I love it bunny emoji.",
+  "expected": "I love it 🐰"
+ },
+ {
+  "input": "Great job, hedgehog emoji, see you",
+  "expected": "Great job, 🦔 see you"
+ },
+ {
+  "input": "That is so bear emojis",
+  "expected": "That is so 🐻"
+ },
+ {
+  "input": "send me the koala emoji",
+  "expected": "Send me the 🐨"
+ },
+ {
+  "input": "panda emoji",
+  "expected": "🐼"
+ },
+ {
+  "input": "I love it sloth emoji.",
+  "expected": "I love it 🦥"
+ },
+ {
+  "input": "Great job, otter emoji, see you",
+  "expected": "Great job, 🦦 see you"
+ },
+ {
+  "input": "That is so kangaroo emojis",
+  "expected": "That is so 🦘"
+ },
+ {
+  "input": "send me the turkey emoji",
+  "expected": "Send me the 🦃"
+ },
+ {
+  "input": "chicken emoji",
+  "expected": "🐔"
+ },
+ {
+  "input": "I love it rooster emoji.",
+  "expected": "I love it 🐓"
+ },
+ {
+  "input": "Great job, baby chick emoji, see you",
+  "expected": "Great job, 🐤 see you"
+ },
+ {
+  "input": "That is so bird emojis",
+  "expected": "That is so 🐦"
+ },
+ {
+  "input": "send me the penguin emoji",
+  "expected": "Send me the 🐧"
+ },
+ {
+  "input": "dove emoji",
+  "expected": "🕊️"
+ },
+ {
+  "input": "I love it eagle emoji.",
+  "expected": "I love it 🦅"
+ },
+ {
+  "input": "Great job, duck emoji, see you",
+  "expected": "Great job, 🦆 see you"
+ },
+ {
+  "input": "That is so swan emojis",
+  "expected": "That is so 🦢"
+ },
+ {
+  "input": "send me the owl emoji",
+  "expected": "Send me the 🦉"
+ },
+ {
+  "input": "flamingo emoji",
+  "expected": "🦩"
+ },
+ {
+  "input": "I love it peacock emoji.",
+  "expected": "I love it 🦚"
+ },
+ {
+  "input": "Great job, parrot emoji, see you",
+  "expected": "Great job, 🦜 see you"
+ },
+ {
+  "input": "That is so frog emojis",
+  "expected": "That is so 🐸"
+ },
+ {
+  "input": "send me the crocodile emoji",
+  "expected": "Send me the 🐊"
+ },
+ {
+  "input": "turtle emoji",
+  "expected": "🐢"
+ },
+ {
+  "input": "I love it lizard emoji.",
+  "expected": "I love it 🦎"
+ },
+ {
+  "input": "Great job, snake emoji, see you",
+  "expected": "Great job, 🐍 see you"
+ },
+ {
+  "input": "That is so dragon emojis",
+  "expected": "That is so 🐲"
+ },
+ {
+  "input": "send me the dinosaur emoji",
+  "expected": "Send me the 🦕"
+ },
+ {
+  "input": "t rex emoji",
+  "expected": "🦖"
+ },
+ {
+  "input": "I love it whale emoji.",
+  "expected": "I love it 🐳"
+ },
+ {
+  "input": "Great job, dolphin emoji, see you",
+  "expected": "Great job, 🐬 see you"
+ },
+ {
+  "input": "That is so fish emojis",
+  "expected": "That is so 🐟"
+ },
+ {
+  "input": "send me the tropical fish emoji",
+  "expected": "Send me the 🐠"
+ },
+ {
+  "input": "blowfish emoji",
+  "expected": "🐡"
+ },
+ {
+  "input": "I love it shark emoji.",
+  "expected": "I love it 🦈"
+ },
+ {
+  "input": "Great job, octopus emoji, see you",
+  "expected": "Great job, 🐙 see you"
+ },
+ {
+  "input": "That is so snail emojis",
+  "expected": "That is so 🐌"
+ },
+ {
+  "input": "send me the butterfly emoji",
+  "expected": "Send me the 🦋"
+ },
+ {
+  "input": "bug emoji",
+  "expected": "🐛"
+ },
+ {
+  "input": "I love it ant emoji.",
+  "expected": "I love it 🐜"
+ },
+ {
+  "input": "Great job, bee emoji, see you",
+  "expected": "Great job, 🐝 see you"
+ },
+ {
+  "input": "That is so ladybug emojis",
+  "expected": "That is so 🐞"
+ },
+ {
+  "input": "send me the cricket emoji",
+  "expected": "Send me the 🦗"
+ },
+ {
+  "input": "spider emoji",
+  "expected": "🕷️"
+ },
+ {
+  "input": "I love it spider web emoji.",
+  "expected": "I love it 🕸️"
+ },
+ {
+  "input": "Great job, scorpion emoji, see you",
+  "expected": "Great job, 🦂 see you"
+ },
+ {
+  "input": "That is so mosquito emojis",
+  "expected": "That is so 🦟"
+ },
+ {
+  "input": "send me the microbe emoji",
+  "expected": "Send me the 🦠"
+ },
+ {
+  "input": "paw prints emoji",
+  "expected": "🐾"
+ },
+ {
+  "input": "I love it bouquet emoji.",
+  "expected": "I love it 💐"
+ },
+ {
+  "input": "Great job, cherry blossom emoji, see you",
+  "expected": "Great job, 🌸 see you"
+ },
+ {
+  "input": "That is so rose emojis",
+  "expected": "That is so 🌹"
+ },
+ {
+  "input": "send me the wilted rose emoji",
+  "expected": "Send me the 🥀"
+ },
+ {
+  "input": "hibiscus emoji",
+  "expected": "🌺"
+ },
+ {
+  "input": "I love it sunflower emoji.",
+  "expected": "I love it 🌻"
+ },
+ {
+  "input": "Great job, blossom emoji, see you",
+  "expected": "Great job, 🌼 see you"
+ },
+ {
+  "input": "That is so tulip emojis",
+  "expected": "That is so 🌷"
+ },
+ {
+  "input": "send me the seedling emoji",
+  "expected": "Send me the 🌱"
+ },
+ {
+  "input": "evergreen tree emoji",
+  "expected": "🌲"
+ },
+ {
+  "input": "I love it tree emoji.",
+  "expected": "I love it 🌳"
+ },
+ {
+  "input": "Great job, palm tree emoji, see you",
+  "expected": "Great job, 🌴 see you"
+ },
+ {
+  "input": "That is so cactus emojis",
+  "expected": "That is so 🌵"
+ },
+ {
+  "input": "send me the herb emoji",
+  "expected": "Send me the 🌿"
+ },
+ {
+  "input": "four leaf clover emoji",
+  "expected": "🍀"
+ },
+ {
+  "input": "I love it clover emoji.",
+  "expected": "I love it 🍀"
+ },
+ {
+  "input": "Great job, maple leaf emoji, see you",
+  "expected": "Great job, 🍁 see you"
+ },
+ {
+  "input": "That is so fallen leaf emojis",
+  "expected": "That is so 🍂"
+ },
+ {
+  "input": "send me the leaves emoji",
+  "expected": "Send me the 🍃"
+ },
+ {
+  "input": "sun emoji",
+  "expected": "☀️"
+ },
+ {
+  "input": "I love it sunny emoji.",
+  "expected": "I love it ☀️"
+ },
+ {
+  "input": "Great job, sun with face emoji, see you",
+  "expected": "Great job, 🌞 see you"
+ },
+ {
+  "input": "That is so cloud emojis",
+  "expected": "That is so ☁️"
+ },
+ {
+  "input": "send me the partly cloudy emoji",
+  "expected": "Send me the ⛅"
+ },
+ {
+  "input": "rain emoji",
+  "expected": "🌧️"
+ },
+ {
+  "input": "I love it thunderstorm emoji.",
+  "expected": "I love it ⛈️"
+ },
+ {
+  "input": "Great job, lightning emoji, see you",
+  "expected": "Great job, ⚡ see you"
+ },
+ {
+  "input": "That is so high voltage emojis",
+  "expected": "That is so ⚡"
+ },
+ {
+  "input": "send me the tornado emoji",
+  "expected": "Send me the 🌪️"
+ },
+ {
+  "input": "fog emoji",
+  "expected": "🌫️"
+ },
+ {
+  "input": "I love it wind emoji.",
+  "expected": "I love it 🌬️"
+ },
+ {
+  "input": "Great job, cyclone emoji, see you",
+  "expected": "Great job, 🌀 see you"
+ },
+ {
+  "input": "That is so rainbow emojis",
+  "expected": "That is so 🌈"
+ },
+ {
+  "input": "send me the umbrella emoji",
+  "expected": "Send me the ☂️"
+ },
+ {
+  "input": "umbrella rain emoji",
+  "expected": "☔"
+ },
+ {
+  "input": "I love it snowflake emoji.",
+  "expected": "I love it ❄️"
+ },
+ {
+  "input": "Great job, snowman emoji, see you",
+  "expected": "Great job, ⛄ see you"
+ },
+ {
+  "input": "That is so comet emojis",
+  "expected": "That is so ☄️"
+ },
+ {
+  "input": "send me the fire emoji",
+  "expected": "Send me the 🔥"
+ },
+ {
+  "input": "droplet emoji",
+  "expected": "💧"
+ },
+ {
+  "input": "I love it water emoji.",
+  "expected": "I love it 💧"
+ },
+ {
+  "input": "Great job, sweat drops emoji, see you",
+  "expected": "Great job, 💦 see you"
+ },
+ {
+  "input": "That is so ocean wave emojis",
+  "expected": "That is so 🌊"
+ },
+ {
+  "input": "send me the wave water emoji",
+  "expected": "Send me the 🌊"
+ },
+ {
+  "input": "moon emoji",
+  "expected": "🌙"
+ },
+ {
+  "input": "I love it crescent moon emoji.",
+  "expected": "I love it 🌙"
+ },
+ {
+  "input": "Great job, full moon emoji, see you",
+  "expected": "Great job, 🌕 see you"
+ },
+ {
+  "input": "That is so new moon emojis",
+  "expected": "That is so 🌑"
+ },
+ {
+  "input": "send me the moon face emoji",
+  "expected": "Send me the 🌝"
+ },
+ {
+  "input": "star emoji",
+  "expected": "⭐"
+ },
+ {
+  "input": "I love it glowing star emoji.",
+  "expected": "I love it 🌟"
+ },
+ {
+  "input": "Great job, shooting star emoji, see you",
+  "expected": "Great job, 🌠 see you"
+ },
+ {
+  "input": "That is so sparkles emojis",
+  "expected": "That is so ✨"
+ },
+ {
+  "input": "send me the milky way emoji",
+  "expected": "Send me the 🌌"
+ },
+ {
+  "input": "globe emoji",
+  "expected": "🌍"
+ },
+ {
+  "input": "I love it earth emoji.",
+  "expected": "I love it 🌍"
+ },
+ {
+  "input": "Great job, globe americas emoji, see you",
+  "expected": "Great job, 🌎 see you"
+ },
+ {
+  "input": "That is so globe asia emojis",
+  "expected": "That is so 🌏"
+ },
+ {
+  "input": "send me the grapes emoji",
+  "expected": "Send me the 🍇"
+ },
+ {
+  "input": "melon emoji",
+  "expected": "🍈"
+ },
+ {
+  "input": "I love it watermelon emoji.",
+  "expected": "I love it 🍉"
+ },
+ {
+  "input": "Great job, tangerine emoji, see you",
+  "expected": "Great job, 🍊 see you"
+ },
+ {
+  "input": "That is so lemon emojis",
+  "expected": "That is so 🍋"
+ },
+ {
+  "input": "send me the banana emoji",
+  "expected": "Send me the 🍌"
+ },
+ {
+  "input": "pineapple emoji",
+  "expected": "🍍"
+ },
+ {
+  "input": "I love it mango emoji.",
+  "expected": "I love it 🥭"
+ },
+ {
+  "input": "Great job, apple emoji, see you",
+  "expected": "Great job, 🍎 see you"
+ },
+ {
+  "input": "That is so pear emojis",
+  "expected": "That is so 🍐"
+ },
+ {
+  "input": "send me the peach emoji",
+  "expected": "Send me the 🍑"
+ },
+ {
+  "input": "cherries emoji",
+  "expected": "🍒"
+ },
+ {
+  "input": "I love it strawberry emoji.",
+  "expected": "I love it 🍓"
+ },
+ {
+  "input": "Great job, blueberries emoji, see you",
+  "expected": "Great job, 🫐 see you"
+ },
+ {
+  "input": "That is so kiwi emojis",
+  "expected": "That is so 🥝"
+ },
+ {
+  "input": "send me the tomato emoji",
+  "expected": "Send me the 🍅"
+ },
+ {
+  "input": "olive emoji",
+  "expected": "🫒"
+ },
+ {
+  "input": "I love it coconut emoji.",
+  "expected": "I love it 🥥"
+ },
+ {
+  "input": "Great job, avocado emoji, see you",
+  "expected": "Great job, 🥑 see you"
+ },
+ {
+  "input": "That is so eggplant emojis",
+  "expected": "That is so 🍆"
+ },
+ {
+  "input": "send me the potato emoji",
+  "expected": "Send me the 🥔"
+ },
+ {
+  "input": "carrot emoji",
+  "expected": "🥕"
+ },
+ {
+  "input": "I love it corn emoji.",
+  "expected": "I love it 🌽"
+ },
+ {
+  "input": "Great job, hot pepper emoji, see you",
+  "expected": "Great job, 🌶️ see you"
+ },
+ {
+  "input": "That is so cucumber emojis",
+  "expected": "That is so 🥒"
+ },
+ {
+  "input": "send me the broccoli emoji",
+  "expected": "Send me the 🥦"
+ },
+ {
+  "input": "garlic emoji",
+  "expected": "🧄"
+ },
+ {
+  "input": "I love it onion emoji.",
+  "expected": "I love it 🧅"
+ },
+ {
+  "input": "Great job, mushroom emoji, see you",
+  "expected": "Great job, 🍄 see you"
+ },
+ {
+  "input": "That is so peanuts emojis",
+  "expected": "That is so 🥜"
+ },
+ {
+  "input": "send me the bread emoji",
+  "expected": "Send me the 🍞"
+ },
+ {
+  "input": "croissant emoji",
+  "expected": "🥐"
+ },
+ {
+  "input": "I love it baguette emoji.",
+  "expected": "I love it 🥖"
+ },
+ {
+  "input": "Great job, pretzel emoji, see you",
+  "expected": "Great job, 🥨 see you"
+ },
+ {
+  "input": "That is so bagel emojis",
+  "expected": "That is so 🥯"
+ },
+ {
+  "input": "send me the pancakes emoji",
+  "expected": "Send me the 🥞"
+ },
+ {
+  "input": "waffle emoji",
+  "expected": "🧇"
+ },
+ {
+  "input": "I love it cheese emoji.",
+  "expected": "I love it 🧀"
+ },
+ {
+  "input": "Great job, poultry leg emoji, see you",
+  "expected": "Great job, 🍗 see you"
+ },
+ {
+  "input": "That is so bacon emojis",
+  "expected": "That is so 🥓"
+ },
+ {
+  "input": "send me the burger emoji",
+  "expected": "Send me the 🍔"
+ },
+ {
+  "input": "hamburger emoji",
+  "expected": "🍔"
+ },
+ {
+  "input": "I love it fries emoji.",
+  "expected": "I love it 🍟"
+ },
+ {
+  "input": "Great job, pizza emoji, see you",
+  "expected": "Great job, 🍕 see you"
+ },
+ {
+  "input": "That is so hot dog emojis",
+  "expected": "That is so 🌭"
+ },
+ {
+  "input": "send me the sandwich emoji",
+  "expected": "Send me the 🥪"
+ },
+ {
+  "input": "taco emoji",
+  "expected": "🌮"
+ },
+ {
+  "input": "I love it burrito emoji.",
+  "expected": "I love it 🌯"
+ },
+ {
+  "input": "Great job, falafel emoji, see you",
+  "expected": "Great job, 🧆 see you"
+ },
+ {
+  "input": "That is so egg emojis",
+  "expected": "That is so 🥚"
+ },
+ {
+  "input": "send me the cooking emoji",
+  "expected": "Send me the 🍳"
+ },
+ {
+  "input": "salad emoji",
+  "expected": "🥗"
+ },
+ {
+  "input": "I love it popcorn emoji.",
+  "expected": "I love it 🍿"
+ },
+ {
+  "input": "Great job, butter emoji, see you",
+  "expected": "Great job, 🧈 see you"
+ },
+ {
+  "input": "That is so salt emojis",
+  "expected": "That is so 🧂"
+ },
+ {
+  "input": "send me the bento emoji",
+  "expected": "Send me the 🍱"
+ },
+ {
+  "input": "rice emoji",
+  "expected": "🍚"
+ },
+ {
+  "input": "I love it curry emoji.",
+  "expected": "I love it 🍛"
+ },
+ {
+  "input": "Great job, ramen emoji, see you",
+  "expected": "Great job, 🍜 see you"
+ },
+ {
+  "input": "That is so spaghetti emojis",
+  "expected": "That is so 🍝"
+ },
+ {
+  "input": "send me the sushi emoji",
+  "expected": "Send me the 🍣"
+ },
+ {
+  "input": "fried shrimp emoji",
+  "expected": "🍤"
+ },
+ {
+  "input": "I love it dumpling emoji.",
+  "expected": "I love it 🥟"
+ },
+ {
+  "input": "Great job, fortune cookie emoji, see you",
+  "expected": "Great job, 🥠 see you"
+ },
+ {
+  "input": "That is so takeout box emojis",
+  "expected": "That is so 🥡"
+ },
+ {
+  "input": "send me the crab emoji",
+  "expected": "Send me the 🦀"
+ },
+ {
+  "input": "lobster emoji",
+  "expected": "🦞"
+ },
+ {
+  "input": "I love it shrimp emoji.",
+  "expected": "I love it 🦐"
+ },
+ {
+  "input": "Great job, squid emoji, see you",
+  "expected": "Great job, 🦑 see you"
+ },
+ {
+  "input": "That is so oyster emojis",
+  "expected": "That is so 🦪"
+ },
+ {
+  "input": "send me the ice cream emoji",
+  "expected": "Send me the 🍦"
+ },
+ {
+  "input": "donut emoji",
+  "expected": "🍩"
+ },
+ {
+  "input": "I love it cookie emoji.",
+  "expected": "I love it 🍪"
+ },
+ {
+  "input": "Great job, cake emoji, see you",
+  "expected": "Great job, 🎂 see you"
+ },
+ {
+  "input": "That is so birthday cake emojis",
+  "expected": "That is so 🎂"
+ },
+ {
+  "input": "send me the cupcake emoji",
+  "expected": "Send me the 🧁"
+ },
+ {
+  "input": "pie emoji",
+  "expected": "🥧"
+ },
+ {
+  "input": "I love it chocolate emoji.",
+  "expected": "I love it 🍫"
+ },
+ {
+  "input": "Great job, candy emoji, see you",
+  "expected": "Great job, 🍬 see you"
+ },
+ {
+  "input": "That is so lollipop emojis",
+  "expected": "That is so 🍭"
+ },
+ {
+  "input": "send me the honey emoji",
+  "expected": "Send me the 🍯"
+ },
+ {
+  "input": "milk emoji",
+  "expected": "🥛"
+ },
+ {
+  "input": "I love it coffee emoji.",
+  "expected": "I love it ☕"
+ },
+ {
+  "input": "Great job, tea emoji, see you",
+  "expected": "Great job, 🍵 see you"
+ },
+ {
+  "input": "That is so sake emojis",
+  "expected": "That is so 🍶"
+ },
+ {
+  "input": "send me the champagne emoji",
+  "expected": "Send me the 🍾"
+ },
+ {
+  "input": "wine emoji",
+  "expected": "🍷"
+ },
+ {
+  "input": "I love it cocktail emoji.",
+  "expected": "I love it 🍸"
+ },
+ {
+  "input": "Great job, tropical drink emoji, see you",
+  "expected": "Great job, 🍹 see you"
+ },
+ {
+  "input": "That is so beer emojis",
+  "expected": "That is so 🍺"
+ },
+ {
+  "input": "send me the beer mugs emoji",
+  "expected": "Send me the 🍻"
+ },
+ {
+  "input": "clinking glasses emoji",
+  "expected": "🥂"
+ },
+ {
+  "input": "I love it whiskey emoji.",
+  "expected": "I love it 🥃"
+ },
+ {
+  "input": "Great job, cup with straw emoji, see you",
+  "expected": "Great job, 🥤 see you"
+ },
+ {
+  "input": "That is so bubble tea emojis",
+  "expected": "That is so 🧋"
+ },
+ {
+  "input": "send me the ice emoji",
+  "expected": "Send me the 🧊"
+ },
+ {
+  "input": "chopsticks emoji",
+  "expected": "🥢"
+ },
+ {
+  "input": "I love it fork and knife emoji.",
+  "expected": "I love it 🍴"
+ },
+ {
+  "input": "Great job, spoon emoji, see you",
+  "expected": "Great job, 🥄 see you"
+ },
+ {
+  "input": "That is so world map emojis",
+  "expected": "That is so 🗺️"
+ },
+ {
+  "input": "send me the compass emoji",
+  "expected": "Send me the 🧭"
+ },
+ {
+  "input": "mountain emoji",
+  "expected": "⛰️"
+ },
+ {
+  "input": "I love it volcano emoji.",
+  "expected": "I love it 🌋"
+ },
+ {
+  "input": "Great job, camping emoji, see you",
+  "expected": "Great job, 🏕️ see you"
+ },
+ {
+  "input": "That is so beach emojis",
+  "expected": "That is so 🏖️"
+ },
+ {
+  "input": "send me the desert emoji",
+  "expected": "Send me the 🏜️"
+ },
+ {
+  "input": "island emoji",
+  "expected": "🏝️"
+ },
+ {
+  "input": "I love it stadium emoji.",
+  "expected": "I love it 🏟️"
+ },
+ {
+  "input": "Great job, castle emoji, see you",
+  "expected": "Great job, 🏰 see you"
+ },
+ {
+  "input": "That is so ferris wheel emojis",
+  "expected": "That is so 🎡"
+ },
+ {
+  "input": "send me the roller coaster emoji",
+  "expected": "Send me the 🎢"
+ },
+ {
+  "input": "carousel emoji",
+  "expected": "🎠"
+ },
+ {
+  "input": "I love it fountain emoji.",
+  "expected": "I love it ⛲"
+ },
+ {
+  "input": "Great job, tent emoji, see you",
+  "expected": "Great job, ⛺ see you"
+ },
+ {
+  "input": "That is so house emojis",
+  "expected": "That is so 🏠"
+ },
+ {
+  "input": "send me the office building emoji",
+  "expected": "Send me the 🏢"
+ },
+ {
+  "input": "hospital emoji",
+  "expected": "🏥"
+ },
+ {
+  "input": "I love it bank emoji.",
+  "expected": "I love it 🏦"
+ },
+ {
+  "input": "Great job, hotel emoji, see you",
+  "expected": "Great job, 🏨 see you"
+ },
+ {
+  "input": "That is so school emojis",
+  "expected": "That is so 🏫"
+ },
+ {
+  "input": "send me the factory emoji",
+  "expected": "Send me the 🏭"
+ },
+ {
+  "input": "church emoji",
+  "expected": "⛪"
+ },
+ {
+  "input": "I love it mosque emoji.",
+  "expected": "I love it 🕌"
+ },
+ {
+  "input": "Great job, synagogue emoji, see you",
+  "expected": "Great job, 🕍 see you"
+ },
+ {
+  "input": "That is so temple emojis",
+  "expected": "That is so 🛕"
+ },
+ {
+  "input": "send me the statue of liberty emoji",
+  "expected": "Send me the 🗽"
+ },
+ {
+  "input": "sunrise emoji",
+  "expected": "🌅"
+ },
+ {
+  "input": "I love it sunset emoji.",
+  "expected": "I love it 🌇"
+ },
+ {
+  "input": "Great job, night with stars emoji, see you",
+  "expected": "Great job, 🌃 see you"
+ },
+ {
+  "input": "That is so fireworks emojis",
+  "expected": "That is so 🎆"
+ },
+ {
+  "input": "send me the sparkler emoji",
+  "expected": "Send me the 🎇"
+ },
+ {
+  "input": "car emoji",
+  "expected": "🚗"
+ },
+ {
+  "input": "I love it taxi emoji.",
+  "expected": "I love it 🚕"
+ },
+ {
+  "input": "Great job, bus emoji, see you",
+  "expected": "Great job, 🚌 see you"
+ },
+ {
+  "input": "That is so ambulance emojis",
+  "expected": "That is so 🚑"
+ },
+ {
+  "input": "send me the fire engine emoji",
+  "expected": "Send me the 🚒"
+ },
+ {
+  "input": "police car emoji",
+  "expected": "🚓"
+ },
+ {
+  "input": "I love it pickup truck emoji.",
+  "expected": "I love it 🛻"
+ },
+ {
+  "input": "Great job, truck emoji, see you",
+  "expected": "Great job, 🚚 see you"
+ },
+ {
+  "input": "That is so tractor emojis",
+  "expected": "That is so 🚜"
+ },
+ {
+  "input": "send me the scooter emoji",
+  "expected": "Send me the 🛵"
+ },
+ {
+  "input": "motorcycle emoji",
+  "expected": "🏍️"
+ },
+ {
+  "input": "I love it bicycle emoji.",
+  "expected": "I love it 🚲"
+ },
+ {
+  "input": "Great job, skateboard emoji, see you",
+  "expected": "Great job, 🛹 see you"
+ },
+ {
+  "input": "That is so roller skate emojis",
+  "expected": "That is so 🛼"
+ },
+ {
+  "input": "send me the wheelchair emoji",
+  "expected": "Send me the 🦽"
+ },
+ {
+  "input": "train emoji",
+  "expected": "🚆"
+ },
+ {
+  "input": "I love it metro emoji.",
+  "expected": "I love it 🚇"
+ },
+ {
+  "input": "Great job, tram emoji, see you",
+  "expected": "Great job, 🚊 see you"
+ },
+ {
+  "input": "That is so bullet train emojis",
+  "expected": "That is so 🚄"
+ },
+ {
+  "input": "send me the helicopter emoji",
+  "expected": "Send me the 🚁"
+ },
+ {
+  "input": "airplane emoji",
+  "expected": "✈️"
+ },
+ {
+  "input": "I love it departure emoji.",
+  "expected": "I love it 🛫"
+ },
+ {
+  "input": "Great job, arrival emoji, see you",
+  "expected": "Great job, 🛬 see you"
+ },
+ {
+  "input": "That is so parachute emojis",
+  "expected": "That is so 🪂"
+ },
+ {
+  "input": "send me the seat emoji",
+  "expected": "Send me the 💺"
+ },
+ {
+  "input": "rocket emoji",
+  "expected": "🚀"
+ },
+ {
+  "input": "I love it rocket ship emoji.",
+  "expected": "I love it 🚀"
+ },
+ {
+  "input": "Great job, flying saucer emoji, see you",
+  "expected": "Great job, 🛸 see you"
+ },
+ {
+  "input": "That is so sailboat emojis",
+  "expected": "That is so ⛵"
+ },
+ {
+  "input": "send me the speedboat emoji",
+  "expected": "Send me the 🚤"
+ },
+ {
+  "input": "ship emoji",
+  "expected": "🚢"
+ },
+ {
+  "input": "I love it ferry emoji.",
+  "expected": "I love it ⛴️"
+ },
+ {
+  "input": "Great job, anchor emoji, see you",
+  "expected": "Great job, ⚓ see you"
+ },
+ {
+  "input": "That is so fuel pump emojis",
+  "expected": "That is so ⛽"
+ },
+ {
+  "input": "send me the traffic light emoji",
+  "expected": "Send me the 🚦"
+ },
+ {
+  "input": "construction sign emoji",
+  "expected": "🚧"
+ },
+ {
+  "input": "I love it watch emoji.",
+  "expected": "I love it ⌚"
+ },
+ {
+  "input": "Great job, phone emoji, see you",
+  "expected": "Great job, 📱 see you"
+ },
+ {
+  "input": "That is so laptop emojis",
+  "expected": "That is so 💻"
+ },
+ {
+  "input": "send me the computer emoji",
+  "expected": "Send me the 💻"
+ },
+ {
+  "input": "keyboard emoji",
+  "expected": "⌨️"
+ },
+ {
+  "input": "I love it printer emoji.",
+  "expected": "I love it 🖨️"
+ },
+ {
+  "input": "Great job, joystick emoji, see you",
+  "expected": "Great job, 🕹️ see you"
+ },
+ {
+  "input": "That is so floppy disk emojis",
+  "expected": "That is so 💾"
+ },
+ {
+  "input": "send me the abacus emoji",
+  "expected": "Send me the 🧮"
+ },
+ {
+  "input": "movie camera emoji",
+  "expected": "🎥"
+ },
+ {
+  "input": "I love it film emoji.",
+  "expected": "I love it 🎞️"
+ },
+ {
+  "input": "Great job, projector emoji, see you",
+  "expected": "Great job, 📽️ see you"
+ },
+ {
+  "input": "That is so video camera emojis",
+  "expected": "That is so 📹"
+ },
+ {
+  "input": "send me the camera emoji",
+  "expected": "Send me the 📷"
+ },
+ {
+  "input": "magnifying glass emoji",
+  "expected": "🔍"
+ },
+ {
+  "input": "I love it candle emoji.",
+  "expected": "I love it 🕯️"
+ },
+ {
+  "input": "Great job, light bulb emoji, see you",
+  "expected": "Great job, 💡 see you"
+ },
+ {
+  "input": "That is so flashlight emojis",
+  "expected": "That is so 🔦"
+ },
+ {
+  "input": "send me the lantern emoji",
+  "expected": "Send me the 🏮"
+ },
+ {
+  "input": "book emoji",
+  "expected": "📖"
+ },
+ {
+  "input": "I love it books emoji.",
+  "expected": "I love it 📚"
+ },
+ {
+  "input": "Great job, notebook emoji, see you",
+  "expected": "Great job, 📓 see you"
+ },
+ {
+  "input": "That is so page emojis",
+  "expected": "That is so 📄"
+ },
+ {
+  "input": "send me the newspaper emoji",
+  "expected": "Send me the 📰"
+ },
+ {
+  "input": "bookmark emoji",
+  "expected": "🔖"
+ },
+ {
+  "input": "I love it label emoji.",
+  "expected": "I love it 🏷️"
+ },
+ {
+  "input": "Great job, pencil emoji, see you",
+  "expected": "Great job, ✏️ see you"
+ },
+ {
+  "input": "That is so pen emojis",
+  "expected": "That is so 🖊️"
+ },
+ {
+  "input": "send me the paperclip emoji",
+  "expected": "Send me the 📎"
+ },
+ {
+  "input": "scissors emoji",
+  "expected": "✂️"
+ },
+ {
+  "input": "I love it clipboard emoji.",
+  "expected": "I love it 📋"
+ },
+ {
+  "input": "Great job, calendar emoji, see you",
+  "expected": "Great job, 📅 see you"
+ },
+ {
+  "input": "That is so chart increasing emojis",
+  "expected": "That is so 📈"
+ },
+ {
+  "input": "send me the chart decreasing emoji",
+  "expected": "Send me the 📉"
+ },
+ {
+  "input": "bar chart emoji",
+  "expected": "📊"
+ },
+ {
+  "input": "I love it money bag emoji.",
+  "expected": "I love it 💰"
+ },
+ {
+  "input": "Great job, coin emoji, see you",
+  "expected": "Great job, 🪙 see you"
+ },
+ {
+  "input": "That is so dollar emojis",
+  "expected": "That is so 💵"
+ },
+ {
+  "input": "send me the euro emoji",
+  "expected": "Send me the 💶"
+ },
+ {
+  "input": "pound emoji",
+  "expected": "💷"
+ },
+ {
+  "input": "I love it money with wings emoji.",
+  "expected": "I love it 💸"
+ },
+ {
+  "input": "Great job, credit card emoji, see you",
+  "expected": "Great job, 💳 see you"
+ },
+ {
+  "input": "That is so receipt emojis",
+  "expected": "That is so 🧾"
+ },
+ {
+  "input": "send me the gem emoji",
+  "expected": "Send me the 💎"
+ },
+ {
+  "input": "diamond emoji",
+  "expected": "💎"
+ },
+ {
+  "input": "I love it scales emoji.",
+  "expected": "I love it ⚖️"
+ },
+ {
+  "input": "Great job, toolbox emoji, see you",
+  "expected": "Great job, 🧰 see you"
+ },
+ {
+  "input": "That is so magnet emojis",
+  "expected": "That is so 🧲"
+ },
+ {
+  "input": "send me the hammer emoji",
+  "expected": "Send me the 🔨"
+ },
+ {
+  "input": "axe emoji",
+  "expected": "🪓"
+ },
+ {
+  "input": "I love it wrench emoji.",
+  "expected": "I love it 🔧"
+ },
+ {
+  "input": "Great job, screwdriver emoji, see you",
+  "expected": "Great job, 🪛 see you"
+ },
+ {
+  "input": "That is so nut and bolt emojis",
+  "expected": "That is so 🔩"
+ },
+ {
+  "input": "send me the gear emoji",
+  "expected": "Send me the ⚙️"
+ },
+ {
+  "input": "chains emoji",
+  "expected": "⛓️"
+ },
+ {
+  "input": "I love it bomb emoji.",
+  "expected": "I love it 💣"
+ },
+ {
+  "input": "Great job, firecracker emoji, see you",
+  "expected": "Great job, 🧨 see you"
+ },
+ {
+  "input": "That is so knife emojis",
+  "expected": "That is so 🔪"
+ },
+ {
+  "input": "send me the dagger emoji",
+  "expected": "Send me the 🗡️"
+ },
+ {
+  "input": "swords emoji",
+  "expected": "⚔️"
+ },
+ {
+  "input": "I love it shield emoji.",
+  "expected": "I love it 🛡️"
+ },
+ {
+  "input": "Great job, coffin emoji, see you",
+  "expected": "Great job, ⚰️ see you"
+ },
+ {
+  "input": "That is so crystal ball emojis",
+  "expected": "That is so 🔮"
+ },
+ {
+  "input": "send me the test tube emoji",
+  "expected": "Send me the 🧪"
+ },
+ {
+  "input": "petri dish emoji",
+  "expected": "🧫"
+ },
+ {
+  "input": "I love it dna emoji.",
+  "expected": "I love it 🧬"
+ },
+ {
+  "input": "Great job, microscope emoji, see you",
+  "expected": "Great job, 🔬 see you"
+ },
+ {
+  "input": "That is so telescope emojis",
+  "expected": "That is so 🔭"
+ },
+ {
+  "input": "send me the satellite emoji",
+  "expected": "Send me the 📡"
+ },
+ {
+  "input": "syringe emoji",
+  "expected": "💉"
+ },
+ {
+  "input": "I love it pill emoji.",
+  "expected": "I love it 💊"
+ },
+ {
+  "input": "Great job, bandage emoji, see you",
+  "expected": "Great job, 🩹 see you"
+ },
+ {
+  "input": "That is so stethoscope emojis",
+  "expected": "That is so 🩺"
+ },
+ {
+  "input": "send me the door emoji",
+  "expected": "Send me the 🚪"
+ },
+ {
+  "input": "bed emoji",
+  "expected": "🛏️"
+ },
+ {
+  "input": "I love it couch emoji.",
+  "expected": "I love it 🛋️"
+ },
+ {
+  "input": "Great job, toilet emoji, see you",
+  "expected": "Great job, 🚽 see you"
+ },
+ {
+  "input": "That is so shower emojis",
+  "expected": "That is so 🚿"
+ },
+ {
+  "input": "send me the bathtub emoji",
+  "expected": "Send me the 🛁"
+ },
+ {
+  "input": "razor emoji",
+  "expected": "🪒"
+ },
+ {
+  "input": "I love it sponge emoji.",
+  "expected": "I love it 🧽"
+ },
+ {
+  "input": "Great job, soap emoji, see you",
+  "expected": "Great job, 🧼 see you"
+ },
+ {
+  "input": "That is so broom emojis",
+  "expected": "That is so 🧹"
+ },
+ {
+  "input": "send me the basket emoji",
+  "expected": "Send me the 🧺"
+ },
+ {
+  "input": "bucket emoji",
+  "expected": "🪣"
+ },
+ {
+  "input": "I love it mirror emoji.",
+  "expected": "I love it 🪞"
+ },
+ {
+  "input": "Great job, chair emoji, see you",
+  "expected": "Great job, 🪑 see you"
+ },
+ {
+  "input": "That is so shopping cart emojis",
+  "expected": "That is so 🛒"
+ },
+ {
+  "input": "send me the shopping bags emoji",
+  "expected": "Send me the 🛍️"
+ },
+ {
+  "input": "backpack emoji",
+  "expected": "🎒"
+ },
+ {
+  "input": "I love it briefcase emoji.",
+  "expected": "I love it 💼"
+ },
+ {
+  "input": "Great job, handbag emoji, see you",
+  "expected": "Great job, 👜 see you"
+ },
+ {
+  "input": "That is so purse emojis",
+  "expected": "That is so 👛"
+ },
+ {
+  "input": "send me the glasses emoji",
+  "expected": "Send me the 👓"
+ },
+ {
+  "input": "necktie emoji",
+  "expected": "👔"
+ },
+ {
+  "input": "I love it shirt emoji.",
+  "expected": "I love it 👕"
+ },
+ {
+  "input": "Great job, jeans emoji, see you",
+  "expected": "Great job, 👖 see you"
+ },
+ {
+  "input": "That is so scarf emojis",
+  "expected": "That is so 🧣"
+ },
+ {
+  "input": "send me the gloves emoji",
+  "expected": "Send me the 🧤"
+ },
+ {
+  "input": "coat emoji",
+  "expected": "🧥"
+ },
+ {
+  "input": "I love it socks emoji.",
+  "expected": "I love it 🧦"
+ },
+ {
+  "input": "Great job, dress emoji, see you",
+  "expected": "Great job, 👗 see you"
+ },
+ {
+  "input": "That is so high heel emojis",
+  "expected": "That is so 👠"
+ },
+ {
+  "input": "send me the sneaker emoji",
+  "expected": "Send me the 👟"
+ },
+ {
+  "input": "boot emoji",
+  "expected": "👢"
+ },
+ {
+  "input": "I love it crown emoji.",
+  "expected": "I love it 👑"
+ },
+ {
+  "input": "Great job, top hat emoji, see you",
+  "expected": "Great job, 🎩 see you"
+ },
+ {
+  "input": "That is so graduation cap emojis",
+  "expected": "That is so 🎓"
+ },
+ {
+  "input": "send me the helmet emoji",
+  "expected": "Send me the ⛑️"
+ },
+ {
+  "input": "ring emoji",
+  "expected": "💍"
+ },
+ {
+  "input": "I love it lipstick emoji.",
+  "expected": "I love it 💄"
+ },
+ {
+  "input": "Great job, key emoji, see you",
+  "expected": "Great job, 🔑 see you"
+ },
+ {
+  "input": "That is so lock emojis",
+  "expected": "That is so 🔒"
+ },
+ {
+  "input": "send me the unlocked emoji",
+  "expected": "Send me the 🔓"
+ },
+ {
+  "input": "envelope emoji",
+  "expected": "✉️"
+ },
+ {
+  "input": "I love it inbox emoji.",
+  "expected": "I love it 📥"
+ },
+ {
+  "input": "Great job, outbox emoji, see you",
+  "expected": "Great job, 📤 see you"
+ },
+ {
+  "input": "That is so package emojis",
+  "expected": "That is so 📦"
+ },
+ {
+  "input": "send me the mailbox emoji",
+  "expected": "Send me the 📫"
+ },
+ {
+  "input": "gift emoji",
+  "expected": "🎁"
+ },
+ {
+  "input": "I love it balloon emoji.",
+  "expected": "I love it 🎈"
+ },
+ {
+  "input": "Great job, confetti emoji, see you",
+  "expected": "Great job, 🎊 see you"
+ },
+ {
+  "input": "That is so party emojis",
+  "expected": "That is so 🎉"
+ },
+ {
+  "input": "send me the tada emoji",
+  "expected": "Send me the 🎉"
+ },
+ {
+  "input": "trophy emoji",
+  "expected": "🏆"
+ },
+ {
+  "input": "I love it medal emoji.",
+  "expected": "I love it 🏅"
+ },
+ {
+  "input": "Great job, first place emoji, see you",
+  "expected": "Great job, 🥇 see you"
+ },
+ {
+  "input": "That is so second place emojis",
+  "expected": "That is so 🥈"
+ },
+ {
+  "input": "send me the third place emoji",
+  "expected": "Send me the 🥉"
+ },
+ {
+  "input": "ticket emoji",
+  "expected": "🎫"
+ },
+ {
+  "input": "I love it circus emoji.",
+  "expected": "I love it 🎪"
+ },
+ {
+  "input": "Great job, performing arts emoji, see you",
+  "expected": "Great job, 🎭 see you"
+ },
+ {
+  "input": "That is so framed picture emojis",
+  "expected": "That is so 🖼️"
+ },
+ {
+  "input": "send me the clapper board emoji",
+  "expected": "Send me the 🎬"
+ },
+ {
+  "input": "art emoji",
+  "expected": "🎨"
+ },
+ {
+  "input": "I love it soccer ball emoji.",
+  "expected": "I love it ⚽"
+ },
+ {
+  "input": "Great job, football emoji, see you",
+  "expected": "Great job, 🏈 see you"
+ },
+ {
+  "input": "That is so basketball emojis",
+  "expected": "That is so 🏀"
+ },
+ {
+  "input": "send me the baseball emoji",
+  "expected": "Send me the ⚾"
+ },
+ {
+  "input": "softball emoji",
+  "expected": "🥎"
+ },
+ {
+  "input": "I love it tennis emoji.",
+  "expected": "I love it 🎾"
+ },
+ {
+  "input": "Great job, volleyball emoji, see you",
+  "expected": "Great job, 🏐 see you"
+ },
+ {
+  "input": "That is so rugby emojis",
+  "expected": "That is so 🏉"
+ },
+ {
+  "input": "send me the flying disc emoji",
+  "expected": "Send me the 🥏"
+ },
+ {
+  "input": "bowling emoji",
+  "expected": "🎳"
+ },
+ {
+  "input": "I love it field hockey emoji.",
+  "expected": "I love it 🏑"
+ },
+ {
+  "input": "Great job, ice hockey emoji, see you",
+  "expected": "Great job, 🏒 see you"
+ },
+ {
+  "input": "That is so ping pong emojis",
+  "expected": "That is so 🏓"
+ },
+ {
+  "input": "send me the badminton emoji",
+  "expected": "Send me the 🏸"
+ },
+ {
+  "input": "boxing glove emoji",
+  "expected": "🥊"
+ },
+ {
+  "input": "I love it martial arts emoji.",
+  "expected": "I love it 🥋"
+ },
+ {
+  "input": "Great job, goal net emoji, see you",
+  "expected": "Great job, 🥅 see you"
+ },
+ {
+  "input": "That is so golf emojis",
+  "expected": "That is so ⛳"
+ },
+ {
+  "input": "send me the ice skate emoji",
+  "expected": "Send me the ⛸️"
+ },
+ {
+  "input": "fishing emoji",
+  "expected": "🎣"
+ },
+ {
+  "input": "I love it diving mask emoji.",
+  "expected": "I love it 🤿"
+ },
+ {
+  "input": "Great job, ski emoji, see you",
+  "expected": "Great job, 🎿 see you"
+ },
+ {
+  "input": "That is so sled emojis",
+  "expected": "That is so 🛷"
+ },
+ {
+  "input": "send me the target emoji",
+  "expected": "Send me the 🎯"
+ },
+ {
+  "input": "bullseye emoji",
+  "expected": "🎯"
+ },
+ {
+  "input": "I love it kite emoji.",
+  "expected": "I love it 🪁"
+ },
+ {
+  "input": "Great job, eight ball emoji, see you",
+  "expected": "Great job, 🎱 see you"
+ },
+ {
+  "input": "That is so slot machine emojis",
+  "expected": "That is so 🎰"
+ },
+ {
+  "input": "send me the video game emoji",
+  "expected": "Send me the 🎮"
+ },
+ {
+  "input": "dice emoji",
+  "expected": "🎲"
+ },
+ {
+  "input": "I love it puzzle emoji.",
+  "expected": "I love it 🧩"
+ },
+ {
+  "input": "Great job, teddy bear emoji, see you",
+  "expected": "Great job, 🧸 see you"
+ },
+ {
+  "input": "That is so playing cards emojis",
+  "expected": "That is so 🃏"
+ },
+ {
+  "input": "send me the music note emoji",
+  "expected": "Send me the 🎵"
+ },
+ {
+  "input": "musical notes emoji",
+  "expected": "🎶"
+ },
+ {
+  "input": "I love it musical score emoji.",
+  "expected": "I love it 🎼"
+ },
+ {
+  "input": "Great job, headphones emoji, see you",
+  "expected": "Great job, 🎧 see you"
+ },
+ {
+  "input": "That is so microphone emojis",
+  "expected": "That is so 🎤"
+ },
+ {
+  "input": "send me the radio emoji",
+  "expected": "Send me the 📻"
+ },
+ {
+  "input": "saxophone emoji",
+  "expected": "🎷"
+ },
+ {
+  "input": "I love it trumpet emoji.",
+  "expected": "I love it 🎺"
+ },
+ {
+  "input": "Great job, violin emoji, see you",
+  "expected": "Great job, 🎻 see you"
+ },
+ {
+  "input": "That is so guitar emojis",
+  "expected": "That is so 🎸"
+ },
+ {
+  "input": "send me the drum emoji",
+  "expected": "Send me the 🥁"
+ },
+ {
+  "input": "megaphone emoji",
+  "expected": "📣"
+ },
+ {
+  "input": "I love it loudspeaker emoji.",
+  "expected": "I love it 📢"
+ },
+ {
+  "input": "Great job, speaker emoji, see you",
+  "expected": "Great job, 🔊 see you"
+ },
+ {
+  "input": "That is so mute emojis",
+  "expected": "That is so 🔇"
+ },
+ {
+  "input": "send me the bell emoji",
+  "expected": "Send me the 🔔"
+ },
+ {
+  "input": "bell off emoji",
+  "expected": "🔕"
+ },
+ {
+  "input": "I love it check mark emoji.",
+  "expected": "I love it ✅"
+ },
+ {
+  "input": "Great job, checkmark emoji, see you",
+  "expected": "Great job, ✅ see you"
+ },
+ {
+  "input": "That is so check emojis",
+  "expected": "That is so ✅"
+ },
+ {
+  "input": "send me the x mark emoji",
+  "expected": "Send me the ❌"
+ },
+ {
+  "input": "cross mark emoji",
+  "expected": "❌"
+ },
+ {
+  "input": "I love it hundred emoji.",
+  "expected": "I love it 💯"
+ },
+ {
+  "input": "Great job, hundred points emoji, see you",
+  "expected": "Great job, 💯 see you"
+ },
+ {
+  "input": "That is so question mark emojis",
+  "expected": "That is so? Emojis"
+ },
+ {
+  "input": "send me the exclamation mark emoji",
+  "expected": "Send me the! Emoji"
+ },
+ {
+  "input": "warning emoji",
+  "expected": "⚠️"
+ },
+ {
+  "input": "I love it no entry emoji.",
+  "expected": "I love it ⛔"
+ },
+ {
+  "input": "Great job, prohibited emoji, see you",
+  "expected": "Great job, 🚫 see you"
+ },
+ {
+  "input": "That is so radioactive emojis",
+  "expected": "That is so ☢️"
+ },
+ {
+  "input": "send me the biohazard emoji",
+  "expected": "Send me the ☣️"
+ },
+ {
+  "input": "recycle emoji",
+  "expected": "♻️"
+ },
+ {
+  "input": "I love it infinity emoji.",
+  "expected": "I love it ♾️"
+ },
+ {
+  "input": "Great job, trident emoji, see you",
+  "expected": "Great job, 🔱 see you"
+ },
+ {
+  "input": "That is so peace symbol emojis",
+  "expected": "That is so ☮️"
+ },
+ {
+  "input": "send me the yin yang emoji",
+  "expected": "Send me the ☯️"
+ },
+ {
+  "input": "atom emoji",
+  "expected": "⚛️"
+ },
+ {
+  "input": "I love it anger emoji.",
+  "expected": "I love it 💢"
+ },
+ {
+  "input": "Great job, collision emoji, see you",
+  "expected": "Great job, 💥 see you"
+ },
+ {
+  "input": "That is so dizzy emojis",
+  "expected": "That is so 💫"
+ },
+ {
+  "input": "send me the dash emoji",
+  "expected": "Send me the 💨"
+ },
+ {
+  "input": "hole emoji",
+  "expected": "🕳️"
+ },
+ {
+  "input": "I love it speech bubble emoji.",
+  "expected": "I love it 💬"
+ },
+ {
+  "input": "Great job, thought bubble emoji, see you",
+  "expected": "Great job, 💭 see you"
+ },
+ {
+  "input": "That is so zzz emojis",
+  "expected": "That is so 💤"
+ },
+ {
+  "input": "send me the clock emoji",
+  "expected": "Send me the 🕐"
+ },
+ {
+  "input": "hourglass emoji",
+  "expected": "⏳"
+ },
+ {
+  "input": "I love it alarm clock emoji.",
+  "expected": "I love it ⏰"
+ },
+ {
+  "input": "Great job, stopwatch emoji, see you",
+  "expected": "Great job, ⏱️ see you"
+ },
+ {
+  "input": "That is so bridge emojis",
+  "expected": "That is so 🌉"
+ },
+ {
+  "input": "send me the night bridge emoji",
+  "expected": "Send me the 🌉"
+ },
+ {
+  "input": "flag emoji",
+  "expected": "🚩"
+ },
+ {
+  "input": "I love it checkered flag emoji.",
+  "expected": "I love it 🏁"
+ },
+ {
+  "input": "Great job, crossed flags emoji, see you",
+  "expected": "Great job, 🎌 see you"
+ },
+ {
+  "input": "That is so white flag emojis",
+  "expected": "That is so 🏳️"
+ },
+ {
+  "input": "send me the rainbow flag emoji",
+  "expected": "Send me the 🏳️‍🌈"
+ },
+ {
+  "input": "pirate flag emoji",
+  "expected": "🏴‍☠️"
+ },
+ {
+  "input": "I love it plus emoji.",
+  "expected": "I love it ➕"
+ },
+ {
+  "input": "Great job, minus emoji, see you",
+  "expected": "Great job, ➖ see you"
+ },
+ {
+  "input": "That is so divide emojis",
+  "expected": "That is so ➗"
+ },
+ {
+  "input": "send me the arrow up emoji",
+  "expected": "Send me the ⬆️"
+ },
+ {
+  "input": "arrow down emoji",
+  "expected": "⬇️"
+ },
+ {
+  "input": "I love it arrow left emoji.",
+  "expected": "I love it ⬅️"
+ },
+ {
+  "input": "Great job, arrow right emoji, see you",
+  "expected": "Great job, ➡️ see you"
+ },
+ {
+  "input": "That is so up arrow emojis",
+  "expected": "That is so ⬆️"
+ },
+ {
+  "input": "send me the down arrow emoji",
+  "expected": "Send me the ⬇️"
+ },
+ {
+  "input": "left arrow emoji",
+  "expected": "⬅️"
+ },
+ {
+  "input": "I love it right arrow emoji.",
+  "expected": "I love it ➡️"
+ },
+ {
+  "input": "Great job, repeat emoji, see you",
+  "expected": "Great job, 🔁 see you"
+ },
+ {
+  "input": "That is so shuffle emojis",
+  "expected": "That is so 🔀"
+ },
+ {
+  "input": "send me the play button emoji",
+  "expected": "Send me the ▶️"
+ },
+ {
+  "input": "pause button emoji",
+  "expected": "⏸️"
+ },
+ {
+  "input": "I love it stop button emoji.",
+  "expected": "I love it ⏹️"
+ },
+ {
+  "input": "Great job, record button emoji, see you",
+  "expected": "Great job, ⏺️ see you"
+ },
+ {
+  "input": "That is so fast forward emojis",
+  "expected": "That is so ⏩"
+ },
+ {
+  "input": "send me the rewind emoji",
+  "expected": "Send me the ⏪"
+ },
+ {
+  "input": "groan emoji",
+  "expected": "😩"
+ },
+ {
+  "input": "I love it grown emoji.",
+  "expected": "I love it 😩"
+ },
+ {
+  "input": "Great job, moan emoji, see you",
+  "expected": "Great job, 😩 see you"
+ },
+ {
+  "input": "That is so sad face emojis",
+  "expected": "That is so 😢"
+ },
+ {
+  "input": "send me the crying face emoji",
+  "expected": "Send me the 😢"
+ },
+ {
+  "input": "happy emoji",
+  "expected": "😊"
+ },
+ {
+  "input": "I love it laugh emoji.",
+  "expected": "I love it 😂"
+ },
+ {
+  "input": "Great job, lol emoji, see you",
+  "expected": "Great job, 😂 see you"
+ },
+ {
+  "input": "That is so smiling emojis",
+  "expected": "That is so 😊"
+ },
+ {
+  "input": "send me the thumbs emoji",
+  "expected": "Send me the 👍"
+ },
+ {
+  "input": "thumb up emoji",
+  "expected": "👍"
+ },
+ {
+  "input": "I love it thumbs up sign emoji.",
+  "expected": "I love it 👍"
+ },
+ {
+  "input": "Great job, heart eyes face emoji, see you",
+  "expected": "Great job, 😍 see you"
+ },
+ {
+  "input": "That is so hearts emojis",
+  "expected": "That is so 💕"
+ },
+ {
+  "input": "send me the prayer hands emoji",
+  "expected": "Send me the 🙏"
+ },
+ {
+  "input": "praying hands emoji",
+  "expected": "🙏"
+ },
+ {
+  "input": "I love it flame emoji.",
+  "expected": "I love it 🔥"
+ },
+ {
+  "input": "Great job, flames emoji, see you",
+  "expected": "Great job, 🔥 see you"
+ },
+ {
+  "input": "That is so hundred percent emojis",
+  "expected": "That is so 💯"
+ },
+ {
+  "input": "send me the tick emoji",
+  "expected": "Send me the ✅"
+ },
+ {
+  "input": "cross emoji",
+  "expected": "❌"
+ },
+ {
+  "input": "I love it exclamation point emoji.",
+  "expected": "I love it! Emoji."
+ },
+ {
+  "input": "Great job, smiley face emoji emoji, see you",
+  "expected": "Great job, 😊 see you"
+ },
+ {
+  "input": "That is so grinning emojis",
+  "expected": "That is so 😀"
+ },
+ {
+  "input": "send me the poop face emoji",
+  "expected": "Send me the 💩"
+ },
+ {
+  "input": "hooray emoji",
+  "expected": "🎉"
+ },
+ {
+  "input": "I love it celebrate emoji.",
+  "expected": "I love it 🎉"
+ },
+ {
+  "input": "Great job, celebration emoji, see you",
+  "expected": "Great job, 🎉 see you"
+ },
+ {
+  "input": "That is so clapping emojis",
+  "expected": "That is so 👏"
+ },
+ {
+  "input": "send me the clapping hands emoji",
+  "expected": "Send me the 👏"
+ },
+ {
+  "input": "waving emoji",
+  "expected": "👋"
+ },
+ {
+  "input": "I love it wink face emoji.",
+  "expected": "I love it 😉"
+ },
+ {
+  "input": "Great job, angry face emoji emoji, see you",
+  "expected": "Great job, 😠 see you"
+ },
+ {
+  "input": "That is so shocked emojis",
+  "expected": "That is so 😲"
+ },
+ {
+  "input": "send me the surprised emoji",
+  "expected": "Send me the 😲"
+ },
+ {
+  "input": "sleepy emoji",
+  "expected": "😪"
+ },
+ {
+  "input": "I love it tired emoji.",
+  "expected": "I love it 😫"
+ },
+ {
+  "input": "Great job, sick emoji, see you",
+  "expected": "Great job, 🤒 see you"
+ },
+ {
+  "input": "That is so nervous emojis",
+  "expected": "That is so 😰"
+ },
+ {
+  "input": "send me the worried emoji",
+  "expected": "Send me the 😟"
+ },
+ {
+  "input": "confused emoji",
+  "expected": "😕"
+ },
+ {
+  "input": "I love it comma emoji.",
+  "expected": "I love it, emoji."
+ },
+ {
+  "input": "Great job, period emoji, see you",
+  "expected": "Great job. Emoji, see you"
+ },
+ {
+  "input": "That is so full stop emojis",
+  "expected": "That is so. Emojis"
+ },
+ {
+  "input": "send me the question mark emoji",
+  "expected": "Send me the? Emoji"
+ },
+ {
+  "input": "exclamation mark emoji",
+  "expected": "! Emoji"
+ },
+ {
+  "input": "I love it exclamation point emoji.",
+  "expected": "I love it! Emoji."
+ },
+ {
+  "input": "Great job, colon emoji, see you",
+  "expected": "Great job: emoji, see you"
+ },
+ {
+  "input": "That is so semicolon emojis",
+  "expected": "That is so; emojis"
+ },
+ {
+  "input": "send me the open paren emoji",
+  "expected": "Send me the( emoji"
+ },
+ {
+  "input": "close paren emoji",
+  "expected": ") emoji"
+ },
+ {
+  "input": "I love it open parenthesis emoji.",
+  "expected": "I love it( emoji."
+ },
+ {
+  "input": "Great job, close parenthesis emoji, see you",
+  "expected": "Great job) emoji, see you"
+ },
+ {
+  "input": "That is so new line emojis",
+  "expected": "That is so\nEmojis"
+ },
+ {
+  "input": "send me the newline emoji",
+  "expected": "Send me the\nEmoji"
+ },
+ {
+  "input": "next line emoji",
+  "expected": "emoji"
+ },
+ {
+  "input": "Dear Sarah comma can you review the deck question mark",
+  "expected": "Dear Sarah,\n\nCan you review the deck?"
+ },
+ {
+  "input": "Dear Sarah, comma, can you review the deck? Question mark.",
+  "expected": "Dear Sarah,\n\nCan you review the deck?"
+ },
+ {
+  "input": "new line hello there",
+  "expected": "hello there"
+ },
+ {
+  "input": "first line new line second line next line third line",
+  "expected": "First line\nSecond line\nThird line"
+ },
+ {
+  "input": "I love it exclamation point see you soon period",
+  "expected": "I love it! See you soon."
+ },
+ {
+  "input": "the plan colon ship it semicolon then rest full stop",
+  "expected": "The plan: ship it; then rest."
+ },
+ {
+  "input": "open paren optional close paren works open parenthesis yes close parenthesis",
+  "expected": "( optional) works( yes)"
+ },
+ {
+  "input": "Hi team new paragraph we shipped new paragraph thanks",
+  "expected": "Hi team\n\nWe shipped\n\nThanks"
+ },
+ {
+  "input": "new paragraph starts here",
+  "expected": "starts here"
+ },
+ {
+  "input": "um so uh I think, um, we should go",
+  "expected": "So I think, we should go"
+ },
+ {
+  "input": "Um, hello there. Uh, how are you?",
+  "expected": "Hello there. How are you?"
+ },
+ {
+  "input": "hmm erm mmm okay",
+  "expected": "Okay"
+ },
+ {
+  "input": "umm",
+  "expected": ""
+ },
+ {
+  "input": "",
+  "expected": ""
+ },
+ {
+  "input": "   leading and trailing spaces   ",
+  "expected": "Leading and trailing spaces"
+ },
+ {
+  "input": "water emoji. And the bridge emoji",
+  "expected": "💧 And the 🌉"
+ },
+ {
+  "input": "rockets emoji",
+  "expected": "🚀"
+ },
+ {
+  "input": "cowboy face emoji",
+  "expected": "🤠"
+ },
+ {
+  "input": "this is a random word emoji that does not exist",
+  "expected": "This is a random word emoji that does not exist"
+ },
+ {
+  "input": "My grocery list is first, milk. Second, eggs. Third, bread.",
+  "expected": "My grocery list is:\n1. Milk.\n2. Eggs.\n3. Bread."
+ },
+ {
+  "input": "Number one, apples. Number two, pears. Number three, plums.",
+  "expected": "1. Apples.\n2. Pears.\n3. Plums."
+ },
+ {
+  "input": "The steps are number 1 open it number 2 close it",
+  "expected": "The steps are:\n1. Open it\n2. Close it"
+ },
+ {
+  "input": "I need three things. First pick up the water, second upload your resume, third tell people about our app.",
+  "expected": "I need three things.\n1. Pick up the water\n2. Upload your resume\n3. Tell people about our app."
+ },
+ {
+  "input": "First of all, thanks. Second of all, sorry.",
+  "expected": "1. Thanks.\n2. Sorry."
+ },
+ {
+  "input": "At first I hated it, but the second time was great.",
+  "expected": "At first I hated it, but the second time was great."
+ },
+ {
+  "input": "Wait a second, the first thing is the budget.",
+  "expected": "Wait a second, the first thing is the budget."
+ },
+ {
+  "input": "number one number two",
+  "expected": "Number one number two"
+ },
+ {
+  "input": "The winners are number two and number one",
+  "expected": "The winners are number two and number one"
+ },
+ {
+  "input": "first, second, third,",
+  "expected": "First, second, third,"
+ },
+ {
+  "input": "Hi Sarah, the deck is ready for review. Thanks, Samir.",
+  "expected": "Hi Sarah,\n\nThe deck is ready for review.\n\nThanks, Samir."
+ },
+ {
+  "input": "Hey Sam, quick question about the launch. Can we move it to Friday? Cheers, Alex",
+  "expected": "Hey Sam,\n\nQuick question about the launch. Can we move it to Friday?\n\nCheers, Alex"
+ },
+ {
+  "input": "Dear Mr. Clark, I am writing to follow up on our call. Best regards, Jane Doe.",
+  "expected": "Dear Mr. Clark,\n\nI am writing to follow up on our call. Best regards, Jane Doe."
+ },
+ {
+  "input": "Good afternoon, Mr. Joseph. I hope you are well. I wanted to check in about the order. Sincerely, Maria.",
+  "expected": "Good afternoon, Mr. Joseph.\n\nI hope you are well. I wanted to check in about the order.\n\nSincerely, Maria."
+ },
+ {
+  "input": "Good evening everyone I hope you had a good day",
+  "expected": "Good evening everyone I hope you had a good day"
+ },
+ {
+  "input": "Hello Priya, thank you so much for the help yesterday it really made a difference. Talk soon, Dan",
+  "expected": "Hello Priya,\n\nThank you so much for the help yesterday it really made a difference.\n\nTalk soon, Dan"
+ },
+ {
+  "input": "Hi Sarah new paragraph can you review the deck new paragraph thanks Samir",
+  "expected": "Hi Sarah\n\nCan you review the deck\n\nThanks, Samir"
+ },
+ {
+  "input": "Dear Sarah, can you please review my pitch deck. Thank you, sincerely, Samir.",
+  "expected": "Dear Sarah,\n\nCan you please review my pitch deck.\n\nThank you, sincerely, Samir."
+ },
+ {
+  "input": "Thanks Sam.",
+  "expected": "Thanks Sam."
+ },
+ {
+  "input": "Best, Samir.",
+  "expected": "Best, Samir."
+ },
+ {
+  "input": "Good morning, Emily. Number one, it's free. Number two, it's open. Best, Samir.",
+  "expected": "Good morning, Emily.\n\n1. It's free.\n2. It's open.\n\nBest, Samir."
+ },
+ {
+  "input": "Hey Samantha, thank you for getting back with me in the email. I guess three things that I need you to do is first pick up the water, second upload your resume to our app, and then third tell other people about our app. And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time. Best Samir.",
+  "expected": "Hey Samantha,\n\nThank you for getting back with me in the email. I guess three things that I need you to do is:\n1. Pick up the water\n2. Upload your resume to our app\n3. Tell other people about our app. And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time.\n\nBest, Samir."
+ },
+ {
+  "input": "Hello Sarah. thanks for this. Best Samir",
+  "expected": "Hello Sarah. Thanks for this. Best Samir"
+ },
+ {
+  "input": "Hi Jo, see you at 3 p.m. Thanks, Sam.",
+  "expected": "Hi Jo,\n\nSee you at 3 p.m. Thanks, Sam."
+ },
+ {
+  "input": "Dear Prof. Lee, I will be late today. Regards, Kim.",
+  "expected": "Dear Prof. Lee,\n\nI will be late today.\n\nRegards, Kim."
+ },
+ {
+  "input": "Hi Sarah, I spoke to Dr. Smith today. He agrees. Best wishes, Tom.",
+  "expected": "Hi Sarah,\n\nI spoke to Dr. Smith today. He agrees.\n\nBest wishes, Tom."
+ },
+ {
+  "input": "Good morning Emily. It costs $3.50 today. Cheers, Al.",
+  "expected": "Good morning Emily.\n\nIt costs $3.50 today.\n\nCheers, Al."
+ },
+ {
+  "input": "Hey Mike! How are you? Thanks again, Jen",
+  "expected": "Hey Mike!\n\nHow are you? Thanks again, Jen"
+ },
+ {
+  "input": "Let's change the meeting to Friday, wait no, Thursday.",
+  "expected": "Let's change the meeting to Thursday."
+ },
+ {
+  "input": "the the meeting is at noon period see you there",
+  "expected": "The meeting is at noon. See you there"
+ },
+ {
+  "input": "Basically, we need more users. It was, you know, kind of weird.",
+  "expected": "We need more users. It was kind of weird."
+ },
+ {
+  "input": "meet at 2, no wait, 3 period then lunch",
+  "expected": "Meet at 3. Then lunch"
+ },
+ {
+  "input": "that is all period see you tomorrow",
+  "expected": "That is all. See you tomorrow"
+ },
+ {
+  "input": "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works.",
+  "expected": "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works."
+ },
+ {
+  "input": "I said hi. 5 people came. wow! really? yes.",
+  "expected": "I said hi. 5 people came. Wow! Really? Yes."
+ },
+ {
+  "input": "hello... are you there? yes! ok.",
+  "expected": "Hello... Are you there? Yes! Ok."
+ },
+ {
+  "input": "e.g. this i.e. that etc. and so on. Mr. Smith agreed.",
+  "expected": "E.g. this i.e. that etc. and so on. Mr. Smith agreed."
+ },
+ {
+  "input": "Version 2.0 is out. Great.",
+  "expected": "Version 2.0 is out. Great."
+ },
+ {
+  "input": "ice is nice and I think i'm in",
+  "expected": "Ice is nice and I think i'm in"
+ },
+ {
+  "input": "the quick brown fox jumps over the lazy dog",
+  "expected": "The quick brown fox jumps over the lazy dog"
+ },
+ {
+  "input": "It's 50% off, $20 total, at 3:30pm.",
+  "expected": "It's 50% off, $20 total, at 3:30pm."
+ },
+ {
+  "input": "Okay, thank you so much. Bye.",
+  "expected": "Okay, thank you so much. Bye."
+ },
+ {
+  "input": "no no no I love it",
+  "expected": "No no no I love it"
+ },
+ {
+  "input": "Order pizza, scratch that, order sushi.",
+  "expected": "Order sushi."
+ }
+]

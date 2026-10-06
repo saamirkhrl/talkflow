@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Everything that is pure logic: the text rules, the stats and settings
+       files, the streaming committer, the update check. No Windows APIs, so the
+       rule tests run on any OS (and against the Mac app's own outputs). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Talkflow.Core</RootNamespace>
+  </PropertyGroup>
+</Project>
