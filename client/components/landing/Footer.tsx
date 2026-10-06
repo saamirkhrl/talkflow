@@ -21,6 +21,10 @@ export function Footer() {
         <p aria-hidden="true" className="mt-16 pb-6 text-center font-serif text-[clamp(72px,22.5vw,290px)] leading-[0.8] tracking-[-0.04em] whitespace-nowrap select-none">
           talkflow
         </p>
+        <p id="not-affiliated" className="mx-auto max-w-[70ch] pb-8 text-center text-[13px] leading-[1.5] text-graphite">
+          * talkflow is an independent, open-source project. It is not affiliated with, endorsed
+          by or sponsored by Wispr AI, Inc. Wispr Flow is a trademark of Wispr AI, Inc.
+        </p>
       </div>
     </footer>
   );

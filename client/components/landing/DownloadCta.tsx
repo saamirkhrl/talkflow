@@ -14,15 +14,16 @@ const OS = {
   windows: { label: "Windows", logo: OS_LOGOS.windows },
 };
 
-// Wispr Flow Pro's price with a red line drawn through it, then "Free".
+// Wispr Flow Pro's price with a red line drawn through it, then "Free". The
+// asterisk points to the non-affiliation note at the bottom of the footer.
 function PriceCompare() {
   return (
     <p className="flex items-center gap-3.5 leading-none">
       <span className="sr-only">
-        Wispr Flow Pro costs {WISPR_FLOW_PRICE}. talkflow is free.
+        Wispr Flow Pro costs {WISPR_FLOW_PRICE}. talkflow is free. talkflow is not affiliated with Wispr.
       </span>
       <span aria-hidden="true" className="flex flex-col items-start gap-1.5">
-        <span className="text-[12px] tracking-[0.01em] text-graphite">Wispr Flow Pro</span>
+        <span className="text-[12px] tracking-[0.01em] text-graphite">Wispr Flow Pro*</span>
         <span className="relative font-serif text-[28px] text-ink/55">
           {WISPR_FLOW_PRICE}
           <svg
