@@ -114,6 +114,36 @@ Source layout (`Sources/talkflowd/`):
 
 The marketing site is a Next.js app in `client/`.
 
+## Windows
+
+The Windows app lives in `windows/` and is built by
+`.github/workflows/windows.yml`, which attaches
+`talkflow-windows-x64-setup.exe` and `talkflow-windows-arm64-setup.exe` to
+each release. Windows 10 (1809) or later.
+
+- **Install:** run the installer. It installs for your account only, no
+  administrator rights, to `%LOCALAPPDATA%\Programs\talkflow`. The installer is
+  not code-signed yet, so Windows SmartScreen may say it "protected your PC":
+  click **More info**, then **Run anyway**.
+- **First launch:** setup checks microphone access (Settings > Privacy &
+  security > Microphone, including "Let desktop apps access your microphone"),
+  then downloads the English model (about 500 MB). The speech engine
+  (whisper.cpp) ships in the installer.
+- **Dictate:** hold **Ctrl + Win**, speak, let go. The shortcut can be changed
+  in Settings. If focus moved to another app, or the app runs as administrator,
+  the text goes to the clipboard instead.
+- **Your data:** `%APPDATA%\talkflow\` holds `stats.json` and `settings.json`,
+  in the same format as on the Mac, plus `windows.json` (your shortcut, and which update you were last told about). Models
+  and logs are in `%LOCALAPPDATA%\talkflow\`.
+- **Uninstall:** Settings > **Uninstall...**, or Windows Settings > Apps >
+  talkflow > Uninstall. Either removes the app, the speech engine, the models,
+  logs, the startup entry and saved API keys, and keeps `%APPDATA%\talkflow\`.
+
+Development: `dotnet test windows/Talkflow.Core.Tests` runs the text-rule tests
+on any OS, including the Mac app's own outputs for 860 transcripts
+(`windows/tools/make_golden.py` regenerates them). On Windows,
+`talkflow.exe --formattest "raw text"` prints what a dictation would type.
+
 ## License
 
 MIT

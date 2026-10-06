@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- For the notification-area icon (NotifyIcon); every window is WPF. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>talkflow</AssemblyName>
+    <RootNamespace>Talkflow</RootNamespace>
+    <ApplicationIcon>Assets\talkflow.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Lets the project build (not run) on macOS and Linux for quick checks. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- A WinForms/WPF name clash is resolved explicitly where it matters. -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- WPF reads DPI awareness from app.manifest; this WinForms hint does not apply. -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.WinMM" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Talkflow.Core\Talkflow.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\talkflow-256.png" />
+    <EmbeddedResource Include="Assets\talkflow.ico" LogicalName="talkflow.ico" />
+  </ItemGroup>
+</Project>

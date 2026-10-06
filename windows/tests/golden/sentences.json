@@ -1,0 +1,5459 @@
+[
+ {
+  "input": "send me the red heart emoji",
+  "sentences": [
+   "send me the red heart emoji"
+  ]
+ },
+ {
+  "input": "heart emoji",
+  "sentences": [
+   "heart emoji"
+  ]
+ },
+ {
+  "input": "I love it blue heart emoji.",
+  "sentences": [
+   "I love it blue heart emoji."
+  ]
+ },
+ {
+  "input": "Great job, green heart emoji, see you",
+  "sentences": [
+   "Great job, green heart emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so yellow heart emojis",
+  "sentences": [
+   "That is so yellow heart emojis"
+  ]
+ },
+ {
+  "input": "send me the orange heart emoji",
+  "sentences": [
+   "send me the orange heart emoji"
+  ]
+ },
+ {
+  "input": "purple heart emoji",
+  "sentences": [
+   "purple heart emoji"
+  ]
+ },
+ {
+  "input": "I love it black heart emoji.",
+  "sentences": [
+   "I love it black heart emoji."
+  ]
+ },
+ {
+  "input": "Great job, white heart emoji, see you",
+  "sentences": [
+   "Great job, white heart emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so brown heart emojis",
+  "sentences": [
+   "That is so brown heart emojis"
+  ]
+ },
+ {
+  "input": "send me the broken heart emoji",
+  "sentences": [
+   "send me the broken heart emoji"
+  ]
+ },
+ {
+  "input": "sparkling heart emoji",
+  "sentences": [
+   "sparkling heart emoji"
+  ]
+ },
+ {
+  "input": "I love it growing heart emoji.",
+  "sentences": [
+   "I love it growing heart emoji."
+  ]
+ },
+ {
+  "input": "Great job, beating heart emoji, see you",
+  "sentences": [
+   "Great job, beating heart emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so revolving hearts emojis",
+  "sentences": [
+   "That is so revolving hearts emojis"
+  ]
+ },
+ {
+  "input": "send me the two hearts emoji",
+  "sentences": [
+   "send me the two hearts emoji"
+  ]
+ },
+ {
+  "input": "heart exclamation emoji",
+  "sentences": [
+   "heart exclamation emoji"
+  ]
+ },
+ {
+  "input": "I love it love letter emoji.",
+  "sentences": [
+   "I love it love letter emoji."
+  ]
+ },
+ {
+  "input": "Great job, kiss mark emoji, see you",
+  "sentences": [
+   "Great job, kiss mark emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so kiss emojis",
+  "sentences": [
+   "That is so kiss emojis"
+  ]
+ },
+ {
+  "input": "send me the love emoji",
+  "sentences": [
+   "send me the love emoji"
+  ]
+ },
+ {
+  "input": "hug emoji",
+  "sentences": [
+   "hug emoji"
+  ]
+ },
+ {
+  "input": "I love it cupid emoji.",
+  "sentences": [
+   "I love it cupid emoji."
+  ]
+ },
+ {
+  "input": "Great job, grinning face emoji, see you",
+  "sentences": [
+   "Great job, grinning face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so grin emojis",
+  "sentences": [
+   "That is so grin emojis"
+  ]
+ },
+ {
+  "input": "send me the smiley face emoji",
+  "sentences": [
+   "send me the smiley face emoji"
+  ]
+ },
+ {
+  "input": "smiling face emoji",
+  "sentences": [
+   "smiling face emoji"
+  ]
+ },
+ {
+  "input": "I love it happy face emoji.",
+  "sentences": [
+   "I love it happy face emoji."
+  ]
+ },
+ {
+  "input": "Great job, smile emoji, see you",
+  "sentences": [
+   "Great job, smile emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so smiley emojis",
+  "sentences": [
+   "That is so smiley emojis"
+  ]
+ },
+ {
+  "input": "send me the blush emoji",
+  "sentences": [
+   "send me the blush emoji"
+  ]
+ },
+ {
+  "input": "sweat smile emoji",
+  "sentences": [
+   "sweat smile emoji"
+  ]
+ },
+ {
+  "input": "I love it laughing emoji.",
+  "sentences": [
+   "I love it laughing emoji."
+  ]
+ },
+ {
+  "input": "Great job, crying laughing emoji, see you",
+  "sentences": [
+   "Great job, crying laughing emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so rofl emojis",
+  "sentences": [
+   "That is so rofl emojis"
+  ]
+ },
+ {
+  "input": "send me the rolling on the floor emoji",
+  "sentences": [
+   "send me the rolling on the floor emoji"
+  ]
+ },
+ {
+  "input": "upside down face emoji",
+  "sentences": [
+   "upside down face emoji"
+  ]
+ },
+ {
+  "input": "I love it melting face emoji.",
+  "sentences": [
+   "I love it melting face emoji."
+  ]
+ },
+ {
+  "input": "Great job, wink emoji, see you",
+  "sentences": [
+   "Great job, wink emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so yum emojis",
+  "sentences": [
+   "That is so yum emojis"
+  ]
+ },
+ {
+  "input": "send me the tongue out emoji",
+  "sentences": [
+   "send me the tongue out emoji"
+  ]
+ },
+ {
+  "input": "silly face emoji",
+  "sentences": [
+   "silly face emoji"
+  ]
+ },
+ {
+  "input": "I love it money face emoji.",
+  "sentences": [
+   "I love it money face emoji."
+  ]
+ },
+ {
+  "input": "Great job, hugging face emoji, see you",
+  "sentences": [
+   "Great job, hugging face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so shushing face emojis",
+  "sentences": [
+   "That is so shushing face emojis"
+  ]
+ },
+ {
+  "input": "send me the thinking emoji",
+  "sentences": [
+   "send me the thinking emoji"
+  ]
+ },
+ {
+  "input": "thinking face emoji",
+  "sentences": [
+   "thinking face emoji"
+  ]
+ },
+ {
+  "input": "I love it zipper face emoji.",
+  "sentences": [
+   "I love it zipper face emoji."
+  ]
+ },
+ {
+  "input": "Great job, raised eyebrow emoji, see you",
+  "sentences": [
+   "Great job, raised eyebrow emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so neutral face emojis",
+  "sentences": [
+   "That is so neutral face emojis"
+  ]
+ },
+ {
+  "input": "send me the expressionless emoji",
+  "sentences": [
+   "send me the expressionless emoji"
+  ]
+ },
+ {
+  "input": "no mouth emoji",
+  "sentences": [
+   "no mouth emoji"
+  ]
+ },
+ {
+  "input": "I love it smirk emoji.",
+  "sentences": [
+   "I love it smirk emoji."
+  ]
+ },
+ {
+  "input": "Great job, unamused emoji, see you",
+  "sentences": [
+   "Great job, unamused emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so rolling eyes emojis",
+  "sentences": [
+   "That is so rolling eyes emojis"
+  ]
+ },
+ {
+  "input": "send me the grimace emoji",
+  "sentences": [
+   "send me the grimace emoji"
+  ]
+ },
+ {
+  "input": "lying face emoji",
+  "sentences": [
+   "lying face emoji"
+  ]
+ },
+ {
+  "input": "I love it relieved face emoji.",
+  "sentences": [
+   "I love it relieved face emoji."
+  ]
+ },
+ {
+  "input": "Great job, pensive emoji, see you",
+  "sentences": [
+   "Great job, pensive emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sleepy face emojis",
+  "sentences": [
+   "That is so sleepy face emojis"
+  ]
+ },
+ {
+  "input": "send me the drooling emoji",
+  "sentences": [
+   "send me the drooling emoji"
+  ]
+ },
+ {
+  "input": "sleeping face emoji",
+  "sentences": [
+   "sleeping face emoji"
+  ]
+ },
+ {
+  "input": "I love it mask face emoji.",
+  "sentences": [
+   "I love it mask face emoji."
+  ]
+ },
+ {
+  "input": "Great job, sick face emoji, see you",
+  "sentences": [
+   "Great job, sick face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so nauseated emojis",
+  "sentences": [
+   "That is so nauseated emojis"
+  ]
+ },
+ {
+  "input": "send me the vomiting emoji",
+  "sentences": [
+   "send me the vomiting emoji"
+  ]
+ },
+ {
+  "input": "sneezing emoji",
+  "sentences": [
+   "sneezing emoji"
+  ]
+ },
+ {
+  "input": "I love it hot face emoji.",
+  "sentences": [
+   "I love it hot face emoji."
+  ]
+ },
+ {
+  "input": "Great job, cold face emoji, see you",
+  "sentences": [
+   "Great job, cold face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so woozy emojis",
+  "sentences": [
+   "That is so woozy emojis"
+  ]
+ },
+ {
+  "input": "send me the dizzy face emoji",
+  "sentences": [
+   "send me the dizzy face emoji"
+  ]
+ },
+ {
+  "input": "exploding head emoji",
+  "sentences": [
+   "exploding head emoji"
+  ]
+ },
+ {
+  "input": "I love it mind blown emoji.",
+  "sentences": [
+   "I love it mind blown emoji."
+  ]
+ },
+ {
+  "input": "Great job, cowboy emoji, see you",
+  "sentences": [
+   "Great job, cowboy emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so partying face emojis",
+  "sentences": [
+   "That is so partying face emojis"
+  ]
+ },
+ {
+  "input": "send me the disguised face emoji",
+  "sentences": [
+   "send me the disguised face emoji"
+  ]
+ },
+ {
+  "input": "cool emoji",
+  "sentences": [
+   "cool emoji"
+  ]
+ },
+ {
+  "input": "I love it sunglasses emoji.",
+  "sentences": [
+   "I love it sunglasses emoji."
+  ]
+ },
+ {
+  "input": "Great job, nerd face emoji, see you",
+  "sentences": [
+   "Great job, nerd face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so monocle emojis",
+  "sentences": [
+   "That is so monocle emojis"
+  ]
+ },
+ {
+  "input": "send me the confused face emoji",
+  "sentences": [
+   "send me the confused face emoji"
+  ]
+ },
+ {
+  "input": "worried face emoji",
+  "sentences": [
+   "worried face emoji"
+  ]
+ },
+ {
+  "input": "I love it frowning face emoji.",
+  "sentences": [
+   "I love it frowning face emoji."
+  ]
+ },
+ {
+  "input": "Great job, astonished emoji, see you",
+  "sentences": [
+   "Great job, astonished emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so flushed face emojis",
+  "sentences": [
+   "That is so flushed face emojis"
+  ]
+ },
+ {
+  "input": "send me the pleading face emoji",
+  "sentences": [
+   "send me the pleading face emoji"
+  ]
+ },
+ {
+  "input": "fearful emoji",
+  "sentences": [
+   "fearful emoji"
+  ]
+ },
+ {
+  "input": "I love it anxious face emoji.",
+  "sentences": [
+   "I love it anxious face emoji."
+  ]
+ },
+ {
+  "input": "Great job, crying emoji, see you",
+  "sentences": [
+   "Great job, crying emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sad emojis",
+  "sentences": [
+   "That is so sad emojis"
+  ]
+ },
+ {
+  "input": "send me the loudly crying emoji",
+  "sentences": [
+   "send me the loudly crying emoji"
+  ]
+ },
+ {
+  "input": "sobbing emoji",
+  "sentences": [
+   "sobbing emoji"
+  ]
+ },
+ {
+  "input": "I love it screaming emoji.",
+  "sentences": [
+   "I love it screaming emoji."
+  ]
+ },
+ {
+  "input": "Great job, confounded emoji, see you",
+  "sentences": [
+   "Great job, confounded emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so persevering emojis",
+  "sentences": [
+   "That is so persevering emojis"
+  ]
+ },
+ {
+  "input": "send me the disappointed face emoji",
+  "sentences": [
+   "send me the disappointed face emoji"
+  ]
+ },
+ {
+  "input": "weary face emoji",
+  "sentences": [
+   "weary face emoji"
+  ]
+ },
+ {
+  "input": "I love it tired face emoji.",
+  "sentences": [
+   "I love it tired face emoji."
+  ]
+ },
+ {
+  "input": "Great job, yawning face emoji, see you",
+  "sentences": [
+   "Great job, yawning face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so triumph emojis",
+  "sentences": [
+   "That is so triumph emojis"
+  ]
+ },
+ {
+  "input": "send me the pouting face emoji",
+  "sentences": [
+   "send me the pouting face emoji"
+  ]
+ },
+ {
+  "input": "angry emoji",
+  "sentences": [
+   "angry emoji"
+  ]
+ },
+ {
+  "input": "I love it angry face emoji.",
+  "sentences": [
+   "I love it angry face emoji."
+  ]
+ },
+ {
+  "input": "Great job, cursing face emoji, see you",
+  "sentences": [
+   "Great job, cursing face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so smiling devil emojis",
+  "sentences": [
+   "That is so smiling devil emojis"
+  ]
+ },
+ {
+  "input": "send me the devil emoji",
+  "sentences": [
+   "send me the devil emoji"
+  ]
+ },
+ {
+  "input": "clown emoji",
+  "sentences": [
+   "clown emoji"
+  ]
+ },
+ {
+  "input": "I love it ogre emoji.",
+  "sentences": [
+   "I love it ogre emoji."
+  ]
+ },
+ {
+  "input": "Great job, goblin emoji, see you",
+  "sentences": [
+   "Great job, goblin emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so alien emojis",
+  "sentences": [
+   "That is so alien emojis"
+  ]
+ },
+ {
+  "input": "send me the robot emoji",
+  "sentences": [
+   "send me the robot emoji"
+  ]
+ },
+ {
+  "input": "skull emoji",
+  "sentences": [
+   "skull emoji"
+  ]
+ },
+ {
+  "input": "I love it ghost emoji.",
+  "sentences": [
+   "I love it ghost emoji."
+  ]
+ },
+ {
+  "input": "Great job, poop emoji, see you",
+  "sentences": [
+   "Great job, poop emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so smiling cat emojis",
+  "sentences": [
+   "That is so smiling cat emojis"
+  ]
+ },
+ {
+  "input": "send me the heart eyes cat emoji",
+  "sentences": [
+   "send me the heart eyes cat emoji"
+  ]
+ },
+ {
+  "input": "crying cat emoji",
+  "sentences": [
+   "crying cat emoji"
+  ]
+ },
+ {
+  "input": "I love it heart eyes emoji.",
+  "sentences": [
+   "I love it heart eyes emoji."
+  ]
+ },
+ {
+  "input": "Great job, star struck emoji, see you",
+  "sentences": [
+   "Great job, star struck emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so thumbs up emojis",
+  "sentences": [
+   "That is so thumbs up emojis"
+  ]
+ },
+ {
+  "input": "send me the thumbs down emoji",
+  "sentences": [
+   "send me the thumbs down emoji"
+  ]
+ },
+ {
+  "input": "clap emoji",
+  "sentences": [
+   "clap emoji"
+  ]
+ },
+ {
+  "input": "I love it wave emoji.",
+  "sentences": [
+   "I love it wave emoji."
+  ]
+ },
+ {
+  "input": "Great job, waving hand emoji, see you",
+  "sentences": [
+   "Great job, waving hand emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so raised hand emojis",
+  "sentences": [
+   "That is so raised hand emojis"
+  ]
+ },
+ {
+  "input": "send me the vulcan salute emoji",
+  "sentences": [
+   "send me the vulcan salute emoji"
+  ]
+ },
+ {
+  "input": "ok hand emoji",
+  "sentences": [
+   "ok hand emoji"
+  ]
+ },
+ {
+  "input": "I love it pinch emoji.",
+  "sentences": [
+   "I love it pinch emoji."
+  ]
+ },
+ {
+  "input": "Great job, victory hand emoji, see you",
+  "sentences": [
+   "Great job, victory hand emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so peace sign emojis",
+  "sentences": [
+   "That is so peace sign emojis"
+  ]
+ },
+ {
+  "input": "send me the crossed fingers emoji",
+  "sentences": [
+   "send me the crossed fingers emoji"
+  ]
+ },
+ {
+  "input": "love you gesture emoji",
+  "sentences": [
+   "love you gesture emoji"
+  ]
+ },
+ {
+  "input": "I love it horns emoji.",
+  "sentences": [
+   "I love it horns emoji."
+  ]
+ },
+ {
+  "input": "Great job, call me hand emoji, see you",
+  "sentences": [
+   "Great job, call me hand emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so point left emojis",
+  "sentences": [
+   "That is so point left emojis"
+  ]
+ },
+ {
+  "input": "send me the point right emoji",
+  "sentences": [
+   "send me the point right emoji"
+  ]
+ },
+ {
+  "input": "point up emoji",
+  "sentences": [
+   "point up emoji"
+  ]
+ },
+ {
+  "input": "I love it point down emoji.",
+  "sentences": [
+   "I love it point down emoji."
+  ]
+ },
+ {
+  "input": "Great job, middle finger emoji, see you",
+  "sentences": [
+   "Great job, middle finger emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so raised fist emojis",
+  "sentences": [
+   "That is so raised fist emojis"
+  ]
+ },
+ {
+  "input": "send me the fist bump emoji",
+  "sentences": [
+   "send me the fist bump emoji"
+  ]
+ },
+ {
+  "input": "open hands emoji",
+  "sentences": [
+   "open hands emoji"
+  ]
+ },
+ {
+  "input": "I love it palms up emoji.",
+  "sentences": [
+   "I love it palms up emoji."
+  ]
+ },
+ {
+  "input": "Great job, handshake emoji, see you",
+  "sentences": [
+   "Great job, handshake emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so folded hands emojis",
+  "sentences": [
+   "That is so folded hands emojis"
+  ]
+ },
+ {
+  "input": "send me the pray emoji",
+  "sentences": [
+   "send me the pray emoji"
+  ]
+ },
+ {
+  "input": "writing hand emoji",
+  "sentences": [
+   "writing hand emoji"
+  ]
+ },
+ {
+  "input": "I love it nail polish emoji.",
+  "sentences": [
+   "I love it nail polish emoji."
+  ]
+ },
+ {
+  "input": "Great job, selfie emoji, see you",
+  "sentences": [
+   "Great job, selfie emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so muscle emojis",
+  "sentences": [
+   "That is so muscle emojis"
+  ]
+ },
+ {
+  "input": "send me the flexed biceps emoji",
+  "sentences": [
+   "send me the flexed biceps emoji"
+  ]
+ },
+ {
+  "input": "brain emoji",
+  "sentences": [
+   "brain emoji"
+  ]
+ },
+ {
+  "input": "I love it tooth emoji.",
+  "sentences": [
+   "I love it tooth emoji."
+  ]
+ },
+ {
+  "input": "Great job, bone emoji, see you",
+  "sentences": [
+   "Great job, bone emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so eye emojis",
+  "sentences": [
+   "That is so eye emojis"
+  ]
+ },
+ {
+  "input": "send me the eyes emoji",
+  "sentences": [
+   "send me the eyes emoji"
+  ]
+ },
+ {
+  "input": "tongue emoji",
+  "sentences": [
+   "tongue emoji"
+  ]
+ },
+ {
+  "input": "I love it ear emoji.",
+  "sentences": [
+   "I love it ear emoji."
+  ]
+ },
+ {
+  "input": "Great job, nose emoji, see you",
+  "sentences": [
+   "Great job, nose emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so footprints emojis",
+  "sentences": [
+   "That is so footprints emojis"
+  ]
+ },
+ {
+  "input": "send me the high five emoji",
+  "sentences": [
+   "send me the high five emoji"
+  ]
+ },
+ {
+  "input": "raised hands emoji",
+  "sentences": [
+   "raised hands emoji"
+  ]
+ },
+ {
+  "input": "I love it shrug emoji.",
+  "sentences": [
+   "I love it shrug emoji."
+  ]
+ },
+ {
+  "input": "Great job, person shrugging emoji, see you",
+  "sentences": [
+   "Great job, person shrugging emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so facepalm emojis",
+  "sentences": [
+   "That is so facepalm emojis"
+  ]
+ },
+ {
+  "input": "send me the baby emoji",
+  "sentences": [
+   "send me the baby emoji"
+  ]
+ },
+ {
+  "input": "police officer emoji",
+  "sentences": [
+   "police officer emoji"
+  ]
+ },
+ {
+  "input": "I love it detective emoji.",
+  "sentences": [
+   "I love it detective emoji."
+  ]
+ },
+ {
+  "input": "Great job, construction worker emoji, see you",
+  "sentences": [
+   "Great job, construction worker emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so prince emojis",
+  "sentences": [
+   "That is so prince emojis"
+  ]
+ },
+ {
+  "input": "send me the princess emoji",
+  "sentences": [
+   "send me the princess emoji"
+  ]
+ },
+ {
+  "input": "ninja emoji",
+  "sentences": [
+   "ninja emoji"
+  ]
+ },
+ {
+  "input": "I love it santa emoji.",
+  "sentences": [
+   "I love it santa emoji."
+  ]
+ },
+ {
+  "input": "Great job, superhero emoji, see you",
+  "sentences": [
+   "Great job, superhero emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so supervillain emojis",
+  "sentences": [
+   "That is so supervillain emojis"
+  ]
+ },
+ {
+  "input": "send me the mage emoji",
+  "sentences": [
+   "send me the mage emoji"
+  ]
+ },
+ {
+  "input": "wizard emoji",
+  "sentences": [
+   "wizard emoji"
+  ]
+ },
+ {
+  "input": "I love it fairy emoji.",
+  "sentences": [
+   "I love it fairy emoji."
+  ]
+ },
+ {
+  "input": "Great job, vampire emoji, see you",
+  "sentences": [
+   "Great job, vampire emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so mermaid emojis",
+  "sentences": [
+   "That is so mermaid emojis"
+  ]
+ },
+ {
+  "input": "send me the elf emoji",
+  "sentences": [
+   "send me the elf emoji"
+  ]
+ },
+ {
+  "input": "zombie emoji",
+  "sentences": [
+   "zombie emoji"
+  ]
+ },
+ {
+  "input": "I love it dancer emoji.",
+  "sentences": [
+   "I love it dancer emoji."
+  ]
+ },
+ {
+  "input": "Great job, dancing man emoji, see you",
+  "sentences": [
+   "Great job, dancing man emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so running emojis",
+  "sentences": [
+   "That is so running emojis"
+  ]
+ },
+ {
+  "input": "send me the walking emoji",
+  "sentences": [
+   "send me the walking emoji"
+  ]
+ },
+ {
+  "input": "swimming emoji",
+  "sentences": [
+   "swimming emoji"
+  ]
+ },
+ {
+  "input": "I love it surfing emoji.",
+  "sentences": [
+   "I love it surfing emoji."
+  ]
+ },
+ {
+  "input": "Great job, biking emoji, see you",
+  "sentences": [
+   "Great job, biking emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so climbing emojis",
+  "sentences": [
+   "That is so climbing emojis"
+  ]
+ },
+ {
+  "input": "send me the lifting weights emoji",
+  "sentences": [
+   "send me the lifting weights emoji"
+  ]
+ },
+ {
+  "input": "yoga emoji",
+  "sentences": [
+   "yoga emoji"
+  ]
+ },
+ {
+  "input": "I love it dog emoji.",
+  "sentences": [
+   "I love it dog emoji."
+  ]
+ },
+ {
+  "input": "Great job, cat emoji, see you",
+  "sentences": [
+   "Great job, cat emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so monkey emojis",
+  "sentences": [
+   "That is so monkey emojis"
+  ]
+ },
+ {
+  "input": "send me the see no evil emoji",
+  "sentences": [
+   "send me the see no evil emoji"
+  ]
+ },
+ {
+  "input": "hear no evil emoji",
+  "sentences": [
+   "hear no evil emoji"
+  ]
+ },
+ {
+  "input": "I love it speak no evil emoji.",
+  "sentences": [
+   "I love it speak no evil emoji."
+  ]
+ },
+ {
+  "input": "Great job, gorilla emoji, see you",
+  "sentences": [
+   "Great job, gorilla emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so wolf emojis",
+  "sentences": [
+   "That is so wolf emojis"
+  ]
+ },
+ {
+  "input": "send me the fox emoji",
+  "sentences": [
+   "send me the fox emoji"
+  ]
+ },
+ {
+  "input": "raccoon emoji",
+  "sentences": [
+   "raccoon emoji"
+  ]
+ },
+ {
+  "input": "I love it lion emoji.",
+  "sentences": [
+   "I love it lion emoji."
+  ]
+ },
+ {
+  "input": "Great job, tiger emoji, see you",
+  "sentences": [
+   "Great job, tiger emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so horse emojis",
+  "sentences": [
+   "That is so horse emojis"
+  ]
+ },
+ {
+  "input": "send me the unicorn emoji",
+  "sentences": [
+   "send me the unicorn emoji"
+  ]
+ },
+ {
+  "input": "zebra emoji",
+  "sentences": [
+   "zebra emoji"
+  ]
+ },
+ {
+  "input": "I love it deer emoji.",
+  "sentences": [
+   "I love it deer emoji."
+  ]
+ },
+ {
+  "input": "Great job, cow emoji, see you",
+  "sentences": [
+   "Great job, cow emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so pig emojis",
+  "sentences": [
+   "That is so pig emojis"
+  ]
+ },
+ {
+  "input": "send me the ram emoji",
+  "sentences": [
+   "send me the ram emoji"
+  ]
+ },
+ {
+  "input": "sheep emoji",
+  "sentences": [
+   "sheep emoji"
+  ]
+ },
+ {
+  "input": "I love it goat emoji.",
+  "sentences": [
+   "I love it goat emoji."
+  ]
+ },
+ {
+  "input": "Great job, camel emoji, see you",
+  "sentences": [
+   "Great job, camel emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so llama emojis",
+  "sentences": [
+   "That is so llama emojis"
+  ]
+ },
+ {
+  "input": "send me the giraffe emoji",
+  "sentences": [
+   "send me the giraffe emoji"
+  ]
+ },
+ {
+  "input": "elephant emoji",
+  "sentences": [
+   "elephant emoji"
+  ]
+ },
+ {
+  "input": "I love it rhino emoji.",
+  "sentences": [
+   "I love it rhino emoji."
+  ]
+ },
+ {
+  "input": "Great job, hippo emoji, see you",
+  "sentences": [
+   "Great job, hippo emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so mouse emojis",
+  "sentences": [
+   "That is so mouse emojis"
+  ]
+ },
+ {
+  "input": "send me the hamster emoji",
+  "sentences": [
+   "send me the hamster emoji"
+  ]
+ },
+ {
+  "input": "rabbit emoji",
+  "sentences": [
+   "rabbit emoji"
+  ]
+ },
+ {
+  "input": "I love it bunny emoji.",
+  "sentences": [
+   "I love it bunny emoji."
+  ]
+ },
+ {
+  "input": "Great job, hedgehog emoji, see you",
+  "sentences": [
+   "Great job, hedgehog emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bear emojis",
+  "sentences": [
+   "That is so bear emojis"
+  ]
+ },
+ {
+  "input": "send me the koala emoji",
+  "sentences": [
+   "send me the koala emoji"
+  ]
+ },
+ {
+  "input": "panda emoji",
+  "sentences": [
+   "panda emoji"
+  ]
+ },
+ {
+  "input": "I love it sloth emoji.",
+  "sentences": [
+   "I love it sloth emoji."
+  ]
+ },
+ {
+  "input": "Great job, otter emoji, see you",
+  "sentences": [
+   "Great job, otter emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so kangaroo emojis",
+  "sentences": [
+   "That is so kangaroo emojis"
+  ]
+ },
+ {
+  "input": "send me the turkey emoji",
+  "sentences": [
+   "send me the turkey emoji"
+  ]
+ },
+ {
+  "input": "chicken emoji",
+  "sentences": [
+   "chicken emoji"
+  ]
+ },
+ {
+  "input": "I love it rooster emoji.",
+  "sentences": [
+   "I love it rooster emoji."
+  ]
+ },
+ {
+  "input": "Great job, baby chick emoji, see you",
+  "sentences": [
+   "Great job, baby chick emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bird emojis",
+  "sentences": [
+   "That is so bird emojis"
+  ]
+ },
+ {
+  "input": "send me the penguin emoji",
+  "sentences": [
+   "send me the penguin emoji"
+  ]
+ },
+ {
+  "input": "dove emoji",
+  "sentences": [
+   "dove emoji"
+  ]
+ },
+ {
+  "input": "I love it eagle emoji.",
+  "sentences": [
+   "I love it eagle emoji."
+  ]
+ },
+ {
+  "input": "Great job, duck emoji, see you",
+  "sentences": [
+   "Great job, duck emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so swan emojis",
+  "sentences": [
+   "That is so swan emojis"
+  ]
+ },
+ {
+  "input": "send me the owl emoji",
+  "sentences": [
+   "send me the owl emoji"
+  ]
+ },
+ {
+  "input": "flamingo emoji",
+  "sentences": [
+   "flamingo emoji"
+  ]
+ },
+ {
+  "input": "I love it peacock emoji.",
+  "sentences": [
+   "I love it peacock emoji."
+  ]
+ },
+ {
+  "input": "Great job, parrot emoji, see you",
+  "sentences": [
+   "Great job, parrot emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so frog emojis",
+  "sentences": [
+   "That is so frog emojis"
+  ]
+ },
+ {
+  "input": "send me the crocodile emoji",
+  "sentences": [
+   "send me the crocodile emoji"
+  ]
+ },
+ {
+  "input": "turtle emoji",
+  "sentences": [
+   "turtle emoji"
+  ]
+ },
+ {
+  "input": "I love it lizard emoji.",
+  "sentences": [
+   "I love it lizard emoji."
+  ]
+ },
+ {
+  "input": "Great job, snake emoji, see you",
+  "sentences": [
+   "Great job, snake emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so dragon emojis",
+  "sentences": [
+   "That is so dragon emojis"
+  ]
+ },
+ {
+  "input": "send me the dinosaur emoji",
+  "sentences": [
+   "send me the dinosaur emoji"
+  ]
+ },
+ {
+  "input": "t rex emoji",
+  "sentences": [
+   "t rex emoji"
+  ]
+ },
+ {
+  "input": "I love it whale emoji.",
+  "sentences": [
+   "I love it whale emoji."
+  ]
+ },
+ {
+  "input": "Great job, dolphin emoji, see you",
+  "sentences": [
+   "Great job, dolphin emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so fish emojis",
+  "sentences": [
+   "That is so fish emojis"
+  ]
+ },
+ {
+  "input": "send me the tropical fish emoji",
+  "sentences": [
+   "send me the tropical fish emoji"
+  ]
+ },
+ {
+  "input": "blowfish emoji",
+  "sentences": [
+   "blowfish emoji"
+  ]
+ },
+ {
+  "input": "I love it shark emoji.",
+  "sentences": [
+   "I love it shark emoji."
+  ]
+ },
+ {
+  "input": "Great job, octopus emoji, see you",
+  "sentences": [
+   "Great job, octopus emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so snail emojis",
+  "sentences": [
+   "That is so snail emojis"
+  ]
+ },
+ {
+  "input": "send me the butterfly emoji",
+  "sentences": [
+   "send me the butterfly emoji"
+  ]
+ },
+ {
+  "input": "bug emoji",
+  "sentences": [
+   "bug emoji"
+  ]
+ },
+ {
+  "input": "I love it ant emoji.",
+  "sentences": [
+   "I love it ant emoji."
+  ]
+ },
+ {
+  "input": "Great job, bee emoji, see you",
+  "sentences": [
+   "Great job, bee emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so ladybug emojis",
+  "sentences": [
+   "That is so ladybug emojis"
+  ]
+ },
+ {
+  "input": "send me the cricket emoji",
+  "sentences": [
+   "send me the cricket emoji"
+  ]
+ },
+ {
+  "input": "spider emoji",
+  "sentences": [
+   "spider emoji"
+  ]
+ },
+ {
+  "input": "I love it spider web emoji.",
+  "sentences": [
+   "I love it spider web emoji."
+  ]
+ },
+ {
+  "input": "Great job, scorpion emoji, see you",
+  "sentences": [
+   "Great job, scorpion emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so mosquito emojis",
+  "sentences": [
+   "That is so mosquito emojis"
+  ]
+ },
+ {
+  "input": "send me the microbe emoji",
+  "sentences": [
+   "send me the microbe emoji"
+  ]
+ },
+ {
+  "input": "paw prints emoji",
+  "sentences": [
+   "paw prints emoji"
+  ]
+ },
+ {
+  "input": "I love it bouquet emoji.",
+  "sentences": [
+   "I love it bouquet emoji."
+  ]
+ },
+ {
+  "input": "Great job, cherry blossom emoji, see you",
+  "sentences": [
+   "Great job, cherry blossom emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so rose emojis",
+  "sentences": [
+   "That is so rose emojis"
+  ]
+ },
+ {
+  "input": "send me the wilted rose emoji",
+  "sentences": [
+   "send me the wilted rose emoji"
+  ]
+ },
+ {
+  "input": "hibiscus emoji",
+  "sentences": [
+   "hibiscus emoji"
+  ]
+ },
+ {
+  "input": "I love it sunflower emoji.",
+  "sentences": [
+   "I love it sunflower emoji."
+  ]
+ },
+ {
+  "input": "Great job, blossom emoji, see you",
+  "sentences": [
+   "Great job, blossom emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so tulip emojis",
+  "sentences": [
+   "That is so tulip emojis"
+  ]
+ },
+ {
+  "input": "send me the seedling emoji",
+  "sentences": [
+   "send me the seedling emoji"
+  ]
+ },
+ {
+  "input": "evergreen tree emoji",
+  "sentences": [
+   "evergreen tree emoji"
+  ]
+ },
+ {
+  "input": "I love it tree emoji.",
+  "sentences": [
+   "I love it tree emoji."
+  ]
+ },
+ {
+  "input": "Great job, palm tree emoji, see you",
+  "sentences": [
+   "Great job, palm tree emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so cactus emojis",
+  "sentences": [
+   "That is so cactus emojis"
+  ]
+ },
+ {
+  "input": "send me the herb emoji",
+  "sentences": [
+   "send me the herb emoji"
+  ]
+ },
+ {
+  "input": "four leaf clover emoji",
+  "sentences": [
+   "four leaf clover emoji"
+  ]
+ },
+ {
+  "input": "I love it clover emoji.",
+  "sentences": [
+   "I love it clover emoji."
+  ]
+ },
+ {
+  "input": "Great job, maple leaf emoji, see you",
+  "sentences": [
+   "Great job, maple leaf emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so fallen leaf emojis",
+  "sentences": [
+   "That is so fallen leaf emojis"
+  ]
+ },
+ {
+  "input": "send me the leaves emoji",
+  "sentences": [
+   "send me the leaves emoji"
+  ]
+ },
+ {
+  "input": "sun emoji",
+  "sentences": [
+   "sun emoji"
+  ]
+ },
+ {
+  "input": "I love it sunny emoji.",
+  "sentences": [
+   "I love it sunny emoji."
+  ]
+ },
+ {
+  "input": "Great job, sun with face emoji, see you",
+  "sentences": [
+   "Great job, sun with face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so cloud emojis",
+  "sentences": [
+   "That is so cloud emojis"
+  ]
+ },
+ {
+  "input": "send me the partly cloudy emoji",
+  "sentences": [
+   "send me the partly cloudy emoji"
+  ]
+ },
+ {
+  "input": "rain emoji",
+  "sentences": [
+   "rain emoji"
+  ]
+ },
+ {
+  "input": "I love it thunderstorm emoji.",
+  "sentences": [
+   "I love it thunderstorm emoji."
+  ]
+ },
+ {
+  "input": "Great job, lightning emoji, see you",
+  "sentences": [
+   "Great job, lightning emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so high voltage emojis",
+  "sentences": [
+   "That is so high voltage emojis"
+  ]
+ },
+ {
+  "input": "send me the tornado emoji",
+  "sentences": [
+   "send me the tornado emoji"
+  ]
+ },
+ {
+  "input": "fog emoji",
+  "sentences": [
+   "fog emoji"
+  ]
+ },
+ {
+  "input": "I love it wind emoji.",
+  "sentences": [
+   "I love it wind emoji."
+  ]
+ },
+ {
+  "input": "Great job, cyclone emoji, see you",
+  "sentences": [
+   "Great job, cyclone emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so rainbow emojis",
+  "sentences": [
+   "That is so rainbow emojis"
+  ]
+ },
+ {
+  "input": "send me the umbrella emoji",
+  "sentences": [
+   "send me the umbrella emoji"
+  ]
+ },
+ {
+  "input": "umbrella rain emoji",
+  "sentences": [
+   "umbrella rain emoji"
+  ]
+ },
+ {
+  "input": "I love it snowflake emoji.",
+  "sentences": [
+   "I love it snowflake emoji."
+  ]
+ },
+ {
+  "input": "Great job, snowman emoji, see you",
+  "sentences": [
+   "Great job, snowman emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so comet emojis",
+  "sentences": [
+   "That is so comet emojis"
+  ]
+ },
+ {
+  "input": "send me the fire emoji",
+  "sentences": [
+   "send me the fire emoji"
+  ]
+ },
+ {
+  "input": "droplet emoji",
+  "sentences": [
+   "droplet emoji"
+  ]
+ },
+ {
+  "input": "I love it water emoji.",
+  "sentences": [
+   "I love it water emoji."
+  ]
+ },
+ {
+  "input": "Great job, sweat drops emoji, see you",
+  "sentences": [
+   "Great job, sweat drops emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so ocean wave emojis",
+  "sentences": [
+   "That is so ocean wave emojis"
+  ]
+ },
+ {
+  "input": "send me the wave water emoji",
+  "sentences": [
+   "send me the wave water emoji"
+  ]
+ },
+ {
+  "input": "moon emoji",
+  "sentences": [
+   "moon emoji"
+  ]
+ },
+ {
+  "input": "I love it crescent moon emoji.",
+  "sentences": [
+   "I love it crescent moon emoji."
+  ]
+ },
+ {
+  "input": "Great job, full moon emoji, see you",
+  "sentences": [
+   "Great job, full moon emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so new moon emojis",
+  "sentences": [
+   "That is so new moon emojis"
+  ]
+ },
+ {
+  "input": "send me the moon face emoji",
+  "sentences": [
+   "send me the moon face emoji"
+  ]
+ },
+ {
+  "input": "star emoji",
+  "sentences": [
+   "star emoji"
+  ]
+ },
+ {
+  "input": "I love it glowing star emoji.",
+  "sentences": [
+   "I love it glowing star emoji."
+  ]
+ },
+ {
+  "input": "Great job, shooting star emoji, see you",
+  "sentences": [
+   "Great job, shooting star emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sparkles emojis",
+  "sentences": [
+   "That is so sparkles emojis"
+  ]
+ },
+ {
+  "input": "send me the milky way emoji",
+  "sentences": [
+   "send me the milky way emoji"
+  ]
+ },
+ {
+  "input": "globe emoji",
+  "sentences": [
+   "globe emoji"
+  ]
+ },
+ {
+  "input": "I love it earth emoji.",
+  "sentences": [
+   "I love it earth emoji."
+  ]
+ },
+ {
+  "input": "Great job, globe americas emoji, see you",
+  "sentences": [
+   "Great job, globe americas emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so globe asia emojis",
+  "sentences": [
+   "That is so globe asia emojis"
+  ]
+ },
+ {
+  "input": "send me the grapes emoji",
+  "sentences": [
+   "send me the grapes emoji"
+  ]
+ },
+ {
+  "input": "melon emoji",
+  "sentences": [
+   "melon emoji"
+  ]
+ },
+ {
+  "input": "I love it watermelon emoji.",
+  "sentences": [
+   "I love it watermelon emoji."
+  ]
+ },
+ {
+  "input": "Great job, tangerine emoji, see you",
+  "sentences": [
+   "Great job, tangerine emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so lemon emojis",
+  "sentences": [
+   "That is so lemon emojis"
+  ]
+ },
+ {
+  "input": "send me the banana emoji",
+  "sentences": [
+   "send me the banana emoji"
+  ]
+ },
+ {
+  "input": "pineapple emoji",
+  "sentences": [
+   "pineapple emoji"
+  ]
+ },
+ {
+  "input": "I love it mango emoji.",
+  "sentences": [
+   "I love it mango emoji."
+  ]
+ },
+ {
+  "input": "Great job, apple emoji, see you",
+  "sentences": [
+   "Great job, apple emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so pear emojis",
+  "sentences": [
+   "That is so pear emojis"
+  ]
+ },
+ {
+  "input": "send me the peach emoji",
+  "sentences": [
+   "send me the peach emoji"
+  ]
+ },
+ {
+  "input": "cherries emoji",
+  "sentences": [
+   "cherries emoji"
+  ]
+ },
+ {
+  "input": "I love it strawberry emoji.",
+  "sentences": [
+   "I love it strawberry emoji."
+  ]
+ },
+ {
+  "input": "Great job, blueberries emoji, see you",
+  "sentences": [
+   "Great job, blueberries emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so kiwi emojis",
+  "sentences": [
+   "That is so kiwi emojis"
+  ]
+ },
+ {
+  "input": "send me the tomato emoji",
+  "sentences": [
+   "send me the tomato emoji"
+  ]
+ },
+ {
+  "input": "olive emoji",
+  "sentences": [
+   "olive emoji"
+  ]
+ },
+ {
+  "input": "I love it coconut emoji.",
+  "sentences": [
+   "I love it coconut emoji."
+  ]
+ },
+ {
+  "input": "Great job, avocado emoji, see you",
+  "sentences": [
+   "Great job, avocado emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so eggplant emojis",
+  "sentences": [
+   "That is so eggplant emojis"
+  ]
+ },
+ {
+  "input": "send me the potato emoji",
+  "sentences": [
+   "send me the potato emoji"
+  ]
+ },
+ {
+  "input": "carrot emoji",
+  "sentences": [
+   "carrot emoji"
+  ]
+ },
+ {
+  "input": "I love it corn emoji.",
+  "sentences": [
+   "I love it corn emoji."
+  ]
+ },
+ {
+  "input": "Great job, hot pepper emoji, see you",
+  "sentences": [
+   "Great job, hot pepper emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so cucumber emojis",
+  "sentences": [
+   "That is so cucumber emojis"
+  ]
+ },
+ {
+  "input": "send me the broccoli emoji",
+  "sentences": [
+   "send me the broccoli emoji"
+  ]
+ },
+ {
+  "input": "garlic emoji",
+  "sentences": [
+   "garlic emoji"
+  ]
+ },
+ {
+  "input": "I love it onion emoji.",
+  "sentences": [
+   "I love it onion emoji."
+  ]
+ },
+ {
+  "input": "Great job, mushroom emoji, see you",
+  "sentences": [
+   "Great job, mushroom emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so peanuts emojis",
+  "sentences": [
+   "That is so peanuts emojis"
+  ]
+ },
+ {
+  "input": "send me the bread emoji",
+  "sentences": [
+   "send me the bread emoji"
+  ]
+ },
+ {
+  "input": "croissant emoji",
+  "sentences": [
+   "croissant emoji"
+  ]
+ },
+ {
+  "input": "I love it baguette emoji.",
+  "sentences": [
+   "I love it baguette emoji."
+  ]
+ },
+ {
+  "input": "Great job, pretzel emoji, see you",
+  "sentences": [
+   "Great job, pretzel emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bagel emojis",
+  "sentences": [
+   "That is so bagel emojis"
+  ]
+ },
+ {
+  "input": "send me the pancakes emoji",
+  "sentences": [
+   "send me the pancakes emoji"
+  ]
+ },
+ {
+  "input": "waffle emoji",
+  "sentences": [
+   "waffle emoji"
+  ]
+ },
+ {
+  "input": "I love it cheese emoji.",
+  "sentences": [
+   "I love it cheese emoji."
+  ]
+ },
+ {
+  "input": "Great job, poultry leg emoji, see you",
+  "sentences": [
+   "Great job, poultry leg emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bacon emojis",
+  "sentences": [
+   "That is so bacon emojis"
+  ]
+ },
+ {
+  "input": "send me the burger emoji",
+  "sentences": [
+   "send me the burger emoji"
+  ]
+ },
+ {
+  "input": "hamburger emoji",
+  "sentences": [
+   "hamburger emoji"
+  ]
+ },
+ {
+  "input": "I love it fries emoji.",
+  "sentences": [
+   "I love it fries emoji."
+  ]
+ },
+ {
+  "input": "Great job, pizza emoji, see you",
+  "sentences": [
+   "Great job, pizza emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so hot dog emojis",
+  "sentences": [
+   "That is so hot dog emojis"
+  ]
+ },
+ {
+  "input": "send me the sandwich emoji",
+  "sentences": [
+   "send me the sandwich emoji"
+  ]
+ },
+ {
+  "input": "taco emoji",
+  "sentences": [
+   "taco emoji"
+  ]
+ },
+ {
+  "input": "I love it burrito emoji.",
+  "sentences": [
+   "I love it burrito emoji."
+  ]
+ },
+ {
+  "input": "Great job, falafel emoji, see you",
+  "sentences": [
+   "Great job, falafel emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so egg emojis",
+  "sentences": [
+   "That is so egg emojis"
+  ]
+ },
+ {
+  "input": "send me the cooking emoji",
+  "sentences": [
+   "send me the cooking emoji"
+  ]
+ },
+ {
+  "input": "salad emoji",
+  "sentences": [
+   "salad emoji"
+  ]
+ },
+ {
+  "input": "I love it popcorn emoji.",
+  "sentences": [
+   "I love it popcorn emoji."
+  ]
+ },
+ {
+  "input": "Great job, butter emoji, see you",
+  "sentences": [
+   "Great job, butter emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so salt emojis",
+  "sentences": [
+   "That is so salt emojis"
+  ]
+ },
+ {
+  "input": "send me the bento emoji",
+  "sentences": [
+   "send me the bento emoji"
+  ]
+ },
+ {
+  "input": "rice emoji",
+  "sentences": [
+   "rice emoji"
+  ]
+ },
+ {
+  "input": "I love it curry emoji.",
+  "sentences": [
+   "I love it curry emoji."
+  ]
+ },
+ {
+  "input": "Great job, ramen emoji, see you",
+  "sentences": [
+   "Great job, ramen emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so spaghetti emojis",
+  "sentences": [
+   "That is so spaghetti emojis"
+  ]
+ },
+ {
+  "input": "send me the sushi emoji",
+  "sentences": [
+   "send me the sushi emoji"
+  ]
+ },
+ {
+  "input": "fried shrimp emoji",
+  "sentences": [
+   "fried shrimp emoji"
+  ]
+ },
+ {
+  "input": "I love it dumpling emoji.",
+  "sentences": [
+   "I love it dumpling emoji."
+  ]
+ },
+ {
+  "input": "Great job, fortune cookie emoji, see you",
+  "sentences": [
+   "Great job, fortune cookie emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so takeout box emojis",
+  "sentences": [
+   "That is so takeout box emojis"
+  ]
+ },
+ {
+  "input": "send me the crab emoji",
+  "sentences": [
+   "send me the crab emoji"
+  ]
+ },
+ {
+  "input": "lobster emoji",
+  "sentences": [
+   "lobster emoji"
+  ]
+ },
+ {
+  "input": "I love it shrimp emoji.",
+  "sentences": [
+   "I love it shrimp emoji."
+  ]
+ },
+ {
+  "input": "Great job, squid emoji, see you",
+  "sentences": [
+   "Great job, squid emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so oyster emojis",
+  "sentences": [
+   "That is so oyster emojis"
+  ]
+ },
+ {
+  "input": "send me the ice cream emoji",
+  "sentences": [
+   "send me the ice cream emoji"
+  ]
+ },
+ {
+  "input": "donut emoji",
+  "sentences": [
+   "donut emoji"
+  ]
+ },
+ {
+  "input": "I love it cookie emoji.",
+  "sentences": [
+   "I love it cookie emoji."
+  ]
+ },
+ {
+  "input": "Great job, cake emoji, see you",
+  "sentences": [
+   "Great job, cake emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so birthday cake emojis",
+  "sentences": [
+   "That is so birthday cake emojis"
+  ]
+ },
+ {
+  "input": "send me the cupcake emoji",
+  "sentences": [
+   "send me the cupcake emoji"
+  ]
+ },
+ {
+  "input": "pie emoji",
+  "sentences": [
+   "pie emoji"
+  ]
+ },
+ {
+  "input": "I love it chocolate emoji.",
+  "sentences": [
+   "I love it chocolate emoji."
+  ]
+ },
+ {
+  "input": "Great job, candy emoji, see you",
+  "sentences": [
+   "Great job, candy emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so lollipop emojis",
+  "sentences": [
+   "That is so lollipop emojis"
+  ]
+ },
+ {
+  "input": "send me the honey emoji",
+  "sentences": [
+   "send me the honey emoji"
+  ]
+ },
+ {
+  "input": "milk emoji",
+  "sentences": [
+   "milk emoji"
+  ]
+ },
+ {
+  "input": "I love it coffee emoji.",
+  "sentences": [
+   "I love it coffee emoji."
+  ]
+ },
+ {
+  "input": "Great job, tea emoji, see you",
+  "sentences": [
+   "Great job, tea emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sake emojis",
+  "sentences": [
+   "That is so sake emojis"
+  ]
+ },
+ {
+  "input": "send me the champagne emoji",
+  "sentences": [
+   "send me the champagne emoji"
+  ]
+ },
+ {
+  "input": "wine emoji",
+  "sentences": [
+   "wine emoji"
+  ]
+ },
+ {
+  "input": "I love it cocktail emoji.",
+  "sentences": [
+   "I love it cocktail emoji."
+  ]
+ },
+ {
+  "input": "Great job, tropical drink emoji, see you",
+  "sentences": [
+   "Great job, tropical drink emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so beer emojis",
+  "sentences": [
+   "That is so beer emojis"
+  ]
+ },
+ {
+  "input": "send me the beer mugs emoji",
+  "sentences": [
+   "send me the beer mugs emoji"
+  ]
+ },
+ {
+  "input": "clinking glasses emoji",
+  "sentences": [
+   "clinking glasses emoji"
+  ]
+ },
+ {
+  "input": "I love it whiskey emoji.",
+  "sentences": [
+   "I love it whiskey emoji."
+  ]
+ },
+ {
+  "input": "Great job, cup with straw emoji, see you",
+  "sentences": [
+   "Great job, cup with straw emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bubble tea emojis",
+  "sentences": [
+   "That is so bubble tea emojis"
+  ]
+ },
+ {
+  "input": "send me the ice emoji",
+  "sentences": [
+   "send me the ice emoji"
+  ]
+ },
+ {
+  "input": "chopsticks emoji",
+  "sentences": [
+   "chopsticks emoji"
+  ]
+ },
+ {
+  "input": "I love it fork and knife emoji.",
+  "sentences": [
+   "I love it fork and knife emoji."
+  ]
+ },
+ {
+  "input": "Great job, spoon emoji, see you",
+  "sentences": [
+   "Great job, spoon emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so world map emojis",
+  "sentences": [
+   "That is so world map emojis"
+  ]
+ },
+ {
+  "input": "send me the compass emoji",
+  "sentences": [
+   "send me the compass emoji"
+  ]
+ },
+ {
+  "input": "mountain emoji",
+  "sentences": [
+   "mountain emoji"
+  ]
+ },
+ {
+  "input": "I love it volcano emoji.",
+  "sentences": [
+   "I love it volcano emoji."
+  ]
+ },
+ {
+  "input": "Great job, camping emoji, see you",
+  "sentences": [
+   "Great job, camping emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so beach emojis",
+  "sentences": [
+   "That is so beach emojis"
+  ]
+ },
+ {
+  "input": "send me the desert emoji",
+  "sentences": [
+   "send me the desert emoji"
+  ]
+ },
+ {
+  "input": "island emoji",
+  "sentences": [
+   "island emoji"
+  ]
+ },
+ {
+  "input": "I love it stadium emoji.",
+  "sentences": [
+   "I love it stadium emoji."
+  ]
+ },
+ {
+  "input": "Great job, castle emoji, see you",
+  "sentences": [
+   "Great job, castle emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so ferris wheel emojis",
+  "sentences": [
+   "That is so ferris wheel emojis"
+  ]
+ },
+ {
+  "input": "send me the roller coaster emoji",
+  "sentences": [
+   "send me the roller coaster emoji"
+  ]
+ },
+ {
+  "input": "carousel emoji",
+  "sentences": [
+   "carousel emoji"
+  ]
+ },
+ {
+  "input": "I love it fountain emoji.",
+  "sentences": [
+   "I love it fountain emoji."
+  ]
+ },
+ {
+  "input": "Great job, tent emoji, see you",
+  "sentences": [
+   "Great job, tent emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so house emojis",
+  "sentences": [
+   "That is so house emojis"
+  ]
+ },
+ {
+  "input": "send me the office building emoji",
+  "sentences": [
+   "send me the office building emoji"
+  ]
+ },
+ {
+  "input": "hospital emoji",
+  "sentences": [
+   "hospital emoji"
+  ]
+ },
+ {
+  "input": "I love it bank emoji.",
+  "sentences": [
+   "I love it bank emoji."
+  ]
+ },
+ {
+  "input": "Great job, hotel emoji, see you",
+  "sentences": [
+   "Great job, hotel emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so school emojis",
+  "sentences": [
+   "That is so school emojis"
+  ]
+ },
+ {
+  "input": "send me the factory emoji",
+  "sentences": [
+   "send me the factory emoji"
+  ]
+ },
+ {
+  "input": "church emoji",
+  "sentences": [
+   "church emoji"
+  ]
+ },
+ {
+  "input": "I love it mosque emoji.",
+  "sentences": [
+   "I love it mosque emoji."
+  ]
+ },
+ {
+  "input": "Great job, synagogue emoji, see you",
+  "sentences": [
+   "Great job, synagogue emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so temple emojis",
+  "sentences": [
+   "That is so temple emojis"
+  ]
+ },
+ {
+  "input": "send me the statue of liberty emoji",
+  "sentences": [
+   "send me the statue of liberty emoji"
+  ]
+ },
+ {
+  "input": "sunrise emoji",
+  "sentences": [
+   "sunrise emoji"
+  ]
+ },
+ {
+  "input": "I love it sunset emoji.",
+  "sentences": [
+   "I love it sunset emoji."
+  ]
+ },
+ {
+  "input": "Great job, night with stars emoji, see you",
+  "sentences": [
+   "Great job, night with stars emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so fireworks emojis",
+  "sentences": [
+   "That is so fireworks emojis"
+  ]
+ },
+ {
+  "input": "send me the sparkler emoji",
+  "sentences": [
+   "send me the sparkler emoji"
+  ]
+ },
+ {
+  "input": "car emoji",
+  "sentences": [
+   "car emoji"
+  ]
+ },
+ {
+  "input": "I love it taxi emoji.",
+  "sentences": [
+   "I love it taxi emoji."
+  ]
+ },
+ {
+  "input": "Great job, bus emoji, see you",
+  "sentences": [
+   "Great job, bus emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so ambulance emojis",
+  "sentences": [
+   "That is so ambulance emojis"
+  ]
+ },
+ {
+  "input": "send me the fire engine emoji",
+  "sentences": [
+   "send me the fire engine emoji"
+  ]
+ },
+ {
+  "input": "police car emoji",
+  "sentences": [
+   "police car emoji"
+  ]
+ },
+ {
+  "input": "I love it pickup truck emoji.",
+  "sentences": [
+   "I love it pickup truck emoji."
+  ]
+ },
+ {
+  "input": "Great job, truck emoji, see you",
+  "sentences": [
+   "Great job, truck emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so tractor emojis",
+  "sentences": [
+   "That is so tractor emojis"
+  ]
+ },
+ {
+  "input": "send me the scooter emoji",
+  "sentences": [
+   "send me the scooter emoji"
+  ]
+ },
+ {
+  "input": "motorcycle emoji",
+  "sentences": [
+   "motorcycle emoji"
+  ]
+ },
+ {
+  "input": "I love it bicycle emoji.",
+  "sentences": [
+   "I love it bicycle emoji."
+  ]
+ },
+ {
+  "input": "Great job, skateboard emoji, see you",
+  "sentences": [
+   "Great job, skateboard emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so roller skate emojis",
+  "sentences": [
+   "That is so roller skate emojis"
+  ]
+ },
+ {
+  "input": "send me the wheelchair emoji",
+  "sentences": [
+   "send me the wheelchair emoji"
+  ]
+ },
+ {
+  "input": "train emoji",
+  "sentences": [
+   "train emoji"
+  ]
+ },
+ {
+  "input": "I love it metro emoji.",
+  "sentences": [
+   "I love it metro emoji."
+  ]
+ },
+ {
+  "input": "Great job, tram emoji, see you",
+  "sentences": [
+   "Great job, tram emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bullet train emojis",
+  "sentences": [
+   "That is so bullet train emojis"
+  ]
+ },
+ {
+  "input": "send me the helicopter emoji",
+  "sentences": [
+   "send me the helicopter emoji"
+  ]
+ },
+ {
+  "input": "airplane emoji",
+  "sentences": [
+   "airplane emoji"
+  ]
+ },
+ {
+  "input": "I love it departure emoji.",
+  "sentences": [
+   "I love it departure emoji."
+  ]
+ },
+ {
+  "input": "Great job, arrival emoji, see you",
+  "sentences": [
+   "Great job, arrival emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so parachute emojis",
+  "sentences": [
+   "That is so parachute emojis"
+  ]
+ },
+ {
+  "input": "send me the seat emoji",
+  "sentences": [
+   "send me the seat emoji"
+  ]
+ },
+ {
+  "input": "rocket emoji",
+  "sentences": [
+   "rocket emoji"
+  ]
+ },
+ {
+  "input": "I love it rocket ship emoji.",
+  "sentences": [
+   "I love it rocket ship emoji."
+  ]
+ },
+ {
+  "input": "Great job, flying saucer emoji, see you",
+  "sentences": [
+   "Great job, flying saucer emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sailboat emojis",
+  "sentences": [
+   "That is so sailboat emojis"
+  ]
+ },
+ {
+  "input": "send me the speedboat emoji",
+  "sentences": [
+   "send me the speedboat emoji"
+  ]
+ },
+ {
+  "input": "ship emoji",
+  "sentences": [
+   "ship emoji"
+  ]
+ },
+ {
+  "input": "I love it ferry emoji.",
+  "sentences": [
+   "I love it ferry emoji."
+  ]
+ },
+ {
+  "input": "Great job, anchor emoji, see you",
+  "sentences": [
+   "Great job, anchor emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so fuel pump emojis",
+  "sentences": [
+   "That is so fuel pump emojis"
+  ]
+ },
+ {
+  "input": "send me the traffic light emoji",
+  "sentences": [
+   "send me the traffic light emoji"
+  ]
+ },
+ {
+  "input": "construction sign emoji",
+  "sentences": [
+   "construction sign emoji"
+  ]
+ },
+ {
+  "input": "I love it watch emoji.",
+  "sentences": [
+   "I love it watch emoji."
+  ]
+ },
+ {
+  "input": "Great job, phone emoji, see you",
+  "sentences": [
+   "Great job, phone emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so laptop emojis",
+  "sentences": [
+   "That is so laptop emojis"
+  ]
+ },
+ {
+  "input": "send me the computer emoji",
+  "sentences": [
+   "send me the computer emoji"
+  ]
+ },
+ {
+  "input": "keyboard emoji",
+  "sentences": [
+   "keyboard emoji"
+  ]
+ },
+ {
+  "input": "I love it printer emoji.",
+  "sentences": [
+   "I love it printer emoji."
+  ]
+ },
+ {
+  "input": "Great job, joystick emoji, see you",
+  "sentences": [
+   "Great job, joystick emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so floppy disk emojis",
+  "sentences": [
+   "That is so floppy disk emojis"
+  ]
+ },
+ {
+  "input": "send me the abacus emoji",
+  "sentences": [
+   "send me the abacus emoji"
+  ]
+ },
+ {
+  "input": "movie camera emoji",
+  "sentences": [
+   "movie camera emoji"
+  ]
+ },
+ {
+  "input": "I love it film emoji.",
+  "sentences": [
+   "I love it film emoji."
+  ]
+ },
+ {
+  "input": "Great job, projector emoji, see you",
+  "sentences": [
+   "Great job, projector emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so video camera emojis",
+  "sentences": [
+   "That is so video camera emojis"
+  ]
+ },
+ {
+  "input": "send me the camera emoji",
+  "sentences": [
+   "send me the camera emoji"
+  ]
+ },
+ {
+  "input": "magnifying glass emoji",
+  "sentences": [
+   "magnifying glass emoji"
+  ]
+ },
+ {
+  "input": "I love it candle emoji.",
+  "sentences": [
+   "I love it candle emoji."
+  ]
+ },
+ {
+  "input": "Great job, light bulb emoji, see you",
+  "sentences": [
+   "Great job, light bulb emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so flashlight emojis",
+  "sentences": [
+   "That is so flashlight emojis"
+  ]
+ },
+ {
+  "input": "send me the lantern emoji",
+  "sentences": [
+   "send me the lantern emoji"
+  ]
+ },
+ {
+  "input": "book emoji",
+  "sentences": [
+   "book emoji"
+  ]
+ },
+ {
+  "input": "I love it books emoji.",
+  "sentences": [
+   "I love it books emoji."
+  ]
+ },
+ {
+  "input": "Great job, notebook emoji, see you",
+  "sentences": [
+   "Great job, notebook emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so page emojis",
+  "sentences": [
+   "That is so page emojis"
+  ]
+ },
+ {
+  "input": "send me the newspaper emoji",
+  "sentences": [
+   "send me the newspaper emoji"
+  ]
+ },
+ {
+  "input": "bookmark emoji",
+  "sentences": [
+   "bookmark emoji"
+  ]
+ },
+ {
+  "input": "I love it label emoji.",
+  "sentences": [
+   "I love it label emoji."
+  ]
+ },
+ {
+  "input": "Great job, pencil emoji, see you",
+  "sentences": [
+   "Great job, pencil emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so pen emojis",
+  "sentences": [
+   "That is so pen emojis"
+  ]
+ },
+ {
+  "input": "send me the paperclip emoji",
+  "sentences": [
+   "send me the paperclip emoji"
+  ]
+ },
+ {
+  "input": "scissors emoji",
+  "sentences": [
+   "scissors emoji"
+  ]
+ },
+ {
+  "input": "I love it clipboard emoji.",
+  "sentences": [
+   "I love it clipboard emoji."
+  ]
+ },
+ {
+  "input": "Great job, calendar emoji, see you",
+  "sentences": [
+   "Great job, calendar emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so chart increasing emojis",
+  "sentences": [
+   "That is so chart increasing emojis"
+  ]
+ },
+ {
+  "input": "send me the chart decreasing emoji",
+  "sentences": [
+   "send me the chart decreasing emoji"
+  ]
+ },
+ {
+  "input": "bar chart emoji",
+  "sentences": [
+   "bar chart emoji"
+  ]
+ },
+ {
+  "input": "I love it money bag emoji.",
+  "sentences": [
+   "I love it money bag emoji."
+  ]
+ },
+ {
+  "input": "Great job, coin emoji, see you",
+  "sentences": [
+   "Great job, coin emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so dollar emojis",
+  "sentences": [
+   "That is so dollar emojis"
+  ]
+ },
+ {
+  "input": "send me the euro emoji",
+  "sentences": [
+   "send me the euro emoji"
+  ]
+ },
+ {
+  "input": "pound emoji",
+  "sentences": [
+   "pound emoji"
+  ]
+ },
+ {
+  "input": "I love it money with wings emoji.",
+  "sentences": [
+   "I love it money with wings emoji."
+  ]
+ },
+ {
+  "input": "Great job, credit card emoji, see you",
+  "sentences": [
+   "Great job, credit card emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so receipt emojis",
+  "sentences": [
+   "That is so receipt emojis"
+  ]
+ },
+ {
+  "input": "send me the gem emoji",
+  "sentences": [
+   "send me the gem emoji"
+  ]
+ },
+ {
+  "input": "diamond emoji",
+  "sentences": [
+   "diamond emoji"
+  ]
+ },
+ {
+  "input": "I love it scales emoji.",
+  "sentences": [
+   "I love it scales emoji."
+  ]
+ },
+ {
+  "input": "Great job, toolbox emoji, see you",
+  "sentences": [
+   "Great job, toolbox emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so magnet emojis",
+  "sentences": [
+   "That is so magnet emojis"
+  ]
+ },
+ {
+  "input": "send me the hammer emoji",
+  "sentences": [
+   "send me the hammer emoji"
+  ]
+ },
+ {
+  "input": "axe emoji",
+  "sentences": [
+   "axe emoji"
+  ]
+ },
+ {
+  "input": "I love it wrench emoji.",
+  "sentences": [
+   "I love it wrench emoji."
+  ]
+ },
+ {
+  "input": "Great job, screwdriver emoji, see you",
+  "sentences": [
+   "Great job, screwdriver emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so nut and bolt emojis",
+  "sentences": [
+   "That is so nut and bolt emojis"
+  ]
+ },
+ {
+  "input": "send me the gear emoji",
+  "sentences": [
+   "send me the gear emoji"
+  ]
+ },
+ {
+  "input": "chains emoji",
+  "sentences": [
+   "chains emoji"
+  ]
+ },
+ {
+  "input": "I love it bomb emoji.",
+  "sentences": [
+   "I love it bomb emoji."
+  ]
+ },
+ {
+  "input": "Great job, firecracker emoji, see you",
+  "sentences": [
+   "Great job, firecracker emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so knife emojis",
+  "sentences": [
+   "That is so knife emojis"
+  ]
+ },
+ {
+  "input": "send me the dagger emoji",
+  "sentences": [
+   "send me the dagger emoji"
+  ]
+ },
+ {
+  "input": "swords emoji",
+  "sentences": [
+   "swords emoji"
+  ]
+ },
+ {
+  "input": "I love it shield emoji.",
+  "sentences": [
+   "I love it shield emoji."
+  ]
+ },
+ {
+  "input": "Great job, coffin emoji, see you",
+  "sentences": [
+   "Great job, coffin emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so crystal ball emojis",
+  "sentences": [
+   "That is so crystal ball emojis"
+  ]
+ },
+ {
+  "input": "send me the test tube emoji",
+  "sentences": [
+   "send me the test tube emoji"
+  ]
+ },
+ {
+  "input": "petri dish emoji",
+  "sentences": [
+   "petri dish emoji"
+  ]
+ },
+ {
+  "input": "I love it dna emoji.",
+  "sentences": [
+   "I love it dna emoji."
+  ]
+ },
+ {
+  "input": "Great job, microscope emoji, see you",
+  "sentences": [
+   "Great job, microscope emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so telescope emojis",
+  "sentences": [
+   "That is so telescope emojis"
+  ]
+ },
+ {
+  "input": "send me the satellite emoji",
+  "sentences": [
+   "send me the satellite emoji"
+  ]
+ },
+ {
+  "input": "syringe emoji",
+  "sentences": [
+   "syringe emoji"
+  ]
+ },
+ {
+  "input": "I love it pill emoji.",
+  "sentences": [
+   "I love it pill emoji."
+  ]
+ },
+ {
+  "input": "Great job, bandage emoji, see you",
+  "sentences": [
+   "Great job, bandage emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so stethoscope emojis",
+  "sentences": [
+   "That is so stethoscope emojis"
+  ]
+ },
+ {
+  "input": "send me the door emoji",
+  "sentences": [
+   "send me the door emoji"
+  ]
+ },
+ {
+  "input": "bed emoji",
+  "sentences": [
+   "bed emoji"
+  ]
+ },
+ {
+  "input": "I love it couch emoji.",
+  "sentences": [
+   "I love it couch emoji."
+  ]
+ },
+ {
+  "input": "Great job, toilet emoji, see you",
+  "sentences": [
+   "Great job, toilet emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so shower emojis",
+  "sentences": [
+   "That is so shower emojis"
+  ]
+ },
+ {
+  "input": "send me the bathtub emoji",
+  "sentences": [
+   "send me the bathtub emoji"
+  ]
+ },
+ {
+  "input": "razor emoji",
+  "sentences": [
+   "razor emoji"
+  ]
+ },
+ {
+  "input": "I love it sponge emoji.",
+  "sentences": [
+   "I love it sponge emoji."
+  ]
+ },
+ {
+  "input": "Great job, soap emoji, see you",
+  "sentences": [
+   "Great job, soap emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so broom emojis",
+  "sentences": [
+   "That is so broom emojis"
+  ]
+ },
+ {
+  "input": "send me the basket emoji",
+  "sentences": [
+   "send me the basket emoji"
+  ]
+ },
+ {
+  "input": "bucket emoji",
+  "sentences": [
+   "bucket emoji"
+  ]
+ },
+ {
+  "input": "I love it mirror emoji.",
+  "sentences": [
+   "I love it mirror emoji."
+  ]
+ },
+ {
+  "input": "Great job, chair emoji, see you",
+  "sentences": [
+   "Great job, chair emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so shopping cart emojis",
+  "sentences": [
+   "That is so shopping cart emojis"
+  ]
+ },
+ {
+  "input": "send me the shopping bags emoji",
+  "sentences": [
+   "send me the shopping bags emoji"
+  ]
+ },
+ {
+  "input": "backpack emoji",
+  "sentences": [
+   "backpack emoji"
+  ]
+ },
+ {
+  "input": "I love it briefcase emoji.",
+  "sentences": [
+   "I love it briefcase emoji."
+  ]
+ },
+ {
+  "input": "Great job, handbag emoji, see you",
+  "sentences": [
+   "Great job, handbag emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so purse emojis",
+  "sentences": [
+   "That is so purse emojis"
+  ]
+ },
+ {
+  "input": "send me the glasses emoji",
+  "sentences": [
+   "send me the glasses emoji"
+  ]
+ },
+ {
+  "input": "necktie emoji",
+  "sentences": [
+   "necktie emoji"
+  ]
+ },
+ {
+  "input": "I love it shirt emoji.",
+  "sentences": [
+   "I love it shirt emoji."
+  ]
+ },
+ {
+  "input": "Great job, jeans emoji, see you",
+  "sentences": [
+   "Great job, jeans emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so scarf emojis",
+  "sentences": [
+   "That is so scarf emojis"
+  ]
+ },
+ {
+  "input": "send me the gloves emoji",
+  "sentences": [
+   "send me the gloves emoji"
+  ]
+ },
+ {
+  "input": "coat emoji",
+  "sentences": [
+   "coat emoji"
+  ]
+ },
+ {
+  "input": "I love it socks emoji.",
+  "sentences": [
+   "I love it socks emoji."
+  ]
+ },
+ {
+  "input": "Great job, dress emoji, see you",
+  "sentences": [
+   "Great job, dress emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so high heel emojis",
+  "sentences": [
+   "That is so high heel emojis"
+  ]
+ },
+ {
+  "input": "send me the sneaker emoji",
+  "sentences": [
+   "send me the sneaker emoji"
+  ]
+ },
+ {
+  "input": "boot emoji",
+  "sentences": [
+   "boot emoji"
+  ]
+ },
+ {
+  "input": "I love it crown emoji.",
+  "sentences": [
+   "I love it crown emoji."
+  ]
+ },
+ {
+  "input": "Great job, top hat emoji, see you",
+  "sentences": [
+   "Great job, top hat emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so graduation cap emojis",
+  "sentences": [
+   "That is so graduation cap emojis"
+  ]
+ },
+ {
+  "input": "send me the helmet emoji",
+  "sentences": [
+   "send me the helmet emoji"
+  ]
+ },
+ {
+  "input": "ring emoji",
+  "sentences": [
+   "ring emoji"
+  ]
+ },
+ {
+  "input": "I love it lipstick emoji.",
+  "sentences": [
+   "I love it lipstick emoji."
+  ]
+ },
+ {
+  "input": "Great job, key emoji, see you",
+  "sentences": [
+   "Great job, key emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so lock emojis",
+  "sentences": [
+   "That is so lock emojis"
+  ]
+ },
+ {
+  "input": "send me the unlocked emoji",
+  "sentences": [
+   "send me the unlocked emoji"
+  ]
+ },
+ {
+  "input": "envelope emoji",
+  "sentences": [
+   "envelope emoji"
+  ]
+ },
+ {
+  "input": "I love it inbox emoji.",
+  "sentences": [
+   "I love it inbox emoji."
+  ]
+ },
+ {
+  "input": "Great job, outbox emoji, see you",
+  "sentences": [
+   "Great job, outbox emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so package emojis",
+  "sentences": [
+   "That is so package emojis"
+  ]
+ },
+ {
+  "input": "send me the mailbox emoji",
+  "sentences": [
+   "send me the mailbox emoji"
+  ]
+ },
+ {
+  "input": "gift emoji",
+  "sentences": [
+   "gift emoji"
+  ]
+ },
+ {
+  "input": "I love it balloon emoji.",
+  "sentences": [
+   "I love it balloon emoji."
+  ]
+ },
+ {
+  "input": "Great job, confetti emoji, see you",
+  "sentences": [
+   "Great job, confetti emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so party emojis",
+  "sentences": [
+   "That is so party emojis"
+  ]
+ },
+ {
+  "input": "send me the tada emoji",
+  "sentences": [
+   "send me the tada emoji"
+  ]
+ },
+ {
+  "input": "trophy emoji",
+  "sentences": [
+   "trophy emoji"
+  ]
+ },
+ {
+  "input": "I love it medal emoji.",
+  "sentences": [
+   "I love it medal emoji."
+  ]
+ },
+ {
+  "input": "Great job, first place emoji, see you",
+  "sentences": [
+   "Great job, first place emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so second place emojis",
+  "sentences": [
+   "That is so second place emojis"
+  ]
+ },
+ {
+  "input": "send me the third place emoji",
+  "sentences": [
+   "send me the third place emoji"
+  ]
+ },
+ {
+  "input": "ticket emoji",
+  "sentences": [
+   "ticket emoji"
+  ]
+ },
+ {
+  "input": "I love it circus emoji.",
+  "sentences": [
+   "I love it circus emoji."
+  ]
+ },
+ {
+  "input": "Great job, performing arts emoji, see you",
+  "sentences": [
+   "Great job, performing arts emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so framed picture emojis",
+  "sentences": [
+   "That is so framed picture emojis"
+  ]
+ },
+ {
+  "input": "send me the clapper board emoji",
+  "sentences": [
+   "send me the clapper board emoji"
+  ]
+ },
+ {
+  "input": "art emoji",
+  "sentences": [
+   "art emoji"
+  ]
+ },
+ {
+  "input": "I love it soccer ball emoji.",
+  "sentences": [
+   "I love it soccer ball emoji."
+  ]
+ },
+ {
+  "input": "Great job, football emoji, see you",
+  "sentences": [
+   "Great job, football emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so basketball emojis",
+  "sentences": [
+   "That is so basketball emojis"
+  ]
+ },
+ {
+  "input": "send me the baseball emoji",
+  "sentences": [
+   "send me the baseball emoji"
+  ]
+ },
+ {
+  "input": "softball emoji",
+  "sentences": [
+   "softball emoji"
+  ]
+ },
+ {
+  "input": "I love it tennis emoji.",
+  "sentences": [
+   "I love it tennis emoji."
+  ]
+ },
+ {
+  "input": "Great job, volleyball emoji, see you",
+  "sentences": [
+   "Great job, volleyball emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so rugby emojis",
+  "sentences": [
+   "That is so rugby emojis"
+  ]
+ },
+ {
+  "input": "send me the flying disc emoji",
+  "sentences": [
+   "send me the flying disc emoji"
+  ]
+ },
+ {
+  "input": "bowling emoji",
+  "sentences": [
+   "bowling emoji"
+  ]
+ },
+ {
+  "input": "I love it field hockey emoji.",
+  "sentences": [
+   "I love it field hockey emoji."
+  ]
+ },
+ {
+  "input": "Great job, ice hockey emoji, see you",
+  "sentences": [
+   "Great job, ice hockey emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so ping pong emojis",
+  "sentences": [
+   "That is so ping pong emojis"
+  ]
+ },
+ {
+  "input": "send me the badminton emoji",
+  "sentences": [
+   "send me the badminton emoji"
+  ]
+ },
+ {
+  "input": "boxing glove emoji",
+  "sentences": [
+   "boxing glove emoji"
+  ]
+ },
+ {
+  "input": "I love it martial arts emoji.",
+  "sentences": [
+   "I love it martial arts emoji."
+  ]
+ },
+ {
+  "input": "Great job, goal net emoji, see you",
+  "sentences": [
+   "Great job, goal net emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so golf emojis",
+  "sentences": [
+   "That is so golf emojis"
+  ]
+ },
+ {
+  "input": "send me the ice skate emoji",
+  "sentences": [
+   "send me the ice skate emoji"
+  ]
+ },
+ {
+  "input": "fishing emoji",
+  "sentences": [
+   "fishing emoji"
+  ]
+ },
+ {
+  "input": "I love it diving mask emoji.",
+  "sentences": [
+   "I love it diving mask emoji."
+  ]
+ },
+ {
+  "input": "Great job, ski emoji, see you",
+  "sentences": [
+   "Great job, ski emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sled emojis",
+  "sentences": [
+   "That is so sled emojis"
+  ]
+ },
+ {
+  "input": "send me the target emoji",
+  "sentences": [
+   "send me the target emoji"
+  ]
+ },
+ {
+  "input": "bullseye emoji",
+  "sentences": [
+   "bullseye emoji"
+  ]
+ },
+ {
+  "input": "I love it kite emoji.",
+  "sentences": [
+   "I love it kite emoji."
+  ]
+ },
+ {
+  "input": "Great job, eight ball emoji, see you",
+  "sentences": [
+   "Great job, eight ball emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so slot machine emojis",
+  "sentences": [
+   "That is so slot machine emojis"
+  ]
+ },
+ {
+  "input": "send me the video game emoji",
+  "sentences": [
+   "send me the video game emoji"
+  ]
+ },
+ {
+  "input": "dice emoji",
+  "sentences": [
+   "dice emoji"
+  ]
+ },
+ {
+  "input": "I love it puzzle emoji.",
+  "sentences": [
+   "I love it puzzle emoji."
+  ]
+ },
+ {
+  "input": "Great job, teddy bear emoji, see you",
+  "sentences": [
+   "Great job, teddy bear emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so playing cards emojis",
+  "sentences": [
+   "That is so playing cards emojis"
+  ]
+ },
+ {
+  "input": "send me the music note emoji",
+  "sentences": [
+   "send me the music note emoji"
+  ]
+ },
+ {
+  "input": "musical notes emoji",
+  "sentences": [
+   "musical notes emoji"
+  ]
+ },
+ {
+  "input": "I love it musical score emoji.",
+  "sentences": [
+   "I love it musical score emoji."
+  ]
+ },
+ {
+  "input": "Great job, headphones emoji, see you",
+  "sentences": [
+   "Great job, headphones emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so microphone emojis",
+  "sentences": [
+   "That is so microphone emojis"
+  ]
+ },
+ {
+  "input": "send me the radio emoji",
+  "sentences": [
+   "send me the radio emoji"
+  ]
+ },
+ {
+  "input": "saxophone emoji",
+  "sentences": [
+   "saxophone emoji"
+  ]
+ },
+ {
+  "input": "I love it trumpet emoji.",
+  "sentences": [
+   "I love it trumpet emoji."
+  ]
+ },
+ {
+  "input": "Great job, violin emoji, see you",
+  "sentences": [
+   "Great job, violin emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so guitar emojis",
+  "sentences": [
+   "That is so guitar emojis"
+  ]
+ },
+ {
+  "input": "send me the drum emoji",
+  "sentences": [
+   "send me the drum emoji"
+  ]
+ },
+ {
+  "input": "megaphone emoji",
+  "sentences": [
+   "megaphone emoji"
+  ]
+ },
+ {
+  "input": "I love it loudspeaker emoji.",
+  "sentences": [
+   "I love it loudspeaker emoji."
+  ]
+ },
+ {
+  "input": "Great job, speaker emoji, see you",
+  "sentences": [
+   "Great job, speaker emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so mute emojis",
+  "sentences": [
+   "That is so mute emojis"
+  ]
+ },
+ {
+  "input": "send me the bell emoji",
+  "sentences": [
+   "send me the bell emoji"
+  ]
+ },
+ {
+  "input": "bell off emoji",
+  "sentences": [
+   "bell off emoji"
+  ]
+ },
+ {
+  "input": "I love it check mark emoji.",
+  "sentences": [
+   "I love it check mark emoji."
+  ]
+ },
+ {
+  "input": "Great job, checkmark emoji, see you",
+  "sentences": [
+   "Great job, checkmark emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so check emojis",
+  "sentences": [
+   "That is so check emojis"
+  ]
+ },
+ {
+  "input": "send me the x mark emoji",
+  "sentences": [
+   "send me the x mark emoji"
+  ]
+ },
+ {
+  "input": "cross mark emoji",
+  "sentences": [
+   "cross mark emoji"
+  ]
+ },
+ {
+  "input": "I love it hundred emoji.",
+  "sentences": [
+   "I love it hundred emoji."
+  ]
+ },
+ {
+  "input": "Great job, hundred points emoji, see you",
+  "sentences": [
+   "Great job, hundred points emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so question mark emojis",
+  "sentences": [
+   "That is so question mark emojis"
+  ]
+ },
+ {
+  "input": "send me the exclamation mark emoji",
+  "sentences": [
+   "send me the exclamation mark emoji"
+  ]
+ },
+ {
+  "input": "warning emoji",
+  "sentences": [
+   "warning emoji"
+  ]
+ },
+ {
+  "input": "I love it no entry emoji.",
+  "sentences": [
+   "I love it no entry emoji."
+  ]
+ },
+ {
+  "input": "Great job, prohibited emoji, see you",
+  "sentences": [
+   "Great job, prohibited emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so radioactive emojis",
+  "sentences": [
+   "That is so radioactive emojis"
+  ]
+ },
+ {
+  "input": "send me the biohazard emoji",
+  "sentences": [
+   "send me the biohazard emoji"
+  ]
+ },
+ {
+  "input": "recycle emoji",
+  "sentences": [
+   "recycle emoji"
+  ]
+ },
+ {
+  "input": "I love it infinity emoji.",
+  "sentences": [
+   "I love it infinity emoji."
+  ]
+ },
+ {
+  "input": "Great job, trident emoji, see you",
+  "sentences": [
+   "Great job, trident emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so peace symbol emojis",
+  "sentences": [
+   "That is so peace symbol emojis"
+  ]
+ },
+ {
+  "input": "send me the yin yang emoji",
+  "sentences": [
+   "send me the yin yang emoji"
+  ]
+ },
+ {
+  "input": "atom emoji",
+  "sentences": [
+   "atom emoji"
+  ]
+ },
+ {
+  "input": "I love it anger emoji.",
+  "sentences": [
+   "I love it anger emoji."
+  ]
+ },
+ {
+  "input": "Great job, collision emoji, see you",
+  "sentences": [
+   "Great job, collision emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so dizzy emojis",
+  "sentences": [
+   "That is so dizzy emojis"
+  ]
+ },
+ {
+  "input": "send me the dash emoji",
+  "sentences": [
+   "send me the dash emoji"
+  ]
+ },
+ {
+  "input": "hole emoji",
+  "sentences": [
+   "hole emoji"
+  ]
+ },
+ {
+  "input": "I love it speech bubble emoji.",
+  "sentences": [
+   "I love it speech bubble emoji."
+  ]
+ },
+ {
+  "input": "Great job, thought bubble emoji, see you",
+  "sentences": [
+   "Great job, thought bubble emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so zzz emojis",
+  "sentences": [
+   "That is so zzz emojis"
+  ]
+ },
+ {
+  "input": "send me the clock emoji",
+  "sentences": [
+   "send me the clock emoji"
+  ]
+ },
+ {
+  "input": "hourglass emoji",
+  "sentences": [
+   "hourglass emoji"
+  ]
+ },
+ {
+  "input": "I love it alarm clock emoji.",
+  "sentences": [
+   "I love it alarm clock emoji."
+  ]
+ },
+ {
+  "input": "Great job, stopwatch emoji, see you",
+  "sentences": [
+   "Great job, stopwatch emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so bridge emojis",
+  "sentences": [
+   "That is so bridge emojis"
+  ]
+ },
+ {
+  "input": "send me the night bridge emoji",
+  "sentences": [
+   "send me the night bridge emoji"
+  ]
+ },
+ {
+  "input": "flag emoji",
+  "sentences": [
+   "flag emoji"
+  ]
+ },
+ {
+  "input": "I love it checkered flag emoji.",
+  "sentences": [
+   "I love it checkered flag emoji."
+  ]
+ },
+ {
+  "input": "Great job, crossed flags emoji, see you",
+  "sentences": [
+   "Great job, crossed flags emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so white flag emojis",
+  "sentences": [
+   "That is so white flag emojis"
+  ]
+ },
+ {
+  "input": "send me the rainbow flag emoji",
+  "sentences": [
+   "send me the rainbow flag emoji"
+  ]
+ },
+ {
+  "input": "pirate flag emoji",
+  "sentences": [
+   "pirate flag emoji"
+  ]
+ },
+ {
+  "input": "I love it plus emoji.",
+  "sentences": [
+   "I love it plus emoji."
+  ]
+ },
+ {
+  "input": "Great job, minus emoji, see you",
+  "sentences": [
+   "Great job, minus emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so divide emojis",
+  "sentences": [
+   "That is so divide emojis"
+  ]
+ },
+ {
+  "input": "send me the arrow up emoji",
+  "sentences": [
+   "send me the arrow up emoji"
+  ]
+ },
+ {
+  "input": "arrow down emoji",
+  "sentences": [
+   "arrow down emoji"
+  ]
+ },
+ {
+  "input": "I love it arrow left emoji.",
+  "sentences": [
+   "I love it arrow left emoji."
+  ]
+ },
+ {
+  "input": "Great job, arrow right emoji, see you",
+  "sentences": [
+   "Great job, arrow right emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so up arrow emojis",
+  "sentences": [
+   "That is so up arrow emojis"
+  ]
+ },
+ {
+  "input": "send me the down arrow emoji",
+  "sentences": [
+   "send me the down arrow emoji"
+  ]
+ },
+ {
+  "input": "left arrow emoji",
+  "sentences": [
+   "left arrow emoji"
+  ]
+ },
+ {
+  "input": "I love it right arrow emoji.",
+  "sentences": [
+   "I love it right arrow emoji."
+  ]
+ },
+ {
+  "input": "Great job, repeat emoji, see you",
+  "sentences": [
+   "Great job, repeat emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so shuffle emojis",
+  "sentences": [
+   "That is so shuffle emojis"
+  ]
+ },
+ {
+  "input": "send me the play button emoji",
+  "sentences": [
+   "send me the play button emoji"
+  ]
+ },
+ {
+  "input": "pause button emoji",
+  "sentences": [
+   "pause button emoji"
+  ]
+ },
+ {
+  "input": "I love it stop button emoji.",
+  "sentences": [
+   "I love it stop button emoji."
+  ]
+ },
+ {
+  "input": "Great job, record button emoji, see you",
+  "sentences": [
+   "Great job, record button emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so fast forward emojis",
+  "sentences": [
+   "That is so fast forward emojis"
+  ]
+ },
+ {
+  "input": "send me the rewind emoji",
+  "sentences": [
+   "send me the rewind emoji"
+  ]
+ },
+ {
+  "input": "groan emoji",
+  "sentences": [
+   "groan emoji"
+  ]
+ },
+ {
+  "input": "I love it grown emoji.",
+  "sentences": [
+   "I love it grown emoji."
+  ]
+ },
+ {
+  "input": "Great job, moan emoji, see you",
+  "sentences": [
+   "Great job, moan emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so sad face emojis",
+  "sentences": [
+   "That is so sad face emojis"
+  ]
+ },
+ {
+  "input": "send me the crying face emoji",
+  "sentences": [
+   "send me the crying face emoji"
+  ]
+ },
+ {
+  "input": "happy emoji",
+  "sentences": [
+   "happy emoji"
+  ]
+ },
+ {
+  "input": "I love it laugh emoji.",
+  "sentences": [
+   "I love it laugh emoji."
+  ]
+ },
+ {
+  "input": "Great job, lol emoji, see you",
+  "sentences": [
+   "Great job, lol emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so smiling emojis",
+  "sentences": [
+   "That is so smiling emojis"
+  ]
+ },
+ {
+  "input": "send me the thumbs emoji",
+  "sentences": [
+   "send me the thumbs emoji"
+  ]
+ },
+ {
+  "input": "thumb up emoji",
+  "sentences": [
+   "thumb up emoji"
+  ]
+ },
+ {
+  "input": "I love it thumbs up sign emoji.",
+  "sentences": [
+   "I love it thumbs up sign emoji."
+  ]
+ },
+ {
+  "input": "Great job, heart eyes face emoji, see you",
+  "sentences": [
+   "Great job, heart eyes face emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so hearts emojis",
+  "sentences": [
+   "That is so hearts emojis"
+  ]
+ },
+ {
+  "input": "send me the prayer hands emoji",
+  "sentences": [
+   "send me the prayer hands emoji"
+  ]
+ },
+ {
+  "input": "praying hands emoji",
+  "sentences": [
+   "praying hands emoji"
+  ]
+ },
+ {
+  "input": "I love it flame emoji.",
+  "sentences": [
+   "I love it flame emoji."
+  ]
+ },
+ {
+  "input": "Great job, flames emoji, see you",
+  "sentences": [
+   "Great job, flames emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so hundred percent emojis",
+  "sentences": [
+   "That is so hundred percent emojis"
+  ]
+ },
+ {
+  "input": "send me the tick emoji",
+  "sentences": [
+   "send me the tick emoji"
+  ]
+ },
+ {
+  "input": "cross emoji",
+  "sentences": [
+   "cross emoji"
+  ]
+ },
+ {
+  "input": "I love it exclamation point emoji.",
+  "sentences": [
+   "I love it exclamation point emoji."
+  ]
+ },
+ {
+  "input": "Great job, smiley face emoji emoji, see you",
+  "sentences": [
+   "Great job, smiley face emoji emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so grinning emojis",
+  "sentences": [
+   "That is so grinning emojis"
+  ]
+ },
+ {
+  "input": "send me the poop face emoji",
+  "sentences": [
+   "send me the poop face emoji"
+  ]
+ },
+ {
+  "input": "hooray emoji",
+  "sentences": [
+   "hooray emoji"
+  ]
+ },
+ {
+  "input": "I love it celebrate emoji.",
+  "sentences": [
+   "I love it celebrate emoji."
+  ]
+ },
+ {
+  "input": "Great job, celebration emoji, see you",
+  "sentences": [
+   "Great job, celebration emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so clapping emojis",
+  "sentences": [
+   "That is so clapping emojis"
+  ]
+ },
+ {
+  "input": "send me the clapping hands emoji",
+  "sentences": [
+   "send me the clapping hands emoji"
+  ]
+ },
+ {
+  "input": "waving emoji",
+  "sentences": [
+   "waving emoji"
+  ]
+ },
+ {
+  "input": "I love it wink face emoji.",
+  "sentences": [
+   "I love it wink face emoji."
+  ]
+ },
+ {
+  "input": "Great job, angry face emoji emoji, see you",
+  "sentences": [
+   "Great job, angry face emoji emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so shocked emojis",
+  "sentences": [
+   "That is so shocked emojis"
+  ]
+ },
+ {
+  "input": "send me the surprised emoji",
+  "sentences": [
+   "send me the surprised emoji"
+  ]
+ },
+ {
+  "input": "sleepy emoji",
+  "sentences": [
+   "sleepy emoji"
+  ]
+ },
+ {
+  "input": "I love it tired emoji.",
+  "sentences": [
+   "I love it tired emoji."
+  ]
+ },
+ {
+  "input": "Great job, sick emoji, see you",
+  "sentences": [
+   "Great job, sick emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so nervous emojis",
+  "sentences": [
+   "That is so nervous emojis"
+  ]
+ },
+ {
+  "input": "send me the worried emoji",
+  "sentences": [
+   "send me the worried emoji"
+  ]
+ },
+ {
+  "input": "confused emoji",
+  "sentences": [
+   "confused emoji"
+  ]
+ },
+ {
+  "input": "I love it comma emoji.",
+  "sentences": [
+   "I love it comma emoji."
+  ]
+ },
+ {
+  "input": "Great job, period emoji, see you",
+  "sentences": [
+   "Great job, period emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so full stop emojis",
+  "sentences": [
+   "That is so full stop emojis"
+  ]
+ },
+ {
+  "input": "send me the question mark emoji",
+  "sentences": [
+   "send me the question mark emoji"
+  ]
+ },
+ {
+  "input": "exclamation mark emoji",
+  "sentences": [
+   "exclamation mark emoji"
+  ]
+ },
+ {
+  "input": "I love it exclamation point emoji.",
+  "sentences": [
+   "I love it exclamation point emoji."
+  ]
+ },
+ {
+  "input": "Great job, colon emoji, see you",
+  "sentences": [
+   "Great job, colon emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so semicolon emojis",
+  "sentences": [
+   "That is so semicolon emojis"
+  ]
+ },
+ {
+  "input": "send me the open paren emoji",
+  "sentences": [
+   "send me the open paren emoji"
+  ]
+ },
+ {
+  "input": "close paren emoji",
+  "sentences": [
+   "close paren emoji"
+  ]
+ },
+ {
+  "input": "I love it open parenthesis emoji.",
+  "sentences": [
+   "I love it open parenthesis emoji."
+  ]
+ },
+ {
+  "input": "Great job, close parenthesis emoji, see you",
+  "sentences": [
+   "Great job, close parenthesis emoji, see you"
+  ]
+ },
+ {
+  "input": "That is so new line emojis",
+  "sentences": [
+   "That is so new line emojis"
+  ]
+ },
+ {
+  "input": "send me the newline emoji",
+  "sentences": [
+   "send me the newline emoji"
+  ]
+ },
+ {
+  "input": "next line emoji",
+  "sentences": [
+   "next line emoji"
+  ]
+ },
+ {
+  "input": "Dear Sarah comma can you review the deck question mark",
+  "sentences": [
+   "Dear Sarah comma can you review the deck question mark"
+  ]
+ },
+ {
+  "input": "Dear Sarah, comma, can you review the deck? Question mark.",
+  "sentences": [
+   "Dear Sarah, comma, can you review the deck?",
+   "Question mark."
+  ]
+ },
+ {
+  "input": "new line hello there",
+  "sentences": [
+   "new line hello there"
+  ]
+ },
+ {
+  "input": "first line new line second line next line third line",
+  "sentences": [
+   "first line new line second line next line third line"
+  ]
+ },
+ {
+  "input": "I love it exclamation point see you soon period",
+  "sentences": [
+   "I love it exclamation point see you soon period"
+  ]
+ },
+ {
+  "input": "the plan colon ship it semicolon then rest full stop",
+  "sentences": [
+   "the plan colon ship it semicolon then rest full stop"
+  ]
+ },
+ {
+  "input": "open paren optional close paren works open parenthesis yes close parenthesis",
+  "sentences": [
+   "open paren optional close paren works open parenthesis yes close parenthesis"
+  ]
+ },
+ {
+  "input": "Hi team new paragraph we shipped new paragraph thanks",
+  "sentences": [
+   "Hi team new paragraph we shipped new paragraph thanks"
+  ]
+ },
+ {
+  "input": "new paragraph starts here",
+  "sentences": [
+   "new paragraph starts here"
+  ]
+ },
+ {
+  "input": "um so uh I think, um, we should go",
+  "sentences": [
+   "um so uh I think, um, we should go"
+  ]
+ },
+ {
+  "input": "Um, hello there. Uh, how are you?",
+  "sentences": [
+   "Um, hello there.",
+   "Uh, how are you?"
+  ]
+ },
+ {
+  "input": "hmm erm mmm okay",
+  "sentences": [
+   "hmm erm mmm okay"
+  ]
+ },
+ {
+  "input": "umm",
+  "sentences": [
+   "umm"
+  ]
+ },
+ {
+  "input": "",
+  "sentences": []
+ },
+ {
+  "input": "   leading and trailing spaces   ",
+  "sentences": [
+   "leading and trailing spaces"
+  ]
+ },
+ {
+  "input": "water emoji. And the bridge emoji",
+  "sentences": [
+   "water emoji.",
+   "And the bridge emoji"
+  ]
+ },
+ {
+  "input": "rockets emoji",
+  "sentences": [
+   "rockets emoji"
+  ]
+ },
+ {
+  "input": "cowboy face emoji",
+  "sentences": [
+   "cowboy face emoji"
+  ]
+ },
+ {
+  "input": "this is a random word emoji that does not exist",
+  "sentences": [
+   "this is a random word emoji that does not exist"
+  ]
+ },
+ {
+  "input": "My grocery list is first, milk. Second, eggs. Third, bread.",
+  "sentences": [
+   "My grocery list is first, milk.",
+   "Second, eggs.",
+   "Third, bread."
+  ]
+ },
+ {
+  "input": "Number one, apples. Number two, pears. Number three, plums.",
+  "sentences": [
+   "Number one, apples.",
+   "Number two, pears.",
+   "Number three, plums."
+  ]
+ },
+ {
+  "input": "The steps are number 1 open it number 2 close it",
+  "sentences": [
+   "The steps are number 1 open it number 2 close it"
+  ]
+ },
+ {
+  "input": "I need three things. First pick up the water, second upload your resume, third tell people about our app.",
+  "sentences": [
+   "I need three things.",
+   "First pick up the water, second upload your resume, third tell people about our app."
+  ]
+ },
+ {
+  "input": "First of all, thanks. Second of all, sorry.",
+  "sentences": [
+   "First of all, thanks.",
+   "Second of all, sorry."
+  ]
+ },
+ {
+  "input": "At first I hated it, but the second time was great.",
+  "sentences": [
+   "At first I hated it, but the second time was great."
+  ]
+ },
+ {
+  "input": "Wait a second, the first thing is the budget.",
+  "sentences": [
+   "Wait a second, the first thing is the budget."
+  ]
+ },
+ {
+  "input": "number one number two",
+  "sentences": [
+   "number one number two"
+  ]
+ },
+ {
+  "input": "The winners are number two and number one",
+  "sentences": [
+   "The winners are number two and number one"
+  ]
+ },
+ {
+  "input": "first, second, third,",
+  "sentences": [
+   "first, second, third,"
+  ]
+ },
+ {
+  "input": "Hi Sarah, the deck is ready for review. Thanks, Samir.",
+  "sentences": [
+   "Hi Sarah, the deck is ready for review.",
+   "Thanks, Samir."
+  ]
+ },
+ {
+  "input": "Hey Sam, quick question about the launch. Can we move it to Friday? Cheers, Alex",
+  "sentences": [
+   "Hey Sam, quick question about the launch.",
+   "Can we move it to Friday?",
+   "Cheers, Alex"
+  ]
+ },
+ {
+  "input": "Dear Mr. Clark, I am writing to follow up on our call. Best regards, Jane Doe.",
+  "sentences": [
+   "Dear Mr. Clark, I am writing to follow up on our call.",
+   "Best regards, Jane Doe."
+  ]
+ },
+ {
+  "input": "Good afternoon, Mr. Joseph. I hope you are well. I wanted to check in about the order. Sincerely, Maria.",
+  "sentences": [
+   "Good afternoon, Mr. Joseph.",
+   "I hope you are well.",
+   "I wanted to check in about the order.",
+   "Sincerely, Maria."
+  ]
+ },
+ {
+  "input": "Good evening everyone I hope you had a good day",
+  "sentences": [
+   "Good evening everyone I hope you had a good day"
+  ]
+ },
+ {
+  "input": "Hello Priya, thank you so much for the help yesterday it really made a difference. Talk soon, Dan",
+  "sentences": [
+   "Hello Priya, thank you so much for the help yesterday it really made a difference.",
+   "Talk soon, Dan"
+  ]
+ },
+ {
+  "input": "Hi Sarah new paragraph can you review the deck new paragraph thanks Samir",
+  "sentences": [
+   "Hi Sarah new paragraph can you review the deck new paragraph thanks Samir"
+  ]
+ },
+ {
+  "input": "Dear Sarah, can you please review my pitch deck. Thank you, sincerely, Samir.",
+  "sentences": [
+   "Dear Sarah, can you please review my pitch deck.",
+   "Thank you, sincerely, Samir."
+  ]
+ },
+ {
+  "input": "Thanks Sam.",
+  "sentences": [
+   "Thanks Sam."
+  ]
+ },
+ {
+  "input": "Best, Samir.",
+  "sentences": [
+   "Best, Samir."
+  ]
+ },
+ {
+  "input": "Good morning, Emily. Number one, it's free. Number two, it's open. Best, Samir.",
+  "sentences": [
+   "Good morning, Emily.",
+   "Number one, it's free.",
+   "Number two, it's open.",
+   "Best, Samir."
+  ]
+ },
+ {
+  "input": "Hey Samantha, thank you for getting back with me in the email. I guess three things that I need you to do is first pick up the water, second upload your resume to our app, and then third tell other people about our app. And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time. Best Samir.",
+  "sentences": [
+   "Hey Samantha, thank you for getting back with me in the email.",
+   "I guess three things that I need you to do is first pick up the water, second upload your resume to our app, and then third tell other people about our app.",
+   "And let's also have a meeting tomorrow at 8 p.m. and have your resume ready by that time.",
+   "Best Samir."
+  ]
+ },
+ {
+  "input": "Hello Sarah. thanks for this. Best Samir",
+  "sentences": [
+   "Hello Sarah. thanks for this.",
+   "Best Samir"
+  ]
+ },
+ {
+  "input": "Hi Jo, see you at 3 p.m. Thanks, Sam.",
+  "sentences": [
+   "Hi Jo, see you at 3 p.m.",
+   "Thanks, Sam."
+  ]
+ },
+ {
+  "input": "Dear Prof. Lee, I will be late today. Regards, Kim.",
+  "sentences": [
+   "Dear Prof. Lee, I will be late today.",
+   "Regards, Kim."
+  ]
+ },
+ {
+  "input": "Hi Sarah, I spoke to Dr. Smith today. He agrees. Best wishes, Tom.",
+  "sentences": [
+   "Hi Sarah, I spoke to Dr. Smith today.",
+   "He agrees.",
+   "Best wishes, Tom."
+  ]
+ },
+ {
+  "input": "Good morning Emily. It costs $3.50 today. Cheers, Al.",
+  "sentences": [
+   "Good morning Emily.",
+   "It costs $3.50 today.",
+   "Cheers, Al."
+  ]
+ },
+ {
+  "input": "Hey Mike! How are you? Thanks again, Jen",
+  "sentences": [
+   "Hey Mike!",
+   "How are you?",
+   "Thanks again, Jen"
+  ]
+ },
+ {
+  "input": "Let's change the meeting to Friday, wait no, Thursday.",
+  "sentences": [
+   "Let's change the meeting to Friday, wait no, Thursday."
+  ]
+ },
+ {
+  "input": "the the meeting is at noon period see you there",
+  "sentences": [
+   "the the meeting is at noon period see you there"
+  ]
+ },
+ {
+  "input": "Basically, we need more users. It was, you know, kind of weird.",
+  "sentences": [
+   "Basically, we need more users.",
+   "It was, you know, kind of weird."
+  ]
+ },
+ {
+  "input": "meet at 2, no wait, 3 period then lunch",
+  "sentences": [
+   "meet at 2, no wait, 3 period then lunch"
+  ]
+ },
+ {
+  "input": "that is all period see you tomorrow",
+  "sentences": [
+   "that is all period see you tomorrow"
+  ]
+ },
+ {
+  "input": "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works.",
+  "sentences": [
+   "Let's meet at 3 p.m. where we can talk, or at 9 a.m. if that works."
+  ]
+ },
+ {
+  "input": "I said hi. 5 people came. wow! really? yes.",
+  "sentences": [
+   "I said hi. 5 people came. wow!",
+   "really?",
+   "yes."
+  ]
+ },
+ {
+  "input": "hello... are you there? yes! ok.",
+  "sentences": [
+   "hello... are you there?",
+   "yes!",
+   "ok."
+  ]
+ },
+ {
+  "input": "e.g. this i.e. that etc. and so on. Mr. Smith agreed.",
+  "sentences": [
+   "e.g. this i.e. that etc. and so on.",
+   "Mr. Smith agreed."
+  ]
+ },
+ {
+  "input": "Version 2.0 is out. Great.",
+  "sentences": [
+   "Version 2.0 is out.",
+   "Great."
+  ]
+ },
+ {
+  "input": "ice is nice and I think i'm in",
+  "sentences": [
+   "ice is nice and I think i'm in"
+  ]
+ },
+ {
+  "input": "the quick brown fox jumps over the lazy dog",
+  "sentences": [
+   "the quick brown fox jumps over the lazy dog"
+  ]
+ },
+ {
+  "input": "It's 50% off, $20 total, at 3:30pm.",
+  "sentences": [
+   "It's 50% off, $20 total, at 3:30pm."
+  ]
+ },
+ {
+  "input": "Okay, thank you so much. Bye.",
+  "sentences": [
+   "Okay, thank you so much.",
+   "Bye."
+  ]
+ },
+ {
+  "input": "no no no I love it",
+  "sentences": [
+   "no no no I love it"
+  ]
+ },
+ {
+  "input": "Order pizza, scratch that, order sushi.",
+  "sentences": [
+   "Order pizza, scratch that, order sushi."
+  ]
+ },
+ {
+  "input": "Good morning, Mr. Johnson. I would like it.",
+  "sentences": [
+   "Good morning, Mr. Johnson.",
+   "I would like it."
+  ]
+ },
+ {
+  "input": "Dear Mr. Clark, how are you? Fine.",
+  "sentences": [
+   "Dear Mr. Clark, how are you?",
+   "Fine."
+  ]
+ },
+ {
+  "input": "Meet at 3 p.m. Where are you.",
+  "sentences": [
+   "Meet at 3 p.m.",
+   "Where are you."
+  ]
+ },
+ {
+  "input": "Meet at 3 p.m. where are you.",
+  "sentences": [
+   "Meet at 3 p.m. where are you."
+  ]
+ },
+ {
+  "input": "I spoke to Dr. Smith today. Ok.",
+  "sentences": [
+   "I spoke to Dr. Smith today.",
+   "Ok."
+  ]
+ },
+ {
+  "input": "Bring snacks, e.g. chips, i.e. anything. Done.",
+  "sentences": [
+   "Bring snacks, e.g. chips, i.e. anything.",
+   "Done."
+  ]
+ },
+ {
+  "input": "It costs $3.50 today. Yes.",
+  "sentences": [
+   "It costs $3.50 today.",
+   "Yes."
+  ]
+ },
+ {
+  "input": "Hello... are you there? Yes!",
+  "sentences": [
+   "Hello... are you there?",
+   "Yes!"
+  ]
+ },
+ {
+  "input": "Wait... What? Ok.",
+  "sentences": [
+   "Wait...",
+   "What?",
+   "Ok."
+  ]
+ },
+ {
+  "input": "He said \"Hi.\" Then left.",
+  "sentences": [
+   "He said \"Hi.\"",
+   "Then left."
+  ]
+ },
+ {
+  "input": "Version 2.0 is out. Great.",
+  "sentences": [
+   "Version 2.0 is out.",
+   "Great."
+  ]
+ },
+ {
+  "input": "U.S.A. is big. Yes.",
+  "sentences": [
+   "U.S.A. is big.",
+   "Yes."
+  ]
+ },
+ {
+  "input": "Hi Sarah. thanks for this. Best, Samir.",
+  "sentences": [
+   "Hi Sarah. thanks for this.",
+   "Best, Samir."
+  ]
+ },
+ {
+  "input": "Hello Sarah.How are you",
+  "sentences": [
+   "Hello Sarah.How are you"
+  ]
+ },
+ {
+  "input": "end of it\nNext line here",
+  "sentences": [
+   "end of it",
+   "Next line here"
+  ]
+ },
+ {
+  "input": "end of it.\nnext line",
+  "sentences": [
+   "end of it.",
+   "next line"
+  ]
+ },
+ {
+  "input": "Hi Sarah\n\nCan you",
+  "sentences": [
+   "Hi Sarah",
+   "Can you"
+  ]
+ },
+ {
+  "input": "I said hi. 5 people came.",
+  "sentences": [
+   "I said hi. 5 people came."
+  ]
+ },
+ {
+  "input": "Hey Sam! how are you",
+  "sentences": [
+   "Hey Sam!",
+   "how are you"
+  ]
+ },
+ {
+  "input": "We met at No. 5 today. Ok.",
+  "sentences": [
+   "We met at No. 5 today.",
+   "Ok."
+  ]
+ },
+ {
+  "input": "It is 5 p.m. I will go.",
+  "sentences": [
+   "It is 5 p.m.",
+   "I will go."
+  ]
+ },
+ {
+  "input": "Lunch at 12 p.m. Then go.",
+  "sentences": [
+   "Lunch at 12 p.m.",
+   "Then go."
+  ]
+ },
+ {
+  "input": "The Mr. said no.",
+  "sentences": [
+   "The Mr. said no."
+  ]
+ },
+ {
+  "input": "Ok. (Fine.) Next.",
+  "sentences": [
+   "Ok. (Fine.)",
+   "Next."
+  ]
+ },
+ {
+  "input": "See you at 3 p.m. Thanks, Samir.",
+  "sentences": [
+   "See you at 3 p.m.",
+   "Thanks, Samir."
+  ]
+ },
+ {
+  "input": "Is this ok?Yes.",
+  "sentences": [
+   "Is this ok?",
+   "Yes."
+  ]
+ },
+ {
+  "input": "Sounds good... See you.",
+  "sentences": [
+   "Sounds good...",
+   "See you."
+  ]
+ },
+ {
+  "input": "Dear Prof. Lee, hello. Bye.",
+  "sentences": [
+   "Dear Prof. Lee, hello.",
+   "Bye."
+  ]
+ },
+ {
+  "input": "I love the U.K. It's great.",
+  "sentences": [
+   "I love the U.K. It's great."
+  ]
+ },
+ {
+  "input": "vs. Them. Ok.",
+  "sentences": [
+   "vs. Them.",
+   "Ok."
+  ]
+ },
+ {
+  "input": "One. Two. Three.",
+  "sentences": [
+   "One.",
+   "Two.",
+   "Three."
+  ]
+ },
+ {
+  "input": "Is it? No. Fine.",
+  "sentences": [
+   "Is it?",
+   "No.",
+   "Fine."
+  ]
+ },
+ {
+  "input": "Thanks!! See you.",
+  "sentences": [
+   "Thanks!!",
+   "See you."
+  ]
+ },
+ {
+  "input": "ok?! yes",
+  "sentences": [
+   "ok?!",
+   "yes"
+  ]
+ },
+ {
+  "input": "Mr. Smith went. Mrs. Smith too.",
+  "sentences": [
+   "Mr. Smith went.",
+   "Mrs. Smith too."
+  ]
+ },
+ {
+  "input": "Call me at 5. Sorry, 6.",
+  "sentences": [
+   "Call me at 5.",
+   "Sorry, 6."
+  ]
+ },
+ {
+  "input": "St. Louis is nice. Yes.",
+  "sentences": [
+   "St.",
+   "Louis is nice.",
+   "Yes."
+  ]
+ }
+]
