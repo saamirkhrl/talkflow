@@ -4,6 +4,8 @@
 #                       it and drag talkflow onto Applications.
 #   talkflow-macos.zip  what the in-app updater (Sources/talkflowd/Updater.swift)
 #                       and the website's install.sh unpack.
+# and then attaches talkflow-release.json, the manifest every app checks for
+# updates (scripts/release-manifest.py, docs/releases.md).
 #
 #   ./release.sh 0.2.0            build, tag v0.2.0, publish the release
 #   ./release.sh 0.2.0 --dry-run  build and zip only, publish nothing
@@ -32,6 +34,7 @@ ARCHS=(--arch arm64 --arch x86_64)
 
 if [ "$DRY_RUN" != "--dry-run" ]; then
     command -v gh >/dev/null || { echo "error: the GitHub CLI (gh) is needed to publish" >&2; exit 1; }
+    command -v python3 >/dev/null || { echo "error: python3 is needed to write the release manifest" >&2; exit 1; }
     gh release view "v$VERSION" >/dev/null 2>&1 && { echo "error: release v$VERSION already exists" >&2; exit 1; }
 fi
 
@@ -78,4 +81,10 @@ fi
 
 echo "==> Publishing v$VERSION"
 gh release create "v$VERSION" "$DMG" "$ZIP" --title "talkflow $VERSION" --generate-notes --target "$(git rev-parse HEAD)"
+
+echo "==> Attaching talkflow-release.json"
+# The release is already public, so a failure here does not undo it: the
+# Release manifest workflow also writes the manifest, or rerun the command.
+MANIFEST_CMD=(python3 "$PROJECT_DIR/scripts/release-manifest.py" "v$VERSION" --upload --out "$OUT/talkflow-release.json")
+"${MANIFEST_CMD[@]}" || echo "warning: the manifest was not uploaded; rerun: ${MANIFEST_CMD[*]}" >&2
 echo "==> Done. Commit Packaging/Info.plist (version $VERSION, build $BUILD)."
