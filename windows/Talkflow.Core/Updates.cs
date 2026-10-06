@@ -3,47 +3,82 @@ using System.Text.Json;
 namespace Talkflow.Core;
 
 /// <summary>
-/// Reads GitHub's "latest release" answer for the in-app updater
-/// (Updater.swift's parse and isNewer). The Windows app installs the Inno
-/// Setup installer for its own architecture; the Mac assets are ignored.
+/// Finds the newest talkflow for this PC (Updater.swift's parse and isNewer).
+///
+/// Every release carries talkflow-release.json, one manifest for all
+/// platforms (docs/releases.md): the Windows app reads its own entry,
+/// platforms.windows.&lt;arch&gt;, and verifies the installer's SHA-256 before
+/// running it. A release without a manifest (older ones) falls back to GitHub's
+/// release API and the installer asset by name, with no checksum.
 /// </summary>
 public static class Updates
 {
     public const string Repository = "saamirkhrl/talkflow";
+    public const string ManifestUrl = $"https://github.com/{Repository}/releases/latest/download/talkflow-release.json";
+    public const string LatestReleaseApi = $"https://api.github.com/repos/{Repository}/releases/latest";
 
-    public sealed record Release(string Version, string InstallerUrl, string InstallerName, string? PageUrl);
+    public sealed record Release(string Version, string InstallerUrl, string InstallerName, string? Sha256, long? Size, string? PageUrl);
 
     /// <summary>The installer asset name for an architecture: "x64" or "arm64".</summary>
     public static string InstallerName(string architecture) => $"talkflow-windows-{architecture}-setup.exe";
 
+    /// <summary>This PC's own architecture first, then x64, which Windows on Arm runs through emulation.</summary>
+    static IEnumerable<string> Architectures(string architecture) =>
+        architecture == "x64" ? new[] { "x64" } : new[] { architecture, "x64" };
+
     /// <summary>
-    /// The release, if it is published, not a prerelease, and carries an
-    /// installer this PC can run: its own architecture first, then x64, which
-    /// Windows on Arm runs through emulation.
+    /// The Windows entry of a release manifest. Null when the manifest is
+    /// unreadable, of a newer schema, or has no build this PC can run (a
+    /// release whose Windows installers are not attached yet).
     /// </summary>
+    public static Release? ParseManifest(string json, string architecture)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            if (!root.TryGetProperty("schema", out var schema) || !schema.TryGetInt32(out var s) || s != 1) return null;
+            if (Str(root, "version") is not { Length: > 0 } version) return null;
+            if (!root.TryGetProperty("platforms", out var platforms) || platforms.ValueKind != JsonValueKind.Object) return null;
+            if (!platforms.TryGetProperty("windows", out var windows) || windows.ValueKind != JsonValueKind.Object) return null;
+            foreach (var arch in Architectures(architecture))
+            {
+                if (!windows.TryGetProperty(arch, out var build) || build.ValueKind != JsonValueKind.Object) continue;
+                if (!build.TryGetProperty("update", out var update) || update.ValueKind != JsonValueKind.Object) continue;
+                if (Str(update, "url") is not { Length: > 0 } url || Str(update, "sha256") is not { Length: 64 } sha) continue;
+                long? size = update.TryGetProperty("size", out var sz) && sz.TryGetInt64(out var n) ? n : null;
+                return new Release(version, url, Str(update, "name") ?? InstallerName(arch), sha.ToLowerInvariant(), size, Str(root, "notesUrl"));
+            }
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>GitHub's "latest release" API answer, for releases that predate the manifest.</summary>
     public static Release? Parse(string json, string architecture)
     {
         try
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            if (!root.TryGetProperty("tag_name", out var tagElement) || tagElement.ValueKind != JsonValueKind.String) return null;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            if (Str(root, "tag_name") is not { Length: > 0 } tag) return null;
             if (IsTrue(root, "draft") || IsTrue(root, "prerelease")) return null;
             if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array) return null;
 
-            var wanted = new List<string> { InstallerName(architecture) };
-            if (architecture != "x64") wanted.Add(InstallerName("x64"));
-            foreach (var name in wanted)
+            foreach (var arch in Architectures(architecture))
             {
+                var name = InstallerName(arch);
                 foreach (var asset in assets.EnumerateArray())
                 {
-                    if (asset.TryGetProperty("name", out var n) && n.GetString() == name
-                        && asset.TryGetProperty("browser_download_url", out var url) && url.GetString() is { Length: > 0 } link)
+                    if (Str(asset, "name") == name && Str(asset, "browser_download_url") is { Length: > 0 } link)
                     {
-                        var tag = tagElement.GetString()!;
                         var version = tag.StartsWith('v') ? tag[1..] : tag;
-                        var page = root.TryGetProperty("html_url", out var html) ? html.GetString() : null;
-                        return new Release(version, link, name, page);
+                        return new Release(version, link, name, null, null, Str(root, "html_url"));
                     }
                 }
             }
@@ -54,6 +89,9 @@ public static class Updates
             return null;
         }
     }
+
+    static string? Str(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     static bool IsTrue(JsonElement root, string name) =>
         root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.True;
@@ -70,5 +108,12 @@ public static class Updates
             if (x != y) return x > y;
         }
         return false;
+    }
+
+    /// <summary>Lowercase hex SHA-256 of a file.</summary>
+    public static string Sha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream)).ToLowerInvariant();
     }
 }

@@ -44,6 +44,39 @@ public class DataTests : IDisposable
         Assert.Null(Updates.Parse("not json", "x64"));
     }
 
+    static readonly string Sha = new('a', 64);
+
+    static string Manifest(string windows) => """
+        {"schema":1,"version":"0.3.0","tag":"v0.3.0","notesUrl":"https://e/notes","platforms":{
+          "macos":{"universal":{"update":{"name":"talkflow-macos.zip","url":"https://e/m.zip","sha256":"SHA","size":1}}},
+          "windows":WINDOWS,
+          "linux":{},
+          "plan9":{"x":{}}}}
+        """.Replace("WINDOWS", windows).Replace("SHA", Sha);
+
+    [Fact]
+    public void ReadsTheWindowsEntryOfTheReleaseManifest()
+    {
+        var both = Manifest("""{"x64":{"update":{"name":"talkflow-windows-x64-setup.exe","url":"https://e/x64.exe","sha256":"SHA","size":42}},"arm64":{"update":{"name":"talkflow-windows-arm64-setup.exe","url":"https://e/arm64.exe","sha256":"SHA","size":43}}}""");
+        var x64 = Updates.ParseManifest(both, "x64");
+        Assert.Equal("0.3.0", x64?.Version);
+        Assert.Equal("https://e/x64.exe", x64?.InstallerUrl);
+        Assert.Equal(Sha, x64?.Sha256);
+        Assert.Equal(42, x64?.Size);
+        Assert.Equal("https://e/arm64.exe", Updates.ParseManifest(both, "arm64")?.InstallerUrl);
+
+        var onlyX64 = Manifest("""{"x64":{"update":{"name":"talkflow-windows-x64-setup.exe","url":"https://e/x64.exe","sha256":"SHA","size":42}}}""");
+        Assert.Equal("https://e/x64.exe", Updates.ParseManifest(onlyX64, "arm64")?.InstallerUrl);
+
+        // The Mac release went out before the Windows installers were attached.
+        Assert.Null(Updates.ParseManifest(Manifest("{}"), "x64"));
+        // No checksum, no install.
+        Assert.Null(Updates.ParseManifest(Manifest("""{"x64":{"update":{"url":"https://e/x64.exe"}}}"""), "x64"));
+        Assert.Null(Updates.ParseManifest(Manifest("{}").Replace("\"schema\":1", "\"schema\":2"), "x64"));
+        Assert.Null(Updates.ParseManifest("[]", "x64"));
+        Assert.Null(Updates.ParseManifest("not json", "x64"));
+    }
+
     [Fact]
     public void ReadsAStatsFileTheMacWrote()
     {
