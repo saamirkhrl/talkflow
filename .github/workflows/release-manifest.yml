@@ -1,0 +1,76 @@
+# Keeps talkflow-release.json on each GitHub release in step with the assets
+# attached to it. See docs/releases.md.
+#
+# Runs scripts/release-manifest.py --upload, which only reads the release and
+# replaces its talkflow-release.json asset. It never creates a release or a
+# tag and never removes any other asset.
+name: Release manifest
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to (re)generate the manifest for, e.g. v0.1.4"
+        required: true
+  # The Windows workflow attaches the installers to an existing release, so
+  # the manifest is regenerated once it has finished.
+  workflow_run:
+    workflows: ["Windows"]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  group: release-manifest
+  cancel-in-progress: false
+
+jobs:
+  manifest:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # read the release, upload the manifest asset
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Pick the release
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+          RUN_REF: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          case "$EVENT" in
+            release) tag="$RELEASE_TAG" ;;
+            workflow_dispatch) tag="$INPUT_TAG" ;;
+            workflow_run)
+              # A Windows run started by a release or a tag push carries the
+              # tag here. Otherwise (a run from a branch) refresh the latest
+              # release, which is harmless if nothing changed.
+              tag="$RUN_REF"
+              if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! gh release view "$tag" >/dev/null 2>&1; then
+                tag="$(gh release view --json tagName --jq .tagName)"
+              fi
+              ;;
+          esac
+          if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::not a release tag: '$tag'"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Generate and upload talkflow-release.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          python3 scripts/release-manifest.py "$TAG" --upload --out "$RUNNER_TEMP/talkflow-release.json"
+          cat "$RUNNER_TEMP/talkflow-release.json"
