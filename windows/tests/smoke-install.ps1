@@ -1,0 +1,47 @@
+# Installs a built installer silently on the CI machine, checks the install,
+# runs the installed app's self-checks, uninstalls, and checks that the user's
+# data folder (%APPDATA%\talkflow) survived while everything else is gone.
+#
+#   pwsh windows/tests/smoke-install.ps1 -Installer out\talkflow-windows-x64-setup.exe
+param([Parameter(Mandatory)] [string] $Installer)
+$ErrorActionPreference = 'Stop'
+
+$app = Join-Path $env:LOCALAPPDATA 'Programs\talkflow'
+$local = Join-Path $env:LOCALAPPDATA 'talkflow'
+$data = Join-Path $env:APPDATA 'talkflow'
+
+function Run($exe, $arguments) {
+    $p = Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
+    if ($p.ExitCode -ne 0) { throw "$exe $arguments exited with $($p.ExitCode)" }
+}
+
+Run $Installer @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+foreach ($file in 'talkflow.exe', 'engine\whisper-server.exe', 'unins000.exe') {
+    if (-not (Test-Path (Join-Path $app $file))) { throw "missing after install: $file" }
+}
+if (-not (Test-Path (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\talkflow.lnk'))) { throw "no Start menu shortcut" }
+
+# The installed app runs, renders text exactly like the tests, and reports its setup.
+$exe = Join-Path $app 'talkflow.exe'
+Run $exe @('--formattest', '"um so the the meeting is on Friday, wait no, Thursday period see you there"')
+$format = Get-Content (Join-Path $env:TEMP 'talkflow-formattest.txt') -Raw
+Write-Host $format
+if ($format -notmatch 'So the meeting is on Thursday\. See you there') { throw "unexpected --formattest output" }
+Run $exe @('--enginecheck')
+Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt')
+Run $exe @('--uninstallplan')
+Get-Content (Join-Path $env:TEMP 'talkflow-uninstallplan.txt')
+
+# User data that must survive, and machine data that must not.
+New-Item -ItemType Directory -Force $data, (Join-Path $local 'models') | Out-Null
+Set-Content (Join-Path $data 'stats.json') '{"totalWords":7,"totalSessions":1,"totalSpeakingSeconds":3,"dailyWordCounts":{}}'
+Set-Content (Join-Path $local 'models\placeholder.bin') 'x'
+New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name talkflow -Value "`"$exe`" --background" -Force | Out-Null
+
+Run (Join-Path $app 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
+Start-Sleep -Seconds 3 # the uninstaller finishes from a temporary copy
+if (Test-Path $app) { throw "program folder still there: $app" }
+if (Test-Path $local) { throw "local data still there: $local" }
+if ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -ErrorAction SilentlyContinue).talkflow) { throw "startup entry still there" }
+if (-not (Test-Path (Join-Path $data 'stats.json'))) { throw "user data was removed: $data" }
+Write-Host "install/uninstall smoke test passed; $data kept"
