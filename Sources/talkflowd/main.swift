@@ -99,6 +99,14 @@ if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     exit(0)
 }
 
+// Read-only: what Settings > Uninstall talkflow would do on this Mac, step by
+// step, and where the kept data folder is. Changes nothing.
+if CommandLine.arguments.contains("--uninstallplan") {
+    for (i, step) in Uninstaller.steps().enumerated() { print("\(i + 1). \(step.title)") }
+    print("Kept: \(UserData.directory.path)")
+    exit(0)
+}
+
 // Read-only report of what setup would find: the whisper program, the model,
 // the LaunchAgent, and whether the server answers. Changes nothing.
 if CommandLine.arguments.contains("--enginecheck") {

@@ -539,6 +539,8 @@ final class SettingsModel: ObservableObject {
     /// nothing has, otherwise (is it an error, message).
     @Published var keyStatus: [String: (error: Bool, text: String)] = [:]
     @Published var checking: Set<String> = []
+    /// The step the uninstaller is on, once the user has confirmed it.
+    @Published var uninstallStep: String?
 
     private var styleObserver: NSObjectProtocol?
 
@@ -603,6 +605,10 @@ final class SettingsModel: ObservableObject {
         Vocabulary.forget(word)
         refresh()
     }
+
+    func uninstall() {
+        Uninstaller.confirmAndRun { [weak self] step in self?.uninstallStep = step }
+    }
 }
 
 /// The Settings page: how dictation is written, and the words it has learned.
@@ -637,8 +643,36 @@ private struct SettingsView: View {
                     .disabled(!model.polishAvailable)
                 apiKeys
                 learnedWords
+                yourData
+                uninstall
             }
             .padding(.vertical, 4)
+    }
+
+    private var yourData: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Your data").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+                Text("Your stats, settings and learned words are kept in \(UserData.directory.path). Uninstalling keeps this folder, so installing again picks up where you left off.")
+                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([UserData.directory]) }
+        }
+    }
+
+    private var uninstall: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Uninstall talkflow").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+                Text(model.uninstallStep ?? "Removes the app, the speech engine and models, whisper-cpp from Homebrew, saved API keys, logs and permissions. Keeps your data folder.")
+                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button(model.uninstallStep == nil ? "Uninstall..." : "Uninstalling...") { model.uninstall() }
+                .disabled(model.uninstallStep != nil)
+        }
+        .padding(.top, 6)
     }
 
     private func toggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {

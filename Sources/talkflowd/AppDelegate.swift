@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var onboarding = OnboardingController(startHotkey: { [weak self] in self?.hotkey.start() ?? false })
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // First, so a reinstall has the user's settings before anything reads them.
+        UserData.start()
         statusBar = StatusBar()
         statusBar.onDashboardClicked = { [weak self] in self?.dashboard.show() }
         statusBar.onSetupClicked = { [weak self] in self?.onboarding.show() }

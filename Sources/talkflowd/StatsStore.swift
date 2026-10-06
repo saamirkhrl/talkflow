@@ -19,10 +19,7 @@ final class StatsStore {
     private let queue = DispatchQueue(label: "com.samir.talkflow.stats")
 
     private init() {
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/talkflow")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        fileURL = dir.appendingPathComponent("stats.json")
+        fileURL = UserData.directory.appendingPathComponent("stats.json")
         load()
     }
 
