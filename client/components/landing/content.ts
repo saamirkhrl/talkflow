@@ -101,7 +101,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Does anything get sent to the cloud?",
-    "No. Your audio goes to one place: the speech engine running on your own Mac. The text is typed straight into the app you're using. There's no account and no analytics. The only other request it makes is to GitHub, to see if there's a newer version when you open the dashboard, and an update only installs when you click it.",
+    "No. Your audio goes to one place: the speech engine running on your own Mac. The text is typed straight into the app you're using. There's no account and no analytics. The only other request it makes is to GitHub, to see if there's a newer version (shortly after it starts, every few hours, and when you open the dashboard), and an update only installs when you click it.",
   ],
   [
     "Which key do I hold?",
