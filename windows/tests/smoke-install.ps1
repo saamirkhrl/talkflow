@@ -36,6 +36,8 @@ Get-Content (Join-Path $env:TEMP 'talkflow-uninstallplan.txt')
 New-Item -ItemType Directory -Force $data, (Join-Path $local 'models') | Out-Null
 Set-Content (Join-Path $data 'stats.json') '{"totalWords":7,"totalSessions":1,"totalSpeakingSeconds":3,"dailyWordCounts":{}}'
 Set-Content (Join-Path $local 'models\placeholder.bin') 'x'
+$run = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+if (-not (Test-Path $run)) { New-Item -Path $run | Out-Null } # never -Force: it would wipe other startup entries
 New-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name talkflow -Value "`"$exe`" --background" -Force | Out-Null
 
 Run (Join-Path $app 'unins000.exe') @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')
