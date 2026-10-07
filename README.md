@@ -18,7 +18,9 @@ Requires macOS 13 or later. Windows is in progress (the Windows page says when i
 The app is not notarized yet, so macOS asks you to confirm the first time you
 open a downloaded copy.
 
-**Build from source** (needs the Swift toolchain, `xcode-select --install`):
+**Build from source** (needs the Swift toolchain, `xcode-select --install`, and
+`cmake` to build the speech engine: [cmake.org](https://cmake.org/download/),
+`brew install cmake` or `pip3 install cmake`):
 
 ```bash
 git clone https://github.com/saamirkhrl/talkflow.git
@@ -40,8 +42,15 @@ is what makes it feel smooth. English only.
 Setup walks you through it:
 
 1. Permissions: **Microphone**, **Accessibility** and **Input Monitoring**.
-2. It installs the speech engine (`whisper-cpp` via Homebrew) and downloads the
-   English model (about 500 MB).
+2. It downloads the English model (about 500 MB) and starts the speech engine
+   in the background. The engine (whisper.cpp's `whisper-server`) comes inside
+   the app, at `talkflow.app/Contents/Helpers/whisper-server`, so Homebrew is
+   not needed.
+
+If an earlier talkflow set the engine up with Homebrew's `whisper-cpp`,
+talkflow moves its background service onto the bundled engine the next time it
+starts, keeping your model and settings. Homebrew's `whisper-cpp` stays
+installed; `brew uninstall whisper-cpp` removes it if nothing else needs it.
 
 ## Privacy
 
@@ -63,10 +72,10 @@ Setup walks you through it:
 ## Uninstall
 
 In talkflow's **Settings**, scroll to **Uninstall talkflow** and click
-**Uninstall...**. It removes the app,
-the speech engine and its background service, the speech models, `whisper-cpp`
-from Homebrew (unless another Homebrew package needs it), saved API keys, logs,
-caches, the login item and the app's permissions.
+**Uninstall...**. It removes the app
+(the speech engine is inside it), the engine's background service, the speech
+models, saved API keys, logs, caches, the login item and the app's
+permissions. It does not touch Homebrew or anything installed with it.
 
 Your data folder is kept, so reinstalling picks up where you left off. Delete
 `~/Library/Application Support/talkflow/` for a completely fresh start.
@@ -77,7 +86,8 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete
 |---|---|
 | Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Input Monitoring was just granted, press **Restart talkflow**. |
 | The emoji picker or dictation opens when you press fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
-| Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. |
+| Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. Restart it with `launchctl kickstart -k gui/$(id -u)/com.samir.talkflow.whisperserver`. |
+| Setup says the speech engine is missing from this copy of talkflow | The app is damaged or incomplete. Download talkflow again and replace the copy in Applications. |
 | A permission is on but it still fails | Remove talkflow from that list in System Settings, run **Setup...** again and re-grant it. |
 
 ## Development
@@ -85,6 +95,13 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete
 ```bash
 ./deploy.sh   # release build, install to /Applications, re-sign, restart the LaunchAgent
 ```
+
+The speech engine is built from a pinned whisper.cpp tag by
+`scripts/build-whisper-macos.sh` (needs cmake; the result is cached in
+`.build/whisper-engine`), which `release.sh`, `deploy.sh` and `install.sh` run.
+`scripts/smoke-whisper-macos.sh` transcribes a test recording with it, and
+`.github/workflows/macos-engine.yml` builds and checks it on Apple Silicon and
+Intel.
 
 Self-tests, run against the installed binary:
 
@@ -114,7 +131,7 @@ Source layout (`Sources/talkflowd/`):
 | `TextCommands.swift`, `Cleanup.swift` | spoken punctuation, lists, filler removal |
 | `Hotkey.swift` | fn key via CGEventTap |
 | `Onboarding.swift`, `Permissions.swift` | first-run setup and permissions |
-| `SpeechEngine.swift` | installs and runs whisper-server and the model |
+| `SpeechEngine.swift` | finds the bundled whisper-server, fetches the model, keeps its LaunchAgent pointed at it |
 | `Preferences.swift`, `Vocabulary.swift` | settings and learned words |
 
 The marketing site is a Next.js app in `client/`.

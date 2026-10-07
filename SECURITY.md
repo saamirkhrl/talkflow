@@ -2,7 +2,7 @@
 
 talkflow runs on your Mac and sends nothing to a server. Audio is kept in memory,
 transcribed by a Whisper server listening only on `127.0.0.1`, and never written
-to disk. The only network use is the one-time setup (Homebrew and the model
+to disk. The only network use is the one-time setup (the speech model
 download from Hugging Face) and, if you ask for it, building from source.
 
 ## Reporting a vulnerability
