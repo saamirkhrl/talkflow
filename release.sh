@@ -14,6 +14,15 @@
 # and bumps CFBundleVersion; commit that change along with the release. The zip
 # is signed ad hoc - the updater re-signs it on each Mac with the local
 # "talkflow Local Dev" identity when that Mac has one, so permissions survive.
+#
+# The app carries its own speech engine, whisper.cpp's whisper-server, at
+# talkflow.app/Contents/Helpers/whisper-server, built from a pinned tag by
+# scripts/build-whisper-macos.sh. Users need no Homebrew.
+#
+# Prerequisites on the release machine: the Swift toolchain and Command Line
+# Tools (xcode-select --install), git, cmake 3.23+ (https://cmake.org/download/,
+# or brew install cmake) for the engine, and to publish, gh (signed in) and
+# python3.
 set -euo pipefail
 
 VERSION="${1:-}"
@@ -38,6 +47,10 @@ if [ "$DRY_RUN" != "--dry-run" ]; then
     gh release view "v$VERSION" >/dev/null 2>&1 && { echo "error: release v$VERSION already exists" >&2; exit 1; }
 fi
 
+# First, so a missing cmake stops the release before anything is changed.
+ENGINE="$PROJECT_DIR/.build/whisper-engine"
+"$PROJECT_DIR/scripts/build-whisper-macos.sh" "$ENGINE"
+
 echo "==> Version $VERSION"
 BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
 # sed rather than PlistBuddy, which rewrites the whole file's indentation.
@@ -54,11 +67,19 @@ done
 
 echo "==> Assembling $APP"
 rm -rf "$OUT"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$BIN" "$APP/Contents/MacOS/talkflowd"
 cp "$PLIST" "$APP/Contents/Info.plist"
 cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-codesign --force --deep --sign - "$APP"
+cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server"
+cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+# Inside out: the engine first, then the app, whose signature seals it. The
+# updater's `codesign --force --deep` on each Mac re-signs both the same way.
+codesign --force --sign - --identifier com.samir.talkflow.whisper-server "$APP/Contents/Helpers/whisper-server"
+codesign --force --sign - "$APP"
+codesign --verify --deep --strict "$APP" || { echo "error: $APP does not verify" >&2; exit 1; }
+"$APP/Contents/Helpers/whisper-server" --help >/dev/null 2>&1 || { echo "error: the bundled whisper-server does not run" >&2; exit 1; }
+"$PROJECT_DIR/scripts/build-whisper-macos.sh" --check "$APP/Contents/Helpers/whisper-server"
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ZIP"
 echo "    $(du -h "$ZIP" | cut -f1)  $ZIP"
 
