@@ -48,6 +48,7 @@ $work = Join-Path $Out 'files'
 New-Item -ItemType Directory -Force $work | Out-Null
 
 $failures = New-Object System.Collections.Generic.List[string]
+$script:notepadMisses = New-Object System.Collections.Generic.List[string]
 $results = New-Object System.Collections.Generic.List[string]
 function Say($text) { Write-Host ("[{0:HH:mm:ss.fff}] {1}" -f (Get-Date), $text) }
 function Fail($text) { Say "FAIL: $text"; $failures.Add($text) }
@@ -117,12 +118,16 @@ function CloseIntruders {
         Start-Sleep -Seconds 1
     }
     # The Arm runner can open a "WSL must be updated" prompt by itself, which
-    # then takes the foreground in the middle of a dictation.
-    $wsl = Get-Process wsl, wslhost -ErrorAction SilentlyContinue
-    if ($wsl) {
-        Say "closing a WSL prompt the runner opened (pid $($wsl.Id -join ', '))"
-        $wsl | Stop-Process -Force
-        Start-Sleep -Seconds 1
+    # then takes the foreground in the middle of a dictation. It says "Press
+    # ESC to cancel", so it gets Escape; killing wsl.exe instead left its
+    # window up and Notepad then failed to open.
+    for ($i = 0; $i -lt 3; $i++) {
+        $prompt = [E2e]::FindWindow('wsl.exe')
+        if ($prompt -eq [IntPtr]::Zero) { break }
+        Say "cancelling a WSL prompt the runner opened: $([E2e]::Describe($prompt))"
+        [void][E2e]::Focus($prompt)
+        [void][E2e]::Press([E2e]::VK_ESCAPE, $false); [void][E2e]::Press([E2e]::VK_ESCAPE, $true)
+        Start-Sleep -Seconds 2
     }
     for ($i = 0; $i -lt 5; $i++) {
         $front = [E2e]::GetForegroundWindow()
@@ -147,6 +152,8 @@ function OpenNotepad($name) {
     Start-Process notepad.exe -ArgumentList "`"$file`"" | Out-Null
     $script:hwnd = [IntPtr]::Zero
     if (-not (WaitFor { $script:hwnd = [E2e]::FindWindow($name); $script:hwnd -ne [IntPtr]::Zero } 30 "Notepad with $name")) {
+        Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
+        Get-Process -Name notepad -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, MainWindowTitle | Out-String | Write-Host
         throw "Notepad did not open $file"
     }
     Start-Sleep -Seconds 1
@@ -155,7 +162,9 @@ function OpenNotepad($name) {
 
 # Holds Ctrl + Win for the WAV's length, then lets go in the given order,
 # watching talkflow the whole time. Then waits for the text to arrive.
-function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst) {
+# $intoNotepad: whether the text check is judged against the Notepad control
+# at the end (see there) instead of failing at once.
+function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst, [bool] $intoNotepad = $false) {
     Say "=== $label ==="
     CloseIntruders
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
@@ -223,7 +232,10 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Say "talkflow.log during this dictation:"
     $newLines | ForEach-Object { Write-Host "    $_" }
 
-    if (-not $arrived) { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    if (-not $arrived) {
+        if ($intoNotepad) { $script:notepadMisses.Add("${label}: the dictation never arrived (expected '$Expect')") }
+        else { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    }
     if ($unanswered -gt 0 -or $script:unansweredAfter -gt 0) { Fail "${label}: talkflow's windows stopped answering ($unanswered while holding, $($script:unansweredAfter) after)" }
     if ($stalls.Count -gt 0) { Fail "${label}: talkflow.log reports $($stalls.Count) UI stall line(s)" }
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
@@ -257,26 +269,12 @@ try {
     $env:TALKFLOW_LOG_TRANSCRIPTS = '1' # the test's own recording, so the log may show it
 
     CloseIntruders
-    # Control: the same kind of keystrokes talkflow sends (Unicode, 16 per
-    # SendInput call), typed by this script with talkflow not running. If
-    # this already comes out wrong, the app being typed into is the cause.
-    $control = OpenNotepad 'control'
-    if ([E2e]::Focus($control)) {
-        # Not the test phrase, so this tab can never pass for a dictation.
-        $sentence = 'The quick brown fox jumps over the lazy dog, then naps in the sun.'
-        [E2e]::TypeUnicode($sentence, 16, 4)
-        Start-Sleep -Seconds 1
-        $typed = ReadText $control
-        Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
-        $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
-    }
-
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
 
     # 1. Notepad.
     $note1 = OpenNotepad 'pass1'
-    Dictate 'notepad' $note1 { ReadText $note1 } 'win'
+    Dictate 'notepad' $note1 { ReadText $note1 } 'win' $true
 
     # 2. talkflow's own setup window, the "Try it" box.
     $script:slowestAfter = 0; $script:unansweredAfter = 0
@@ -304,7 +302,33 @@ try {
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
     $note3 = OpenNotepad 'pass3'
-    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win'
+    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win' $true
+
+    # Control, last (Windows 11 Notepad does not reopen quickly after being
+    # closed, and opens files as tabs): the same kind of keystrokes talkflow
+    # sends (Unicode, 16 per SendInput call), typed by this script with
+    # talkflow stopped. If this comes out wrong, the app typed into is the cause.
+    StopTalkflow
+    $control = OpenNotepad 'control'
+    if ([E2e]::Focus($control)) {
+        # Not the test phrase, so this tab can never pass for a dictation.
+        $sentence = 'The quick brown fox jumps over the lazy dog, then naps in the sun.'
+        [E2e]::TypeUnicode($sentence, 16, 4)
+        Start-Sleep -Seconds 1
+        $typed = ReadText $control
+        Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
+        $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
+        $script:controlGarbled = $typed -ne $sentence
+    }
+    # A Notepad pass whose text did not arrive fails, unless Notepad on this
+    # machine also garbled the script's own keystrokes, with talkflow
+    # stopped: then Notepad cannot tell anything about talkflow, and the
+    # other checks of those passes (stalls, pill, keys, answers) still count.
+    foreach ($miss in $script:notepadMisses) {
+        if ($script:controlGarbled) { $results.Add("inconclusive, Notepad garbles keystrokes on this machine: $miss") }
+        else { Fail $miss }
+    }
+
 }
 catch {
     Fail "error: $($_.Exception.Message)"
