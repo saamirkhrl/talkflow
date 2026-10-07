@@ -857,10 +857,13 @@ private struct OnboardingView: View {
     private let gutter: CGFloat = 36
 
     /// The steps in the progress bar; the welcome page comes before them.
+    /// The steps people see. Input Monitoring is not one of them: the
+    /// Accessibility grant covers the Fn key (Permissions.inputMonitoring),
+    /// so its step only appears, counted with Accessibility, in the unlikely
+    /// case that the key still cannot be heard.
     private static let tracked: [(step: OnboardingStep, label: String)] = [
         (.microphone, "Microphone"),
         (.accessibility, "Accessibility"),
-        (.inputMonitoring, "Input Monitoring"),
         (.engine, "Speech engine"),
         (.ready, "Try it"),
     ]
@@ -1081,7 +1084,8 @@ private struct OnboardingView: View {
     }
 
     private func stepEyebrow() -> some View {
-        let index = (Self.tracked.firstIndex { $0.step == model.step } ?? 0) + 1
+        let shown = model.step == .inputMonitoring ? OnboardingStep.accessibility : model.step
+        let index = (Self.tracked.firstIndex { $0.step == shown } ?? 0) + 1
         return eyebrow("Step \(index) of \(Self.tracked.count)")
     }
 
@@ -1164,7 +1168,7 @@ private struct OnboardingView: View {
         let (name, detail): (String, String) = {
             switch step {
             case .microphone: return ("Microphone", "To hear you")
-            case .accessibility: return ("Accessibility", "To type into your apps")
+            case .accessibility: return ("Accessibility", "To notice Fn and type into your apps")
             case .inputMonitoring: return ("Input Monitoring", "To notice when you hold Fn")
             case .engine: return ("Speech engine", "A one-time download, about 490 MB")
             case .welcome, .ready: return ("Try it", "Right here, before you go")
@@ -1324,7 +1328,7 @@ private struct OnboardingView: View {
             panel {
                 if model.needsRestart {
                     statusLine(.warn, "macOS needs talkflow to restart")
-                    small("Input Monitoring is on, but macOS applies it to a fresh start. Press Restart talkflow, then hold Fn in any text field.")
+                    small("macOS applies the new permission when talkflow starts again. Press Restart talkflow, then hold Fn in any text field.")
                 } else if model.hotkeyRunning {
                     statusLine(.good, "Fn key is listening")
                 } else {

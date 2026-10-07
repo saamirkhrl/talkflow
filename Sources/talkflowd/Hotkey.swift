@@ -35,7 +35,7 @@ final class HotkeyMonitor {
             callback: hotkeyEventCallback,
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("talkflowd: CGEvent.tapCreate returned nil - Input Monitoring not granted")
+            print("talkflowd: CGEvent.tapCreate returned nil - neither Accessibility nor Input Monitoring applies to this copy")
             return false
         }
 
