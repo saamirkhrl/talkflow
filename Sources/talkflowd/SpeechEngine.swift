@@ -300,6 +300,9 @@ final class FileDownloader: NSObject, URLSessionDownloadDelegate {
     private let onFinish: (Error?) -> Void
     private var session: URLSession?
     private var finished = false
+    /// Where a download that stopped had got to, when the server allows
+    /// picking it up again. Pass it to the next `start` to continue.
+    private(set) var resumeData: Data?
 
     init(
         destination: URL,
@@ -313,13 +316,19 @@ final class FileDownloader: NSObject, URLSessionDownloadDelegate {
         self.onFinish = onFinish
     }
 
-    func start(url: URL) {
+    /// Starts the download, or continues an earlier one from its
+    /// `resumeData` (falling back to the start if that cannot be used).
+    func start(url: URL, resumeData: Data? = nil) {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.urlCache = nil
         configuration.timeoutIntervalForRequest = 60
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
         self.session = session
-        session.downloadTask(with: url).resume()
+        if let resumeData {
+            session.downloadTask(withResumeData: resumeData).resume()
+        } else {
+            session.downloadTask(with: url).resume()
+        }
     }
 
     func cancel() {
@@ -358,7 +367,9 @@ final class FileDownloader: NSObject, URLSessionDownloadDelegate {
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        if let error { complete(error) }
+        guard let error else { return }
+        resumeData = (error as? URLError)?.downloadTaskResumeData
+        complete(error)
     }
 
     private func complete(_ error: Error?) {
