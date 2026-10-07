@@ -492,6 +492,9 @@ enum EngineSetup {
     static let downloadingMessage = "Downloading the speech model"
     /// How a failed download's message starts (setup then says it resumes).
     static let downloadStopped = "The download stopped"
+    /// How a failed Homebrew install's message starts (setup then shows the
+    /// Terminal command).
+    static let homebrewFailed = "Homebrew could not install it."
     /// The model's size, for "x of y MB" (487,614,201 bytes).
     static let modelMegabytes = 488.0
     /// How many times a dropped connection is picked up again by itself
@@ -518,7 +521,7 @@ enum EngineSetup {
                     post(.working("Installing the Whisper program with Homebrew...\n\(line)", nil))
                 }
                 guard result.succeeded, SpeechEngine.serverBinary() != nil else {
-                    post(.failed("Homebrew could not install it.\n\(result.tail)"))
+                    post(.failed("\(homebrewFailed)\n\(result.tail)"))
                     return
                 }
             }
@@ -1789,6 +1792,11 @@ private struct OnboardingView: View {
                         .lineLimit(7)
                     if message.hasPrefix(EngineSetup.downloadStopped) {
                         small("Check your internet connection, then press Try again. The download picks up where it stopped.")
+                    } else if message.hasPrefix(EngineSetup.homebrewFailed) {
+                        Text("Or in Terminal: brew install whisper-cpp")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.graphite)
+                            .textSelection(.enabled)
                     }
                 }
             }
