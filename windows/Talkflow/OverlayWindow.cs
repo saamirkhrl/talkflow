@@ -110,6 +110,24 @@ sealed class OverlayWindow : Window
         Top = area.Bottom / scale - ActualHeight - 24;
     }
 
+    /// <summary>
+    /// Shows the window once, invisible and off screen, then hides it. The
+    /// first show of a WPF window builds its render target, which held the UI
+    /// thread for about two seconds on a Windows on Arm machine; done at
+    /// launch, the first hold's pill appears at once.
+    /// </summary>
+    public void Prewarm()
+    {
+        if (IsVisible) return;
+        var opacity = Opacity;
+        Opacity = 0;
+        Left = -32000;
+        Top = -32000;
+        base.Show();
+        base.Hide();
+        Opacity = opacity;
+    }
+
     public new void Show()
     {
         _holding = true;

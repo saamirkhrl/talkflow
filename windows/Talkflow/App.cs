@@ -158,6 +158,11 @@ sealed class App : Application
         StartupEntry.Refresh();
 
         Overlay = new OverlayWindow();
+        // The first show of the pill and the first window that uses Ui's
+        // shared resources each cost a second or two on a slow PC. Pay both
+        // now, after startup, instead of during the first hold or setup.
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => { UiWatchdog.Step = "prewarm: pill"; Overlay.Prewarm(); UiWatchdog.Step = "idle"; });
+        Task.Run(WarmImageDecoding);
         Hotkey = new HotkeyListener(Prefs.Hotkey, action => Dispatcher.BeginInvoke(action));
         Tray = new TrayIcon(this);
         _dictation = new Dictation(this);
@@ -195,6 +200,28 @@ sealed class App : Application
         _ = StartEngine();
         if (NeedsSetup) ShowOnboarding();
         else if (!background) ShowDashboard();
+    }
+
+    /// <summary>
+    /// Decodes the app icon once in the background, so the image codec is
+    /// loaded before the first window needs it (setup's first open held the
+    /// UI thread for 1.7 s there). Never throws: it only saves time.
+    /// </summary>
+    static void WarmImageDecoding()
+    {
+        try
+        {
+            var image = new System.Windows.Media.Imaging.BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri("pack://application:,,,/talkflow;component/Assets/talkflow-256.png");
+            image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
+        }
+        catch (Exception e)
+        {
+            Log.Write($"image decoding warm-up skipped: {e.Message}");
+        }
     }
 
     void OnUpdaterChanged() => Dispatcher.BeginInvoke(() =>
