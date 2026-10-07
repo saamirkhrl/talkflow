@@ -41,7 +41,9 @@ is what makes it feel smooth. English only.
 
 Setup walks you through it:
 
-1. Permissions: **Microphone**, **Accessibility** and **Input Monitoring**.
+1. Permissions: **Microphone** and **Accessibility**. Accessibility also lets
+   talkflow notice the fn key, so it does not ask for Input Monitoring (and
+   is not listed there).
 2. It downloads the English model (about 500 MB) and starts the speech engine
    in the background. The engine (whisper.cpp's `whisper-server`) comes inside
    the app, at `talkflow.app/Contents/Helpers/whisper-server`, so Homebrew is
@@ -84,11 +86,11 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete
 
 | Symptom | Fix |
 |---|---|
-| Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Input Monitoring was just granted, press **Restart talkflow**. |
+| Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Accessibility was just granted, press **Restart talkflow**. |
 | The emoji picker or dictation opens when you press fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
 | Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. Restart it with `launchctl kickstart -k gui/$(id -u)/com.samir.talkflow.whisperserver`. |
 | Setup says the speech engine is missing from this copy of talkflow | The app is damaged or incomplete. Download talkflow again and replace the copy in Applications. |
-| A permission is on but it still fails | Remove talkflow from that list in System Settings, run **Setup...** again and re-grant it. |
+| A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Open **Setup...** and press **Reset and allow again** on that step, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
 
 ## Development
 
@@ -112,6 +114,7 @@ $B --typetest                # the writing layer (takes focus)
 $B --rectest 3               # mic capture and transcription round trip
 $B --formattest "raw text"   # the text pipeline, no microphone
 $B --dashboardshot           # render the dashboard to PNGs
+$B --onboardingshot [dir]    # render every setup step to PNGs (fake permissions)
 $B --enginecheck             # setup state: engine, model, permissions
 $B --uninstallplan           # what Uninstall would remove, changes nothing
 $B --focusprobe              # what the focused element accepts

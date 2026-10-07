@@ -119,6 +119,10 @@ enum StreamSelfTest {
         runWritingStyleCases()
         runUpdaterCases()
         runEngineCases()
+        runOnboardingStepCases()
+        runPermissionGrantCases()
+        runOnboardingProgressCases()
+        runEffortlessSetupCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -960,6 +964,514 @@ enum StreamSelfTest {
         check(!titles.contains { $0.lowercased().hasPrefix("uninstall") }, "uninstall: no Homebrew package is uninstalled", "\(titles)")
         check(titles.contains { $0.contains(SpeechEngine.agentPlistURL.path) } && titles.contains { $0.contains("speech models") },
               "uninstall: the agent and the models are still removed")
+    }
+
+    /// Setup keeps its step when the window comes back after a grant, moves
+    /// on by itself when the pending grant lands, and resumes after a relaunch.
+    private static func runOnboardingStepCases() {
+        report("case: setup keeps its step and moves on when a grant lands")
+        typealias G = PermissionGrants
+        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
+        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
+        let micAX = G(microphone: true, accessibility: true, inputMonitoring: false)
+        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
+        let micIM = G(microphone: true, accessibility: false, inputMonitoring: true)
+
+        // The pure rule.
+        for step in OnboardingStep.allCases {
+            for grants in [none, mic, micAX, all, micIM] {
+                check(OnboardingFlow.stepAfterRefresh(current: step, before: grants, now: grants) == step,
+                      "flow: nothing changed keeps \(step) (grants \(grants.microphone)/\(grants.accessibility)/\(grants.inputMonitoring))")
+            }
+        }
+        check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: none, now: mic) == .accessibility,
+              "flow: the microphone grant moves on to Accessibility")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: mic, now: micAX) == .inputMonitoring,
+              "flow: the Accessibility grant moves on to Input Monitoring")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micIM, now: all) == .engine,
+              "flow: an already granted Input Monitoring is skipped")
+        check(OnboardingFlow.stepAfterRefresh(current: .inputMonitoring, before: micAX, now: all) == .engine,
+              "flow: the Input Monitoring grant moves on to the engine")
+        check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: mic, now: micAX) == .microphone,
+              "flow: a grant for another step does not move this one")
+        check(OnboardingFlow.stepAfterRefresh(current: .welcome, before: none, now: all) == .welcome,
+              "flow: the welcome page never moves by itself")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micAX, now: mic) == .accessibility,
+              "flow: a lost grant does not move the step")
+
+        check(OnboardingFlow.initialStep(completed: false, saved: nil, grants: none, engineInstalled: false) == .welcome,
+              "flow: a first run opens on the welcome page")
+        check(OnboardingFlow.initialStep(completed: false, saved: .accessibility, grants: mic, engineInstalled: false) == .accessibility,
+              "flow: an interrupted first run resumes on its step")
+        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: all, engineInstalled: false) == .engine,
+              "flow: an interrupted first run moves past a grant that landed during the relaunch")
+        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: micIM, engineInstalled: false) == .accessibility,
+              "flow: an interrupted first run goes back to a grant that was lost")
+        check(OnboardingFlow.initialStep(completed: true, saved: nil, grants: micIM, engineInstalled: true) == .accessibility,
+              "flow: a finished setup reopens on what is missing")
+
+        // The model, with fake permissions, as the window drives it.
+        let fake = FakeSystem()
+        let defaults = EphemeralDefaults()
+        let environment = fake.environment(defaults: defaults)
+        let model = OnboardingModel(startHotkey: { true }, environment: environment)
+        var raised = 0
+        model.bringToFront = { raised += 1 }
+        model.begin()
+        check(model.step == .welcome, "model: a first run opens on the welcome page", "\(model.step)")
+        model.goNext()
+        check(model.step == .microphone, "model: Get started goes to the microphone", "\(model.step)")
+        fake.mic = .granted
+        model.refresh(announce: true)
+        check(model.step == .accessibility, "model: the microphone grant moves on by itself", "\(model.step)")
+        check(raised == 1, "model: a grant brings the window forward", "\(raised)")
+        model.refresh(announce: true)
+        model.begin() // what showing the window again does (menu bar, or a grant raising it)
+        check(model.step == .accessibility, "model: showing the window again keeps the step", "\(model.step)")
+        fake.ax = true
+        model.refresh(announce: true)
+        model.begin()
+        check(model.step == .inputMonitoring, "model: back from System Settings, the Accessibility step is done, not the first page", "\(model.step)")
+        model.stop()
+
+        // macOS relaunches the app after the Input Monitoring grant.
+        fake.im = true
+        check(Onboarding.wasInterrupted(defaults: defaults), "model: an unfinished first run opens again on launch")
+        let relaunched = OnboardingModel(startHotkey: { true }, environment: environment)
+        relaunched.begin()
+        check(relaunched.step == .engine, "model: after a relaunch setup resumes past the granted step", "\(relaunched.step)")
+        relaunched.stop()
+        // What finish() records (not called here: it changes the login item).
+        defaults.set(true, forKey: Onboarding.completedKey)
+        check(!Onboarding.wasInterrupted(defaults: defaults), "model: a finished setup does not reopen on launch")
+    }
+
+    /// A grant made to an older (ad-hoc signed) build: told apart from a
+    /// missing one, explained, and fixed with a tccutil reset of talkflow's
+    /// own entry only.
+    private static func runPermissionGrantCases() {
+        report("case: a grant made to an older build is found and can be reset")
+        let a = "cdhash H\"aaaa\"", b = "cdhash H\"bbbb\""
+        check(GrantStatus.classify(trusted: true, grantedTo: a, current: b, userSaysOn: true, backFromSettings: true) == .granted,
+              "stale: a trusted permission is granted, whatever else is known")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: never granted is missing")
+        check(GrantStatus.classify(trusted: false, grantedTo: b, current: b, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: switched off for this same build is missing, not stale")
+        check(GrantStatus.classify(trusted: false, grantedTo: a, current: b, userSaysOn: false, backFromSettings: false) == .stale(.appChanged),
+              "stale: granted to a build with another signature is stale")
+        check(GrantStatus.classify(trusted: false, grantedTo: a, current: nil, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: an unreadable signature is not guessed at")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: true, backFromSettings: false) == .stale(.userSaysOn),
+              "stale: the user saying it is on is believed")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: false, backFromSettings: true) == .stale(.backFromSettings),
+              "stale: back from System Settings and still not applying")
+
+        // tccutil: only ever this app's own entry.
+        check(Permissions.tccResetArguments(.accessibility, bundleID: "com.samir.talkflow") == ["reset", "Accessibility", "com.samir.talkflow"],
+              "tccutil: Accessibility for talkflow")
+        check(Permissions.tccResetArguments(.inputMonitoring, bundleID: "com.samir.talkflow") == ["reset", "ListenEvent", "com.samir.talkflow"],
+              "tccutil: Input Monitoring is ListenEvent")
+        check(Permissions.tccResetArguments(.microphone, bundleID: "com.samir.talkflow") == ["reset", "Microphone", "com.samir.talkflow"],
+              "tccutil: Microphone")
+        check(Permissions.tccResetArguments(.accessibility, bundleID: "com.samir.talkflow.test") == ["reset", "Accessibility", "com.samir.talkflow.test"],
+              "tccutil: a test copy resets its own identifier")
+        for bad in [nil, "", "talkflowd", " com.samir.talkflow", "com.samir.talkflow;rm", "com.samir talkflow", ".com.samir", "com.samir.", "All", "com.sam\u{0131}r.talkflow"] as [String?] {
+            check(Permissions.tccResetArguments(.accessibility, bundleID: bad) == nil,
+                  "tccutil: no reset without a plain bundle id (\(String(describing: bad))), which would reset every app")
+        }
+        check(Permissions.Service.allCases.allSatisfy { $0.rawValue != "All" }, "tccutil: no service resets everything")
+        for service in Permissions.Service.allCases {
+            let args = Permissions.tccResetArguments(service, bundleID: "com.samir.talkflow") ?? []
+            check(args.count == 3 && args.last == "com.samir.talkflow", "tccutil: \(service.rawValue) always names the bundle id")
+        }
+
+        check(!Onboarding.opensOnLaunch(allGranted: true, engineInstalled: true, interrupted: false, forced: false),
+              "launch: an update whose grants still apply does not open setup")
+        check(Onboarding.opensOnLaunch(allGranted: false, engineInstalled: true, interrupted: false, forced: false),
+              "launch: a grant that no longer applies opens setup")
+
+        let help = Onboarding.staleHelp(.accessibility, .appChanged)
+        check(help.fix.contains("- button") && help.fix.contains("+"), "help: the hand fix says remove with - and add with +")
+        check(!Onboarding.staleHelp(.microphone, .appChanged).fix.contains("- button"), "help: the microphone list has no - button, so it says off and on")
+        let allHelp = Permissions.Service.allCases.flatMap { service in
+            [StaleReason.appChanged, .userSaysOn, .backFromSettings].map { Onboarding.staleHelp(service, $0) }
+        }
+        check(allHelp.allSatisfy { ($0.why + $0.fix).allSatisfy(\.isASCII) }, "help: plain ASCII")
+
+        // An update: the old build had everything; the new one is signed differently.
+        let fake = FakeSystem()
+        let defaults = EphemeralDefaults()
+        fake.mic = .granted; fake.ax = true; fake.im = true
+        fake.requirement = a
+        let before = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
+        before.begin()
+        before.stop()
+        check(defaults.object(forKey: Onboarding.completedKey) == nil, "update: setup was closed without pressing finish")
+
+        fake.requirement = b
+        fake.ax = false; fake.im = false
+        let after = OnboardingModel(startHotkey: { false }, environment: fake.environment(defaults: defaults))
+        after.begin()
+        check(after.step == .accessibility, "update: setup opens on the step that needs attention, not the first page", "\(after.step)")
+        check(after.status(.accessibility) == .stale(.appChanged), "update: Accessibility is explained as stale", "\(after.status(.accessibility))")
+        check(after.status(.inputMonitoring) == .stale(.appChanged), "update: Input Monitoring is explained as stale")
+        check(after.status(.microphone) == .granted, "update: a grant that still applies is fine")
+
+        after.resetAndAskAgain(.accessibility)
+        check(fake.resets == [.accessibility], "reset: only Accessibility is reset", "\(fake.resets)")
+        check(after.status(.accessibility) == .missing, "reset: afterwards it is simply missing", "\(after.status(.accessibility))")
+        check(fake.requests.last == .accessibility, "reset: macOS is asked again")
+        check(after.status(.inputMonitoring) == .stale(.appChanged), "reset: the other permission is left alone")
+        fake.ax = true
+        after.refresh(announce: true)
+        check(after.step == .inputMonitoring, "reset: the new grant moves setup on", "\(after.step)")
+
+        fake.resetSucceeds = false
+        after.resetAndAskAgain(.inputMonitoring)
+        check(after.resetFailed == .inputMonitoring, "reset: a failed reset is reported")
+        check(after.status(.inputMonitoring).isStale, "reset: and the fix stays on screen")
+        after.stop()
+
+        fake.requirement = a
+        fake.ax = true; fake.im = true
+        fake.engineInstalled = true
+        let fine = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
+        fine.begin()
+        check(fine.step == .ready, "update: with every grant applying, Setup opens on the last page, not the first", "\(fine.step)")
+        fine.stop()
+
+        // A first run: Allow, System Settings, back without it applying.
+        let fresh = FakeSystem()
+        let freshDefaults = EphemeralDefaults()
+        fresh.mic = .granted
+        let model = OnboardingModel(startHotkey: { false }, environment: fresh.environment(defaults: freshDefaults))
+        model.begin()
+        check(model.step == .accessibility, "first run: a Mac that already granted the microphone starts on what is missing", "\(model.step)")
+        model.allow(.accessibility)
+        check(fresh.requests == [.accessibility] && fresh.settingsOpened.isEmpty, "allow: the first click shows macOS's prompt")
+        model.allow(.accessibility)
+        check(fresh.settingsOpened == [.accessibility], "allow: a later click opens System Settings, so it always does something")
+        check(model.status(.accessibility) == .missing, "allow: not stale while the user is still in System Settings")
+        model.appBecameActive(awayFor: 1)
+        check(model.status(.accessibility) == .missing, "back: a moment away (macOS's own prompt) is not a visit to System Settings")
+        model.appBecameActive(awayFor: 20)
+        check(model.status(.accessibility) == .stale(.backFromSettings), "back: still not applying after System Settings shows the fix")
+        check(model.step == .accessibility, "back: and keeps the step")
+        fresh.ax = true
+        model.refresh(announce: true)
+        check(model.status(.accessibility) == .granted && model.backFromSettings.isEmpty, "back: a grant that lands clears it")
+        check(model.step == .inputMonitoring, "back: and moves on", "\(model.step)")
+        model.reportAlreadyOn(.inputMonitoring)
+        check(model.status(.inputMonitoring) == .stale(.userSaysOn), "already on: the user's word shows the fix")
+        model.stop()
+
+        // The microphone: not asked yet means the prompt will record this build.
+        fresh.mic = .notDetermined
+        fresh.requirement = b
+        PermissionHistory(defaults: freshDefaults).record(.microphone, granted: true, requirement: a)
+        let micModel = OnboardingModel(startHotkey: { false }, environment: fresh.environment(defaults: freshDefaults))
+        check(micModel.status(.microphone) == .missing, "microphone: not yet asked is missing, the prompt fixes it")
+        fresh.mic = .denied
+        micModel.refresh(announce: false)
+        check(micModel.status(.microphone) == .stale(.appChanged), "microphone: denied after an update is stale")
+    }
+
+    /// The redesigned setup's progress bar and live "waiting" state.
+    private static func runOnboardingProgressCases() {
+        report("case: the setup progress bar shows each step's live state")
+        typealias F = OnboardingFlow
+        check(F.mark(.accessibility, current: .microphone, status: .stale(.appChanged), engineDone: false) == .attention,
+              "progress: a stale permission asks for attention even when not on screen")
+        check(F.mark(.accessibility, current: .accessibility, status: .stale(.backFromSettings), engineDone: false) == .attention,
+              "progress: and on screen")
+        check(F.mark(.microphone, current: .microphone, status: .missing, engineDone: false) == .current,
+              "progress: the step on screen is current")
+        check(F.mark(.microphone, current: .engine, status: .granted, engineDone: false) == .done,
+              "progress: a granted permission is done")
+        check(F.mark(.inputMonitoring, current: .welcome, status: .missing, engineDone: false) == .pending,
+              "progress: a missing permission is pending")
+        check(F.mark(.engine, current: .ready, status: nil, engineDone: true) == .done, "progress: a working engine is done")
+        check(F.mark(.engine, current: .accessibility, status: nil, engineDone: false) == .pending, "progress: a missing engine is pending")
+        check(F.mark(.ready, current: .engine, status: nil, engineDone: true) == .pending, "progress: the last page is pending until reached")
+
+        let fake = FakeSystem()
+        fake.mic = .granted
+        let model = OnboardingModel(startHotkey: { false }, environment: fake.environment(defaults: EphemeralDefaults()))
+        model.begin()
+        check(!model.isWaiting(.accessibility), "waiting: not before Allow")
+        model.allow(.accessibility)
+        check(model.isWaiting(.accessibility), "waiting: after Allow, until the grant lands")
+        check(model.mark(.accessibility) == .current, "waiting: still the current step")
+        fake.ax = true
+        model.refresh(announce: true)
+        check(!model.isWaiting(.accessibility), "waiting: cleared when the grant lands")
+        check(model.mark(.accessibility) == .done, "waiting: and the step shows done", "\(model.mark(.accessibility))")
+        model.stop()
+    }
+
+    /// The engine gets ready in the background while the permissions are
+    /// done, finished steps are skipped, and the Try it page notices when
+    /// dictated words arrive.
+    private static func runEffortlessSetupCases() {
+        report("case: setup gets the engine ready in the background and skips what is done")
+        typealias F = OnboardingFlow
+        typealias G = PermissionGrants
+        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
+        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
+        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
+
+        // The pure rules.
+        check(F.startsEngineByItself(responding: false, programPresent: true), "engine: not answering, program here: starts without a click")
+        check(!F.startsEngineByItself(responding: true, programPresent: true), "engine: already answering: nothing to start")
+        check(!F.startsEngineByItself(responding: false, programPresent: false), "engine: no program: waits for a click (installing needs consent)")
+        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: true) == .ready, "skip: a ready engine's step is skipped")
+        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: false) == .engine, "skip: an engine still getting ready is shown")
+        check(F.nextNeeded(after: .welcome, grants: mic) == .accessibility, "skip: Get started skips a microphone already allowed")
+        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .ready, "skip: with everything done, Get started goes straight to Try it")
+        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: all, engineReady: true) == .ready,
+              "skip: the last grant goes straight to Try it when the engine is ready")
+        check(F.stepAfterEngine(current: .engine, ready: true, grants: all) == .ready, "engine: ready on its own step moves on by itself")
+        check(F.stepAfterEngine(current: .accessibility, ready: true, grants: mic) == .accessibility, "engine: ready during a permission step leaves the step alone")
+        check(F.stepAfterEngine(current: .engine, ready: false, grants: all) == .engine, "engine: a failure stays on its step")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: true) == nil, "back: nothing to go back to for a returning user")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: false) == .welcome, "back: a first run goes back to the welcome page")
+        check(F.previousShown(before: .ready, grants: all, engineReady: false, returning: true) == .engine, "back: from Try it to an engine still getting ready")
+        check(F.previousShown(before: .ready, grants: mic, engineReady: true, returning: true) == .accessibility, "back: skips done steps to the one still needed")
+        check(F.previousShown(before: .microphone, grants: none, engineReady: false, returning: false) == .welcome, "back: the first step goes to the welcome page")
+
+        check(OnboardingMotion.duration(reduceMotion: true) == 0, "motion: none with Reduce Motion on")
+        check(OnboardingMotion.animation(reduceMotion: true) == nil, "motion: no animation with Reduce Motion on")
+        check((0.15...0.3).contains(OnboardingMotion.duration(reduceMotion: false)), "motion: short otherwise",
+              "\(OnboardingMotion.duration(reduceMotion: false))")
+
+        var estimate = DownloadEstimate()
+        check(estimate.secondsLeft() == nil, "estimate: nothing before the download starts")
+        estimate.add(0.30, at: 0)
+        check(estimate.secondsLeft() == nil, "estimate: one reading is not a speed")
+        var early = estimate
+        early.add(0.31, at: 1)
+        check(early.secondsLeft() == nil, "estimate: not after a single second")
+        estimate.add(0.42, at: 30)
+        let left = estimate.secondsLeft() ?? -1
+        check(abs(left - 145) < 1, "estimate: 12 points in 30 s leaves 58 points, about 145 s", "\(left)")
+        check(DownloadEstimate.describe(left) == "About 2 minutes left", "estimate: said in minutes", DownloadEstimate.describe(left) ?? "nil")
+        check(DownloadEstimate.describe(30) == "Less than a minute left", "estimate: under a minute")
+        check(DownloadEstimate.describe(70) == "About a minute left", "estimate: about a minute")
+        check(DownloadEstimate.describe(7200) == "Over an hour left", "estimate: very slow")
+        check(DownloadEstimate.describe(nil) == nil, "estimate: unknown says nothing")
+        estimate.add(0.05, at: 31)
+        check(estimate.secondsLeft() == nil, "estimate: a download that started over measures again")
+        var stalled = DownloadEstimate()
+        stalled.add(0.5, at: 0)
+        stalled.add(0.5, at: 10)
+        check(stalled.secondsLeft() == nil, "estimate: no progress, no made-up time")
+        var window = DownloadEstimate()
+        window.add(0.0, at: 0)
+        window.add(0.1, at: 100)
+        window.add(0.2, at: 105)
+        window.add(0.3, at: 110)
+        let recent = window.secondsLeft() ?? -1
+        // 0.2 in the last 10 s: 0.7 left is 35 s (the slow start alone would say 700).
+        check(abs(recent - 35) < 1, "estimate: measured on the last seconds, not the slow start", "\(recent)")
+
+        check(!TryIt.arrived(baseline: nil, practice: "Hello"), "try it: typing without Fn is not a dictation")
+        check(TryIt.arrived(baseline: "", practice: "Hello"), "try it: words after Fn arrived")
+        check(!TryIt.arrived(baseline: "", practice: " \n"), "try it: blank is not words")
+        check(!TryIt.arrived(baseline: "Hi", practice: "Hi "), "try it: nothing new")
+        check(TryIt.arrived(baseline: "Hi.", practice: "Hi. How are you?"), "try it: new words after earlier ones")
+        check(!TryIt.arrived(baseline: "Hello there", practice: "Hello"), "try it: deleting is not arriving")
+        func phase(restart: Bool = false, running: Bool = true, down: Bool = false, succeeded: Bool = false,
+                   pressed: Bool = false, released: TimeInterval? = nil, shown: TimeInterval = 0) -> TryIt.Phase {
+            TryIt.phase(needsRestart: restart, hotkeyRunning: running, fnDown: down, succeeded: succeeded,
+                        pressedFn: pressed, sinceRelease: released, sinceShown: shown)
+        }
+        check(phase(restart: true, running: false) == .restart, "try it: a restart comes first")
+        check(phase(running: false) == .starting, "try it: waits for the Fn listener")
+        check(phase() == .waiting, "try it: ready when you are")
+        check(phase(down: true, pressed: true) == .listening, "try it: Fn held is listening")
+        check(phase(down: true, succeeded: true, pressed: true) == .listening, "try it: holding Fn again listens again")
+        check(phase(pressed: true, released: 1) == .writing, "try it: just let go is writing")
+        check(phase(succeeded: true, pressed: true, released: 1) == .success, "try it: words arrived is success")
+        check(phase(pressed: true, released: TryIt.nothingAfter + 1) == .nothingArrived, "try it: nothing after a while says so")
+        check(phase(shown: TryIt.hintAfter + 1) == .hint, "try it: nothing tried for a while shows the hint")
+        check(phase(shown: TryIt.hintAfter - 5) == .waiting, "try it: no hint too early")
+
+        let guide = Onboarding.switchOn(.accessibility, appName: "talkflow")
+        check(guide.place.hasSuffix("Accessibility") && guide.action == "Switch on talkflow", "guide: says where and what to switch on",
+              "\(guide.place) / \(guide.action)")
+        check(Onboarding.switchOn(.microphone, appName: "talkflow test").action == "Switch on talkflow test", "guide: uses the name System Settings shows")
+        check(Permissions.Service.allCases.allSatisfy { service in
+            let text = Onboarding.switchOn(service, appName: "talkflow")
+            return (text.place + text.action).allSatisfy(\.isASCII)
+        }, "guide: plain ASCII")
+
+        // The model: the download starts as setup opens, and only once.
+        let fake = FakeSystem()
+        let model = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: EphemeralDefaults()))
+        model.begin()
+        check(model.step == .welcome, "background: setup still opens on the welcome page", "\(model.step)")
+        check(fake.engineSetups.count == 1, "background: the engine setup starts as setup opens", "\(fake.engineSetups.count)")
+        check(model.engineBusy, "background: and is under way")
+        model.begin()
+        model.startEngineIfNeeded()
+        model.runEngineSetup()
+        model.stop()
+        model.begin()
+        check(fake.engineSetups.count == 1 && fake.engineChecks == 1, "background: never a second download, whatever asks for one",
+              "setups \(fake.engineSetups.count), checks \(fake.engineChecks)")
+        model.goNext()
+        check(model.step == .microphone, "background: the permissions go on meanwhile", "\(model.step)")
+        model.engineChanged(.working(EngineSetup.downloadingMessage, 0.0), at: 0)
+        model.engineChanged(.working(EngineSetup.downloadingMessage, 0.3), at: 10)
+        check(model.engineFraction == 0.3 && model.mark(.engine) == .pending, "background: its progress shows while the step is pending")
+        check(model.downloadTimeLeft == "Less than a minute left", "background: with an estimate", model.downloadTimeLeft ?? "nil")
+        model.stop() // the window closes
+        model.engineChanged(.ready)
+        check(model.engine == .ready && !model.engineBusy, "background: closing setup does not stop it")
+        model.begin()
+        check(model.step == .microphone && fake.engineSetups.count == 1, "background: reopened, nothing starts again", "\(model.step)")
+        fake.mic = .granted
+        model.refresh(announce: true)
+        check(model.step == .accessibility, "background: the microphone grant moves on", "\(model.step)")
+        fake.ax = true; fake.im = true
+        model.refresh(announce: true)
+        check(model.step == .ready, "skip: the engine was ready, so the last grant goes straight to Try it", "\(model.step)")
+        check(model.mark(.engine) == .done, "skip: and the engine shows done")
+        model.stop()
+
+        // A failure: one Try again starts it once more.
+        let failing = FakeSystem()
+        let retry = OnboardingModel(startHotkey: { true }, environment: failing.environment(defaults: EphemeralDefaults()))
+        retry.begin()
+        failing.engineSetups.last?(.failed("The download stopped: The network connection was lost."))
+        check(!retry.engineBusy && retry.engine.isFinished, "failure: the setup stops and says so")
+        retry.runEngineSetup()
+        retry.runEngineSetup()
+        check(failing.engineSetups.count == 2, "failure: Try again starts it once more, not twice", "\(failing.engineSetups.count)")
+        retry.stop()
+
+        // On the engine step itself: ready moves on by itself.
+        let onStep = FakeSystem()
+        onStep.mic = .granted; onStep.ax = true; onStep.im = true
+        let onStepDefaults = EphemeralDefaults()
+        onStepDefaults.set(true, forKey: Onboarding.completedKey)
+        let engineStep = OnboardingModel(startHotkey: { true }, environment: onStep.environment(defaults: onStepDefaults))
+        engineStep.begin()
+        check(engineStep.step == .engine && onStep.engineSetups.count == 1, "engine step: opens on it, already working", "\(engineStep.step)")
+        onStep.engineSetups.last?(.working("Starting the speech engine...", nil))
+        check(engineStep.step == .engine && engineStep.engineFraction == nil, "engine step: starting has no percentage")
+        onStep.engineSetups.last?(.ready)
+        check(engineStep.step == .ready, "engine step: moves on when the engine is ready", "\(engineStep.step)")
+        engineStep.stop()
+
+        // Already answering: nothing to download, and nothing shown for it.
+        let alive = FakeSystem()
+        alive.engineAlive = true
+        alive.mic = .granted; alive.ax = true; alive.im = true
+        let ready = OnboardingModel(startHotkey: { true }, environment: alive.environment(defaults: EphemeralDefaults()))
+        ready.begin()
+        check(ready.engine == .ready && alive.engineSetups.isEmpty, "alive: a running engine is not set up again")
+        check(ready.step == .ready, "alive: a Mac with everything done opens straight on Try it, no welcome page", "\(ready.step)")
+        check(ready.previousStep == nil, "alive: and has nothing to go back to")
+        ready.stop()
+
+        // No program (a build without one): waits for the button.
+        let bare = FakeSystem()
+        bare.programPresent = false
+        let waiting = OnboardingModel(startHotkey: { true }, environment: bare.environment(defaults: EphemeralDefaults()))
+        waiting.begin()
+        check(waiting.engine == .needsSetup && bare.engineSetups.isEmpty, "no program: nothing is installed without a click")
+        waiting.runEngineSetup()
+        check(bare.engineSetups.count == 1, "no program: the button starts it")
+        waiting.stop()
+
+        // A returning user never sees the welcome page.
+        let back = FakeSystem()
+        let backDefaults = EphemeralDefaults()
+        backDefaults.set(true, forKey: Onboarding.completedKey)
+        let returning = OnboardingModel(startHotkey: { true }, environment: back.environment(defaults: backDefaults))
+        returning.begin()
+        check(returning.step == .microphone, "returning: opens on what is missing", "\(returning.step)")
+        check(returning.previousStep == nil, "returning: no Back to the welcome page")
+        returning.stop()
+
+        // Try it: success only when dictated words arrive.
+        let tryFake = FakeSystem()
+        tryFake.engineAlive = true
+        tryFake.engineInstalled = true
+        tryFake.mic = .granted; tryFake.ax = true; tryFake.im = true
+        let tryDefaults = EphemeralDefaults()
+        tryDefaults.set(true, forKey: Onboarding.completedKey)
+        let tryIt = OnboardingModel(startHotkey: { true }, environment: tryFake.environment(defaults: tryDefaults))
+        tryIt.begin()
+        check(tryIt.step == .ready && tryIt.hotkeyRunning, "try it: opens on the last page with Fn listening", "\(tryIt.step)")
+        check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: ready when you are")
+        tryIt.practice = "typed by hand"
+        check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: typing by hand is not a success")
+        tryIt.fnChanged(down: true)
+        check(tryIt.tryItPhase(at: Date()) == .listening, "try it: Fn held shows listening")
+        tryIt.practice = "typed by hand Hello there"
+        check(tryIt.tryItPhase(at: Date()) == .listening, "try it: still listening while Fn is held")
+        tryIt.fnChanged(down: false)
+        check(tryIt.tryItPhase(at: Date()) == .success, "try it: let go with new words is a success")
+        tryIt.practice = ""
+        check(tryIt.tryItPhase(at: Date()) == .success, "try it: and it stays a success")
+        tryIt.stop()
+
+        let quiet = OnboardingModel(startHotkey: { true }, environment: tryFake.environment(defaults: tryDefaults))
+        quiet.begin()
+        quiet.fnChanged(down: true)
+        quiet.fnChanged(down: false)
+        check(quiet.tryItPhase(at: Date()) == .writing, "try it: just let go, writing")
+        check(quiet.tryItPhase(at: Date().addingTimeInterval(TryIt.nothingAfter + 1)) == .nothingArrived, "try it: nothing arrived says so")
+        check(quiet.tryItPhase(at: Date().addingTimeInterval(1)) != .success, "try it: no words, no success")
+        quiet.stop()
+
+        let motionFake = FakeSystem()
+        motionFake.reduceMotion = true
+        let still = OnboardingModel(startHotkey: { true }, environment: motionFake.environment(defaults: EphemeralDefaults()))
+        check(still.reduceMotion, "motion: setup follows the Reduce Motion setting")
+    }
+
+    /// Stands in for macOS in the setup checks: permission states, prompts,
+    /// System Settings and tccutil are all recorded here instead of touched.
+    private final class FakeSystem {
+        var mic = Permissions.MicrophoneStatus.notDetermined
+        var ax = false
+        var im = false
+        var engineInstalled = false
+        var requirement: String? = "cdhash H\"aaaa\""
+        var asked: Set<Permissions.Service> = []
+        var requests: [Permissions.Service] = []
+        var settingsOpened: [Permissions.Pane] = []
+        var resets: [Permissions.Service] = []
+        var resetSucceeds = true
+        /// The engine: whether it answers, whether its program is here, and
+        /// each setup started (its report callback, to drive by hand).
+        var engineAlive = false
+        var programPresent = true
+        var engineChecks = 0
+        var engineSetups: [(EngineState) -> Void] = []
+        var reduceMotion = false
+
+        func environment(defaults: UserDefaults) -> OnboardingEnvironment {
+            OnboardingEnvironment(
+                microphone: { self.mic }, accessibility: { self.ax }, inputMonitoring: { self.im },
+                engineInstalled: { self.engineInstalled }, defaults: defaults, advanceDelay: 0,
+                designatedRequirement: requirement,
+                asked: { self.asked.contains($0) },
+                request: { service, done in self.requests.append(service); self.asked.insert(service); done() },
+                openSettings: { self.settingsOpened.append($0) },
+                resetGrant: { service, done in self.resets.append(service); done(self.resetSucceeds) },
+                staleGrace: 0,
+                fnKeyHasSystemAction: { false },
+                engineResponding: { done in self.engineChecks += 1; done(self.engineAlive) },
+                engineProgramPresent: { self.programPresent },
+                setUpEngine: { report in self.engineSetups.append(report) },
+                reduceMotion: { self.reduceMotion },
+                appName: "talkflow")
+        }
     }
 
     /// GitHub release parsing and version order, for the update check.

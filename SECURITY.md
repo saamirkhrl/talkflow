@@ -17,7 +17,7 @@ Include what you found, how to reproduce it, and the macOS version.
 |---|---|
 | Microphone | capturing your voice while Fn is held |
 | Accessibility | reading the focused text field and typing into it |
-| Input Monitoring | noticing the Fn key (modifier keys only; it does not log typing) |
+| Input Monitoring | not requested: Accessibility already lets talkflow notice the Fn key (modifier keys only; it does not log typing) |
 
 ## For contributors
 
