@@ -59,18 +59,33 @@ public static class E2e
 
     public static bool IsDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
-    /// <summary>Brings a window to the front. An Alt tap first lifts Windows' foreground lock.</summary>
+    /// <summary>
+    /// Brings a window to the front. When Windows' foreground lock refuses,
+    /// an Alt tap lifts it; that tap puts some apps (Windows 11 Notepad) in
+    /// menu mode, where typed text would drive the menu, so Escape follows.
+    /// </summary>
     public static bool Focus(IntPtr hwnd)
     {
         for (int attempt = 0; attempt < 10; attempt++)
         {
             ShowWindow(hwnd, 9); // SW_RESTORE
-            Press(VK_MENU, false);
-            Press(VK_MENU, true);
+            bool tapped = attempt > 0;
+            if (tapped)
+            {
+                Press(VK_MENU, false);
+                Press(VK_MENU, true);
+            }
             BringWindowToTop(hwnd);
             SetForegroundWindow(hwnd);
             Thread.Sleep(200);
-            if (GetForegroundWindow() == hwnd) return true;
+            if (GetForegroundWindow() != hwnd) continue;
+            if (tapped)
+            {
+                Press(VK_ESCAPE, false);
+                Press(VK_ESCAPE, true);
+                Thread.Sleep(150);
+            }
+            return true;
         }
         return false;
     }
