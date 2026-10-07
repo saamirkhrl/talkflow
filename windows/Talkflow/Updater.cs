@@ -27,10 +27,14 @@ sealed class Updater
     public Phase State { get; private set; } = Phase.Idle;
     public Updates.Release? Available { get; private set; }
     public string? Error { get; private set; }
+    /// <summary>The newest release GitHub named at the last check, with or without a build for this PC.</summary>
+    public string? LatestVersion { get; private set; }
     public event Action? Changed;
 
     readonly HttpClient _http;
     DateTime _lastCheck = DateTime.MinValue;
+    /// <summary>A whole check, manifest and API fallback together, gives up after this.</summary>
+    static readonly TimeSpan CheckDeadline = TimeSpan.FromSeconds(40);
 
     public Updater()
     {
@@ -38,15 +42,43 @@ sealed class Updater
         _http.DefaultRequestHeaders.UserAgent.ParseAdd($"talkflow-windows/{CurrentVersion}");
     }
 
+    static string InformationalVersion =>
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+
     public static string CurrentVersion
     {
         get
         {
-            var info = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+            var info = InformationalVersion;
             int plus = info.IndexOf('+');
             return plus >= 0 ? info[..plus] : info;
         }
     }
+
+    /// <summary>
+    /// A build not made from a release tag: pull request and local builds are
+    /// stamped 0.0.0 (windows.yml's version job). Any release counts as newer.
+    /// </summary>
+    public static bool IsDevelopmentBuild => CurrentVersion == "0.0.0";
+
+    /// <summary>"v0.1.4", or "dev build 1a2b3c4" (the commit, when the build recorded it).</summary>
+    public static string DisplayVersion
+    {
+        get
+        {
+            if (!IsDevelopmentBuild) return $"v{CurrentVersion}";
+            var info = InformationalVersion;
+            int plus = info.IndexOf('+');
+            var commit = plus >= 0 ? info[(plus + 1)..] : "";
+            return commit.Length >= 7 ? $"dev build {commit[..7]}" : "dev build";
+        }
+    }
+
+    /// <summary>What the dashboard says next to the version after a check that found nothing to install.</summary>
+    public string UpToDateText =>
+        LatestVersion is { } latest && Updates.IsNewer(latest, CurrentVersion)
+            ? $"{latest} has no Windows build yet"
+            : "Up to date";
 
     /// <summary>"x64" or "arm64": the build this process is. An x64 build on an Arm PC still asks for arm64 first.</summary>
     public static string Architecture =>
@@ -55,48 +87,66 @@ sealed class Updater
     public Task CheckIfStale() =>
         DateTime.UtcNow - _lastCheck < TimeSpan.FromHours(6) || State is Phase.Checking ? Task.CompletedTask : Check();
 
+    /// <summary>
+    /// Asks GitHub for the newest release. Always ends in UpToDate, Available
+    /// or Failed, whatever goes wrong: an exception never leaves the state at
+    /// Checking (which also blocks every later check).
+    /// </summary>
     public async Task Check()
     {
         if (State is Phase.Checking or Phase.Downloading or Phase.Installing) return;
         Set(Phase.Checking);
         _lastCheck = DateTime.UtcNow;
+        var watch = Stopwatch.StartNew();
         try
         {
-            var release = await FromManifest() ?? await FromApi();
+            using var deadline = new CancellationTokenSource(CheckDeadline);
+            var (latest, release) = await FromManifest(deadline.Token) ?? await FromApi(deadline.Token);
+            LatestVersion = latest;
             if (release is not null && Updates.IsNewer(release.Version, CurrentVersion))
             {
                 Available = release;
+                Log.Write($"update check: {release.Version} is available ({watch.Elapsed.TotalSeconds:F1}s)");
                 Set(Phase.Available);
             }
             else
             {
                 Available = null;
+                Log.Write($"update check: running {DisplayVersion}, newest release {latest ?? "none"}, " +
+                          $"{(release is null ? $"no {Architecture} Windows build in it" : "nothing newer")} ({watch.Elapsed.TotalSeconds:F1}s)");
                 Set(Phase.UpToDate);
             }
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        catch (Exception e)
         {
+            Log.Write($"update check failed after {watch.Elapsed.TotalSeconds:F1}s: {e.GetType().Name}: {e.Message}");
             // Offline is normal for a dictation app; say so only in the dashboard.
-            Fail("Could not reach GitHub");
+            Fail(e is HttpRequestException or OperationCanceledException or IOException
+                ? "Could not reach GitHub"
+                : "Update check failed: " + e.Message);
         }
     }
 
-    async Task<Updates.Release?> FromManifest()
+    /// <summary>The manifest's newest version and this PC's build in it; null when the release has no manifest.</summary>
+    async Task<(string? Latest, Updates.Release? Release)?> FromManifest(CancellationToken cancel)
     {
-        using var response = await _http.GetAsync(Updates.ManifestUrl);
+        using var response = await _http.GetAsync(Updates.ManifestUrl, cancel);
         if (!response.IsSuccessStatusCode) return null;
-        return Updates.ParseManifest(await response.Content.ReadAsStringAsync(), Architecture);
+        var json = await response.Content.ReadAsStringAsync(cancel);
+        if (Updates.LatestVersion(json) is not { } latest) return null;
+        return (latest, Updates.ParseManifest(json, Architecture));
     }
 
-    async Task<Updates.Release?> FromApi()
+    async Task<(string? Latest, Updates.Release? Release)> FromApi(CancellationToken cancel)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, Updates.LatestReleaseApi);
         request.Headers.Accept.ParseAdd("application/vnd.github+json");
-        using var response = await _http.SendAsync(request);
-        if ((int)response.StatusCode == 404) return null;
+        using var response = await _http.SendAsync(request, cancel);
+        if ((int)response.StatusCode == 404) return (null, null);
         if (!response.IsSuccessStatusCode)
             throw new HttpRequestException((int)response.StatusCode == 403 ? "GitHub rate limit reached" : $"GitHub returned {(int)response.StatusCode}");
-        return Updates.Parse(await response.Content.ReadAsStringAsync(), Architecture);
+        var json = await response.Content.ReadAsStringAsync(cancel);
+        return (Updates.LatestVersion(json), Updates.Parse(json, Architecture));
     }
 
     /// <summary>Downloads the installer, checks it, runs it silently and quits; the installer starts the new version.</summary>
@@ -129,8 +179,9 @@ sealed class Updater
                 return;
             }
         }
-        catch (Exception e) when (e is HttpRequestException or IOException or TaskCanceledException or UnauthorizedAccessException)
+        catch (Exception e)
         {
+            Log.Write($"update download failed: {e.GetType().Name}: {e.Message}");
             Fail("Download failed: " + e.Message);
             return;
         }
@@ -147,6 +198,7 @@ sealed class Updater
         }
         catch (Exception e)
         {
+            Log.Write($"could not start the update installer: {e.Message}");
             Fail("Could not start the installer: " + e.Message);
         }
     }
