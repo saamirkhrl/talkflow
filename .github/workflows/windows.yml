@@ -225,6 +225,10 @@ jobs:
           - arch: arm64
             runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
+    # The windows-11-arm runner opens a WSL install prompt that takes the
+    # foreground mid-test and its Notepad garbles even the script's own
+    # keystrokes, so its result is reported but cannot hold back a release.
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
