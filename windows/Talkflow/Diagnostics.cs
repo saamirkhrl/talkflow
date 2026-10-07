@@ -5,6 +5,9 @@ using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
 using Talkflow.Core;
 
 namespace Talkflow;
@@ -12,12 +15,14 @@ namespace Talkflow;
 /// <summary>
 /// "Report a problem...": one zip on the Desktop with what is needed to find
 /// out why talkflow misbehaved on someone's PC: the version and architecture,
-/// the --enginecheck report, the settings switches, the end of talkflow.log
-/// and the speech engine's startup and error lines.
+/// the --enginecheck report, the microphones and a one-second test of the
+/// default one, the settings switches, the end of talkflow.log and the speech
+/// engine's startup and error lines.
 ///
 /// Never what was dictated: transcripts are cut out of the log (they are only
 /// there when TALKFLOW_LOG_TRANSCRIPTS=1), the engine log keeps only lines it
-/// prints about itself, and learned words and API keys are left out.
+/// prints about itself, and learned words and API keys are left out. The
+/// microphone test keeps only counts and a level, never the sound.
 /// </summary>
 static class Diagnostics
 {
@@ -82,8 +87,145 @@ static class Diagnostics
             text.AppendLine($"  could not read settings: {e.Message}");
         }
         text.AppendLine($"  start with Windows: {StartupEntry.IsEnabled}");
+        text.AppendLine();
+        text.Append(Microphones());
         return text.ToString();
     }
+
+    /// <summary>
+    /// Every input device Windows knows, which one is the default, and one
+    /// second from the default through each API talkflow can record with: how
+    /// many buffers arrived, how soon, and how loud. On a thread of its own
+    /// (MTA, for WASAPI; --diagnostics calls this from the STA main thread),
+    /// and given up on after 15 s, since an audio driver can hang.
+    /// </summary>
+    static string Microphones()
+    {
+        string? result = null;
+        var thread = new Thread(() =>
+        {
+            var text = ListAndProbeMicrophones();
+            Volatile.Write(ref result, text);
+        }) { IsBackground = true, Name = "talkflow diagnostics microphone" };
+        thread.SetApartmentState(ApartmentState.MTA);
+        thread.Start();
+        thread.Join(TimeSpan.FromSeconds(15));
+        return Volatile.Read(ref result) ?? "microphones: the check did not finish within 15 s (an audio driver is not answering)\n";
+    }
+
+    static string ListAndProbeMicrophones()
+    {
+        var text = new StringBuilder();
+        text.AppendLine("microphones (WASAPI):");
+        try
+        {
+            using var devices = new MMDeviceEnumerator();
+            string? console = DefaultId(devices, Role.Console);
+            string? communications = DefaultId(devices, Role.Communications);
+            foreach (var device in devices.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.All))
+            {
+                using (device)
+                {
+                    var marks = (device.ID == console ? " [default]" : "") + (device.ID == communications ? " [default for calls]" : "");
+                    string format = "";
+                    if (device.State == DeviceState.Active)
+                    {
+                        try
+                        {
+                            var mix = device.AudioClient.MixFormat;
+                            format = $", {mix.SampleRate} Hz, {mix.Channels} ch";
+                        }
+                        catch (Exception e)
+                        {
+                            format = $", format unreadable: {Describe(e)}";
+                        }
+                    }
+                    text.AppendLine($"  {device.FriendlyName}: {device.State}{format}{marks}");
+                }
+            }
+            if (console is null) text.AppendLine("  no default input device");
+        }
+        catch (Exception e)
+        {
+            text.AppendLine($"  could not list them: {Describe(e)}");
+        }
+        text.AppendLine("microphones (waveIn):");
+        try
+        {
+            int count = WaveInEvent.DeviceCount;
+            for (int i = 0; i < count; i++) text.AppendLine($"  {i}: {WaveInEvent.GetCapabilities(i).ProductName}");
+            if (count == 0) text.AppendLine("  none");
+        }
+        catch (Exception e)
+        {
+            text.AppendLine($"  could not list them: {Describe(e)}");
+        }
+        text.AppendLine($"one second from the default microphone, WASAPI: {Probe(() => new WasapiCapture(WasapiCapture.GetDefaultCaptureDevice(), false, 100) { WaveFormat = new WaveFormat(Recorder.SampleRate, 16, 1) })}");
+        text.AppendLine($"one second from the default microphone, waveIn: {Probe(() => new WaveInEvent { DeviceNumber = -1, WaveFormat = new WaveFormat(Recorder.SampleRate, 16, 1), BufferMilliseconds = 50, NumberOfBuffers = 4 })}");
+        return text.ToString();
+    }
+
+    static string? DefaultId(MMDeviceEnumerator devices, Role role)
+    {
+        try
+        {
+            if (!devices.HasDefaultAudioEndpoint(DataFlow.Capture, role)) return null;
+            using var device = devices.GetDefaultAudioEndpoint(DataFlow.Capture, role);
+            return device.ID;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Records one second as 16 kHz mono and keeps only the buffer count, the first buffer's delay and the peak.</summary>
+    static string Probe(Func<IWaveIn> open)
+    {
+        var gate = new object();
+        int buffers = 0;
+        double first = -1;
+        int peak = 0;
+        var watch = Stopwatch.StartNew();
+        IWaveIn? wave = null;
+        try
+        {
+            wave = open();
+            wave.DataAvailable += (_, e) =>
+            {
+                if (e.BytesRecorded == 0) return;
+                int loudest = 0;
+                for (int i = 0; i + 1 < e.BytesRecorded; i += 2)
+                    loudest = Math.Max(loudest, Math.Abs((int)BitConverter.ToInt16(e.Buffer, i)));
+                lock (gate)
+                {
+                    if (buffers++ == 0) first = watch.Elapsed.TotalMilliseconds;
+                    peak = Math.Max(peak, loudest);
+                }
+            };
+            watch.Restart();
+            wave.StartRecording();
+            Thread.Sleep(1000);
+            wave.StopRecording();
+        }
+        catch (Exception e)
+        {
+            return $"failed after {watch.ElapsedMilliseconds} ms: {Describe(e)}";
+        }
+        finally
+        {
+            try { wave?.Dispose(); } catch (Exception) { }
+        }
+        lock (gate)
+        {
+            return buffers == 0
+                ? "no audio arrived"
+                : $"{buffers} buffers, first after {first:F0} ms, peak {peak / 32768.0:F3}" + (peak == 0 ? " (digital silence)" : "");
+        }
+    }
+
+    static string Describe(Exception e) =>
+        e is COMException ? $"{e.Message} (0x{e.HResult:X8})" : e.Message;
 
     static void Add(ZipArchive zip, string name, string text)
     {
