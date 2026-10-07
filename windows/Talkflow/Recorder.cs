@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using Talkflow.Core;
 
@@ -12,6 +13,11 @@ namespace Talkflow;
 /// Captures the default microphone into memory as 16 kHz mono 16-bit PCM and
 /// hands back a complete WAV on demand (Recorder.swift). Audio never touches
 /// the disk. Windows' audio engine converts to 16 kHz for us.
+///
+/// The device is the default input in Settings > Sound, opened with WASAPI,
+/// which names it and fails out loud. The older waveIn API is the fallback
+/// only: on one PC its default mapper opened a USB microphone and then never
+/// returned a single buffer, with no error.
 ///
 /// Opening and closing the device happen on a thread of their own, never on
 /// the UI thread: waveInOpen, waveInReset and waveInClose can block for
@@ -33,6 +39,10 @@ sealed class Recorder
     double _firstAudioMs = -1;
     int _buffers;
     float _peak;
+    string? _deviceName;
+
+    /// <summary>What one hold captured. Buffers is 0 when the device sent nothing at all.</summary>
+    public sealed record Capture(byte[] Wav, int Buffers, float Peak, string? Device);
 
     /// <summary>Each buffer's level, roughly 0..1, on a background thread.</summary>
     public event Action<float>? Level;
@@ -42,14 +52,17 @@ sealed class Recorder
 
     public Recorder()
     {
-        new Thread(() =>
+        var thread = new Thread(() =>
         {
             foreach (var work in _device.GetConsumingEnumerable())
             {
                 try { work(); }
                 catch (Exception e) { Log.Write($"microphone thread: {e.Message}"); }
             }
-        }) { IsBackground = true, Name = "talkflow microphone" }.Start();
+        }) { IsBackground = true, Name = "talkflow microphone" };
+        // WASAPI's objects are used from this thread and NAudio's capture thread.
+        thread.SetApartmentState(ApartmentState.MTA);
+        thread.Start();
     }
 
     public void Start()
@@ -64,11 +77,13 @@ sealed class Recorder
             _firstAudioMs = -1;
             _buffers = 0;
             _peak = 0;
+            _deviceName = null;
         }
         _device.Add(() => Open(generation));
     }
 
     IWaveIn? _wave;
+    MMDevice? _endpoint;
     TestAudio? _test;
 
     void Open(int generation)
@@ -88,35 +103,91 @@ sealed class Recorder
             Log.Write($"test audio: playing {System.IO.Path.GetFileName(file)} instead of the microphone");
             return;
         }
+        string description;
         try
         {
-            if (WaveInEvent.DeviceCount == 0) throw new InvalidOperationException("No microphone was found.");
-            var wave = new WaveInEvent
-            {
-                DeviceNumber = -1, // WAVE_MAPPER: the Windows default input device
-                WaveFormat = new WaveFormat(SampleRate, 16, 1),
-                BufferMilliseconds = 50,
-                NumberOfBuffers = 4,
-            };
-            wave.DataAvailable += (_, e) => OnData(generation, e);
-            wave.RecordingStopped += (_, e) => { if (e.Exception is { } x) Log.Write($"microphone stopped with an error: {x.Message}"); };
-            try
-            {
-                wave.StartRecording();
-            }
-            catch
-            {
-                wave.Dispose();
-                throw;
-            }
-            _wave = wave;
-            Log.Write($"microphone opened in {watch.ElapsedMilliseconds} ms");
+            description = Start(generation, OpenWasapi);
         }
         catch (Exception e)
         {
-            Log.Write($"could not open the microphone after {watch.ElapsedMilliseconds} ms: {e.Message}");
-            if (IsCurrent(generation)) Failed?.Invoke(e.Message);
+            Log.Write($"WASAPI could not use the default microphone after {watch.ElapsedMilliseconds} ms: {Describe(e)}; trying waveIn");
+            try
+            {
+                description = Start(generation, OpenWaveIn);
+            }
+            catch (Exception fallback)
+            {
+                Log.Write($"could not open the microphone after {watch.ElapsedMilliseconds} ms: {Describe(fallback)}");
+                if (IsCurrent(generation)) Failed?.Invoke(fallback.Message);
+                return;
+            }
         }
+        string? name = _endpoint?.FriendlyName;
+        lock (_gate) if (generation == _generation) _deviceName = name;
+        Log.Write($"microphone opened in {watch.ElapsedMilliseconds} ms: {description}");
+    }
+
+    /// <summary>Opens and starts one kind of device; on failure releases it and throws.</summary>
+    string Start(int generation, Func<(IWaveIn, string)> open)
+    {
+        var (wave, description) = open();
+        wave.DataAvailable += (_, e) => OnData(generation, e);
+        wave.RecordingStopped += (_, e) => { if (e.Exception is { } x) Log.Write($"microphone stopped with an error: {Describe(x)}"); };
+        try
+        {
+            wave.StartRecording(); // WASAPI initializes the device here
+        }
+        catch
+        {
+            try { wave.Dispose(); } catch (Exception e) { Log.Write($"closing the microphone: {e.Message}"); }
+            DisposeEndpoint();
+            throw;
+        }
+        _wave = wave;
+        return description;
+    }
+
+    /// <summary>The default capture device (Settings > Sound > Input), as 16 kHz mono 16-bit, converted by Windows.</summary>
+    (IWaveIn, string) OpenWasapi()
+    {
+        using var devices = new MMDeviceEnumerator();
+        var endpoint = devices.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Console);
+        try
+        {
+            var capture = new WasapiCapture(endpoint, false, 100);
+            var native = capture.WaveFormat; // the device's own format, before ours replaces it
+            capture.WaveFormat = new WaveFormat(SampleRate, 16, 1);
+            _endpoint = endpoint;
+            return (capture, $"{endpoint.FriendlyName} (WASAPI, device format {native.SampleRate} Hz, {native.Channels} ch)");
+        }
+        catch
+        {
+            endpoint.Dispose();
+            throw;
+        }
+    }
+
+    static (IWaveIn, string) OpenWaveIn()
+    {
+        if (WaveInEvent.DeviceCount == 0) throw new InvalidOperationException("No microphone was found.");
+        var wave = new WaveInEvent
+        {
+            DeviceNumber = -1, // WAVE_MAPPER: the Windows default input device
+            WaveFormat = new WaveFormat(SampleRate, 16, 1),
+            BufferMilliseconds = 50,
+            NumberOfBuffers = 4,
+        };
+        return (wave, "the default microphone (waveIn)");
+    }
+
+    /// <summary>The message, plus the HRESULT for COM errors, which is what tells WASAPI failures apart.</summary>
+    static string Describe(Exception e) =>
+        e is System.Runtime.InteropServices.COMException ? $"{e.Message} (0x{e.HResult:X8})" : e.Message;
+
+    void DisposeEndpoint()
+    {
+        try { _endpoint?.Dispose(); } catch (Exception e) { Log.Write($"releasing the microphone: {e.Message}"); }
+        _endpoint = null;
     }
 
     void Close()
@@ -130,6 +201,7 @@ sealed class Recorder
             try { wave.StopRecording(); } catch (Exception e) { Log.Write($"stopping the microphone: {e.Message}"); }
             try { wave.Dispose(); } catch (Exception e) { Log.Write($"closing the microphone: {e.Message}"); }
         }
+        DisposeEndpoint();
         if (watch.ElapsedMilliseconds > 200) Log.Write($"microphone closed in {watch.ElapsedMilliseconds} ms");
     }
 
@@ -183,19 +255,25 @@ sealed class Recorder
     }
 
     /// <summary>Stops capture and returns the whole recording. The device is closed in the background.</summary>
-    public byte[] Stop()
+    public Capture Stop()
     {
         string summary;
+        int buffers;
+        float peak;
+        string? device;
         lock (_gate)
         {
             _capturing = false;
+            buffers = _buffers;
+            peak = _peak;
+            device = _deviceName;
             summary = _buffers == 0
                 ? "no audio arrived from the microphone"
                 : $"{_buffers} buffers, first after {_firstAudioMs:F0} ms, peak level {_peak:F2}";
         }
         Log.Write($"recording: {summary}");
         _device.Add(Close);
-        return SnapshotWav();
+        return new Capture(SnapshotWav(), buffers, peak, device);
     }
 
     /// <summary>
