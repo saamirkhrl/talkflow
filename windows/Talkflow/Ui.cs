@@ -213,6 +213,8 @@ static class Ui
         left.Children.Add(Title(title));
         detailText = Detail(detail);
         detailText.Margin = new Thickness(0, 4, 0, 0);
+        // A row whose title says it all has no detail line, not an empty one.
+        if (detail.Length == 0) detailText.Visibility = Visibility.Collapsed;
         left.Children.Add(detailText);
         grid.Children.Add(left);
         Grid.SetColumn(control, 1);

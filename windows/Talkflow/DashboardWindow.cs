@@ -148,7 +148,7 @@ sealed class DashboardWindow : Window
 
         panel.Children.Add(Ui.Text("Total words dictated", 13, Ui.Graphite));
         panel.Children.Add(Ui.Numeral(s.TotalWords.ToString("N0", CultureInfo.CurrentCulture), 64));
-        var pages = Ui.Text($"about {(s.TotalWords / 500).ToString("N0", CultureInfo.CurrentCulture)} pages of typing, spoken instead", 12, Ui.Graphite);
+        var pages = Ui.Text($"about {(s.TotalWords / 500).ToString("N0", CultureInfo.CurrentCulture)} pages", 12, Ui.Graphite);
         pages.Margin = new Thickness(0, 0, 0, 20);
         panel.Children.Add(pages);
 
@@ -202,7 +202,7 @@ sealed class DashboardWindow : Window
         };
         panel.Children.Add(chartHost);
 
-        var hint = Ui.Text($"Hold {_app.Hotkey.Spec.Describe()} anywhere to dictate. Let go to type.", 12, Ui.Graphite);
+        var hint = Ui.Text($"Hold {_app.Hotkey.Spec.Describe()} to dictate.", 12, Ui.Graphite);
         hint.Margin = new Thickness(0, 18, 0, 0);
         panel.Children.Add(hint);
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -323,7 +323,11 @@ sealed class DashboardWindow : Window
                 button.Background = on ? Ui.Ink : Brushes.Transparent;
                 button.Foreground = on ? Ui.Paper : Ui.Ink;
             }
-            if (styleDetail is not null) styleDetail.Text = settings.WritingStyle.Detail() + " Also in the tray menu.";
+            if (styleDetail is not null)
+            {
+                styleDetail.Text = settings.WritingStyle.Detail();
+                styleDetail.Visibility = Visibility.Visible;
+            }
         }
         foreach (var (button, style) in styleButtons)
             button.Click += (_, _) => { settings.WritingStyle = style; PaintStyles(); _app.Tray.Refresh(); };
@@ -337,15 +341,15 @@ sealed class DashboardWindow : Window
         panel.Children.Add(ModelsInUse());
 
         panel.Children.Add(Ui.Row("Type while speaking",
-            $"Off: your words show above the pill and go in once, corrected, when you let go of {_app.Hotkey.Spec.Describe()}. On: they are typed into the field as you speak.",
+            "Type words as you speak instead of when you let go.",
             Ui.Switch(settings.TypeWhileSpeaking, on => settings.TypeWhileSpeaking = on)));
         panel.Children.Add(Ui.Row("Accurate final pass",
             SpeechEngine.Large.ModelIsComplete
-                ? "Transcribes the final text with the large model. More accurate, a little slower."
-                : "Transcribes the final text with the large model (downloads 574 MB once, in the background). More accurate, a little slower.",
+                ? "More accurate, a little slower."
+                : "More accurate, a little slower. Downloads 574 MB once.",
             Ui.Switch(settings.AccurateFinalPass, on => { settings.AccurateFinalPass = on; if (on) _app.StartFinalPass(); })));
         panel.Children.Add(Ui.Row("Start with Windows",
-            "Starts talkflow in the notification area when you sign in.",
+            "",
             Ui.Switch(StartupEntry.IsEnabled, StartupEntry.Set)));
 
         panel.Children.Add(ApiKeysSection());
@@ -354,7 +358,7 @@ sealed class DashboardWindow : Window
         var openFolder = Ui.Button("Open folder", () =>
             Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Paths.DataDir}\"") { UseShellExecute = true }));
         panel.Children.Add(Ui.Row("Your data",
-            $"Your stats, settings and learned words are kept in {Paths.DataDir}. Uninstalling keeps this folder, so installing again picks up where you left off.",
+            "Stats, settings and learned words. Kept if you uninstall.",
             openFolder));
 
         panel.Children.Add(Ui.Row("Report a problem",
@@ -363,7 +367,7 @@ sealed class DashboardWindow : Window
 
         var uninstall = Ui.Button("Uninstall...", ConfirmUninstall);
         panel.Children.Add(Ui.Row("Uninstall talkflow",
-            "Removes the app, the speech engine and models, saved API keys, logs and the startup entry. Keeps your data folder.",
+            "Removes talkflow, its speech models, keys and logs. Your data stays.",
             uninstall));
 
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -403,7 +407,7 @@ sealed class DashboardWindow : Window
         controls.Children.Add(current);
         controls.Children.Add(presets);
         controls.Children.Add(record);
-        return Ui.Row("Shortcut", "Hold it to dictate, let go to type. Record your own: hold the keys together, then let go.", controls);
+        return Ui.Row("Shortcut", "", controls);
     }
 
     FrameworkElement ModelsInUse()
@@ -444,23 +448,23 @@ sealed class DashboardWindow : Window
         var settings = _app.Settings;
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
         panel.Children.Add(Ui.Title("Your own API keys"));
-        var intro = Ui.Detail("Optional. Kept in Windows Credential Manager, never in a file. With a key, the final text is sent to that provider and billed to you. If a request fails, the error shows above the pill and this PC takes over.");
+        var intro = Ui.Detail("Optional. Stored in Credential Manager and billed to your account.");
         intro.Margin = new Thickness(0, 4, 0, 12);
         panel.Children.Add(intro);
 
         panel.Children.Add(KeyRow(ApiKeys.Provider.OpenAI, "sk-..."));
         panel.Children.Add(Ui.Row("Use my OpenAI key for transcription",
-            $"{CloudTranscriber.Model} transcribes the final text. The live caption stays on this PC.",
+            $"{CloudTranscriber.Model} writes the final text.",
             Gate(Ui.Switch(settings.UseOpenAITranscription, on => settings.UseOpenAITranscription = on), ApiKeys.Provider.OpenAI)));
         panel.Children.Add(KeyRow(ApiKeys.Provider.Anthropic, "sk-ant-..."));
         panel.Children.Add(Ui.Row("Use my Anthropic key for punctuation",
-            "Claude fixes punctuation and line breaks and never changes your words. Anthropic has no speech-to-text, so transcription stays with whisper or OpenAI.",
+            "Claude fixes punctuation. Never changes your words.",
             Gate(Ui.Switch(settings.UseClaudePunctuation, on => settings.UseClaudePunctuation = on), ApiKeys.Provider.Anthropic)));
         var models = new ComboBox { FontSize = 12, Width = 200 };
         foreach (var model in SettingsStore.ClaudeModels) models.Items.Add(model.Title);
         models.SelectedIndex = Array.FindIndex(SettingsStore.ClaudeModels, m => m.Id == settings.ClaudeModel);
         models.SelectionChanged += (_, _) => { if (models.SelectedIndex >= 0) settings.ClaudeModel = SettingsStore.ClaudeModels[models.SelectedIndex].Id; };
-        panel.Children.Add(Ui.Row("Claude model", "Used for punctuation when your Anthropic key is on.", Gate(models, ApiKeys.Provider.Anthropic)));
+        panel.Children.Add(Ui.Row("Claude model", "", Gate(models, ApiKeys.Provider.Anthropic)));
         return panel;
     }
 
@@ -483,7 +487,7 @@ sealed class DashboardWindow : Window
         status.Margin = new Thickness(80, 4, 0, 0);
 
         var field = Ui.SecretField();
-        field.ToolTip = ApiKeys.Has(provider) ? "Saved. Paste a new key to replace it." : placeholder;
+        field.ToolTip = ApiKeys.Has(provider) ? "Saved" : placeholder;
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 0, 0, 0) };
         Button? use = null;
         use = Ui.Button("Use key", async () =>
@@ -540,8 +544,8 @@ sealed class DashboardWindow : Window
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
         panel.Children.Add(Ui.Title("Learned words"));
         var detail = Ui.Detail(learned.Count == 0
-            ? "When you fix a misheard word right after dictating, talkflow learns the spelling. Nothing learned yet."
-            : "Spellings learned from your fixes. Click one to remove it.");
+            ? "Fix a misheard word after dictating and talkflow learns it."
+            : "Click a word to remove it.");
         detail.Margin = new Thickness(0, 4, 0, 8);
         panel.Children.Add(detail);
         var words = new WrapPanel();
