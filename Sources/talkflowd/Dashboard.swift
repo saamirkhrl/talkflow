@@ -227,7 +227,7 @@ private struct DashboardView: View {
                 .font(.system(size: 68, weight: .regular, design: .serif))
                 .monospacedDigit()
                 .foregroundColor(.ink)
-            Text("about \((s.totalWords / 500).formatted()) pages of typing, spoken instead")
+            Text("about \((s.totalWords / 500).formatted()) pages")
                 .font(.system(size: 12))
                 .foregroundColor(.graphite)
         }
@@ -587,7 +587,7 @@ final class SettingsModel: ObservableObject {
                     self.keyStatus[provider.rawValue] = (true, "Could not save the key to the Keychain")
                     return
                 }
-                self.keyStatus[provider.rawValue] = (false, "Key works and is saved in your Keychain.")
+                self.keyStatus[provider.rawValue] = (false, "Saved.")
                 if provider == .openAI { self.openAIDraft = ""; self.hasOpenAIKey = true; self.useOpenAI = true }
                 else { self.anthropicDraft = ""; self.hasAnthropicKey = true; self.useClaude = true }
             }
@@ -628,17 +628,17 @@ private struct SettingsView: View {
                 styleChoice
                 modelsInUse
                 toggle("Type while speaking",
-                       detail: "Off: your words show above the pill and go in once, corrected, when you let go of Fn. On: they are typed into the field as you speak.",
+                       detail: "Type words as you speak instead of when you let go.",
                        isOn: $model.typeWhileSpeaking)
                 toggle("Accurate final pass",
                        detail: FinalPassEngine.modelIsComplete
-                           ? "Transcribes the final text with the large model. More accurate, about 0.7s slower."
-                           : "Transcribes the final text with the large model (downloads 574 MB once). More accurate, about 0.7s slower.",
+                           ? "More accurate, a little slower."
+                           : "More accurate, a little slower. Downloads 574 MB once.",
                        isOn: $model.accurateFinalPass)
                 toggle("AI punctuation",
                        detail: model.polishAvailable
-                           ? "Apple's on-device model fixes punctuation and line breaks. It never changes your words. Adds 0.5 to 2s."
-                           : "Needs Apple Intelligence, which is not available on this Mac.",
+                           ? "Fixes punctuation on this Mac. Never changes your words."
+                           : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
                 apiKeys
@@ -653,7 +653,7 @@ private struct SettingsView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Your data").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text("Your stats, settings and learned words are kept in \(UserData.directory.path). Uninstalling keeps this folder, so installing again picks up where you left off.")
+                Text("Stats, settings and learned words. Kept if you uninstall.")
                     .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -665,7 +665,7 @@ private struct SettingsView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Uninstall talkflow").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.uninstallStep ?? "Removes the app, the speech engine and models, saved API keys, logs and permissions. Keeps your data folder.")
+                Text(model.uninstallStep ?? "Removes talkflow, its speech models, keys and logs. Your data stays.")
                     .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -692,7 +692,7 @@ private struct SettingsView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Writing style").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.writingStyle.detail + " Also in the menu bar menu.")
+                Text(model.writingStyle.detail)
                     .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -724,17 +724,17 @@ private struct SettingsView: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Your own API keys").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text("Optional. Kept in your Keychain. With a key, the final text is sent to that provider and billed to you. If a request fails, the error shows above the pill and this Mac takes over.")
+                Text("Optional. Stored in your Keychain and billed to your account.")
                     .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             }
             keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
             toggle("Use my OpenAI key for transcription",
-                   detail: "\(CloudTranscriber.model) transcribes the final text. The live caption stays on this Mac.",
+                   detail: "\(CloudTranscriber.model) writes the final text.",
                    isOn: $model.useOpenAI)
                 .disabled(!model.hasOpenAIKey)
             keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
             toggle("Use my Anthropic key for punctuation",
-                   detail: "Claude fixes punctuation and line breaks in place of Apple's model, and never changes your words. Anthropic has no speech-to-text, so transcription stays with whisper or OpenAI.",
+                   detail: "Claude fixes punctuation. Never changes your words.",
                    isOn: $model.useClaude)
                 .disabled(!model.hasAnthropicKey)
             if model.useClaude && model.hasAnthropicKey {
@@ -758,7 +758,7 @@ private struct SettingsView: View {
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
                 Text(provider.name).font(.system(size: 12, weight: .medium)).foregroundColor(.ink).frame(width: 70, alignment: .leading)
-                SecureField(saved ? "Saved - paste a new key to replace it" : placeholder, text: draft)
+                SecureField(saved ? "Saved" : placeholder, text: draft)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .onSubmit { model.saveKey(provider) }
@@ -781,8 +781,8 @@ private struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Learned words").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
             Text(model.learned.isEmpty
-                 ? "When you fix a misheard word right after dictating, talkflow learns the spelling. Nothing learned yet."
-                 : "Spellings learned from your fixes. Click one to remove it.")
+                 ? "Fix a misheard word after dictating and talkflow learns it."
+                 : "Click a word to remove it.")
                 .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
                 ForEach(model.learned, id: \.self) { word in
