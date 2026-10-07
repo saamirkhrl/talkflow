@@ -270,6 +270,9 @@ try {
         Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
         $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
     }
+    # Windows 11 Notepad would open the next file as a tab of this window.
+    Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep -Seconds 1
 
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
