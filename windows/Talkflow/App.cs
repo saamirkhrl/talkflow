@@ -246,12 +246,14 @@ sealed class App : Application
     public Task<bool> StartEngine()
     {
         if (_engineStart is { IsCompleted: false } running) return running;
-        return _engineStart = StartEngineNow();
+        var start = _engineStart = StartEngineNow();
+        // After the assignment, so a listener already sees EngineStarting (and no stale EngineError).
+        EngineChanged?.Invoke();
+        return start;
     }
 
     async Task<bool> StartEngineNow()
     {
-        EngineChanged?.Invoke();
         bool up = await Task.Run(() => SpeechEngine.Small.Start(TimeSpan.FromSeconds(60)));
         EngineReady = up;
         Log.Write(up ? "speech engine ready" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
