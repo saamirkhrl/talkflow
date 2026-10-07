@@ -21,8 +21,8 @@ enum WritingStyle: String, CaseIterable {
     var detail: String {
         switch self {
         case .formal: return "Capitals and full stops."
-        case .casual: return "lowercase, no full stop at the end, \"I\" kept."
-        case .lowercase: return "every letter lowercase."
+        case .casual: return "lowercase, no final full stop."
+        case .lowercase: return "all lowercase."
         }
     }
 
