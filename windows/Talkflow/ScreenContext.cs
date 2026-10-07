@@ -24,15 +24,22 @@ static class ScreenContext
     const int FieldLimit = 4000;
     static readonly TimeSpan Budget = TimeSpan.FromMilliseconds(350);
 
-    public static Snapshot Capture(FocusTarget target)
+    /// <summary>A read still running after its budget (an app that never answers); the next one waits for it.</summary>
+    static Task<Snapshot>? _running;
+
+    /// <summary>
+    /// What is around the caret, or an empty snapshot when the app does not
+    /// answer within the budget. Waits without holding any thread, and never
+    /// starts a second read while one is stuck, so an app that hangs UI
+    /// Automation cannot use up threads hold after hold. Call on the UI thread.
+    /// </summary>
+    public static async Task<Snapshot> CaptureAsync(FocusTarget target)
     {
-        var read = Task.Run(() => Read(target.ProcessName));
-        try
-        {
-            if (read.Wait(Budget)) return read.Result;
-        }
-        catch (AggregateException) { }
-        return new Snapshot(target.ProcessName, null, null);
+        var empty = new Snapshot(target.ProcessName, null, null);
+        if (_running is { IsCompleted: false }) return empty;
+        var read = _running = Task.Run(() => Read(target.ProcessName));
+        if (await Task.WhenAny(read, Task.Delay(Budget)) != read) return empty;
+        return read.Status == TaskStatus.RanToCompletion ? read.Result : empty;
     }
 
     static Snapshot Read(string? processName)

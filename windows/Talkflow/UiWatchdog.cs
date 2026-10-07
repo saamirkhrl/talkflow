@@ -78,3 +78,42 @@ static class UiWatchdog
     }
 }
 
+/// <summary>
+/// Times the steps of one dictation phase and logs them on one line, e.g.
+/// "begin: mic check 1 ms, focus 9 ms, open microphone 0 ms, overlay 14 ms (total 24 ms)".
+/// Each step also tells <see cref="UiWatchdog"/> what the UI thread is doing.
+/// </summary>
+sealed class StepLog
+{
+    readonly string _phase;
+    readonly Stopwatch _total = Stopwatch.StartNew();
+    readonly StringBuilder _line = new();
+    string? _step;
+    TimeSpan _stepStart;
+
+    public StepLog(string phase) => _phase = phase;
+
+    /// <summary>Ends the current step, if any, and starts <paramref name="step"/>.</summary>
+    public void Next(string step)
+    {
+        Close();
+        _step = step;
+        _stepStart = _total.Elapsed;
+        UiWatchdog.Step = $"{_phase}: {step}";
+    }
+
+    /// <summary>Ends the last step and writes the line, with <paramref name="outcome"/> when given.</summary>
+    public void End(string? outcome = null)
+    {
+        Close();
+        UiWatchdog.Step = "idle";
+        Log.Write($"{_phase}: {_line}(total {_total.ElapsedMilliseconds} ms)" + (outcome is null ? "" : $": {outcome}"));
+    }
+
+    void Close()
+    {
+        if (_step is null) return;
+        _line.Append(_step).Append(' ').Append((long)(_total.Elapsed - _stepStart).TotalMilliseconds).Append(" ms, ");
+        _step = null;
+    }
+}

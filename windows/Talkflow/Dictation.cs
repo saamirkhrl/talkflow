@@ -19,6 +19,12 @@ namespace Talkflow;
 /// With "type while speaking" on, the words that two transcripts agree on are
 /// typed as you speak (StreamCommit), and the field is brought in line with
 /// the final transcript at release, within a keystroke budget.
+///
+/// Nothing here may block the UI thread: the microphone opens and closes on
+/// its own thread (Recorder), the screen is read in the background
+/// (ScreenContext), and every request to the speech engine is awaited. Each
+/// phase logs its steps with timings (StepLog), and every failure is said on
+/// the pill instead of the dictation silently vanishing.
 /// </summary>
 sealed class Dictation
 {
@@ -30,6 +36,8 @@ sealed class Dictation
     readonly DispatcherTimer _watchdog;
 
     const double MinDuration = 0.3;
+    /// <summary>A preview slower than this pauses the live caption for the rest of the hold (a slow PC).</summary>
+    const double PreviewBudgetSeconds = 2.5;
 
     bool _recording;
     DateTime? _startedAt;
@@ -42,6 +50,9 @@ sealed class Dictation
     ScreenContext.Snapshot? _context;
     int _holdNumber;
     bool _previewInFlight;
+    bool _previewsPaused;
+    int _previews;
+    double _slowestPreview;
     (string Text, string? Process)? _lastInsert;
 
     public bool IsRecording => _recording;
@@ -50,6 +61,12 @@ sealed class Dictation
     {
         _app = app;
         _recorder.Level += level => _app.Dispatcher.BeginInvoke(() => _app.Overlay.PushLevel(level));
+        _recorder.Failed += message => _app.Dispatcher.BeginInvoke(() =>
+        {
+            if (!_recording) return;
+            Abandon("the microphone could not be opened");
+            _app.Overlay.ShowError("Could not use the microphone: " + message);
+        });
         _preview = new DispatcherTimer(TimeSpan.FromSeconds(0.7), DispatcherPriority.Normal, (_, _) => TickPreview(), app.Dispatcher) { IsEnabled = false };
         // A key-up Windows never delivered (the lock screen) must not leave a hold running.
         _watchdog = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Normal, (_, _) =>
@@ -61,17 +78,37 @@ sealed class Dictation
     public void Begin()
     {
         if (_recording) return;
+        var steps = new StepLog("begin");
+        steps.Next("microphone check");
         var microphone = Microphone.Check();
         if (microphone != Microphone.State.Allowed)
         {
             _app.Overlay.ShowError(Microphone.Describe(microphone));
             _app.ShowOnboarding();
+            steps.End($"not recording: microphone {microphone}");
             return;
         }
         if (!SpeechEngine.Small.ModelIsComplete || !SpeechEngine.EngineInstalled)
         {
             _app.Overlay.ShowError("The speech engine isn't set up yet");
             _app.ShowOnboarding();
+            steps.End("not recording: setup incomplete");
+            return;
+        }
+        if (!_app.EngineReady)
+        {
+            // Recording now would end in a transcription that cannot happen.
+            if (_app.EngineStarting)
+            {
+                _app.Overlay.ShowNotice("The speech engine is still starting. Try again in a moment.");
+                steps.End("not recording: the engine is starting");
+            }
+            else
+            {
+                _app.Overlay.ShowError($"The speech engine is not running. {_app.EngineError} Starting it again...");
+                _ = _app.StartEngine();
+                steps.End($"not recording: the engine is not running ({_app.EngineError})");
+            }
             return;
         }
 
@@ -84,63 +121,92 @@ sealed class Dictation
         _leadingSpace = "";
         _liveTyping = _app.Settings.TypeWhileSpeaking;
         _style = _app.Settings.WritingStyle;
+        _previewsPaused = false;
+        _previews = 0;
+        _slowestPreview = 0;
+        steps.Next("focus");
         _target = FocusTarget.Current();
 
-        try
-        {
-            _recorder.Start();
-        }
-        catch (Exception e)
-        {
-            Log.Write($"could not start recording: {e.Message}");
-            _recording = false;
-            _app.Overlay.ShowError("Could not use the microphone: " + e.Message);
-            return;
-        }
+        steps.Next("start recorder");
+        _recorder.Start(); // returns at once; the device opens on the microphone thread
+        steps.Next("tray");
         _app.Tray.SetState(TrayState.Recording);
+        steps.Next("pill");
         _app.Overlay.Show();
         _preview.Start();
         _watchdog.Start();
+        steps.Next("screen context");
         ReadContext();
-        Log.Write("recording started");
+        steps.End($"recording into {_target.ProcessName ?? "unknown"}" + (_liveTyping ? ", typing while speaking" : ""));
     }
 
-    /// <summary>Ends a hold without inserting anything (another shortcut was pressed).</summary>
-    public void Abandon()
+    /// <summary>Ends a hold without inserting anything (another shortcut was pressed, or the microphone failed).</summary>
+    public void Abandon() => Abandon("another key was pressed with the shortcut");
+
+    void Abandon(string why)
     {
         if (!_recording) return;
         _recording = false;
         StopTimers();
         _recorder.Stop();
         Dismiss();
-        Log.Write("hold abandoned: another key was pressed with the shortcut");
+        Log.Write($"hold abandoned: {why}");
     }
 
     public async void Finish()
     {
         if (!_recording) return;
+        try
+        {
+            await FinishHold();
+        }
+        catch (Exception e)
+        {
+            // Whatever went wrong, the pill and tray must not stay in "writing".
+            Log.Write($"finish failed: {e}");
+            UiWatchdog.Step = "idle";
+            Dismiss();
+            _app.Overlay.ShowError("Something went wrong finishing this dictation: " + e.Message);
+        }
+    }
+
+    async Task FinishHold()
+    {
+        var steps = new StepLog("finish");
         _recording = false;
         StopTimers();
         double duration = _startedAt is { } start ? (DateTime.UtcNow - start).TotalSeconds : 0;
         _startedAt = null;
+        steps.Next("stop recorder");
         var wav = _recorder.Stop();
         if (duration < MinDuration)
         {
-            Log.Write($"hold was {duration:F2}s, discarding as an accidental tap");
             Dismiss();
+            steps.End($"hold was {duration:F2}s, discarded as an accidental tap");
             return;
         }
 
+        steps.Next("pill");
         _app.Tray.SetState(TrayState.Processing);
         _app.Overlay.ShowWorking();
-        var result = await TranscribeFinal(wav);
-        if (result is null || Transcript.IsPlaceholder(result.Text))
+        steps.Next("transcribe");
+        var (result, failure) = await TranscribeFinal(wav, duration);
+        if (result is null)
         {
-            if (result is not null) Log.Write($"no speech in {duration:F1}s of audio");
             Dismiss();
+            _app.Overlay.ShowError("Could not transcribe: " + (failure?.Message ?? "no answer"));
+            if (failure?.EngineDown == true) _app.EngineLost();
+            steps.End($"failed after {duration:F1}s of audio ({_previews} previews, slowest {_slowestPreview:F1}s): {failure?.Message}");
+            return;
+        }
+        if (Transcript.IsPlaceholder(result.Text))
+        {
+            Dismiss();
+            steps.End($"no speech in {duration:F1}s of audio");
             return;
         }
 
+        steps.Next("render");
         var leading = _liveTyping ? _leadingSpace : LeadingSpaceFromContext();
         var final = Render.Text(result.Text, leading, structure: true, style: _style);
         var verbatim = Render.Text(result.Text, leading, structure: true, corrections: false, style: _style);
@@ -157,41 +223,48 @@ sealed class Dictation
 
         if (!_liveTyping && _app.Settings.UseClaudePunctuation && ApiKeys.Has(ApiKeys.Provider.Anthropic))
         {
+            steps.Next("Claude punctuation");
             var (polished, error) = await ClaudePolish.Run(final, _app.Settings.ClaudeModel, Array.Empty<string>());
             if (error is not null) _app.Overlay.ShowError(error);
             final = _style.Apply(polished);
         }
-        await Deliver(final, verbatim, duration);
+        steps.Next("deliver");
+        var outcome = await Deliver(final, verbatim, duration);
+        steps.End($"{duration:F1}s of audio, {_previews} previews (slowest {_slowestPreview:F1}s), {outcome}");
     }
 
-    async Task Deliver(string final, string verbatim, double duration)
+    /// <summary>Types or copies the text; returns what happened, for the log.</summary>
+    async Task<string> Deliver(string final, string verbatim, double duration)
     {
+        string outcome;
         if (_liveTyping)
         {
             Reconcile(final, verbatim);
+            outcome = _focusLeft ? "focus left the app, stopped typing" : "typed while speaking";
         }
         else if (Chars.Trim(final).Length > 0)
         {
             // Typing while the shortcut's keys are still down would send
             // Ctrl+letters. Wait (briefly) for the user to let go.
+            var waited = System.Diagnostics.Stopwatch.StartNew();
             for (int i = 0; i < 100 && _app.Hotkey.AnyKeyHeld(); i++) await Task.Delay(50);
+            if (waited.ElapsedMilliseconds > 100) Log.Write($"waited {waited.ElapsedMilliseconds} ms for the shortcut's keys to come up");
             var now = FocusTarget.Current();
             if (_app.Hotkey.AnyKeyHeld())
-            {
-                ToClipboard(final, "a key of the shortcut was still held");
-            }
+                outcome = ToClipboard(final, "a key of the shortcut was still held");
             else if (_target is null || !now.SameAppAs(_target) || now.IsTalkflow && !_app.IsTryItFocused)
-            {
-                ToClipboard(final, "focus moved to another app");
-            }
+                outcome = ToClipboard(final, "focus moved to another app");
             else if (now.IsElevatedAboveUs())
-            {
-                ToClipboard(final, "that app runs as administrator, which blocks typing from other apps");
-            }
+                outcome = ToClipboard(final, "that app runs as administrator, which blocks typing from other apps");
             else
             {
                 SyncField(final);
+                outcome = $"typed {Chars.Count(final)} characters into {now.ProcessName ?? "unknown"}";
             }
+        }
+        else
+        {
+            outcome = "nothing to type";
         }
 
         if (_field.TypedText.Length > 0)
@@ -203,9 +276,10 @@ sealed class Dictation
         if (_recording && !_liveTyping) _field.Reset();
         _app.Overlay.Hide();
         KeyboardWriter.WhenDrained(() => _app.Dispatcher.BeginInvoke(() => { if (!_recording) _app.Tray.SetState(TrayState.Idle); }));
+        return outcome;
     }
 
-    void ToClipboard(string text, string why)
+    string ToClipboard(string text, string why)
     {
         var trimmed = text.Trim(' ');
         for (int attempt = 0; attempt < 5; attempt++)
@@ -214,8 +288,7 @@ sealed class Dictation
             {
                 Clipboard.SetText(trimmed);
                 _app.Overlay.ShowNotice("Copied to the clipboard: press Ctrl+V to paste");
-                Log.Write($"could not type the dictation ({why}), put it on the clipboard instead");
-                return;
+                return $"copied to the clipboard ({why})";
             }
             catch (System.Runtime.InteropServices.COMException)
             {
@@ -223,6 +296,7 @@ sealed class Dictation
             }
         }
         _app.Overlay.ShowError("Could not type or copy the dictation");
+        return $"could not type ({why}) or copy it";
     }
 
     /// <summary>A space goes first when the caret sits right after a word.</summary>
@@ -238,7 +312,7 @@ sealed class Dictation
 
     string Prompt => ScreenText.Prompt(Transcriber.VocabularyPrompt, Array.Empty<string>(), _app.Settings.LearnedWords);
 
-    async Task<Transcriber.Result?> TranscribeFinal(byte[] wav)
+    async Task<(Transcriber.Result? Result, Transcriber.Failure? Failure)> TranscribeFinal(byte[] wav, double duration)
     {
         var prompt = Prompt;
         if (_app.Settings.UseOpenAITranscription && ApiKeys.Has(ApiKeys.Provider.OpenAI))
@@ -247,29 +321,47 @@ sealed class Dictation
             if (result is not null)
             {
                 Log.Write($"final pass via OpenAI {CloudTranscriber.Model} in {result.Elapsed:F2}s");
-                return result;
+                return (result, null);
             }
             _app.Overlay.ShowError(error + ", used this PC instead");
         }
         if (_app.Settings.AccurateFinalPass && _app.FinalPassReady)
         {
-            var large = await Transcriber.Transcribe(wav, SpeechEngine.Large.InferenceUrl, TimeSpan.FromSeconds(8), prompt);
+            var (large, _) = await Transcriber.Transcribe(wav, SpeechEngine.Large.InferenceUrl, TimeSpan.FromSeconds(8 + duration), prompt);
             if (large is not null)
             {
                 Log.Write("final pass via large-v3-turbo");
-                return large;
+                return (large, null);
             }
             Log.Write("final-pass model did not answer, falling back to small.en");
         }
-        return await Transcriber.Transcribe(wav, SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(20), prompt);
+        // Longer recordings take longer, most of all on a slow PC.
+        return await Transcriber.Transcribe(wav, SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(20 + 2 * duration), prompt);
     }
 
     async void TickPreview()
     {
-        if (!_recording || _previewInFlight || _recorder.DurationSeconds < 0.5) return;
+        if (!_recording || _previewInFlight || _previewsPaused || _recorder.DurationSeconds < 0.5) return;
         _previewInFlight = true;
-        var result = await Transcriber.Transcribe(_recorder.SnapshotWav(), SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(5), Prompt);
+        int hold = _holdNumber;
+        // No short timeout: whisper-server finishes a request even after the
+        // client gives up, so an abandoned preview would only queue the next
+        // one, and the final text, behind it. One preview at a time, always
+        // waited for.
+        var (result, _) = await Transcriber.Transcribe(_recorder.SnapshotWav(), SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(120), Prompt);
         _previewInFlight = false;
+        if (hold != _holdNumber) return;
+        _previews++;
+        if (result is not null)
+        {
+            _slowestPreview = Math.Max(_slowestPreview, result.Elapsed);
+            if (result.Elapsed > PreviewBudgetSeconds && !_previewsPaused)
+            {
+                // The caption is a nicety; the final text must not wait behind it.
+                _previewsPaused = true;
+                Log.Write($"live caption paused for this hold: a preview took {result.Elapsed:F1}s");
+            }
+        }
         if (!_recording || result is null || Transcript.IsPlaceholder(result.Text)) return;
         var rendered = Render.Text(result.Text, _leadingSpace, structure: false, style: _style);
         if (!_liveTyping)
@@ -284,33 +376,37 @@ sealed class Dictation
 
     // MARK: - Context
 
-    void ReadContext()
+    async void ReadContext()
     {
         _holdNumber++;
         _context = null;
         int hold = _holdNumber;
         var target = _target!;
-        Task.Run(() => ScreenContext.Capture(target)).ContinueWith(task =>
-        {
-            if (_holdNumber != hold) return;
-            _context = task.Result;
-            if (_field.TypedText.Length == 0 && _lastStreamed.Length == 0) _leadingSpace = LeadingSpaceFromContext();
-            Learn(task.Result);
-        }, TaskScheduler.FromCurrentSynchronizationContext());
+        // talkflow's own window (the Try it box) is read directly: UI
+        // Automation calls from a process into its own UI are a classic way
+        // to deadlock, and are never needed.
+        var snapshot = target.IsTalkflow ? _app.OwnFieldSnapshot() : await ScreenContext.CaptureAsync(target);
+        if (_holdNumber != hold) return;
+        _context = snapshot;
+        if (_field.TypedText.Length == 0 && _lastStreamed.Length == 0) _leadingSpace = LeadingSpaceFromContext();
+        Learn(snapshot);
     }
 
+    /// <summary>A little after a dictation, reads the field again to learn words the user corrected.</summary>
     void ScheduleVocabularyCheck()
     {
         int hold = _holdNumber;
-        var timer = new DispatcherTimer(TimeSpan.FromSeconds(20), DispatcherPriority.Background, null, _app.Dispatcher);
-        timer.Tick += async (_, _) =>
+        // DispatcherTimer's constructor that takes a dispatcher throws on a
+        // null callback, so the callback is passed here, not added later.
+        DispatcherTimer? timer = null;
+        timer = new DispatcherTimer(TimeSpan.FromSeconds(20), DispatcherPriority.Background, async (_, _) =>
         {
-            timer.Stop();
+            timer!.Stop();
             if (_holdNumber != hold || _recording) return;
             var target = FocusTarget.Current();
-            var snapshot = await Task.Run(() => ScreenContext.Capture(target));
+            var snapshot = target.IsTalkflow ? _app.OwnFieldSnapshot() : await ScreenContext.CaptureAsync(target);
             Learn(snapshot);
-        };
+        }, _app.Dispatcher);
         timer.Start();
     }
 

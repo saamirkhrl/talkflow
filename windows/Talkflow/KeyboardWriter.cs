@@ -92,10 +92,32 @@ sealed record FocusTarget(IntPtr Window, uint ProcessId, string? ProcessName)
         var root = Native.GetAncestor(hwnd, Native.GA_ROOT);
         if (root != IntPtr.Zero) hwnd = root;
         Native.GetWindowThreadProcessId(hwnd, out var pid);
-        string? name = null;
-        try { if (pid != 0) name = Process.GetProcessById((int)pid).ProcessName; } catch (Exception) { }
-        return new FocusTarget(hwnd, pid, name);
+        return new FocusTarget(hwnd, pid, pid == 0 ? null : NameOf(pid));
     }
+
+    /// <summary>
+    /// "notepad" for C:\Windows\notepad.exe. Asks for that one process only;
+    /// Process.ProcessName would snapshot every process on the PC, several
+    /// times per dictation, on the UI thread.
+    /// </summary>
+    static string? NameOf(uint pid)
+    {
+        if (pid == (uint)Environment.ProcessId) return OwnName;
+        var process = Native.OpenProcess(Native.PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (process == IntPtr.Zero) return null;
+        try
+        {
+            var path = new System.Text.StringBuilder(1024);
+            int size = path.Capacity;
+            return Native.QueryFullProcessImageName(process, 0, path, ref size) ? System.IO.Path.GetFileNameWithoutExtension(path.ToString()) : null;
+        }
+        finally
+        {
+            Native.CloseHandle(process);
+        }
+    }
+
+    static readonly string OwnName = Process.GetCurrentProcess().ProcessName;
 
     public bool SameAppAs(FocusTarget other) => ProcessId != 0 && ProcessId == other.ProcessId;
 
