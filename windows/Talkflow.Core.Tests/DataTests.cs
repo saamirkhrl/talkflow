@@ -165,4 +165,26 @@ public class DataTests : IDisposable
         Assert.Equal(16000, BitConverter.ToInt32(wav, 24));
         Assert.Equal(6, BitConverter.ToInt32(wav, 40));
     }
+
+    [Fact]
+    public void WavReadsBackWhatItWrote()
+    {
+        var samples = new short[] { 1, -1, 300, short.MinValue, short.MaxValue };
+        Assert.Equal(samples, Wav.ReadSamples(Wav.FromSamples(samples, 16000)));
+    }
+
+    [Fact]
+    public void WavSkipsOtherChunksAndRefusesOtherFormats()
+    {
+        var plain = Wav.FromSamples(new short[] { 7, 8 }, 16000);
+        // A LIST chunk (odd size, padded) between fmt and data, as many tools write.
+        var list = new byte[] { (byte)'L', (byte)'I', (byte)'S', (byte)'T', 3, 0, 0, 0, 1, 2, 3, 0 };
+        var withList = plain[..36].Concat(list).Concat(plain[36..]).ToArray();
+        Assert.Equal(new short[] { 7, 8 }, Wav.ReadSamples(withList));
+
+        var stereo = (byte[])plain.Clone();
+        stereo[22] = 2;
+        Assert.Throws<InvalidDataException>(() => Wav.ReadSamples(stereo));
+        Assert.Throws<InvalidDataException>(() => Wav.ReadSamples(new byte[] { 1, 2, 3 }));
+    }
 }

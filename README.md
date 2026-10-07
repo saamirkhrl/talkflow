@@ -130,10 +130,13 @@ each release. Windows 10 (1809) or later.
   administrator rights, to `%LOCALAPPDATA%\Programs\talkflow`. The installer is
   not code-signed yet, so Windows SmartScreen may say it "protected your PC":
   click **More info**, then **Run anyway**.
-- **First launch:** setup checks microphone access (Settings > Privacy &
-  security > Microphone, including "Let desktop apps access your microphone"),
-  then downloads the English model (about 500 MB). The speech engine
-  (whisper.cpp) ships in the installer.
+- **First launch:** setup opens and does the rest by itself. It downloads the
+  English model (about 500 MB, once) in the background, keeps checking
+  microphone access (Settings > Privacy & security > Microphone, including "Let
+  desktop apps access your microphone") and, if it is off, opens that page for
+  you, then starts the speech engine and gives you a box to try it in. Closing
+  setup does not stop the download. The speech engine (whisper.cpp) ships in
+  the installer.
 - **Dictate:** hold **Ctrl + Win**, speak, let go. The shortcut can be changed
   in Settings. If focus moved to another app, or the app runs as administrator,
   the text goes to the clipboard instead.

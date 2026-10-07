@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -38,7 +39,10 @@ static class Transcriber
         return Environment.UserName;
     }
 
-    public static async Task<Result?> Transcribe(byte[] wav, Uri server, TimeSpan timeout, string prompt)
+    /// <summary>What went wrong with a request, in words for the pill. <see cref="EngineDown"/>: nothing was listening.</summary>
+    public sealed record Failure(string Message, bool EngineDown);
+
+    public static async Task<(Result? Result, Failure? Failure)> Transcribe(byte[] wav, Uri server, TimeSpan timeout, string prompt)
     {
         var boundary = "talkflow-" + Guid.NewGuid().ToString("N");
         using var content = new ByteArrayContent(Transcript.MultipartBody(wav, boundary, prompt));
@@ -51,17 +55,22 @@ static class Transcriber
             if (!response.IsSuccessStatusCode)
             {
                 Log.Write($"transcription server returned HTTP {(int)response.StatusCode}");
-                return null;
+                return (null, new Failure($"the speech engine answered HTTP {(int)response.StatusCode}", false));
             }
             var raw = await response.Content.ReadAsStringAsync(cancel.Token);
             var text = Transcript.JoinSegments(raw).Trim();
             int segments = raw.Replace("\r\n", "\n").Split('\n').Count(s => !Transcript.IsPlaceholder(s));
-            return new Result(text, watch.Elapsed.TotalSeconds, Math.Max(segments, 1));
+            return (new Result(text, watch.Elapsed.TotalSeconds, Math.Max(segments, 1)), null);
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or OperationCanceledException)
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or OperationCanceledException or System.IO.IOException)
         {
-            Log.Write($"transcription request failed after {watch.Elapsed.TotalSeconds:F2}s: {e.GetType().Name}");
-            return null;
+            bool refused = e is HttpRequestException { InnerException: SocketException { SocketErrorCode: SocketError.ConnectionRefused } };
+            Log.Write($"transcription request failed after {watch.Elapsed.TotalSeconds:F2}s: {e.GetType().Name}{(refused ? " (connection refused)" : "")}");
+            return (null, refused
+                ? new Failure("the speech engine is not running", true)
+                : e is HttpRequestException
+                    ? new Failure("the speech engine could not be reached", false)
+                    : new Failure($"the speech engine took longer than {timeout.TotalSeconds:F0} s", false));
         }
     }
 }

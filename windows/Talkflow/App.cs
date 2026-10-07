@@ -27,9 +27,17 @@ sealed class App : Application
     public TrayIcon Tray { get; private set; } = null!;
     public Updater Updater { get; } = new();
     public bool HasRunBefore { get; private set; }
+    /// <summary>The model download; lives here so it survives closing the setup window.</summary>
+    public ModelDownload ModelDownload { get; private set; } = null!;
 
     public bool EngineReady { get; private set; }
     public bool FinalPassReady { get; private set; }
+    /// <summary>Whether small.en's server is being started right now.</summary>
+    public bool EngineStarting => _engineStart is { IsCompleted: false };
+    /// <summary>Why the speech engine is not running, for the pill and setup; null while it runs or starts.</summary>
+    public string? EngineError => EngineReady || EngineStarting ? null : SpeechEngine.Small.LastError;
+    /// <summary>The engine started, stopped or failed; raised on the UI thread.</summary>
+    public event Action? EngineChanged;
 
     Dictation _dictation = null!;
     DashboardWindow? _dashboard;
@@ -37,8 +45,19 @@ sealed class App : Application
     DispatcherTimer? _updateTimer;
     Action<HotkeySpec?>? _onRecorded;
     bool _finalPassStarting;
+    Task<bool>? _engineStart;
 
     public bool IsTryItFocused => _onboarding?.TryItFocused == true;
+    public bool OnboardingOpen => _onboarding is not null;
+
+    /// <summary>What is around the caret when the dictation is into talkflow's own window: the Try it box, or nothing.</summary>
+    public ScreenContext.Snapshot OwnFieldSnapshot()
+    {
+        var name = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+        if (_onboarding is not { TryItFocused: true } onboarding) return new ScreenContext.Snapshot(name, null, null);
+        var (before, field) = onboarding.TryItText;
+        return new ScreenContext.Snapshot(name, before.Length > 300 ? before[^300..] : before, field.Length > 4000 ? field[^4000..] : field);
+    }
 
     // MARK: - Entry point
 
@@ -49,14 +68,16 @@ sealed class App : Application
 
         using var instance = new Mutex(initiallyOwned: true, @"Local\talkflow-app", out bool first);
         using var show = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\talkflow-show");
+        using var setup = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\talkflow-setup");
         if (!first)
         {
-            show.Set();
+            // `talkflow.exe --setup` while it runs opens setup; otherwise the dashboard.
+            (args.Contains("--setup") ? setup : show).Set();
             return 0;
         }
 
         var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show);
+        app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show, setup);
         app.DispatcherUnhandledException += (_, e) =>
         {
             Log.Write($"unhandled: {e.Exception}");
@@ -123,12 +144,15 @@ sealed class App : Application
 
     // MARK: - Startup
 
-    void Start(bool background, EventWaitHandle show)
+    void Start(bool background, EventWaitHandle show, EventWaitHandle setup)
     {
         Paths.EnsureCreated();
         HasRunBefore = File.Exists(Paths.SettingsFile);
-        Log.Write($"launched {Updater.DisplayVersion} ({RuntimeInformation.ProcessArchitecture}), pid {Environment.ProcessId}");
+        Log.Write($"launched {Updater.DisplayVersion} ({RuntimeInformation.ProcessArchitecture}) on {Environment.OSVersion.VersionString}, pid {Environment.ProcessId}");
+        if (TestHooks.Any) Log.Write(TestHooks.Describe());
+        UiWatchdog.Start(Dispatcher);
 
+        ModelDownload = new ModelDownload(this);
         Settings = new SettingsStore(Paths.SettingsFile);
         Settings.BackUp();
         Stats = new StatsStore(Paths.StatsFile);
@@ -138,6 +162,11 @@ sealed class App : Application
         StartupEntry.Refresh();
 
         Overlay = new OverlayWindow();
+        // The first show of the pill and the first window that uses Ui's
+        // shared resources each cost a second or two on a slow PC. Pay both
+        // now, after startup, instead of during the first hold or setup.
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () => { UiWatchdog.Step = "prewarm: pill"; Overlay.Prewarm(); UiWatchdog.Step = "idle"; });
+        Task.Run(WarmImageDecoding);
         Hotkey = new HotkeyListener(Prefs.Hotkey, action => Dispatcher.BeginInvoke(action));
         Tray = new TrayIcon(this);
         _dictation = new Dictation(this);
@@ -155,7 +184,12 @@ sealed class App : Application
         // A second launch asks this one to show itself.
         new Thread(() =>
         {
-            while (show.WaitOne()) Dispatcher.BeginInvoke(() => ShowDashboard());
+            var signals = new WaitHandle[] { show, setup };
+            while (true)
+            {
+                if (WaitHandle.WaitAny(signals) == 0) Dispatcher.BeginInvoke(() => ShowDashboard());
+                else Dispatcher.BeginInvoke(ShowOnboarding);
+            }
         }) { IsBackground = true, Name = "talkflow activation" }.Start();
 
         Updater.Changed += OnUpdaterChanged;
@@ -172,6 +206,28 @@ sealed class App : Application
         else if (!background) ShowDashboard();
     }
 
+    /// <summary>
+    /// Decodes the app icon once in the background, so the image codec is
+    /// loaded before the first window needs it (setup's first open held the
+    /// UI thread for 1.7 s there). Never throws: it only saves time.
+    /// </summary>
+    static void WarmImageDecoding()
+    {
+        try
+        {
+            var image = new System.Windows.Media.Imaging.BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri("pack://application:,,,/talkflow;component/Assets/talkflow-256.png");
+            image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            image.EndInit();
+            image.Freeze();
+        }
+        catch (Exception e)
+        {
+            Log.Write($"image decoding warm-up skipped: {e.Message}");
+        }
+    }
+
     void OnUpdaterChanged() => Dispatcher.BeginInvoke(() =>
     {
         Tray.Refresh();
@@ -186,13 +242,38 @@ sealed class App : Application
     public bool NeedsSetup =>
         Microphone.Check() != Microphone.State.Allowed || !SpeechEngine.EngineInstalled || !SpeechEngine.Small.ModelIsComplete;
 
-    /// <summary>Starts small.en (and the final-pass model when wanted). Safe to call again.</summary>
-    public async Task StartEngine()
+    /// <summary>
+    /// Starts small.en (and the final-pass model when wanted). Safe to call
+    /// again: while a start is under way, every caller gets that same start.
+    /// Call on the UI thread.
+    /// </summary>
+    public Task<bool> StartEngine()
+    {
+        if (_engineStart is { IsCompleted: false } running) return running;
+        var start = _engineStart = StartEngineNow();
+        // After the assignment, so a listener already sees EngineStarting (and no stale EngineError).
+        EngineChanged?.Invoke();
+        return start;
+    }
+
+    async Task<bool> StartEngineNow()
     {
         bool up = await Task.Run(() => SpeechEngine.Small.Start(TimeSpan.FromSeconds(60)));
         EngineReady = up;
-        Log.Write(up ? "speech engine ready" : "speech engine is not running (setup incomplete or failed to start)");
+        Log.Write(up ? "speech engine ready" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
+        EngineChanged?.Invoke();
         if (up) StartFinalPass();
+        return up;
+    }
+
+    /// <summary>A transcription found nothing listening: the server died. Starts it again.</summary>
+    public void EngineLost()
+    {
+        if (!EngineReady) return;
+        EngineReady = false;
+        Log.Write("the speech engine stopped answering; starting it again");
+        EngineChanged?.Invoke();
+        _ = StartEngine();
     }
 
     /// <summary>large-v3-turbo for the final pass: downloaded in the background on first use.</summary>
