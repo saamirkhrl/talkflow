@@ -121,6 +121,7 @@ enum StreamSelfTest {
         runOnboardingStepCases()
         runPermissionGrantCases()
         runOnboardingProgressCases()
+        runEffortlessSetupCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -1088,6 +1089,230 @@ enum StreamSelfTest {
         model.stop()
     }
 
+    /// The engine gets ready in the background while the permissions are
+    /// done, finished steps are skipped, and the Try it page notices when
+    /// dictated words arrive.
+    private static func runEffortlessSetupCases() {
+        report("case: setup gets the engine ready in the background and skips what is done")
+        typealias F = OnboardingFlow
+        typealias G = PermissionGrants
+        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
+        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
+        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
+
+        // The pure rules.
+        check(F.startsEngineByItself(responding: false, programPresent: true), "engine: not answering, program here: starts without a click")
+        check(!F.startsEngineByItself(responding: true, programPresent: true), "engine: already answering: nothing to start")
+        check(!F.startsEngineByItself(responding: false, programPresent: false), "engine: no program: waits for a click (installing needs consent)")
+        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: true) == .ready, "skip: a ready engine's step is skipped")
+        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: false) == .engine, "skip: an engine still getting ready is shown")
+        check(F.nextNeeded(after: .welcome, grants: mic) == .accessibility, "skip: Get started skips a microphone already allowed")
+        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .ready, "skip: with everything done, Get started goes straight to Try it")
+        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: all, engineReady: true) == .ready,
+              "skip: the last grant goes straight to Try it when the engine is ready")
+        check(F.stepAfterEngine(current: .engine, ready: true, grants: all) == .ready, "engine: ready on its own step moves on by itself")
+        check(F.stepAfterEngine(current: .accessibility, ready: true, grants: mic) == .accessibility, "engine: ready during a permission step leaves the step alone")
+        check(F.stepAfterEngine(current: .engine, ready: false, grants: all) == .engine, "engine: a failure stays on its step")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: true) == nil, "back: nothing to go back to for a returning user")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: false) == .welcome, "back: a first run goes back to the welcome page")
+        check(F.previousShown(before: .ready, grants: all, engineReady: false, returning: true) == .engine, "back: from Try it to an engine still getting ready")
+        check(F.previousShown(before: .ready, grants: mic, engineReady: true, returning: true) == .accessibility, "back: skips done steps to the one still needed")
+        check(F.previousShown(before: .microphone, grants: none, engineReady: false, returning: false) == .welcome, "back: the first step goes to the welcome page")
+
+        check(OnboardingMotion.duration(reduceMotion: true) == 0, "motion: none with Reduce Motion on")
+        check(OnboardingMotion.animation(reduceMotion: true) == nil, "motion: no animation with Reduce Motion on")
+        check((0.15...0.3).contains(OnboardingMotion.duration(reduceMotion: false)), "motion: short otherwise",
+              "\(OnboardingMotion.duration(reduceMotion: false))")
+
+        var estimate = DownloadEstimate()
+        check(estimate.secondsLeft() == nil, "estimate: nothing before the download starts")
+        estimate.add(0.30, at: 0)
+        check(estimate.secondsLeft() == nil, "estimate: one reading is not a speed")
+        var early = estimate
+        early.add(0.31, at: 1)
+        check(early.secondsLeft() == nil, "estimate: not after a single second")
+        estimate.add(0.42, at: 30)
+        let left = estimate.secondsLeft() ?? -1
+        check(abs(left - 145) < 1, "estimate: 12 points in 30 s leaves 58 points, about 145 s", "\(left)")
+        check(DownloadEstimate.describe(left) == "About 2 minutes left", "estimate: said in minutes", DownloadEstimate.describe(left) ?? "nil")
+        check(DownloadEstimate.describe(30) == "Less than a minute left", "estimate: under a minute")
+        check(DownloadEstimate.describe(70) == "About a minute left", "estimate: about a minute")
+        check(DownloadEstimate.describe(7200) == "Over an hour left", "estimate: very slow")
+        check(DownloadEstimate.describe(nil) == nil, "estimate: unknown says nothing")
+        estimate.add(0.05, at: 31)
+        check(estimate.secondsLeft() == nil, "estimate: a download that started over measures again")
+        var stalled = DownloadEstimate()
+        stalled.add(0.5, at: 0)
+        stalled.add(0.5, at: 10)
+        check(stalled.secondsLeft() == nil, "estimate: no progress, no made-up time")
+        var window = DownloadEstimate()
+        window.add(0.0, at: 0)
+        window.add(0.1, at: 100)
+        window.add(0.2, at: 105)
+        window.add(0.3, at: 110)
+        let recent = window.secondsLeft() ?? -1
+        // 0.2 in the last 10 s: 0.7 left is 35 s (the slow start alone would say 700).
+        check(abs(recent - 35) < 1, "estimate: measured on the last seconds, not the slow start", "\(recent)")
+
+        check(!TryIt.arrived(baseline: nil, practice: "Hello"), "try it: typing without Fn is not a dictation")
+        check(TryIt.arrived(baseline: "", practice: "Hello"), "try it: words after Fn arrived")
+        check(!TryIt.arrived(baseline: "", practice: " \n"), "try it: blank is not words")
+        check(!TryIt.arrived(baseline: "Hi", practice: "Hi "), "try it: nothing new")
+        check(TryIt.arrived(baseline: "Hi.", practice: "Hi. How are you?"), "try it: new words after earlier ones")
+        check(!TryIt.arrived(baseline: "Hello there", practice: "Hello"), "try it: deleting is not arriving")
+        func phase(restart: Bool = false, running: Bool = true, down: Bool = false, succeeded: Bool = false,
+                   pressed: Bool = false, released: TimeInterval? = nil, shown: TimeInterval = 0) -> TryIt.Phase {
+            TryIt.phase(needsRestart: restart, hotkeyRunning: running, fnDown: down, succeeded: succeeded,
+                        pressedFn: pressed, sinceRelease: released, sinceShown: shown)
+        }
+        check(phase(restart: true, running: false) == .restart, "try it: a restart comes first")
+        check(phase(running: false) == .starting, "try it: waits for the Fn listener")
+        check(phase() == .waiting, "try it: ready when you are")
+        check(phase(down: true, pressed: true) == .listening, "try it: Fn held is listening")
+        check(phase(down: true, succeeded: true, pressed: true) == .listening, "try it: holding Fn again listens again")
+        check(phase(pressed: true, released: 1) == .writing, "try it: just let go is writing")
+        check(phase(succeeded: true, pressed: true, released: 1) == .success, "try it: words arrived is success")
+        check(phase(pressed: true, released: TryIt.nothingAfter + 1) == .nothingArrived, "try it: nothing after a while says so")
+        check(phase(shown: TryIt.hintAfter + 1) == .hint, "try it: nothing tried for a while shows the hint")
+        check(phase(shown: TryIt.hintAfter - 5) == .waiting, "try it: no hint too early")
+
+        let guide = Onboarding.switchOn(.accessibility, appName: "talkflow")
+        check(guide.place.hasSuffix("Accessibility") && guide.action == "Switch on talkflow", "guide: says where and what to switch on",
+              "\(guide.place) / \(guide.action)")
+        check(Onboarding.switchOn(.microphone, appName: "talkflow test").action == "Switch on talkflow test", "guide: uses the name System Settings shows")
+        check(Permissions.Service.allCases.allSatisfy { service in
+            let text = Onboarding.switchOn(service, appName: "talkflow")
+            return (text.place + text.action).allSatisfy(\.isASCII)
+        }, "guide: plain ASCII")
+
+        // The model: the download starts as setup opens, and only once.
+        let fake = FakeSystem()
+        let model = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: EphemeralDefaults()))
+        model.begin()
+        check(model.step == .welcome, "background: setup still opens on the welcome page", "\(model.step)")
+        check(fake.engineSetups.count == 1, "background: the engine setup starts as setup opens", "\(fake.engineSetups.count)")
+        check(model.engineBusy, "background: and is under way")
+        model.begin()
+        model.startEngineIfNeeded()
+        model.runEngineSetup()
+        model.stop()
+        model.begin()
+        check(fake.engineSetups.count == 1 && fake.engineChecks == 1, "background: never a second download, whatever asks for one",
+              "setups \(fake.engineSetups.count), checks \(fake.engineChecks)")
+        model.goNext()
+        check(model.step == .microphone, "background: the permissions go on meanwhile", "\(model.step)")
+        model.engineChanged(.working(EngineSetup.downloadingMessage, 0.0), at: 0)
+        model.engineChanged(.working(EngineSetup.downloadingMessage, 0.3), at: 10)
+        check(model.engineFraction == 0.3 && model.mark(.engine) == .pending, "background: its progress shows while the step is pending")
+        check(model.downloadTimeLeft == "Less than a minute left", "background: with an estimate", model.downloadTimeLeft ?? "nil")
+        model.stop() // the window closes
+        model.engineChanged(.ready)
+        check(model.engine == .ready && !model.engineBusy, "background: closing setup does not stop it")
+        model.begin()
+        check(model.step == .microphone && fake.engineSetups.count == 1, "background: reopened, nothing starts again", "\(model.step)")
+        fake.mic = .granted
+        model.refresh(announce: true)
+        check(model.step == .accessibility, "background: the microphone grant moves on", "\(model.step)")
+        fake.ax = true; fake.im = true
+        model.refresh(announce: true)
+        check(model.step == .ready, "skip: the engine was ready, so the last grant goes straight to Try it", "\(model.step)")
+        check(model.mark(.engine) == .done, "skip: and the engine shows done")
+        model.stop()
+
+        // A failure: one Try again starts it once more.
+        let failing = FakeSystem()
+        let retry = OnboardingModel(startHotkey: { true }, environment: failing.environment(defaults: EphemeralDefaults()))
+        retry.begin()
+        failing.engineSetups.last?(.failed("The download stopped: The network connection was lost."))
+        check(!retry.engineBusy && retry.engine.isFinished, "failure: the setup stops and says so")
+        retry.runEngineSetup()
+        retry.runEngineSetup()
+        check(failing.engineSetups.count == 2, "failure: Try again starts it once more, not twice", "\(failing.engineSetups.count)")
+        retry.stop()
+
+        // On the engine step itself: ready moves on by itself.
+        let onStep = FakeSystem()
+        onStep.mic = .granted; onStep.ax = true; onStep.im = true
+        let onStepDefaults = EphemeralDefaults()
+        onStepDefaults.set(true, forKey: Onboarding.completedKey)
+        let engineStep = OnboardingModel(startHotkey: { true }, environment: onStep.environment(defaults: onStepDefaults))
+        engineStep.begin()
+        check(engineStep.step == .engine && onStep.engineSetups.count == 1, "engine step: opens on it, already working", "\(engineStep.step)")
+        onStep.engineSetups.last?(.working("Starting the speech engine...", nil))
+        check(engineStep.step == .engine && engineStep.engineFraction == nil, "engine step: starting has no percentage")
+        onStep.engineSetups.last?(.ready)
+        check(engineStep.step == .ready, "engine step: moves on when the engine is ready", "\(engineStep.step)")
+        engineStep.stop()
+
+        // Already answering: nothing to download, and nothing shown for it.
+        let alive = FakeSystem()
+        alive.engineAlive = true
+        alive.mic = .granted; alive.ax = true; alive.im = true
+        let ready = OnboardingModel(startHotkey: { true }, environment: alive.environment(defaults: EphemeralDefaults()))
+        ready.begin()
+        check(ready.engine == .ready && alive.engineSetups.isEmpty, "alive: a running engine is not set up again")
+        check(ready.step == .ready, "alive: a Mac with everything done opens straight on Try it, no welcome page", "\(ready.step)")
+        check(ready.previousStep == nil, "alive: and has nothing to go back to")
+        ready.stop()
+
+        // No program (a build without one): waits for the button.
+        let bare = FakeSystem()
+        bare.programPresent = false
+        let waiting = OnboardingModel(startHotkey: { true }, environment: bare.environment(defaults: EphemeralDefaults()))
+        waiting.begin()
+        check(waiting.engine == .needsSetup && bare.engineSetups.isEmpty, "no program: nothing is installed without a click")
+        waiting.runEngineSetup()
+        check(bare.engineSetups.count == 1, "no program: the button starts it")
+        waiting.stop()
+
+        // A returning user never sees the welcome page.
+        let back = FakeSystem()
+        let backDefaults = EphemeralDefaults()
+        backDefaults.set(true, forKey: Onboarding.completedKey)
+        let returning = OnboardingModel(startHotkey: { true }, environment: back.environment(defaults: backDefaults))
+        returning.begin()
+        check(returning.step == .microphone, "returning: opens on what is missing", "\(returning.step)")
+        check(returning.previousStep == nil, "returning: no Back to the welcome page")
+        returning.stop()
+
+        // Try it: success only when dictated words arrive.
+        let tryFake = FakeSystem()
+        tryFake.engineAlive = true
+        tryFake.engineInstalled = true
+        tryFake.mic = .granted; tryFake.ax = true; tryFake.im = true
+        let tryDefaults = EphemeralDefaults()
+        tryDefaults.set(true, forKey: Onboarding.completedKey)
+        let tryIt = OnboardingModel(startHotkey: { true }, environment: tryFake.environment(defaults: tryDefaults))
+        tryIt.begin()
+        check(tryIt.step == .ready && tryIt.hotkeyRunning, "try it: opens on the last page with Fn listening", "\(tryIt.step)")
+        check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: ready when you are")
+        tryIt.practice = "typed by hand"
+        check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: typing by hand is not a success")
+        tryIt.fnChanged(down: true)
+        check(tryIt.tryItPhase(at: Date()) == .listening, "try it: Fn held shows listening")
+        tryIt.practice = "typed by hand Hello there"
+        check(tryIt.tryItPhase(at: Date()) == .listening, "try it: still listening while Fn is held")
+        tryIt.fnChanged(down: false)
+        check(tryIt.tryItPhase(at: Date()) == .success, "try it: let go with new words is a success")
+        tryIt.practice = ""
+        check(tryIt.tryItPhase(at: Date()) == .success, "try it: and it stays a success")
+        tryIt.stop()
+
+        let quiet = OnboardingModel(startHotkey: { true }, environment: tryFake.environment(defaults: tryDefaults))
+        quiet.begin()
+        quiet.fnChanged(down: true)
+        quiet.fnChanged(down: false)
+        check(quiet.tryItPhase(at: Date()) == .writing, "try it: just let go, writing")
+        check(quiet.tryItPhase(at: Date().addingTimeInterval(TryIt.nothingAfter + 1)) == .nothingArrived, "try it: nothing arrived says so")
+        check(quiet.tryItPhase(at: Date().addingTimeInterval(1)) != .success, "try it: no words, no success")
+        quiet.stop()
+
+        let motionFake = FakeSystem()
+        motionFake.reduceMotion = true
+        let still = OnboardingModel(startHotkey: { true }, environment: motionFake.environment(defaults: EphemeralDefaults()))
+        check(still.reduceMotion, "motion: setup follows the Reduce Motion setting")
+    }
+
     /// Stands in for macOS in the setup checks: permission states, prompts,
     /// System Settings and tccutil are all recorded here instead of touched.
     private final class FakeSystem {
@@ -1101,6 +1326,13 @@ enum StreamSelfTest {
         var settingsOpened: [Permissions.Pane] = []
         var resets: [Permissions.Service] = []
         var resetSucceeds = true
+        /// The engine: whether it answers, whether its program is here, and
+        /// each setup started (its report callback, to drive by hand).
+        var engineAlive = false
+        var programPresent = true
+        var engineChecks = 0
+        var engineSetups: [(EngineState) -> Void] = []
+        var reduceMotion = false
 
         func environment(defaults: UserDefaults) -> OnboardingEnvironment {
             OnboardingEnvironment(
@@ -1112,7 +1344,12 @@ enum StreamSelfTest {
                 openSettings: { self.settingsOpened.append($0) },
                 resetGrant: { service, done in self.resets.append(service); done(self.resetSucceeds) },
                 staleGrace: 0,
-                fnKeyHasSystemAction: { false })
+                fnKeyHasSystemAction: { false },
+                engineResponding: { done in self.engineChecks += 1; done(self.engineAlive) },
+                engineProgramPresent: { self.programPresent },
+                setUpEngine: { report in self.engineSetups.append(report) },
+                reduceMotion: { self.reduceMotion },
+                appName: "talkflow")
         }
     }
 

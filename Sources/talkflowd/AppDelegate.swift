@@ -7,7 +7,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let dashboard = DashboardController()
     private var statusBar: StatusBar!
     private var dictation: Dictation!
-    private lazy var onboarding = OnboardingController(startHotkey: { [weak self] in self?.hotkey.start() ?? false })
+    /// Made the first time setup is shown, and kept (with its engine
+    /// download) after its window closes.
+    private var onboardingController: OnboardingController?
+    private var onboarding: OnboardingController {
+        if let onboardingController { return onboardingController }
+        let controller = OnboardingController(startHotkey: { [weak self] in self?.hotkey.start() ?? false })
+        onboardingController = controller
+        return controller
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First, so a reinstall has the user's settings before anything reads them.
@@ -18,8 +26,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         dictation = Dictation(overlay: overlay, statusBar: statusBar)
 
-        hotkey.onStart = { [weak self] in self?.dictation.begin() }
-        hotkey.onStop = { [weak self] in self?.dictation.finish() }
+        // Setup's Try it page shows when Fn is held (only if setup exists).
+        hotkey.onStart = { [weak self] in
+            self?.dictation.begin()
+            self?.onboardingController?.model.fnChanged(down: true)
+        }
+        hotkey.onStop = { [weak self] in
+            self?.dictation.finish()
+            self?.onboardingController?.model.fnChanged(down: false)
+        }
 
         // Which build each working permission belongs to, so after the next
         // update setup can tell a stale grant from a missing one.
@@ -60,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Clicking the Dock icon, which exists while setup is open (it makes
     /// the app regular so it can be found again behind System Settings).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if onboarding.model.isActive { onboarding.show() } else { dashboard.show() }
+        if let onboardingController, onboardingController.model.isActive { onboardingController.show() } else { dashboard.show() }
         return true
     }
 
