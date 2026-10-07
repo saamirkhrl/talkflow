@@ -76,6 +76,11 @@ sealed class Recorder
         if (!IsCurrent(generation)) return; // let go before the device was reached
         Close(); // never two devices at once
         var watch = Stopwatch.StartNew();
+        if (TestHooks.SilentMicrophone)
+        {
+            Log.Write("test: a microphone that opens but never sends audio");
+            return;
+        }
         if (TestHooks.AudioFile is { } file)
         {
             _test = new TestAudio(file, samples => OnSamples(generation, samples));

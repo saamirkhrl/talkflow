@@ -10,6 +10,8 @@ namespace Talkflow;
 ///
 ///  - TALKFLOW_TEST_AUDIO=path.wav: the recorder plays this 16 kHz mono WAV in
 ///    real time instead of opening the microphone (CI machines have none).
+///  - TALKFLOW_TEST_SILENT_MIC=1: the recorder "opens" a microphone that never
+///    delivers a buffer, as one real USB microphone did. Wins over the WAV.
 ///  - TALKFLOW_TEST_INJECTED_KEYS=1: the shortcut also reacts to key events
 ///    another program injected with SendInput, so a test can hold the keys
 ///    like a person. talkflow's own injected keystrokes are still ignored.
@@ -19,13 +21,14 @@ namespace Talkflow;
 static class TestHooks
 {
     public static readonly string? AudioFile = Existing("TALKFLOW_TEST_AUDIO");
+    public static readonly bool SilentMicrophone = Environment.GetEnvironmentVariable("TALKFLOW_TEST_SILENT_MIC") == "1";
     public static readonly bool AcceptInjectedKeys = Environment.GetEnvironmentVariable("TALKFLOW_TEST_INJECTED_KEYS") == "1";
     public static readonly string? Model = Existing("TALKFLOW_TEST_MODEL");
 
-    public static bool Any => AudioFile is not null || AcceptInjectedKeys || Model is not null;
+    public static bool Any => AudioFile is not null || SilentMicrophone || AcceptInjectedKeys || Model is not null;
 
     public static string Describe() =>
-        $"test hooks on: audio={AudioFile ?? "-"}, injected keys={AcceptInjectedKeys}, model={Model ?? "-"}";
+        $"test hooks on: audio={AudioFile ?? "-"}, silent microphone={SilentMicrophone}, injected keys={AcceptInjectedKeys}, model={Model ?? "-"}";
 
     static string? Existing(string variable) =>
         Environment.GetEnvironmentVariable(variable) is { Length: > 0 } path && File.Exists(path) ? Path.GetFullPath(path) : null;
