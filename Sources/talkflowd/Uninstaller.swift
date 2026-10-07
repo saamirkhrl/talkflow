@@ -2,12 +2,14 @@ import AppKit
 import Foundation
 import ServiceManagement
 
-/// Removes talkflow from this Mac: the app, the speech engine and its
-/// background service, the speech models, whisper-cpp from Homebrew, logs,
-/// caches, saved API keys, the login item and the app's permissions.
+/// Removes talkflow from this Mac: the app (with the speech engine inside
+/// it), the engine's background service, the speech models, logs, caches,
+/// saved API keys, the login item and the app's permissions.
 ///
 /// The user's data folder (`UserData.directory`: stats and settings) is kept,
-/// so installing again picks up where they left off.
+/// so installing again picks up where they left off. Homebrew is never
+/// touched: the engine ships in the app, and a whisper-cpp the user has in
+/// Homebrew is theirs.
 enum Uninstaller {
     struct Step {
         let title: String
@@ -42,16 +44,8 @@ enum Uninstaller {
         })
         steps.append(Step(title: "Remove the speech models (\(models.path))") { remove(models) })
 
-        if let brew = SpeechEngine.brewBinary(), let formula = whisperFormula(brew: brew) {
-            let dependents = run(brew, ["uses", "--installed", formula]).output
-                .split(whereSeparator: \.isNewline).map(String.init)
-            if dependents.isEmpty {
-                steps.append(Step(title: "Uninstall \(formula) from Homebrew") {
-                    run(brew, ["uninstall", formula])
-                })
-            } else {
-                steps.append(Step(title: "Keep \(formula): Homebrew's \(dependents.joined(separator: ", ")) needs it") {})
-            }
+        if let homebrew = SpeechEngine.homebrewServerPaths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) {
+            steps.append(Step(title: "Keep Homebrew's whisper-cpp (\(homebrew)); talkflow does not use it. To remove it: brew uninstall whisper-cpp") {})
         }
 
         steps.append(Step(title: "Remove saved API keys from the Keychain") {
@@ -108,9 +102,9 @@ enum Uninstaller {
         let alert = NSAlert()
         alert.messageText = "Uninstall talkflow?"
         alert.informativeText = """
-        This removes talkflow, its speech engine and models, whisper-cpp from Homebrew \
-        (unless something else needs it), saved API keys, logs, the login item and \
-        talkflow's permissions, then quits.
+        This removes talkflow, its speech engine and models, saved API keys, logs, \
+        the login item and talkflow's permissions, then quits. Homebrew and anything \
+        installed with it are left alone.
 
         Your stats and settings stay in \(UserData.directory.path), so installing \
         talkflow again picks up where you left off. Delete that folder for a completely \
@@ -123,12 +117,6 @@ enum Uninstaller {
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         run(progress: progress)
-    }
-
-    /// "whisper-cpp" or its newer name "whisper.cpp", whichever Homebrew has.
-    private static func whisperFormula(brew: String) -> String? {
-        let installed = run(brew, ["list", "--formula", "-1"]).output.split(whereSeparator: \.isNewline)
-        return ["whisper-cpp", "whisper.cpp"].first { name in installed.contains { $0 == name } }
     }
 
     private static func remove(_ url: URL) {

@@ -665,7 +665,7 @@ private struct SettingsView: View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Uninstall talkflow").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.uninstallStep ?? "Removes the app, the speech engine and models, whisper-cpp from Homebrew, saved API keys, logs and permissions. Keeps your data folder.")
+                Text(model.uninstallStep ?? "Removes the app, the speech engine and models, saved API keys, logs and permissions. Keeps your data folder.")
                     .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()

@@ -264,6 +264,11 @@ final class OnboardingModel: ObservableObject {
 
             // 1. The whisper-server program.
             if SpeechEngine.serverBinary() == nil {
+                // talkflow.app carries its own engine; Homebrew is only for a bare dev build.
+                if SpeechEngine.bundledServerPath != nil {
+                    self.finishSetup(.failed(SpeechEngine.missingBundledEngineMessage))
+                    return
+                }
                 guard SpeechEngine.brewBinary() != nil else {
                     self.finishSetup(.needsHomebrew)
                     return
@@ -611,8 +616,10 @@ private struct OnboardingView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     HStack(spacing: 10) {
                         Button("Try again") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
-                        Text("or in Terminal: brew install whisper-cpp")
-                            .font(.system(size: 11, design: .monospaced)).foregroundColor(.graphite)
+                        if SpeechEngine.bundledServerPath == nil { // a bare dev build has no bundled engine
+                            Text("or in Terminal: brew install whisper-cpp")
+                                .font(.system(size: 11, design: .monospaced)).foregroundColor(.graphite)
+                        }
                     }
                 }
             }

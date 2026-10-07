@@ -118,6 +118,7 @@ enum StreamSelfTest {
         runInsertOnceCases()
         runWritingStyleCases()
         runUpdaterCases()
+        runEngineCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -839,6 +840,126 @@ enum StreamSelfTest {
             check(SelfCorrection.tokenize(styled).map(\.norm) == SelfCorrection.tokenize(raw).map(\.norm),
                   "\(style.rawValue) keeps every word")
         }
+    }
+
+    /// Which whisper-server runs, and what happens to a LaunchAgent set up
+    /// before the engine shipped inside the app. Pure: the file checks are
+    /// passed in, and the only file touched is a plist in the temp folder.
+    private static func runEngineCases() {
+        report("case: the bundled speech engine")
+        let bundled = "/Applications/talkflow.app/Contents/Helpers/whisper-server"
+        let arm = "/opt/homebrew/bin/whisper-server", intel = "/usr/local/bin/whisper-server"
+        func on(_ paths: String...) -> (String) -> Bool { { paths.contains($0) } }
+
+        // Path resolution: bundled first, then Homebrew, Apple Silicon before Intel.
+        check(SpeechEngine.resolveServerBinary(bundled: bundled, isExecutable: on(bundled, arm, intel)) == bundled,
+              "engine: the bundled server wins over Homebrew's")
+        check(SpeechEngine.resolveServerBinary(bundled: bundled, isExecutable: on(arm, intel)) == arm,
+              "engine: a missing bundled server falls back to /opt/homebrew")
+        check(SpeechEngine.resolveServerBinary(bundled: bundled, isExecutable: on(intel)) == intel,
+              "engine: then to /usr/local")
+        check(SpeechEngine.resolveServerBinary(bundled: nil, isExecutable: on(arm)) == arm,
+              "engine: a bare dev build uses Homebrew's")
+        check(SpeechEngine.resolveServerBinary(bundled: bundled, isExecutable: on()) == nil,
+              "engine: nothing installed -> none")
+        check(SpeechEngine.bundledServerSubpath == "Contents/Helpers/whisper-server",
+              "engine: the app looks where release.sh puts it")
+
+        check(SpeechEngine.isHomebrewPath(arm) && SpeechEngine.isHomebrewPath(intel)
+              && SpeechEngine.isHomebrewPath("/opt/homebrew/Cellar/whisper-cpp/1.7.5/bin/whisper-server"),
+              "engine: Homebrew paths are recognized, Cellar included")
+        check(!SpeechEngine.isHomebrewPath(bundled) && !SpeechEngine.isHomebrewPath("/opt/homebrewx/whisper-server"),
+              "engine: the bundled path is not Homebrew's")
+
+        // The plist the app writes.
+        let model = SpeechEngine.modelPath.path
+        let arguments = SpeechEngine.agentArguments(binary: bundled)
+        check(arguments == [bundled, "-m", model, "--host", "127.0.0.1", "--port", "8178", "-nt"],
+              "agent: runs the bundled server on the model, localhost, port 8178", "\(arguments)")
+        let fresh = SpeechEngine.agentPlist(binary: bundled)
+        check(fresh["Label"] as? String == SpeechEngine.agentLabel && fresh["RunAtLoad"] as? Bool == true
+              && fresh["KeepAlive"] as? Bool == true && (fresh["StandardOutPath"] as? String)?.hasSuffix("whisper-server.log") == true,
+              "agent: label, start at load, kept alive, logged")
+
+        // What happens to an existing plist.
+        let all = on(bundled, arm, intel)
+        func plist(_ program: String, extra: [String] = ["-m", "/custom/model.bin", "--port", "9000"]) -> [String: Any] {
+            ["Label": SpeechEngine.agentLabel, "ProgramArguments": [program] + extra, "KeepAlive": true]
+        }
+        check(SpeechEngine.agentPlan(existing: nil, bundled: bundled, isExecutable: all) == .create,
+              "migrate: no plist -> create")
+        check(SpeechEngine.agentPlan(existing: plist(arm), bundled: bundled, isExecutable: all) == .repoint(from: arm),
+              "migrate: Homebrew (Apple Silicon) -> rewrite to the bundled server")
+        check(SpeechEngine.agentPlan(existing: plist(intel), bundled: bundled, isExecutable: all) == .repoint(from: intel),
+              "migrate: Homebrew (Intel) -> rewrite")
+        check(SpeechEngine.agentPlan(existing: plist(arm), bundled: bundled, isExecutable: on(bundled)) == .repoint(from: arm),
+              "migrate: Homebrew's server already uninstalled -> rewrite")
+        check(SpeechEngine.agentPlan(existing: plist(bundled), bundled: bundled, isExecutable: all) == .keep("it already runs the bundled engine"),
+              "migrate: already bundled -> leave")
+        let moved = "/Users/x/Downloads/talkflow.app/Contents/Helpers/whisper-server"
+        check(SpeechEngine.agentPlan(existing: plist(moved), bundled: bundled, isExecutable: all) == .repoint(from: moved),
+              "migrate: an app that moved (old path gone) -> rewrite")
+        func kept(_ plan: SpeechEngine.AgentPlan) -> Bool {
+            if case .keep = plan { return true }
+            return false
+        }
+        let custom = "/Users/x/bin/whisper-server"
+        check(kept(SpeechEngine.agentPlan(existing: plist(custom), bundled: bundled, isExecutable: on(bundled, custom))),
+              "migrate: a custom server that still exists -> leave")
+        check(kept(SpeechEngine.agentPlan(existing: plist(arm), bundled: nil, isExecutable: all)),
+              "migrate: a copy without a bundled server leaves Homebrew's in place")
+        check(kept(SpeechEngine.agentPlan(existing: plist(arm), bundled: bundled, isExecutable: on(arm))),
+              "migrate: a bundled path with nothing there -> leave Homebrew's")
+        let translocated = "/private/var/folders/ab/T/AppTranslocation/1234/d/talkflow.app/Contents/Helpers/whisper-server"
+        check(kept(SpeechEngine.agentPlan(existing: plist(arm), bundled: translocated, isExecutable: on(translocated, arm))),
+              "migrate: a translocated copy does not replace a working Homebrew server")
+        check(SpeechEngine.agentPlan(existing: plist(arm), bundled: translocated, isExecutable: on(translocated)) == .repoint(from: arm),
+              "migrate: ...but does replace one that is gone")
+        check(SpeechEngine.agentPlan(existing: ["Label": "x", "Program": arm, "ProgramArguments": ["whisper-server"]],
+                                     bundled: bundled, isExecutable: all) == .repoint(from: arm),
+              "migrate: a Program key naming Homebrew's server -> rewrite")
+        check(SpeechEngine.agentPlan(existing: ["Label": "x"], bundled: bundled, isExecutable: all) == .repoint(from: ""),
+              "migrate: no program at all -> rewrite")
+
+        // The rewrite changes the program only, and running it again changes nothing.
+        let old = plist(arm)
+        let new = SpeechEngine.repointed(old, to: bundled)
+        check(new["ProgramArguments"] as? [String] == [bundled, "-m", "/custom/model.bin", "--port", "9000"],
+              "migrate: only the program changes; the model and port stay", "\(new["ProgramArguments"] ?? "nil")")
+        check(new["Label"] as? String == SpeechEngine.agentLabel && new["KeepAlive"] as? Bool == true,
+              "migrate: the other keys stay")
+        check(SpeechEngine.agentPlan(existing: new, bundled: bundled, isExecutable: all) == .keep("it already runs the bundled engine"),
+              "migrate: a second run leaves it alone")
+        let fromProgram = SpeechEngine.repointed(["Label": "x", "Program": arm, "ProgramArguments": ["whisper-server", "-nt"]], to: bundled)
+        check(fromProgram["Program"] == nil && fromProgram["ProgramArguments"] as? [String] == [bundled, "-nt"],
+              "migrate: a Program key is dropped for ProgramArguments")
+        check(SpeechEngine.repointed(["Label": "x"], to: bundled)["ProgramArguments"] as? [String] == arguments,
+              "migrate: no arguments -> the standard ones")
+
+        // Through a real plist file, as the app reads and writes it.
+        let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-agent-\(UUID().uuidString).plist")
+        defer { try? FileManager.default.removeItem(at: file) }
+        func roundTrip(_ dict: [String: Any]) -> [String: Any]? {
+            guard let data = try? PropertyListSerialization.data(fromPropertyList: dict, format: .xml, options: 0),
+                  (try? data.write(to: file, options: .atomic)) != nil,
+                  let back = try? Data(contentsOf: file) else { return nil }
+            return (try? PropertyListSerialization.propertyList(from: back, format: nil)) as? [String: Any]
+        }
+        let legacy = roundTrip(["Label": SpeechEngine.agentLabel, "ProgramArguments": SpeechEngine.agentArguments(binary: arm),
+                                "RunAtLoad": true, "KeepAlive": true])
+        check(legacy.map { SpeechEngine.agentPlan(existing: $0, bundled: bundled, isExecutable: all) } == .repoint(from: arm),
+              "migrate: a plist file from a Homebrew setup reads back as rewrite")
+        let migrated = legacy.flatMap { roundTrip(SpeechEngine.repointed($0, to: bundled)) }
+        check(migrated?["ProgramArguments"] as? [String] == SpeechEngine.agentArguments(binary: bundled),
+              "migrate: the rewritten file runs the bundled server with the same arguments")
+        check(migrated.map { SpeechEngine.agentPlan(existing: $0, bundled: bundled, isExecutable: all) } == .keep("it already runs the bundled engine"),
+              "migrate: the rewritten file is left alone next time")
+
+        // Uninstall leaves Homebrew alone.
+        let titles = Uninstaller.steps().map(\.title)
+        check(!titles.contains { $0.lowercased().hasPrefix("uninstall") }, "uninstall: no Homebrew package is uninstalled", "\(titles)")
+        check(titles.contains { $0.contains(SpeechEngine.agentPlistURL.path) } && titles.contains { $0.contains("speech models") },
+              "uninstall: the agent and the models are still removed")
     }
 
     /// GitHub release parsing and version order, for the update check.
