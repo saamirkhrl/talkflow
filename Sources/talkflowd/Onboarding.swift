@@ -23,6 +23,9 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
+        // Follows the user to whichever Space they are on when it is brought
+        // forward, instead of staying behind on the one it opened on.
+        window.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         window.center()
         super.init(window: window)
         window.delegate = self
@@ -32,9 +35,31 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
         // restarting here is what used to send them back to the first page.
         model.bringToFront = { [weak self] in self?.bringToFront() }
         model.close = { [weak self] in self?.window?.close() }
+        // Back from System Settings (by the Dock icon, Cmd-Tab or a click):
+        // setup comes forward and checks whether the grant took.
+        activeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, self.model.isActive else { return }
+            self.window?.makeKeyAndOrderFront(nil)
+            let away = self.resignedAt.map { Date().timeIntervalSince($0) } ?? 0
+            self.model.appBecameActive(awayFor: away)
+        }
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.resignedAt = Date() }
     }
 
+    private var activeObserver: NSObjectProtocol?
+    private var resignObserver: NSObjectProtocol?
+    private var resignedAt: Date?
+
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    deinit {
+        if let activeObserver { NotificationCenter.default.removeObserver(activeObserver) }
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+    }
 
     /// Opens setup, or raises it if it is already open. A setup already in
     /// progress keeps its step.
@@ -43,13 +68,19 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
         bringToFront()
     }
 
+    /// talkflow is a menu bar app with no Dock icon, so once System Settings
+    /// covered this window there was no way back to it but Mission Control.
+    /// While setup is open it is a regular app: Dock icon, Cmd-Tab, and
+    /// clicking the icon brings setup back (AppDelegate's reopen handler).
     private func bringToFront() {
+        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
         model.stop()
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
@@ -64,7 +95,37 @@ enum Onboarding {
     /// actually missing. A Mac that already has every permission and a working
     /// speech engine never sees it.
     static func needsSetup() -> Bool {
-        !Permissions.allGranted || !SpeechEngine.isInstalled
+        opensOnLaunch(allGranted: Permissions.allGranted, engineInstalled: SpeechEngine.isInstalled, interrupted: false, forced: false)
+    }
+
+    /// Whether launch opens setup. Pure, for `--streamtest`: after an update
+    /// whose grants still apply, nothing opens.
+    static func opensOnLaunch(allGranted: Bool, engineInstalled: Bool, interrupted: Bool, forced: Bool) -> Bool {
+        forced || interrupted || !allGranted || !engineInstalled
+    }
+
+    /// What setup says when a permission looks stale: why it happens, and how
+    /// to fix it by hand if the Reset button is not wanted.
+    static func staleHelp(_ service: Permissions.Service, _ reason: StaleReason) -> (why: String, fix: String) {
+        let why: String
+        switch reason {
+        case .appChanged:
+            why = "talkflow was updated since you allowed this. macOS ties the permission to the exact copy it was given to, so System Settings can show talkflow switched on while this copy is not allowed."
+        case .userSaysOn, .backFromSettings:
+            why = "If talkflow is already switched on in System Settings and this still waits, macOS is holding the permission for an older copy of talkflow, from before an update."
+                + (service == .inputMonitoring
+                   ? " Just switched it on? Input Monitoring can need talkflow to restart before it applies, so try Restart talkflow first."
+                   : "")
+        }
+        let byHand: String
+        switch service {
+        case .microphone:
+            byHand = "Or by hand: in System Settings > Privacy & Security > Microphone, switch talkflow off and on again."
+        case .accessibility, .inputMonitoring:
+            let list = service == .accessibility ? "Accessibility" : "Input Monitoring"
+            byHand = "Or by hand: in System Settings > Privacy & Security > \(list), select talkflow, remove it with the - button, then add it again with + (or switch it off and on)."
+        }
+        return (why, "Reset and allow again removes talkflow's old entry so macOS asks again. " + byHand)
     }
 
     /// A first-run setup was interrupted part way (most often by macOS
@@ -124,13 +185,15 @@ enum OnboardingFlow {
     }
 
     /// Where setup opens when it was not already open. A finished setup goes
-    /// to whatever is missing. A first run starts on the welcome page, or,
+    /// to whatever is missing, or to the last page (with the practice field)
+    /// when nothing is, never through the whole flow again. A first run
+    /// starts on the welcome page, or,
     /// when it was interrupted (`saved`), where it was, moved past a
     /// permission that has since been granted and back to an earlier one that
     /// has since been lost.
     static func initialStep(completed: Bool, saved: OnboardingStep?, grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep {
         let missing = firstMissing(grants, engineInstalled: engineInstalled)
-        if completed { return missing ?? .welcome }
+        if completed { return missing ?? .ready }
         guard let saved, saved != .welcome else { return .welcome }
         var resumed = saved
         if grants.isGranted(saved) == true { resumed = nextNeeded(after: saved, grants: grants) }
@@ -148,8 +211,10 @@ enum OnboardingFlow {
     }
 }
 
-/// Where the model reads the permissions, the engine and its saved progress.
-/// `--streamtest` passes fakes; the app uses `live`.
+/// Where the model reads the permissions, the engine and its saved progress,
+/// and how it asks for and resets permissions. `--streamtest` passes fakes
+/// (so it never raises a real prompt or touches a real grant); the app uses
+/// `live`.
 struct OnboardingEnvironment {
     var microphone: () -> Permissions.MicrophoneStatus
     var accessibility: () -> Bool
@@ -158,6 +223,18 @@ struct OnboardingEnvironment {
     var defaults: UserDefaults
     /// How long the "Allowed" check shows before setup moves on.
     var advanceDelay: TimeInterval
+    /// This build's designated requirement (see Permissions).
+    var designatedRequirement: String?
+    /// Whether macOS has already shown its own prompt for the permission.
+    var asked: (Permissions.Service) -> Bool
+    /// Shows macOS's prompt; calls back when it is answered or shown.
+    var request: (Permissions.Service, @escaping () -> Void) -> Void
+    var openSettings: (Permissions.Pane) -> Void
+    /// `tccutil reset <service> <this bundle id>`; calls back with success.
+    var resetGrant: (Permissions.Service, @escaping (Bool) -> Void) -> Void
+    /// How long after coming back from System Settings a grant still not
+    /// applying counts as stale.
+    var staleGrace: TimeInterval
 
     static let live = OnboardingEnvironment(
         microphone: { Permissions.microphone },
@@ -165,7 +242,25 @@ struct OnboardingEnvironment {
         inputMonitoring: { Permissions.inputMonitoring },
         engineInstalled: { SpeechEngine.isInstalled },
         defaults: .standard,
-        advanceDelay: 0.7
+        advanceDelay: 0.7,
+        designatedRequirement: Permissions.designatedRequirement,
+        asked: { service in
+            switch service {
+            case .microphone: return Permissions.microphone != .notDetermined
+            case .accessibility: return UserDefaults.standard.bool(forKey: OnboardingModel.askedKey(.accessibility))
+            case .inputMonitoring: return Permissions.inputMonitoringAsked
+            }
+        },
+        request: { service, done in
+            switch service {
+            case .microphone: Permissions.requestMicrophone(completion: done)
+            case .accessibility: Permissions.requestAccessibility(); done()
+            case .inputMonitoring: Permissions.requestInputMonitoring(); done()
+            }
+        },
+        openSettings: { Permissions.openSettings($0) },
+        resetGrant: { Permissions.resetGrant($0, completion: $1) },
+        staleGrace: 1.5
     )
 }
 
@@ -190,12 +285,25 @@ final class OnboardingModel: ObservableObject {
     @Published var needsRestart = false
     @Published var launchAtLogin = true
     @Published var practice = ""
+    /// Permissions the user says are switched on in System Settings although
+    /// this copy is not trusted.
+    @Published var userSaysOn: Set<Permissions.Service> = []
+    /// Permissions the user went to System Settings for and came back
+    /// without them applying.
+    @Published var backFromSettings: Set<Permissions.Service> = []
+    /// The permission being reset with tccutil, while it runs.
+    @Published var resetting: Permissions.Service?
+    /// The permission whose reset failed, to say so.
+    @Published var resetFailed: Permissions.Service?
 
     var bringToFront: () -> Void = {}
     var close: () -> Void = {}
 
     private let startHotkey: () -> Bool
     private let environment: OnboardingEnvironment
+    private let history: PermissionHistory
+    /// Permissions the user was sent to System Settings (or a prompt) for.
+    private var settingsVisits: Set<Permissions.Service> = []
     private var timer: Timer?
     private var hotkeyAttempts = 0
     private var downloader: FileDownloader?
@@ -209,6 +317,7 @@ final class OnboardingModel: ObservableObject {
     init(startHotkey: @escaping () -> Bool, environment: OnboardingEnvironment = .live) {
         self.startHotkey = startHotkey
         self.environment = environment
+        history = PermissionHistory(defaults: environment.defaults)
         microphone = environment.microphone()
         accessibility = environment.accessibility()
         inputMonitoring = environment.inputMonitoring()
@@ -216,6 +325,29 @@ final class OnboardingModel: ObservableObject {
 
     var grants: PermissionGrants {
         PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, inputMonitoring: inputMonitoring)
+    }
+
+    static func askedKey(_ service: Permissions.Service) -> String { "asked.\(service.rawValue)" }
+
+    private func trusted(_ service: Permissions.Service) -> Bool {
+        switch service {
+        case .microphone: return microphone == .granted
+        case .accessibility: return accessibility
+        case .inputMonitoring: return inputMonitoring
+        }
+    }
+
+    /// Granted, missing, or granted to an older copy of talkflow (stale).
+    func status(_ service: Permissions.Service) -> GrantStatus {
+        // A microphone macOS has not asked about yet just needs asking: the
+        // prompt itself records this copy.
+        if service == .microphone && microphone == .notDetermined { return .missing }
+        return GrantStatus.classify(
+            trusted: trusted(service),
+            grantedTo: history.grantedTo(service),
+            current: environment.designatedRequirement,
+            userSaysOn: userSaysOn.contains(service),
+            backFromSettings: backFromSettings.contains(service))
     }
 
     /// Whether setup is open (between `begin` and `stop`).
@@ -230,8 +362,11 @@ final class OnboardingModel: ObservableObject {
         let defaults = environment.defaults
         let saved = defaults.object(forKey: Onboarding.progressKey) == nil
             ? nil : OnboardingStep(rawValue: defaults.integer(forKey: Onboarding.progressKey))
+        // A Mac that has granted talkflow anything before has been through
+        // setup (closing the window counts), so after an update it goes
+        // straight to whatever needs attention, not the welcome page.
         move(to: OnboardingFlow.initialStep(
-            completed: defaults.bool(forKey: Onboarding.completedKey),
+            completed: defaults.bool(forKey: Onboarding.completedKey) || !history.isEmpty,
             saved: saved,
             grants: grants,
             engineInstalled: environment.engineInstalled()))
@@ -253,9 +388,15 @@ final class OnboardingModel: ObservableObject {
     }
 
     /// Only during a first run: a finished setup always reopens on what is
-    /// missing.
+    /// missing. Reaching the last page finishes it, whether or not the user
+    /// then presses the button or closes the window.
     private func saveProgress() {
         let defaults = environment.defaults
+        if step == .ready {
+            defaults.set(true, forKey: Onboarding.completedKey)
+            defaults.removeObject(forKey: Onboarding.progressKey)
+            return
+        }
         guard !defaults.bool(forKey: Onboarding.completedKey) else { return }
         defaults.set(step.rawValue, forKey: Onboarding.progressKey)
     }
@@ -277,6 +418,13 @@ final class OnboardingModel: ObservableObject {
         accessibility = ax
         inputMonitoring = im
         if gained && announce { bringToFront() }
+
+        for service in Permissions.Service.allCases where trusted(service) {
+            history.record(service, granted: true, requirement: environment.designatedRequirement)
+            if userSaysOn.contains(service) { userSaysOn.remove(service) }
+            if backFromSettings.contains(service) { backFromSettings.remove(service) }
+            settingsVisits.remove(service)
+        }
 
         let current = step
         let target = OnboardingFlow.stepAfterRefresh(current: current, before: before, now: grants)
@@ -350,20 +498,84 @@ final class OnboardingModel: ObservableObject {
 
     // MARK: Permissions
 
-    func requestMicrophone() {
-        switch microphone {
-        case .notDetermined: Permissions.requestMicrophone { [weak self] in self?.refresh(announce: true) }
-        case .denied: Permissions.openSettings(.microphone)
-        case .granted: break
+    /// The step's main button. macOS shows its own prompt only the first
+    /// time it is asked; after that the same click opens the System
+    /// Settings pane, so pressing Allow always does something visible.
+    func allow(_ service: Permissions.Service) {
+        guard !trusted(service) else { return }
+        settingsVisits.insert(service)
+        if service == .microphone {
+            if microphone == .notDetermined {
+                environment.request(.microphone) { [weak self] in self?.refresh(announce: true) }
+            } else {
+                environment.openSettings(.microphone)
+            }
+            return
+        }
+        let askedBefore = environment.asked(service)
+        environment.request(service) {}
+        environment.defaults.set(true, forKey: Self.askedKey(service))
+        if askedBefore { environment.openSettings(service.pane) }
+    }
+
+    func openSettings(_ service: Permissions.Service) {
+        settingsVisits.insert(service)
+        environment.openSettings(service.pane)
+    }
+
+    /// "It is already on in System Settings": the user is telling us the
+    /// grant is stale, so the fix shows straight away.
+    func reportAlreadyOn(_ service: Permissions.Service) {
+        refresh(announce: false)
+        guard !trusted(service) else { return }
+        userSaysOn.insert(service)
+    }
+
+    /// Shorter than this away from talkflow is a focus flicker (macOS's own
+    /// prompt, a stray click), not a visit to System Settings.
+    static let minimumAway: TimeInterval = 3
+
+    /// Back in talkflow: a permission the user went to System Settings for
+    /// that still does not apply after a moment is treated as stale.
+    func appBecameActive(awayFor away: TimeInterval) {
+        refresh(announce: false)
+        let pending = settingsVisits.filter { !trusted($0) }
+        guard !pending.isEmpty, away >= Self.minimumAway else { return }
+        let mark = { [weak self] in
+            guard let self else { return }
+            self.refresh(announce: false)
+            for service in pending where !self.trusted(service) { self.backFromSettings.insert(service) }
+        }
+        if environment.staleGrace <= 0 {
+            mark()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + environment.staleGrace, execute: mark)
         }
     }
 
-    func requestAccessibility() {
-        Permissions.requestAccessibility()
-    }
-
-    func requestInputMonitoring() {
-        Permissions.requestInputMonitoring()
+    /// Removes talkflow's old entry for this permission (its own bundle id
+    /// only) and asks again, so macOS records this copy.
+    func resetAndAskAgain(_ service: Permissions.Service) {
+        guard resetting == nil else { return }
+        resetting = service
+        resetFailed = nil
+        environment.resetGrant(service) { [weak self] succeeded in
+            guard let self else { return }
+            self.resetting = nil
+            guard succeeded else {
+                self.resetFailed = service
+                return
+            }
+            self.history.forget(service)
+            self.userSaysOn.remove(service)
+            self.backFromSettings.remove(service)
+            self.environment.defaults.removeObject(forKey: Self.askedKey(service))
+            self.refresh(announce: false)
+            self.settingsVisits.insert(service)
+            // The entry is gone, so macOS's own prompt appears again and
+            // offers to open System Settings.
+            self.environment.request(service) { [weak self] in self?.refresh(announce: true) }
+        }
     }
 
     func restartApp() {
@@ -585,33 +797,24 @@ private struct OnboardingView: View {
         case .welcome: welcome
         case .microphone:
             permission(
-                symbol: "mic.fill", title: "Microphone",
+                .microphone, symbol: "mic.fill", title: "Microphone",
                 why: "So talkflow can hear you. Your voice is turned into text on your Mac by a local speech model. It is held in memory only, never saved, and never sent anywhere.",
-                granted: model.microphone == .granted,
                 hint: model.microphone == .denied
                     ? "Microphone access was turned off. Open System Settings, find talkflow in the list and switch it on."
                     : nil,
-                actionTitle: model.microphone == .denied ? "Open System Settings" : "Allow microphone",
-                action: { model.requestMicrophone() },
-                settingsPane: nil)
+                actionTitle: model.microphone == .denied ? "Open System Settings" : "Allow microphone")
         case .accessibility:
             permission(
-                symbol: "accessibility", title: "Accessibility",
+                .accessibility, symbol: "accessibility", title: "Accessibility",
                 why: "So talkflow can type your words into the app you are using. This is how it finds the text field you have selected and writes into it.",
-                granted: model.accessibility,
                 hint: "Click the button, then in System Settings find talkflow in the list and switch it on. If it is not listed, press the + button and add it.",
-                actionTitle: "Allow accessibility",
-                action: { model.requestAccessibility() },
-                settingsPane: .accessibility)
+                actionTitle: "Allow accessibility")
         case .inputMonitoring:
             permission(
-                symbol: "keyboard", title: "Input Monitoring",
+                .inputMonitoring, symbol: "keyboard", title: "Input Monitoring",
                 why: "So talkflow can tell when you press and hold the Fn key. It only listens for modifier keys such as Fn. It does not record what you type.",
-                granted: model.inputMonitoring,
                 hint: "Click the button, then in System Settings find talkflow in the list and switch it on.",
-                actionTitle: "Allow input monitoring",
-                action: { model.requestInputMonitoring() },
-                settingsPane: .inputMonitoring)
+                actionTitle: "Allow input monitoring")
         case .engine: engine
         case .ready: ready
         }
@@ -656,48 +859,84 @@ private struct OnboardingView: View {
     }
 
     private func permission(
-        symbol: String, title heading: String, why: String, granted: Bool, hint: String?,
-        actionTitle: String, action: @escaping () -> Void, settingsPane: Permissions.Pane?
+        _ service: Permissions.Service, symbol: String, title heading: String, why: String,
+        hint: String?, actionTitle: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let status = model.status(service)
+        return VStack(alignment: .leading, spacing: 18) {
             Image(systemName: symbol)
                 .font(.system(size: 26))
                 .frame(width: 56, height: 56)
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.line, lineWidth: 1))
             title(heading)
             body(why)
-            statusCard(granted: granted) {
-                HStack(spacing: 10) {
-                    Button(actionTitle, action: action).buttonStyle(PrimaryButtonStyle())
-                    if let settingsPane {
-                        Button("Open System Settings") { Permissions.openSettings(settingsPane) }
-                            .buttonStyle(SecondaryButtonStyle())
+            VStack(alignment: .leading, spacing: 12) {
+                switch status {
+                case .granted:
+                    Label("Allowed", systemImage: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.good)
+                case .stale(let reason):
+                    staleFix(service, reason)
+                case .missing:
+                    HStack(spacing: 10) {
+                        Button(actionTitle) { model.allow(service) }.buttonStyle(PrimaryButtonStyle())
+                        if service != .microphone {
+                            Button("Open System Settings") { model.openSettings(service) }
+                                .buttonStyle(SecondaryButtonStyle())
+                        }
+                    }
+                    if let hint {
+                        Text(hint)
+                            .font(.system(size: 12))
+                            .foregroundColor(.graphite)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if service != .microphone || model.microphone == .denied {
+                        Button("Already switched on in System Settings?") { model.reportAlreadyOn(service) }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 12))
+                            .underline()
+                            .foregroundColor(.ink)
                     }
                 }
-                if let hint {
-                    Text(hint)
-                        .font(.system(size: 12))
-                        .foregroundColor(.graphite)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
         }
     }
 
-    /// Shows a green "Allowed" row once granted; the call to action otherwise.
-    private func statusCard<Actions: View>(granted: Bool, @ViewBuilder actions: () -> Actions) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if granted {
-                Label("Allowed", systemImage: "checkmark.circle.fill")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.good)
+    /// The permission is on in System Settings for an older copy of
+    /// talkflow: say so, and offer the reset that fixes it.
+    @ViewBuilder
+    private func staleFix(_ service: Permissions.Service, _ reason: StaleReason) -> some View {
+        let help = Onboarding.staleHelp(service, reason)
+        Label("macOS is holding on to an older talkflow", systemImage: "exclamationmark.triangle.fill")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundColor(.warn)
+        Text(help.why)
+            .font(.system(size: 12)).foregroundColor(.graphite)
+            .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 10) {
+            Button(model.resetting == service ? "Resetting..." : "Reset and allow again") { model.resetAndAskAgain(service) }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(model.resetting != nil)
+            if service == .inputMonitoring && reason != .appChanged {
+                Button("Restart talkflow") { model.restartApp() }
+                    .buttonStyle(SecondaryButtonStyle())
             } else {
-                actions()
+                Button("Open System Settings") { model.openSettings(service) }
+                    .buttonStyle(SecondaryButtonStyle())
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
+        Text(help.fix)
+            .font(.system(size: 12)).foregroundColor(.graphite)
+            .fixedSize(horizontal: false, vertical: true)
+        if model.resetFailed == service {
+            Text("The reset did not work. Use the steps above in System Settings instead.")
+                .font(.system(size: 12)).foregroundColor(.warn)
+        }
     }
 
     private var engine: some View {
