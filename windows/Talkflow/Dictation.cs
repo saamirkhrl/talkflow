@@ -178,11 +178,29 @@ sealed class Dictation
         double duration = _startedAt is { } start ? (DateTime.UtcNow - start).TotalSeconds : 0;
         _startedAt = null;
         steps.Next("stop recorder");
-        var wav = _recorder.Stop();
+        var capture = _recorder.Stop();
+        var wav = capture.Wav;
         if (duration < MinDuration)
         {
             Dismiss();
             steps.End($"hold was {duration:F2}s, discarded as an accidental tap");
+            return;
+        }
+        // Nothing to transcribe: the engine would only answer HTTP 400 to an
+        // empty recording, which says nothing about the microphone.
+        string microphone = capture.Device ?? "the microphone";
+        if (capture.Buffers == 0)
+        {
+            Dismiss();
+            _app.Overlay.ShowError($"No sound came from {microphone}. Check Settings > System > Sound > Input.");
+            steps.End($"no audio from the microphone ({capture.Device ?? "unnamed"}) in {duration:F1}s, nothing sent to the engine");
+            return;
+        }
+        if (capture.Peak == 0)
+        {
+            Dismiss();
+            _app.Overlay.ShowError($"{microphone} sent only silence. It may be muted, or blocked in Privacy & security > Microphone.");
+            steps.End($"only digital silence from the microphone ({capture.Device ?? "unnamed"}) in {duration:F1}s, nothing sent to the engine");
             return;
         }
 

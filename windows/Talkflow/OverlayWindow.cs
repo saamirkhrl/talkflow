@@ -178,6 +178,7 @@ sealed class OverlayWindow : Window
 
     void ShowMessage(string message, Brush color)
     {
+        Log.Write($"pill: {message}");
         _caption.Inlines.Clear();
         _caption.Inlines.Add(new Run(message) { Foreground = color });
         _bubble.Visibility = Visibility.Visible;
