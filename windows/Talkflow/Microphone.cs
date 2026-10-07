@@ -18,6 +18,7 @@ static class Microphone
 
     public static State Check()
     {
+        if (TestHooks.AudioFile is not null) return State.Allowed; // the test plays a file instead
         if (Read(Registry.LocalMachine, Consent) == "Deny") return State.BlockedForDevice;
         if (Read(Registry.CurrentUser, Consent) == "Deny") return State.BlockedForUser;
         if (Read(Registry.CurrentUser, Consent + @"\NonPackaged") == "Deny") return State.BlockedForDesktopApps;

@@ -21,11 +21,10 @@ sealed class OnboardingWindow : Window
     readonly DispatcherTimer _poll;
     readonly Step _mic, _engine, _model;
     readonly ProgressBar _progress = new() { Height = 6, Minimum = 0, Maximum = 1, Visibility = Visibility.Collapsed, Margin = new Thickness(0, 8, 0, 0) };
-    readonly Button _download, _openPrivacy, _done;
+    readonly Button _download, _openPrivacy, _retryEngine, _done;
     readonly TextBox _tryIt;
     readonly TextBlock _tryHint;
     CancellationTokenSource? _downloading;
-    bool _engineStarting;
 
     sealed record Step(TextBlock Mark, TextBlock Status);
 
@@ -49,7 +48,8 @@ sealed class OnboardingWindow : Window
         _openPrivacy = Ui.Button("Open privacy settings", Microphone.OpenSettings);
         _mic = AddStep(panel, "1", "Microphone", _openPrivacy);
 
-        _engine = AddStep(panel, "2", "Speech engine", null);
+        _retryEngine = Ui.Button("Try again", () => { _ = _app.StartEngine(); Refresh(); });
+        _engine = AddStep(panel, "2", "Speech engine", _retryEngine);
 
         _download = Ui.Button("Download (488 MB)", StartDownload, primary: true);
         _model = AddStep(panel, "3", "English speech model", _download);
@@ -89,12 +89,28 @@ sealed class OnboardingWindow : Window
 
         _poll = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, (_, _) => Refresh(), Dispatcher);
         _poll.Start();
-        Closed += (_, _) => _poll.Stop();
+        _app.EngineChanged += Refresh;
+        Closed += (_, _) =>
+        {
+            _poll.Stop();
+            _app.EngineChanged -= Refresh;
+        };
         Refresh();
     }
 
     /// <summary>The "try it" box: dictating into talkflow's own window is allowed only here.</summary>
     public bool TryItFocused => IsActive && _tryIt.IsKeyboardFocused;
+
+    /// <summary>The Try it box's text around the caret, read directly (never through UI Automation).</summary>
+    public (string Before, string Field) TryItText
+    {
+        get
+        {
+            var text = _tryIt.Text;
+            int caret = Math.Clamp(_tryIt.CaretIndex, 0, text.Length);
+            return (text[..caret], text);
+        }
+    }
 
     static Step AddStep(Panel panel, string number, string title, UIElement? action)
     {
@@ -138,18 +154,24 @@ sealed class OnboardingWindow : Window
 
         bool engine = SpeechEngine.EngineInstalled;
         bool model = SpeechEngine.Small.ModelIsComplete;
+        bool failed = false;
         if (!engine) Mark(_engine, false, "whisper-server.exe is missing from the install folder. Reinstall talkflow.", true);
         else if (!model) Mark(_engine, false, "Installed. Starts once the model is downloaded.");
         else if (_app.EngineReady) Mark(_engine, true, "Running on this PC (whisper.cpp).");
+        else if (_app.EngineStarting) Mark(_engine, false, "Starting...");
+        else if (_app.EngineError is { } error)
+        {
+            // Said once and left there: retrying by itself every few seconds
+            // would hide the reason. The log has the engine's own output.
+            Mark(_engine, false, error + $" Details are in {Log.FilePath}.", true);
+            failed = true;
+        }
         else
         {
             Mark(_engine, false, "Starting...");
-            if (!_engineStarting)
-            {
-                _engineStarting = true;
-                _ = _app.StartEngine().ContinueWith(_ => Dispatcher.BeginInvoke(() => { _engineStarting = false; Refresh(); }));
-            }
+            _ = _app.StartEngine();
         }
+        _retryEngine.Visibility = failed ? Visibility.Visible : Visibility.Collapsed;
 
         if (_downloading is null)
         {
