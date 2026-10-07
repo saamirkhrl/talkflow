@@ -116,6 +116,14 @@ function CloseIntruders {
         $intruders | Stop-Process -Force
         Start-Sleep -Seconds 1
     }
+    # The Arm runner can open a "WSL must be updated" prompt by itself, which
+    # then takes the foreground in the middle of a dictation.
+    $wsl = Get-Process wsl, wslhost -ErrorAction SilentlyContinue
+    if ($wsl) {
+        Say "closing a WSL prompt the runner opened (pid $($wsl.Id -join ', '))"
+        $wsl | Stop-Process -Force
+        Start-Sleep -Seconds 1
+    }
     for ($i = 0; $i -lt 5; $i++) {
         $front = [E2e]::GetForegroundWindow()
         $owner = Get-Process -Id ([E2e]::ProcessOf($front)) -ErrorAction SilentlyContinue
@@ -149,6 +157,8 @@ function OpenNotepad($name) {
 # watching talkflow the whole time. Then waits for the text to arrive.
 function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst) {
     Say "=== $label ==="
+    CloseIntruders
+    Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
     $process = Talkflow
     if ($null -eq $process) { Fail "${label}: talkflow is not running"; return }
     if (-not [E2e]::Focus($hwnd)) {
@@ -206,6 +216,8 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     $stuck = @([E2e]::VK_LWIN, [E2e]::VK_LCONTROL) | Where-Object { [E2e]::IsDown($_) }
 
     Say "text now: [$($script:text)]"
+    Say "foreground now: $([E2e]::Describe([E2e]::GetForegroundWindow()))"
+    Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
     Say "slowest window answer while holding: $slowest ms ($unanswered probes unanswered within 5 s); after: $($script:slowestAfter) ms ($($script:unansweredAfter) unanswered)"
     Say "pill seen while holding: $overlaySeen; still visible 5 s after: $overlayAfter"
     Say "talkflow.log during this dictation:"
@@ -245,6 +257,19 @@ try {
     $env:TALKFLOW_LOG_TRANSCRIPTS = '1' # the test's own recording, so the log may show it
 
     CloseIntruders
+    # Control: the same kind of keystrokes talkflow sends (Unicode, 16 per
+    # SendInput call), typed by this script with talkflow not running. If
+    # this already comes out wrong, the app being typed into is the cause.
+    $control = OpenNotepad 'control'
+    if ([E2e]::Focus($control)) {
+        $sentence = 'And so my fellow Americans, ask not what your country can do for you.'
+        [E2e]::TypeUnicode($sentence, 16, 4)
+        Start-Sleep -Seconds 1
+        $typed = ReadText $control
+        Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
+        $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
+    }
+
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
 

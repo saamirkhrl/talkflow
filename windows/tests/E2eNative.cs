@@ -57,6 +57,47 @@ public static class E2e
         return SendInput(1, new[] { Key(vk, up) }, Marshal.SizeOf(typeof(INPUT)));
     }
 
+    /// <summary>
+    /// Types text the way talkflow's KeyboardWriter does: KEYEVENTF_UNICODE
+    /// events, at most <paramref name="chunk"/> characters per SendInput
+    /// call, <paramref name="gapMs"/> apart. For telling an app's handling of
+    /// such input apart from anything talkflow does.
+    /// </summary>
+    public static void TypeUnicode(string text, int chunk, int gapMs)
+    {
+        for (int at = 0; at < text.Length; at += chunk)
+        {
+            var part = text.Substring(at, Math.Min(chunk, text.Length - at));
+            var inputs = new INPUT[part.Length * 2];
+            for (int i = 0; i < part.Length; i++)
+            {
+                inputs[2 * i] = new INPUT { type = 1 };
+                inputs[2 * i].U.ki.wScan = part[i];
+                inputs[2 * i].U.ki.dwFlags = 4; // KEYEVENTF_UNICODE
+                inputs[2 * i + 1] = new INPUT { type = 1 };
+                inputs[2 * i + 1].U.ki.wScan = part[i];
+                inputs[2 * i + 1].U.ki.dwFlags = 4 | 2; // KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+            }
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+            Thread.Sleep(gapMs);
+        }
+    }
+
+    /// <summary>Every visible top-level window, one per line, for the log.</summary>
+    public static string ListWindows()
+    {
+        var lines = new StringBuilder();
+        EnumWindows((hwnd, _) =>
+        {
+            if (!IsWindowVisible(hwnd)) return true;
+            var title = new StringBuilder(256);
+            GetWindowText(hwnd, title, 256);
+            if (title.Length > 0) lines.AppendLine("    " + Describe(hwnd));
+            return true;
+        }, IntPtr.Zero);
+        return lines.ToString();
+    }
+
     public static bool IsDown(int vk) { return (GetAsyncKeyState(vk) & 0x8000) != 0; }
 
     /// <summary>
