@@ -1,0 +1,133 @@
+# Builds the speech engine that ships inside talkflow.app (whisper.cpp's
+# whisper-server, universal arm64 + x86_64, from the tag pinned in
+# scripts/build-whisper-macos.sh), checks that it loads nothing outside macOS,
+# transcribes a real recording with it on Apple Silicon and on Intel, and
+# assembles the app with release.sh --dry-run to check the bundle's signature.
+# It never publishes anything.
+name: macOS engine
+
+on:
+  pull_request:
+    paths:
+      - "scripts/build-whisper-macos.sh"
+      - "scripts/smoke-whisper-macos.sh"
+      - ".github/workflows/macos-engine.yml"
+      - "release.sh"
+      - "deploy.sh"
+      - "install.sh"
+      - "Package.swift"
+      - "Packaging/**"
+      - "Sources/talkflowd/SpeechEngine.swift"
+      - "Sources/talkflowd/Updater.swift"
+      - "Sources/talkflowd/Uninstaller.swift"
+      - "Sources/talkflowd/Onboarding.swift"
+      - "Sources/talkflowd/StreamSelfTest.swift"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engine:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: cmake
+        run: command -v cmake || brew install cmake; cmake --version | head -1
+      - name: Build whisper-server (universal)
+        run: scripts/build-whisper-macos.sh .build/whisper-engine
+      - name: Architectures
+        run: |
+          lipo -archs .build/whisper-engine/whisper-server
+          for arch in arm64 x86_64; do lipo .build/whisper-engine/whisper-server -verify_arch "$arch"; done
+      - name: Load commands (only /usr/lib, /System or relative paths)
+        run: |
+          B=.build/whisper-engine/whisper-server
+          for arch in arm64 x86_64; do
+            echo "--- $arch"
+            otool -arch "$arch" -L "$B"
+            otool -arch "$arch" -l "$B" | grep -A2 LC_RPATH || echo "(no LC_RPATH)"
+          done
+          scripts/build-whisper-macos.sh --check "$B"
+      - name: Pack (a tarball keeps the executable bit)
+        run: |
+          mkdir -p dist
+          tar -C .build -czf dist/whisper-engine.tgz whisper-engine
+          cp .build/whisper.cpp-build/whisper.cpp-*/samples/jfk.wav dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whisper-engine-macos
+          path: dist/
+          if-no-files-found: error
+
+  smoke:
+    # Each slice on its own kind of Mac, with nothing installed but the file.
+    needs: engine
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: whisper-engine-macos
+          path: dist
+      - name: Unpack
+        run: |
+          mkdir -p .build && tar -C .build -xzf dist/whisper-engine.tgz
+          echo "runner: $(uname -m)"
+          test "$(uname -m)" = "${{ matrix.arch }}"
+      - name: Fetch a small test model
+        run: curl -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+      - name: Transcribe jfk.wav through /inference
+        run: scripts/smoke-whisper-macos.sh .build/whisper-engine/whisper-server ggml-tiny.en.bin dist/jfk.wav 8197
+
+  bundle:
+    # The app as release.sh assembles it: the engine inside, signed, runnable.
+    needs: engine
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: whisper-engine-macos
+          path: dist
+      - name: Reuse the engine built above
+        run: mkdir -p .build && tar -C .build -xzf dist/whisper-engine.tgz
+      - name: Self-tests
+        run: |
+          swift build
+          "$(swift build --show-bin-path)/talkflowd" --streamtest || true
+          LOG="$(getconf DARWIN_USER_TEMP_DIR)talkflow-streamtest.log"
+          grep -E '^FAIL' "$LOG" || true
+          tail -1 "$LOG"
+          test "$(tail -1 "$LOG")" = "ALL PASS"
+      - name: Assemble the app (release.sh --dry-run, publishes nothing)
+        run: ./release.sh 0.0.0 --dry-run
+      - name: Signature and contents
+        run: |
+          APP=.build/release-artifacts/talkflow.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dv "$APP/Contents/Helpers/whisper-server"
+          scripts/build-whisper-macos.sh --check "$APP/Contents/Helpers/whisper-server"
+          test -f "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+      - name: Fetch a small test model
+        run: curl -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+      - name: Transcribe with the engine inside the app
+        run: scripts/smoke-whisper-macos.sh .build/release-artifacts/talkflow.app/Contents/Helpers/whisper-server ggml-tiny.en.bin dist/jfk.wav 8197

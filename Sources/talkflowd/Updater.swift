@@ -309,6 +309,8 @@ final class Updater: ObservableObject {
         }
         _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", app.path])
         let identity = localIdentityHash ?? "-"
+        // --deep also re-signs the bundled speech engine,
+        // Contents/Helpers/whisper-server, with the same identity.
         guard run("/usr/bin/codesign", ["--force", "--deep", "--sign", identity, app.path]).status == 0 else {
             return "Could not sign the update"
         }

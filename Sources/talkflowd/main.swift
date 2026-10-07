@@ -124,9 +124,17 @@ if CommandLine.arguments.contains("--uninstallplan") {
 // the LaunchAgent, and whether the server answers. Changes nothing.
 if CommandLine.arguments.contains("--enginecheck") {
     let alive = SpeechEngine.isRespondingBlocking()
+    let agent = (try? Data(contentsOf: SpeechEngine.agentPlistURL))
+        .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) as? [String: Any] }
+    let plan = SpeechEngine.agentPlan(existing: agent, bundled: SpeechEngine.bundledServerPath) {
+        FileManager.default.isExecutableFile(atPath: $0)
+    }
     let report = """
     whisper-server: \(SpeechEngine.serverBinary() ?? "not found")
+    bundled whisper-server: \(SpeechEngine.bundledServerPath.map { "\($0) (\(SpeechEngine.bundledServerBinary == nil ? "missing" : "present"))" } ?? "none (not running from an app bundle)")
     homebrew: \(SpeechEngine.brewBinary() ?? "not found")
+    launch agent program: \((agent?["ProgramArguments"] as? [String])?.first ?? "none")
+    launch agent plan: \(plan)
     model complete: \(SpeechEngine.modelIsComplete) (\(SpeechEngine.modelPath.path))
     launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
     server responding on :\(SpeechEngine.port): \(alive)

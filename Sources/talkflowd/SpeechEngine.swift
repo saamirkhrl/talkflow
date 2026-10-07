@@ -1,13 +1,20 @@
 import Foundation
 
 /// Everything needed to get the local Whisper server running on a Mac that has
-/// never seen talkflow: find (or install) `whisper-server`, fetch the model, and
-/// register the LaunchAgent that keeps it warm.
+/// never seen talkflow: find `whisper-server`, fetch the model, and register
+/// the LaunchAgent that keeps it warm.
 ///
-/// Nothing here ever overwrites something that already exists. On a machine
-/// that is already set up (a LaunchAgent plist is present, the model is on disk)
-/// the only thing this does is read, so running it against a working install is
-/// safe.
+/// `whisper-server` ships inside talkflow.app (`Contents/Helpers`), built from
+/// a pinned whisper.cpp tag by scripts/build-whisper-macos.sh, so a Mac needs
+/// no Homebrew. A Homebrew `whisper-server` is used only when this copy has no
+/// bundled one (a bare development build).
+///
+/// Nothing here overwrites something that already exists, with one exception:
+/// a LaunchAgent that runs Homebrew's `whisper-server` (what talkflow set up
+/// before the engine was bundled), or a program that is no longer there, is
+/// pointed at the bundled engine (`agentPlan`). Everything else in that plist,
+/// such as the model and port, is kept. On a machine that is already set up
+/// that way, the only thing this does is read.
 enum SpeechEngine {
     static let port = 8178
     static let agentLabel = "com.samir.talkflow.whisperserver"
@@ -30,9 +37,46 @@ enum SpeechEngine {
 
     // MARK: - What is already there
 
+    /// Where the engine sits inside talkflow.app (release.sh, deploy.sh and
+    /// install.sh put it there).
+    static let bundledServerSubpath = "Contents/Helpers/whisper-server"
+    /// Homebrew's, on Apple Silicon and on Intel. A fallback only.
+    static let homebrewServerPaths = ["/opt/homebrew/bin/whisper-server", "/usr/local/bin/whisper-server"]
+
+    /// Where this copy's own engine would be, whether or not it is there. Nil
+    /// for a bare `.build` binary, which has no bundle to carry one.
+    static var bundledServerPath: String? {
+        let bundle = Bundle.main.bundleURL
+        guard bundle.pathExtension == "app" else { return nil }
+        return bundle.appendingPathComponent(bundledServerSubpath).path
+    }
+
+    /// The bundled engine, when it is there and runnable.
+    static var bundledServerBinary: String? {
+        bundledServerPath.flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil }
+    }
+
+    /// Shown by setup when talkflow.app has lost its engine (a damaged copy).
+    static let missingBundledEngineMessage =
+        "The speech engine is missing from this copy of talkflow. Download talkflow again from talkflow.live and replace this copy, then press Try again."
+
+    /// The bundled engine first, then Homebrew's.
     static func serverBinary() -> String? {
-        ["/opt/homebrew/bin/whisper-server", "/usr/local/bin/whisper-server"]
-            .first { FileManager.default.isExecutableFile(atPath: $0) }
+        resolveServerBinary(bundled: bundledServerPath) { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// The order `serverBinary` uses, with the file check passed in, for
+    /// `--streamtest`.
+    static func resolveServerBinary(
+        bundled: String?, homebrew: [String] = homebrewServerPaths, isExecutable: (String) -> Bool
+    ) -> String? {
+        ([bundled].compactMap { $0 } + homebrew).first(where: isExecutable)
+    }
+
+    /// A Homebrew install, by prefix: `/opt/homebrew` on Apple Silicon,
+    /// `/usr/local` on Intel (its `bin` links and its `Cellar` alike).
+    static func isHomebrewPath(_ path: String) -> Bool {
+        path.hasPrefix("/opt/homebrew/") || path.hasPrefix("/usr/local/")
     }
 
     static func brewBinary() -> String? {
@@ -83,7 +127,9 @@ enum SpeechEngine {
     }
 
     /// Runs `brew install whisper-cpp`, reporting each line of output as it
-    /// arrives. Blocking: call from a background thread.
+    /// arrives. Only for a bare development build, which has no bundled
+    /// engine; talkflow.app never runs it. Blocking: call from a background
+    /// thread.
     static func installWhisperCpp(onLine: @escaping (String) -> Void) -> CommandResult {
         guard let brew = brewBinary() else {
             return CommandResult(succeeded: false, tail: "Homebrew is not installed.")
@@ -129,29 +175,23 @@ enum SpeechEngine {
     }
 
     /// Writes the LaunchAgent that keeps whisper-server resident, if there is not
-    /// one already, and starts it. An existing plist is left exactly as it is: it
-    /// may have been edited (a different model, a different binary path).
+    /// one already, and starts it. An existing plist is kept as it is (it may
+    /// have been edited: a different model, a different port), except that one
+    /// still running Homebrew's engine, or a program that is gone, is moved to
+    /// the bundled one (`migrateAgentIfNeeded`).
     /// Blocking: call from a background thread.
     static func startServer() throws {
         guard let binary = serverBinary() else {
             throw EngineError("whisper-server is not installed.")
         }
         try FileManager.default.createDirectory(at: logDirectory, withIntermediateDirectories: true)
+        clearBundledQuarantine()
 
         if !FileManager.default.fileExists(atPath: agentPlistURL.path) {
-            let log = logDirectory.appendingPathComponent("whisper-server.log").path
-            let plist: [String: Any] = [
-                "Label": agentLabel,
-                "ProgramArguments": [binary, "-m", modelPath.path, "--host", "127.0.0.1", "--port", String(port), "-nt"],
-                "RunAtLoad": true,
-                "KeepAlive": true,
-                "StandardOutPath": log,
-                "StandardErrorPath": log
-            ]
-            let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
-            try FileManager.default.createDirectory(
-                at: agentPlistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try data.write(to: agentPlistURL, options: .atomic)
+            try writeAgent(agentPlist(binary: binary))
+            print("talkflowd: engine agent: created, runs \(binary)")
+        } else {
+            migrateAgentIfNeeded()
         }
 
         let domain = "gui/\(getuid())"
@@ -159,6 +199,169 @@ enum SpeechEngine {
         // then starts it if it is loaded but not running.
         _ = runQuietly("/bin/launchctl", ["bootstrap", domain, agentPlistURL.path])
         _ = runQuietly("/bin/launchctl", ["kickstart", "\(domain)/\(agentLabel)"])
+    }
+
+    // MARK: - The LaunchAgent
+
+    /// What the agent runs: the server on the model, on localhost only.
+    static func agentArguments(binary: String, model: String = modelPath.path, port: Int = port) -> [String] {
+        [binary, "-m", model, "--host", "127.0.0.1", "--port", String(port), "-nt"]
+    }
+
+    static func agentPlist(binary: String) -> [String: Any] {
+        let log = logDirectory.appendingPathComponent("whisper-server.log").path
+        return [
+            "Label": agentLabel,
+            "ProgramArguments": agentArguments(binary: binary),
+            "RunAtLoad": true,
+            "KeepAlive": true,
+            "StandardOutPath": log,
+            "StandardErrorPath": log
+        ]
+    }
+
+    /// What to do with the agent plist on this Mac.
+    enum AgentPlan: Equatable {
+        /// There is none yet; setup writes it.
+        case create
+        /// Left alone, and why.
+        case keep(String)
+        /// Point it at the bundled engine. `from` is the program it ran.
+        case repoint(from: String)
+    }
+
+    /// Pure, for `--streamtest`. `existing` is the plist as read (nil when
+    /// there is none), `bundled` this copy's engine (nil when it has none).
+    ///
+    /// Repointed: a Homebrew program (setups from before the engine was
+    /// bundled), or a program that is gone (talkflow.app was moved, or
+    /// Homebrew's whisper-cpp was uninstalled). Kept: the bundled engine
+    /// already, or a program elsewhere that is still there, which someone
+    /// chose on purpose. Also kept while talkflow runs from a translocated
+    /// copy (opened in place from Downloads or a disk image): that path is
+    /// gone after a restart, so a working program is not swapped for it.
+    static func agentPlan(existing: [String: Any]?, bundled: String?, isExecutable: (String) -> Bool) -> AgentPlan {
+        guard let existing else { return .create }
+        guard let bundled, isExecutable(bundled) else { return .keep("this copy of talkflow has no bundled engine") }
+        let program = (existing["Program"] as? String) ?? (existing["ProgramArguments"] as? [String])?.first ?? ""
+        if program == bundled { return .keep("it already runs the bundled engine") }
+        if program.isEmpty || !isExecutable(program) { return .repoint(from: program) }
+        if bundled.contains("/AppTranslocation/") {
+            return .keep("talkflow is running from a temporary copy; move it to Applications")
+        }
+        if isHomebrewPath(program) { return .repoint(from: program) }
+        return .keep("it runs \(program), which is not Homebrew's and is still there")
+    }
+
+    /// The same plist running `binary`. Only the program changes; the model,
+    /// port, logs and everything else stay as they were.
+    static func repointed(_ plist: [String: Any], to binary: String) -> [String: Any] {
+        var plist = plist
+        var arguments = plist["ProgramArguments"] as? [String] ?? []
+        if arguments.isEmpty { arguments = agentArguments(binary: binary) } else { arguments[0] = binary }
+        plist["ProgramArguments"] = arguments
+        plist.removeValue(forKey: "Program")
+        return plist
+    }
+
+    private static let agentLock = NSLock()
+
+    /// Run once at launch, off the main thread: makes sure the bundled engine
+    /// can be started by launchd, and moves an agent set up with Homebrew's
+    /// engine onto it.
+    static func prepareOnLaunch() {
+        clearBundledQuarantine()
+        migrateAgentIfNeeded()
+    }
+
+    /// Applies `agentPlan` to this Mac's agent plist, and reloads the agent
+    /// when it is loaded, so the new program runs now rather than at the next
+    /// login. Safe to call on every launch: once the plist runs the bundled
+    /// engine it is only read. Returns whether it rewrote the plist.
+    /// Blocking: call from a background thread.
+    @discardableResult
+    static func migrateAgentIfNeeded() -> Bool {
+        agentLock.lock(); defer { agentLock.unlock() }
+        let url = agentPlistURL
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
+        // A copy installed for testing next to a working install (install.sh
+        // with TALKFLOW_BUNDLE_ID) shares the agent, and must not take it over.
+        if (Bundle.main.object(forInfoDictionaryKey: "TalkflowDisableLoginItem") as? Bool) == true {
+            print("talkflowd: engine agent: left alone by a test copy")
+            return false
+        }
+        guard let data = try? Data(contentsOf: url),
+              let existing = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else {
+            print("talkflowd: engine agent: \(url.path) is not a readable plist; left alone")
+            return false
+        }
+        let bundled = bundledServerPath
+        switch agentPlan(existing: existing, bundled: bundled, isExecutable: { FileManager.default.isExecutableFile(atPath: $0) }) {
+        case .create:
+            return false
+        case .keep(let reason):
+            print("talkflowd: engine agent: kept, \(reason)")
+            return false
+        case .repoint(let from):
+            guard let bundled else { return false }
+            do {
+                try writeAgent(repointed(existing, to: bundled))
+            } catch {
+                print("talkflowd: engine agent: could not rewrite \(url.path): \(error.localizedDescription)")
+                return false
+            }
+            print("talkflowd: engine agent: now runs \(bundled) (was \(from.isEmpty ? "no program" : from))")
+            clearBundledQuarantine()
+            reloadAgentIfLoaded()
+            return true
+        }
+    }
+
+    private static func writeAgent(_ plist: [String: Any]) throws {
+        let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+        try FileManager.default.createDirectory(
+            at: agentPlistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: agentPlistURL, options: .atomic)
+    }
+
+    /// launchd keeps the plist it loaded, so a rewritten one takes effect only
+    /// after bootout and bootstrap. An agent that is not loaded stays that
+    /// way; it picks up the new plist when it is next loaded.
+    private static func reloadAgentIfLoaded() {
+        let domain = "gui/\(getuid())"
+        guard runQuietly("/bin/launchctl", ["print", "\(domain)/\(agentLabel)"]) == 0 else {
+            print("talkflowd: engine agent: not loaded, so not reloaded")
+            return
+        }
+        runQuietly("/bin/launchctl", ["bootout", "\(domain)/\(agentLabel)"])
+        // bootout can return before the old server has exited, and bootstrap
+        // fails until it has.
+        for attempt in 1...10 {
+            if runQuietly("/bin/launchctl", ["bootstrap", domain, agentPlistURL.path]) == 0 {
+                print("talkflowd: engine agent: reloaded")
+                return
+            }
+            if attempt < 10 { Thread.sleep(forTimeInterval: 0.5) }
+        }
+        print("talkflowd: engine agent: reload failed; the new engine runs from the next login")
+    }
+
+    /// A download from the website carries macOS's quarantine flag onto every
+    /// file in the app. The user approves talkflow when they first open it,
+    /// but launchd starts the engine on its own, and a flagged program started
+    /// that way could be held by Gatekeeper with no one there to approve it.
+    /// The flag is cleared on this one file, which the app's signature covers;
+    /// the updater does the same for a whole update. Does nothing when there
+    /// is no flag, or no bundled engine.
+    static func clearBundledQuarantine() {
+        guard let path = bundledServerBinary else { return }
+        let name = "com.apple.quarantine"
+        guard getxattr(path, name, nil, 0, 0, 0) >= 0 else { return }
+        if removexattr(path, name, 0) == 0 {
+            print("talkflowd: cleared the quarantine flag on \(path)")
+        } else {
+            print("talkflowd: could not clear the quarantine flag on \(path): \(String(cString: strerror(errno)))")
+        }
     }
 
     /// Polls until the server answers. Loading the model takes a few seconds.

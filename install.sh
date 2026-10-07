@@ -4,7 +4,12 @@
 #
 #   ./install.sh
 #
-# Needs macOS 13+ and the Swift toolchain (xcode-select --install).
+# Needs macOS 13+ and the Swift toolchain (xcode-select --install), plus git
+# and cmake to build the speech engine (whisper.cpp's whisper-server, from a
+# pinned tag, by scripts/build-whisper-macos.sh) into the app. cmake comes from
+# https://cmake.org/download/, `brew install cmake` or `pip3 install cmake`;
+# only the build needs it. Without cmake, a whisper-server already installed
+# with Homebrew is used instead, if there is one.
 #
 # For development and testing, these override where and as what it installs, so
 # a test copy can sit next to a working install without sharing its permissions
@@ -37,6 +42,25 @@ echo "==> Building (the first build takes a minute or two)"
 cd "$PROJECT_DIR"
 swift build -c release
 
+# The speech engine. Built into the app when cmake is here; otherwise only a
+# Homebrew whisper-server that is already installed can stand in for it.
+ENGINE="$PROJECT_DIR/.build/whisper-engine"
+HOMEBREW_ENGINE=""
+for candidate in /opt/homebrew/bin/whisper-server /usr/local/bin/whisper-server; do
+    [ -x "$candidate" ] && { HOMEBREW_ENGINE="$candidate"; break; }
+done
+NO_ENGINE_HELP="Install cmake (https://cmake.org/download/, or: brew install cmake, or: pip3 install cmake) and run ./install.sh again, or download the ready-made app from https://talkflow.live"
+if command -v cmake >/dev/null 2>&1; then
+    if ! "$PROJECT_DIR/scripts/build-whisper-macos.sh" "$ENGINE"; then
+        [ -n "$HOMEBREW_ENGINE" ] || fail "the speech engine did not build (see above). $NO_ENGINE_HELP"
+        echo "warning: the speech engine did not build; talkflow will use Homebrew's $HOMEBREW_ENGINE" >&2
+    fi
+elif [ -n "$HOMEBREW_ENGINE" ]; then
+    echo "warning: cmake not found, so the speech engine is not built into the app; talkflow will use Homebrew's $HOMEBREW_ENGINE" >&2
+else
+    fail "cmake is needed to build the speech engine. $NO_ENGINE_HELP"
+fi
+
 echo "==> Installing to $APP"
 pkill -f "$APP/Contents/MacOS/talkflowd" 2>/dev/null || true
 sleep 1
@@ -44,6 +68,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$PROJECT_DIR/.build/release/talkflowd" "$APP/Contents/MacOS/talkflowd"
 cp "$PROJECT_DIR/Packaging/Info.plist" "$APP/Contents/Info.plist"
 cp "$PROJECT_DIR/Packaging/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+if [ -x "$ENGINE/whisper-server" ]; then
+    mkdir -p "$APP/Contents/Helpers"
+    # Renamed into place rather than written over: an earlier install's
+    # engine may be running from this path.
+    cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server.new"
+    mv -f "$APP/Contents/Helpers/whisper-server.new" "$APP/Contents/Helpers/whisper-server"
+    cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+fi
 
 PLIST="$APP/Contents/Info.plist"
 if [ -n "$BUNDLE_ID" ]; then

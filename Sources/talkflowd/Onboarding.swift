@@ -512,6 +512,11 @@ enum EngineSetup {
 
             // 1. The whisper-server program.
             if SpeechEngine.serverBinary() == nil {
+                // talkflow.app carries its own engine; Homebrew is only for a bare dev build.
+                if SpeechEngine.bundledServerPath != nil {
+                    post(.failed(SpeechEngine.missingBundledEngineMessage))
+                    return
+                }
                 guard SpeechEngine.brewBinary() != nil else {
                     post(.needsHomebrew)
                     return
