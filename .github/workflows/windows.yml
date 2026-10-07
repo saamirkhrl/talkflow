@@ -68,6 +68,15 @@ jobs:
         run: python windows/tools/gen_emoji.py --check
       - name: Rule tests (every Swift --streamtest pair, plus the Mac's own outputs)
         run: dotnet test windows/Talkflow.Core.Tests -c Release --logger "console;verbosity=normal"
+      - name: A release build reports the release's version
+        shell: pwsh
+        run: |
+          # The package job stamps -p:Version=<tag without v>; prove the app reads it back.
+          dotnet build windows/Talkflow -c Release -p:Version=1.2.3 -o vcheck
+          $p = Start-Process vcheck/talkflow.exe -ArgumentList '--enginecheck' -Wait -PassThru
+          $report = Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt') -Raw
+          Write-Host $report
+          if ($report -notmatch '(?m)^version: 1\.2\.3 ') { throw "a -p:Version=1.2.3 build did not report 1.2.3" }
 
   engine:
     # whisper-server.exe from whisper.cpp source. x64 with MSVC and runtime CPU
@@ -190,7 +199,7 @@ jobs:
       - name: Install, run, uninstall (x64 runs here; arm64 is checked on an Arm runner below)
         if: matrix.arch == 'x64'
         shell: pwsh
-        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-x64-setup.exe
+        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-x64-setup.exe -ExpectVersion ${{ needs.version.outputs.version }}
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ matrix.arch }}
@@ -198,7 +207,7 @@ jobs:
           if-no-files-found: error
 
   install-smoke-arm64:
-    needs: package
+    needs: [version, package]
     runs-on: windows-11-arm
     steps:
       - uses: actions/checkout@v4
@@ -208,7 +217,7 @@ jobs:
           path: dist
       - name: Install, run, uninstall on Windows on Arm
         shell: pwsh
-        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-arm64-setup.exe
+        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-arm64-setup.exe -ExpectVersion ${{ needs.version.outputs.version }}
 
   publish:
     needs: [version, package, install-smoke-arm64]
