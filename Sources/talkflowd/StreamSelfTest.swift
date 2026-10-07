@@ -119,6 +119,7 @@ enum StreamSelfTest {
         runWritingStyleCases()
         runUpdaterCases()
         runOnboardingStepCases()
+        runPermissionGrantCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -887,12 +888,9 @@ enum StreamSelfTest {
               "flow: a finished setup reopens on what is missing")
 
         // The model, with fake permissions, as the window drives it.
-        final class Fake { var mic = Permissions.MicrophoneStatus.notDetermined; var ax = false; var im = false }
-        let fake = Fake()
+        let fake = FakeSystem()
         let defaults = MemoryDefaults()
-        let environment = OnboardingEnvironment(
-            microphone: { fake.mic }, accessibility: { fake.ax }, inputMonitoring: { fake.im },
-            engineInstalled: { false }, defaults: defaults, advanceDelay: 0)
+        let environment = fake.environment(defaults: defaults)
         let model = OnboardingModel(startHotkey: { true }, environment: environment)
         var raised = 0
         model.bringToFront = { raised += 1 }
@@ -925,6 +923,137 @@ enum StreamSelfTest {
         check(!Onboarding.wasInterrupted(defaults: defaults), "model: a finished setup does not reopen on launch")
     }
 
+    /// A grant made to an older (ad-hoc signed) build: told apart from a
+    /// missing one, explained, and fixed with a tccutil reset of talkflow's
+    /// own entry only.
+    private static func runPermissionGrantCases() {
+        report("case: a grant made to an older build is found and can be reset")
+        let a = "cdhash H\"aaaa\"", b = "cdhash H\"bbbb\""
+        check(GrantStatus.classify(trusted: true, grantedTo: a, current: b, userSaysOn: true, backFromSettings: true) == .granted,
+              "stale: a trusted permission is granted, whatever else is known")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: never granted is missing")
+        check(GrantStatus.classify(trusted: false, grantedTo: b, current: b, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: switched off for this same build is missing, not stale")
+        check(GrantStatus.classify(trusted: false, grantedTo: a, current: b, userSaysOn: false, backFromSettings: false) == .stale(.appChanged),
+              "stale: granted to a build with another signature is stale")
+        check(GrantStatus.classify(trusted: false, grantedTo: a, current: nil, userSaysOn: false, backFromSettings: false) == .missing,
+              "stale: an unreadable signature is not guessed at")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: true, backFromSettings: false) == .stale(.userSaysOn),
+              "stale: the user saying it is on is believed")
+        check(GrantStatus.classify(trusted: false, grantedTo: nil, current: b, userSaysOn: false, backFromSettings: true) == .stale(.backFromSettings),
+              "stale: back from System Settings and still not applying")
+
+        // tccutil: only ever this app's own entry.
+        check(Permissions.tccResetArguments(.accessibility, bundleID: "com.samir.talkflow") == ["reset", "Accessibility", "com.samir.talkflow"],
+              "tccutil: Accessibility for talkflow")
+        check(Permissions.tccResetArguments(.inputMonitoring, bundleID: "com.samir.talkflow") == ["reset", "ListenEvent", "com.samir.talkflow"],
+              "tccutil: Input Monitoring is ListenEvent")
+        check(Permissions.tccResetArguments(.microphone, bundleID: "com.samir.talkflow") == ["reset", "Microphone", "com.samir.talkflow"],
+              "tccutil: Microphone")
+        check(Permissions.tccResetArguments(.accessibility, bundleID: "com.samir.talkflow.test") == ["reset", "Accessibility", "com.samir.talkflow.test"],
+              "tccutil: a test copy resets its own identifier")
+        for bad in [nil, "", "talkflowd", " com.samir.talkflow", "com.samir.talkflow;rm", "com.samir talkflow", ".com.samir", "com.samir.", "All", "com.sam\u{0131}r.talkflow"] as [String?] {
+            check(Permissions.tccResetArguments(.accessibility, bundleID: bad) == nil,
+                  "tccutil: no reset without a plain bundle id (\(String(describing: bad))), which would reset every app")
+        }
+        check(Permissions.Service.allCases.allSatisfy { $0.rawValue != "All" }, "tccutil: no service resets everything")
+        for service in Permissions.Service.allCases {
+            let args = Permissions.tccResetArguments(service, bundleID: "com.samir.talkflow") ?? []
+            check(args.count == 3 && args.last == "com.samir.talkflow", "tccutil: \(service.rawValue) always names the bundle id")
+        }
+
+        check(!Onboarding.opensOnLaunch(allGranted: true, engineInstalled: true, interrupted: false, forced: false),
+              "launch: an update whose grants still apply does not open setup")
+        check(Onboarding.opensOnLaunch(allGranted: false, engineInstalled: true, interrupted: false, forced: false),
+              "launch: a grant that no longer applies opens setup")
+
+        let help = Onboarding.staleHelp(.accessibility, .appChanged)
+        check(help.fix.contains("- button") && help.fix.contains("+"), "help: the hand fix says remove with - and add with +")
+        check(!Onboarding.staleHelp(.microphone, .appChanged).fix.contains("- button"), "help: the microphone list has no - button, so it says off and on")
+        let allHelp = Permissions.Service.allCases.flatMap { service in
+            [StaleReason.appChanged, .userSaysOn, .backFromSettings].map { Onboarding.staleHelp(service, $0) }
+        }
+        check(allHelp.allSatisfy { ($0.why + $0.fix).allSatisfy(\.isASCII) }, "help: plain ASCII")
+
+        // An update: the old build had everything; the new one is signed differently.
+        let fake = FakeSystem()
+        let defaults = MemoryDefaults()
+        fake.mic = .granted; fake.ax = true; fake.im = true
+        fake.requirement = a
+        let before = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
+        before.begin()
+        before.stop()
+        check(defaults.object(forKey: Onboarding.completedKey) == nil, "update: setup was closed without pressing finish")
+
+        fake.requirement = b
+        fake.ax = false; fake.im = false
+        let after = OnboardingModel(startHotkey: { false }, environment: fake.environment(defaults: defaults))
+        after.begin()
+        check(after.step == .accessibility, "update: setup opens on the step that needs attention, not the first page", "\(after.step)")
+        check(after.status(.accessibility) == .stale(.appChanged), "update: Accessibility is explained as stale", "\(after.status(.accessibility))")
+        check(after.status(.inputMonitoring) == .stale(.appChanged), "update: Input Monitoring is explained as stale")
+        check(after.status(.microphone) == .granted, "update: a grant that still applies is fine")
+
+        after.resetAndAskAgain(.accessibility)
+        check(fake.resets == [.accessibility], "reset: only Accessibility is reset", "\(fake.resets)")
+        check(after.status(.accessibility) == .missing, "reset: afterwards it is simply missing", "\(after.status(.accessibility))")
+        check(fake.requests.last == .accessibility, "reset: macOS is asked again")
+        check(after.status(.inputMonitoring) == .stale(.appChanged), "reset: the other permission is left alone")
+        fake.ax = true
+        after.refresh(announce: true)
+        check(after.step == .inputMonitoring, "reset: the new grant moves setup on", "\(after.step)")
+
+        fake.resetSucceeds = false
+        after.resetAndAskAgain(.inputMonitoring)
+        check(after.resetFailed == .inputMonitoring, "reset: a failed reset is reported")
+        check(after.status(.inputMonitoring).isStale, "reset: and the fix stays on screen")
+        after.stop()
+
+        fake.requirement = a
+        fake.ax = true; fake.im = true
+        fake.engineInstalled = true
+        let fine = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
+        fine.begin()
+        check(fine.step == .ready, "update: with every grant applying, Setup opens on the last page, not the first", "\(fine.step)")
+        fine.stop()
+
+        // A first run: Allow, System Settings, back without it applying.
+        let fresh = FakeSystem()
+        let freshDefaults = MemoryDefaults()
+        fresh.mic = .granted
+        let model = OnboardingModel(startHotkey: { false }, environment: fresh.environment(defaults: freshDefaults))
+        model.begin()
+        check(model.step == .accessibility, "first run: a Mac that already granted the microphone starts on what is missing", "\(model.step)")
+        model.allow(.accessibility)
+        check(fresh.requests == [.accessibility] && fresh.settingsOpened.isEmpty, "allow: the first click shows macOS's prompt")
+        model.allow(.accessibility)
+        check(fresh.settingsOpened == [.accessibility], "allow: a later click opens System Settings, so it always does something")
+        check(model.status(.accessibility) == .missing, "allow: not stale while the user is still in System Settings")
+        model.appBecameActive(awayFor: 1)
+        check(model.status(.accessibility) == .missing, "back: a moment away (macOS's own prompt) is not a visit to System Settings")
+        model.appBecameActive(awayFor: 20)
+        check(model.status(.accessibility) == .stale(.backFromSettings), "back: still not applying after System Settings shows the fix")
+        check(model.step == .accessibility, "back: and keeps the step")
+        fresh.ax = true
+        model.refresh(announce: true)
+        check(model.status(.accessibility) == .granted && model.backFromSettings.isEmpty, "back: a grant that lands clears it")
+        check(model.step == .inputMonitoring, "back: and moves on", "\(model.step)")
+        model.reportAlreadyOn(.inputMonitoring)
+        check(model.status(.inputMonitoring) == .stale(.userSaysOn), "already on: the user's word shows the fix")
+        model.stop()
+
+        // The microphone: not asked yet means the prompt will record this build.
+        fresh.mic = .notDetermined
+        fresh.requirement = b
+        PermissionHistory(defaults: freshDefaults).record(.microphone, granted: true, requirement: a)
+        let micModel = OnboardingModel(startHotkey: { false }, environment: fresh.environment(defaults: freshDefaults))
+        check(micModel.status(.microphone) == .missing, "microphone: not yet asked is missing, the prompt fixes it")
+        fresh.mic = .denied
+        micModel.refresh(announce: false)
+        check(micModel.status(.microphone) == .stale(.appChanged), "microphone: denied after an update is stale")
+    }
+
     /// The few UserDefaults calls setup makes, answered from a dictionary
     /// (a real defaults suite would leave a file in ~/Library/Preferences).
     private final class MemoryDefaults: UserDefaults {
@@ -938,6 +1067,33 @@ enum StreamSelfTest {
         override func bool(forKey key: String) -> Bool { store[key] as? Bool ?? false }
         override func integer(forKey key: String) -> Int { store[key] as? Int ?? 0 }
         override func string(forKey key: String) -> String? { store[key] as? String }
+    }
+
+    /// Stands in for macOS in the setup checks: permission states, prompts,
+    /// System Settings and tccutil are all recorded here instead of touched.
+    private final class FakeSystem {
+        var mic = Permissions.MicrophoneStatus.notDetermined
+        var ax = false
+        var im = false
+        var engineInstalled = false
+        var requirement: String? = "cdhash H\"aaaa\""
+        var asked: Set<Permissions.Service> = []
+        var requests: [Permissions.Service] = []
+        var settingsOpened: [Permissions.Pane] = []
+        var resets: [Permissions.Service] = []
+        var resetSucceeds = true
+
+        func environment(defaults: UserDefaults) -> OnboardingEnvironment {
+            OnboardingEnvironment(
+                microphone: { self.mic }, accessibility: { self.ax }, inputMonitoring: { self.im },
+                engineInstalled: { self.engineInstalled }, defaults: defaults, advanceDelay: 0,
+                designatedRequirement: requirement,
+                asked: { self.asked.contains($0) },
+                request: { service, done in self.requests.append(service); self.asked.insert(service); done() },
+                openSettings: { self.settingsOpened.append($0) },
+                resetGrant: { service, done in self.resets.append(service); done(self.resetSucceeds) },
+                staleGrace: 0)
+        }
     }
 
     /// GitHub release parsing and version order, for the update check.
