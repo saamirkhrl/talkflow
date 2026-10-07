@@ -262,7 +262,8 @@ try {
     # this already comes out wrong, the app being typed into is the cause.
     $control = OpenNotepad 'control'
     if ([E2e]::Focus($control)) {
-        $sentence = 'And so my fellow Americans, ask not what your country can do for you.'
+        # Not the test phrase, so this tab can never pass for a dictation.
+        $sentence = 'The quick brown fox jumps over the lazy dog, then naps in the sun.'
         [E2e]::TypeUnicode($sentence, 16, 4)
         Start-Sleep -Seconds 1
         $typed = ReadText $control
