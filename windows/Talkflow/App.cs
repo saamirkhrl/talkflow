@@ -125,7 +125,7 @@ sealed class App : Application
         if (args.Contains("--enginecheck"))
         {
             var report = new StringBuilder();
-            report.AppendLine($"version: {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture})");
+            report.AppendLine($"version: {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}, {Updater.DisplayVersion})");
             report.AppendLine($"whisper-server: {(SpeechEngine.EngineInstalled ? Paths.ServerExe : "not found")}");
             report.AppendLine($"model complete: {SpeechEngine.Small.ModelIsComplete} ({SpeechEngine.Small.ModelPath})");
             report.AppendLine($"server responding on :{SpeechEngine.Small.Port}: {SpeechEngine.IsResponding(SpeechEngine.Small.Port)}");
@@ -145,7 +145,7 @@ sealed class App : Application
     {
         Paths.EnsureCreated();
         HasRunBefore = File.Exists(Paths.SettingsFile);
-        Log.Write($"launched {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}) on {Environment.OSVersion.VersionString}, pid {Environment.ProcessId}");
+        Log.Write($"launched {Updater.DisplayVersion} ({RuntimeInformation.ProcessArchitecture}) on {Environment.OSVersion.VersionString}, pid {Environment.ProcessId}");
         if (TestHooks.Any) Log.Write(TestHooks.Describe());
         UiWatchdog.Start(Dispatcher);
 
