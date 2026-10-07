@@ -118,6 +118,7 @@ enum StreamSelfTest {
         runInsertOnceCases()
         runWritingStyleCases()
         runUpdaterCases()
+        runOnboardingStepCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -839,6 +840,104 @@ enum StreamSelfTest {
             check(SelfCorrection.tokenize(styled).map(\.norm) == SelfCorrection.tokenize(raw).map(\.norm),
                   "\(style.rawValue) keeps every word")
         }
+    }
+
+    /// Setup keeps its step when the window comes back after a grant, moves
+    /// on by itself when the pending grant lands, and resumes after a relaunch.
+    private static func runOnboardingStepCases() {
+        report("case: setup keeps its step and moves on when a grant lands")
+        typealias G = PermissionGrants
+        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
+        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
+        let micAX = G(microphone: true, accessibility: true, inputMonitoring: false)
+        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
+        let micIM = G(microphone: true, accessibility: false, inputMonitoring: true)
+
+        // The pure rule.
+        for step in OnboardingStep.allCases {
+            for grants in [none, mic, micAX, all, micIM] {
+                check(OnboardingFlow.stepAfterRefresh(current: step, before: grants, now: grants) == step,
+                      "flow: nothing changed keeps \(step) (grants \(grants.microphone)/\(grants.accessibility)/\(grants.inputMonitoring))")
+            }
+        }
+        check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: none, now: mic) == .accessibility,
+              "flow: the microphone grant moves on to Accessibility")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: mic, now: micAX) == .inputMonitoring,
+              "flow: the Accessibility grant moves on to Input Monitoring")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micIM, now: all) == .engine,
+              "flow: an already granted Input Monitoring is skipped")
+        check(OnboardingFlow.stepAfterRefresh(current: .inputMonitoring, before: micAX, now: all) == .engine,
+              "flow: the Input Monitoring grant moves on to the engine")
+        check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: mic, now: micAX) == .microphone,
+              "flow: a grant for another step does not move this one")
+        check(OnboardingFlow.stepAfterRefresh(current: .welcome, before: none, now: all) == .welcome,
+              "flow: the welcome page never moves by itself")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micAX, now: mic) == .accessibility,
+              "flow: a lost grant does not move the step")
+
+        check(OnboardingFlow.initialStep(completed: false, saved: nil, grants: none, engineInstalled: false) == .welcome,
+              "flow: a first run opens on the welcome page")
+        check(OnboardingFlow.initialStep(completed: false, saved: .accessibility, grants: mic, engineInstalled: false) == .accessibility,
+              "flow: an interrupted first run resumes on its step")
+        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: all, engineInstalled: false) == .engine,
+              "flow: an interrupted first run moves past a grant that landed during the relaunch")
+        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: micIM, engineInstalled: false) == .accessibility,
+              "flow: an interrupted first run goes back to a grant that was lost")
+        check(OnboardingFlow.initialStep(completed: true, saved: nil, grants: micIM, engineInstalled: true) == .accessibility,
+              "flow: a finished setup reopens on what is missing")
+
+        // The model, with fake permissions, as the window drives it.
+        final class Fake { var mic = Permissions.MicrophoneStatus.notDetermined; var ax = false; var im = false }
+        let fake = Fake()
+        let defaults = MemoryDefaults()
+        let environment = OnboardingEnvironment(
+            microphone: { fake.mic }, accessibility: { fake.ax }, inputMonitoring: { fake.im },
+            engineInstalled: { false }, defaults: defaults, advanceDelay: 0)
+        let model = OnboardingModel(startHotkey: { true }, environment: environment)
+        var raised = 0
+        model.bringToFront = { raised += 1 }
+        model.begin()
+        check(model.step == .welcome, "model: a first run opens on the welcome page", "\(model.step)")
+        model.goNext()
+        check(model.step == .microphone, "model: Get started goes to the microphone", "\(model.step)")
+        fake.mic = .granted
+        model.refresh(announce: true)
+        check(model.step == .accessibility, "model: the microphone grant moves on by itself", "\(model.step)")
+        check(raised == 1, "model: a grant brings the window forward", "\(raised)")
+        model.refresh(announce: true)
+        model.begin() // what showing the window again does (menu bar, or a grant raising it)
+        check(model.step == .accessibility, "model: showing the window again keeps the step", "\(model.step)")
+        fake.ax = true
+        model.refresh(announce: true)
+        model.begin()
+        check(model.step == .inputMonitoring, "model: back from System Settings, the Accessibility step is done, not the first page", "\(model.step)")
+        model.stop()
+
+        // macOS relaunches the app after the Input Monitoring grant.
+        fake.im = true
+        check(Onboarding.wasInterrupted(defaults: defaults), "model: an unfinished first run opens again on launch")
+        let relaunched = OnboardingModel(startHotkey: { true }, environment: environment)
+        relaunched.begin()
+        check(relaunched.step == .engine, "model: after a relaunch setup resumes past the granted step", "\(relaunched.step)")
+        relaunched.stop()
+        // What finish() records (not called here: it changes the login item).
+        defaults.set(true, forKey: Onboarding.completedKey)
+        check(!Onboarding.wasInterrupted(defaults: defaults), "model: a finished setup does not reopen on launch")
+    }
+
+    /// The few UserDefaults calls setup makes, answered from a dictionary
+    /// (a real defaults suite would leave a file in ~/Library/Preferences).
+    private final class MemoryDefaults: UserDefaults {
+        private var store: [String: Any] = [:]
+
+        override func object(forKey key: String) -> Any? { store[key] }
+        override func set(_ value: Any?, forKey key: String) { store[key] = value }
+        override func set(_ value: Bool, forKey key: String) { store[key] = value }
+        override func set(_ value: Int, forKey key: String) { store[key] = value }
+        override func removeObject(forKey key: String) { store[key] = nil }
+        override func bool(forKey key: String) -> Bool { store[key] as? Bool ?? false }
+        override func integer(forKey key: String) -> Int { store[key] as? Int ?? 0 }
+        override func string(forKey key: String) -> String? { store[key] as? String }
     }
 
     /// GitHub release parsing and version order, for the update check.
