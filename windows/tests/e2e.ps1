@@ -48,6 +48,7 @@ $work = Join-Path $Out 'files'
 New-Item -ItemType Directory -Force $work | Out-Null
 
 $failures = New-Object System.Collections.Generic.List[string]
+$script:notepadMisses = New-Object System.Collections.Generic.List[string]
 $results = New-Object System.Collections.Generic.List[string]
 function Say($text) { Write-Host ("[{0:HH:mm:ss.fff}] {1}" -f (Get-Date), $text) }
 function Fail($text) { Say "FAIL: $text"; $failures.Add($text) }
@@ -161,7 +162,9 @@ function OpenNotepad($name) {
 
 # Holds Ctrl + Win for the WAV's length, then lets go in the given order,
 # watching talkflow the whole time. Then waits for the text to arrive.
-function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst) {
+# $intoNotepad: whether the text check is judged against the Notepad control
+# at the end (see there) instead of failing at once.
+function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst, [bool] $intoNotepad = $false) {
     Say "=== $label ==="
     CloseIntruders
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
@@ -229,7 +232,10 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Say "talkflow.log during this dictation:"
     $newLines | ForEach-Object { Write-Host "    $_" }
 
-    if (-not $arrived) { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    if (-not $arrived) {
+        if ($intoNotepad) { $script:notepadMisses.Add("${label}: the dictation never arrived (expected '$Expect')") }
+        else { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    }
     if ($unanswered -gt 0 -or $script:unansweredAfter -gt 0) { Fail "${label}: talkflow's windows stopped answering ($unanswered while holding, $($script:unansweredAfter) after)" }
     if ($stalls.Count -gt 0) { Fail "${label}: talkflow.log reports $($stalls.Count) UI stall line(s)" }
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
@@ -268,7 +274,7 @@ try {
 
     # 1. Notepad.
     $note1 = OpenNotepad 'pass1'
-    Dictate 'notepad' $note1 { ReadText $note1 } 'win'
+    Dictate 'notepad' $note1 { ReadText $note1 } 'win' $true
 
     # 2. talkflow's own setup window, the "Try it" box.
     $script:slowestAfter = 0; $script:unansweredAfter = 0
@@ -296,7 +302,7 @@ try {
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
     $note3 = OpenNotepad 'pass3'
-    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win'
+    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win' $true
 
     # Control, last (Windows 11 Notepad does not reopen quickly after being
     # closed, and opens files as tabs): the same kind of keystrokes talkflow
@@ -312,6 +318,15 @@ try {
         $typed = ReadText $control
         Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
         $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
+        $script:controlGarbled = $typed -ne $sentence
+    }
+    # A Notepad pass whose text did not arrive fails, unless Notepad on this
+    # machine also garbled the script's own keystrokes, with talkflow
+    # stopped: then Notepad cannot tell anything about talkflow, and the
+    # other checks of those passes (stalls, pill, keys, answers) still count.
+    foreach ($miss in $script:notepadMisses) {
+        if ($script:controlGarbled) { $results.Add("inconclusive, Notepad garbles keystrokes on this machine: $miss") }
+        else { Fail $miss }
     }
 
 }
