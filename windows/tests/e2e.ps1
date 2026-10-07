@@ -18,7 +18,8 @@
 # Each one checks that the text arrived, that talkflow's windows kept
 # answering (a stuck UI thread does not answer WM_NULL), that the pill was on
 # screen while the keys were held and gone afterwards, that no key was left
-# held down, and that talkflow.log has no STALL line (UiWatchdog.cs).
+# held down, that letting go did not open Start, and that talkflow.log has no
+# STALL line (UiWatchdog.cs).
 #
 # Written for Windows PowerShell 5.1, which has UI Automation built in.
 param(
@@ -170,6 +171,11 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
         [void][E2e]::Press([E2e]::VK_LWIN, $true); Start-Sleep -Milliseconds 60; [void][E2e]::Press([E2e]::VK_LCONTROL, $true)
     }
     Say "released ($releaseFirst first)"
+    Start-Sleep -Milliseconds 800
+    # Letting go of Win alone opens Start; talkflow must prevent that.
+    $front = [E2e]::GetForegroundWindow()
+    $startOpened = $front -ne $hwnd
+    if ($startOpened) { Say "in front after release: $([E2e]::Describe($front))" }
 
     $script:text = $null
     $arrived = WaitFor {
@@ -200,6 +206,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
     if ($overlayAfter) { Fail "${label}: the pill was still on screen after the dictation" }
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
+    if ($startOpened) { Fail "${label}: another window (the Start menu?) came to the front when the keys were released" }
     $results.Add(("{0}: arrived={1} slowest-answer={2}ms/{3}ms stalls={4} pill={5}" -f $label, $arrived, $slowest, $script:slowestAfter, $stalls.Count, $overlaySeen))
 }
 
