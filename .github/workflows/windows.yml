@@ -210,8 +210,55 @@ jobs:
         shell: pwsh
         run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-arm64-setup.exe
 
+  e2e:
+    # The installed app end to end on each architecture: hold Ctrl + Win with
+    # SendInput while a recording plays (runners have no microphone), and
+    # check the words land in Notepad and in talkflow's own "Try it" box,
+    # with the UI thread answering throughout. See windows/tests/e2e.ps1.
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    # The windows-11-arm runner opens a WSL install prompt that takes the
+    # foreground mid-test and its Notepad garbles even the script's own
+    # keystrokes, so its result is reported but cannot hold back a release.
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-${{ matrix.arch }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: engine-${{ matrix.arch }}
+          path: dl
+      - uses: actions/cache@v4
+        with:
+          path: ggml-tiny.en.bin
+          key: whisper-model-tiny.en
+      - name: Fetch a small test model
+        shell: pwsh
+        run: if (-not (Test-Path ggml-tiny.en.bin)) { curl.exe -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin }
+      - name: Dictate into Notepad and the Try it box
+        shell: powershell
+        run: ./windows/tests/e2e.ps1 -Installer dist/talkflow-windows-${{ matrix.arch }}-setup.exe -Model ggml-tiny.en.bin -Wav dl/jfk.wav -Out e2e-out
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-${{ matrix.arch }}
+          path: e2e-out/
+          if-no-files-found: warn
+
   publish:
-    needs: [version, package, install-smoke-arm64]
+    needs: [version, package, install-smoke-arm64, e2e]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
