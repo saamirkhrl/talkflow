@@ -24,7 +24,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // When setup is needed the hotkey is started by the setup window, once
         // it has explained why Input Monitoring is wanted. Creating the event tap
         // first would make macOS raise its own permission prompt with no context.
-        if CommandLine.arguments.contains("--onboarding") || Onboarding.needsSetup() {
+        // A first-run setup that macOS interrupted with a relaunch (after a
+        // grant) opens again too, on the step it had reached.
+        if CommandLine.arguments.contains("--onboarding") || Onboarding.needsSetup() || Onboarding.wasInterrupted() {
             print("talkflowd: opening setup")
             onboarding.show()
         } else {

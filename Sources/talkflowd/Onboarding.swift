@@ -27,14 +27,23 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentView = NSHostingView(rootView: OnboardingView(model: model))
-        model.bringToFront = { [weak self] in self?.show() }
+        // Only raises the window. It must not restart the flow: this runs
+        // when a grant lands while the user is in System Settings, and
+        // restarting here is what used to send them back to the first page.
+        model.bringToFront = { [weak self] in self?.bringToFront() }
         model.close = { [weak self] in self?.window?.close() }
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
 
+    /// Opens setup, or raises it if it is already open. A setup already in
+    /// progress keeps its step.
     func show() {
-        model.start()
+        model.begin()
+        bringToFront()
+    }
+
+    private func bringToFront() {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -46,12 +55,24 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
 
 enum Onboarding {
     static let completedKey = "onboardingCompleted"
+    /// The step a first-run setup had reached, so a relaunch in the middle of
+    /// it (System Settings' "Quit & Reopen", or Restart talkflow) resumes
+    /// there instead of on the welcome page. Removed when setup finishes.
+    static let progressKey = "onboardingProgress"
 
     /// Whether to open the setup window on launch: only when something is
     /// actually missing. A Mac that already has every permission and a working
     /// speech engine never sees it.
     static func needsSetup() -> Bool {
         !Permissions.allGranted || !SpeechEngine.isInstalled
+    }
+
+    /// A first-run setup was interrupted part way (most often by macOS
+    /// relaunching talkflow after a grant), so it opens again where it was.
+    static func wasInterrupted(defaults: UserDefaults = .standard) -> Bool {
+        guard !defaults.bool(forKey: completedKey),
+              let saved = OnboardingStep(rawValue: defaults.integer(forKey: progressKey)) else { return false }
+        return saved != .welcome && saved != .ready
     }
 }
 
@@ -64,6 +85,90 @@ enum OnboardingStep: Int, CaseIterable {
     var previous: OnboardingStep? { OnboardingStep(rawValue: rawValue - 1) }
 }
 
+/// The three permissions as plain values, so the step logic below can be
+/// checked by `--streamtest` without touching the real ones.
+struct PermissionGrants: Equatable {
+    var microphone: Bool
+    var accessibility: Bool
+    var inputMonitoring: Bool
+
+    /// Whether the permission a step asks for is granted; nil for the steps
+    /// that are not about a permission.
+    func isGranted(_ step: OnboardingStep) -> Bool? {
+        switch step {
+        case .microphone: return microphone
+        case .accessibility: return accessibility
+        case .inputMonitoring: return inputMonitoring
+        case .welcome, .engine, .ready: return nil
+        }
+    }
+}
+
+/// Which step setup shows. Pure, for `--streamtest`.
+enum OnboardingFlow {
+    /// The first permission step still missing, then the engine.
+    static func firstMissing(_ grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep? {
+        if !grants.microphone { return .microphone }
+        if !grants.accessibility { return .accessibility }
+        if !grants.inputMonitoring { return .inputMonitoring }
+        if !engineInstalled { return .engine }
+        return nil
+    }
+
+    /// The step after `step`, skipping permission steps that are already
+    /// granted (there is nothing to do on them).
+    static func nextNeeded(after step: OnboardingStep, grants: PermissionGrants) -> OnboardingStep {
+        var candidate = step.next ?? .ready
+        while grants.isGranted(candidate) == true, let next = candidate.next { candidate = next }
+        return candidate
+    }
+
+    /// Where setup opens when it was not already open. A finished setup goes
+    /// to whatever is missing. A first run starts on the welcome page, or,
+    /// when it was interrupted (`saved`), where it was, moved past a
+    /// permission that has since been granted and back to an earlier one that
+    /// has since been lost.
+    static func initialStep(completed: Bool, saved: OnboardingStep?, grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep {
+        let missing = firstMissing(grants, engineInstalled: engineInstalled)
+        if completed { return missing ?? .welcome }
+        guard let saved, saved != .welcome else { return .welcome }
+        var resumed = saved
+        if grants.isGranted(saved) == true { resumed = nextNeeded(after: saved, grants: grants) }
+        if let missing, missing.rawValue < resumed.rawValue { return missing }
+        return resumed
+    }
+
+    /// The step after a permission re-read. Setup moves on by itself only
+    /// when the permission the current step asks for has just been granted;
+    /// anything else, including the window simply coming back to the front,
+    /// leaves the step alone (so Back to a granted step stays there).
+    static func stepAfterRefresh(current: OnboardingStep, before: PermissionGrants, now: PermissionGrants) -> OnboardingStep {
+        guard before.isGranted(current) == false, now.isGranted(current) == true else { return current }
+        return nextNeeded(after: current, grants: now)
+    }
+}
+
+/// Where the model reads the permissions, the engine and its saved progress.
+/// `--streamtest` passes fakes; the app uses `live`.
+struct OnboardingEnvironment {
+    var microphone: () -> Permissions.MicrophoneStatus
+    var accessibility: () -> Bool
+    var inputMonitoring: () -> Bool
+    var engineInstalled: () -> Bool
+    var defaults: UserDefaults
+    /// How long the "Allowed" check shows before setup moves on.
+    var advanceDelay: TimeInterval
+
+    static let live = OnboardingEnvironment(
+        microphone: { Permissions.microphone },
+        accessibility: { Permissions.accessibility },
+        inputMonitoring: { Permissions.inputMonitoring },
+        engineInstalled: { SpeechEngine.isInstalled },
+        defaults: .standard,
+        advanceDelay: 0.7
+    )
+}
+
 enum EngineState: Equatable {
     case checking
     case ready
@@ -74,10 +179,12 @@ enum EngineState: Equatable {
 }
 
 final class OnboardingModel: ObservableObject {
-    @Published var step: OnboardingStep = .welcome
-    @Published var microphone = Permissions.microphone
-    @Published var accessibility = Permissions.accessibility
-    @Published var inputMonitoring = Permissions.inputMonitoring
+    @Published var step: OnboardingStep = .welcome {
+        didSet { saveProgress() }
+    }
+    @Published var microphone: Permissions.MicrophoneStatus
+    @Published var accessibility: Bool
+    @Published var inputMonitoring: Bool
     @Published var engine: EngineState = .checking
     @Published var hotkeyRunning = false
     @Published var needsRestart = false
@@ -88,6 +195,7 @@ final class OnboardingModel: ObservableObject {
     var close: () -> Void = {}
 
     private let startHotkey: () -> Bool
+    private let environment: OnboardingEnvironment
     private var timer: Timer?
     private var hotkeyAttempts = 0
     private var downloader: FileDownloader?
@@ -98,21 +206,35 @@ final class OnboardingModel: ObservableObject {
     let loginItemAvailable: Bool =
         (Bundle.main.object(forInfoDictionaryKey: "TalkflowDisableLoginItem") as? Bool) != true
 
-    init(startHotkey: @escaping () -> Bool) {
+    init(startHotkey: @escaping () -> Bool, environment: OnboardingEnvironment = .live) {
         self.startHotkey = startHotkey
+        self.environment = environment
+        microphone = environment.microphone()
+        accessibility = environment.accessibility()
+        inputMonitoring = environment.inputMonitoring()
     }
 
-    func start() {
-        // Pick up where the user needs to be: the welcome screen on a first run,
-        // otherwise the first thing still missing.
-        if UserDefaults.standard.bool(forKey: Onboarding.completedKey) {
-            step = firstMissingStep() ?? .welcome
-        } else {
-            step = .welcome
-        }
+    var grants: PermissionGrants {
+        PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, inputMonitoring: inputMonitoring)
+    }
+
+    /// Whether setup is open (between `begin` and `stop`).
+    var isActive: Bool { timer != nil }
+
+    /// Starts a setup session. While one is running this does nothing, so
+    /// showing the window again (from the menu bar, or when a grant brings
+    /// it forward) never moves the user off the step they are on.
+    func begin() {
+        guard !isActive else { return }
         refresh(announce: false)
-        if step == .engine { checkEngine() }
-        timer?.invalidate()
+        let defaults = environment.defaults
+        let saved = defaults.object(forKey: Onboarding.progressKey) == nil
+            ? nil : OnboardingStep(rawValue: defaults.integer(forKey: Onboarding.progressKey))
+        move(to: OnboardingFlow.initialStep(
+            completed: defaults.bool(forKey: Onboarding.completedKey),
+            saved: saved,
+            grants: grants,
+            engineInstalled: environment.engineInstalled()))
         let timer = Timer(timeInterval: 0.8, repeats: true) { [weak self] _ in self?.refresh(announce: true) }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -125,21 +247,29 @@ final class OnboardingModel: ObservableObject {
         downloader = nil
     }
 
-    private func firstMissingStep() -> OnboardingStep? {
-        if microphone != .granted { return .microphone }
-        if !accessibility { return .accessibility }
-        if !inputMonitoring { return .inputMonitoring }
-        if !SpeechEngine.isInstalled { return .engine }
-        return nil
+    private func move(to newStep: OnboardingStep) {
+        if step != newStep { step = newStep }
+        if newStep == .engine { checkEngine() }
+    }
+
+    /// Only during a first run: a finished setup always reopens on what is
+    /// missing.
+    private func saveProgress() {
+        let defaults = environment.defaults
+        guard !defaults.bool(forKey: Onboarding.completedKey) else { return }
+        defaults.set(step.rawValue, forKey: Onboarding.progressKey)
     }
 
     /// Re-reads the permission state. macOS gives no callback when the user flips
     /// a switch in System Settings, so this polls; when something becomes granted
-    /// the window comes forward again, because the user is looking at Settings.
-    private func refresh(announce: Bool) {
-        let mic = Permissions.microphone
-        let ax = Permissions.accessibility
-        let im = Permissions.inputMonitoring
+    /// the window comes forward again, because the user is looking at Settings,
+    /// and when it is the permission this step asks for, setup moves on to the
+    /// next step by itself after showing the check for a moment.
+    func refresh(announce: Bool) {
+        let before = grants
+        let mic = environment.microphone()
+        let ax = environment.accessibility()
+        let im = environment.inputMonitoring()
         let gained = (mic == .granted && microphone != .granted)
             || (ax && !accessibility)
             || (im && !inputMonitoring)
@@ -147,6 +277,20 @@ final class OnboardingModel: ObservableObject {
         accessibility = ax
         inputMonitoring = im
         if gained && announce { bringToFront() }
+
+        let current = step
+        let target = OnboardingFlow.stepAfterRefresh(current: current, before: before, now: grants)
+        if target != current {
+            if environment.advanceDelay <= 0 {
+                move(to: target)
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + environment.advanceDelay) { [weak self] in
+                    // Not if the user has moved on (or back) in the meantime.
+                    guard let self, self.step == current else { return }
+                    self.move(to: target)
+                }
+            }
+        }
 
         if im && !hotkeyRunning {
             hotkeyRunning = startHotkey()
@@ -176,8 +320,7 @@ final class OnboardingModel: ObservableObject {
 
     func goNext() {
         guard canContinue, let next = step.next else { return }
-        step = next
-        if next == .engine { checkEngine() }
+        move(to: next)
     }
 
     func goBack() {
@@ -186,7 +329,8 @@ final class OnboardingModel: ObservableObject {
     }
 
     func finish() {
-        UserDefaults.standard.set(true, forKey: Onboarding.completedKey)
+        environment.defaults.set(true, forKey: Onboarding.completedKey)
+        environment.defaults.removeObject(forKey: Onboarding.progressKey)
         if loginItemAvailable { applyLoginItem() }
         close()
     }
