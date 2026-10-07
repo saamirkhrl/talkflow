@@ -32,7 +32,7 @@ static class Diagnostics
     public static string EngineReport()
     {
         var report = new StringBuilder();
-        report.AppendLine($"version: {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture})");
+        report.AppendLine($"version: {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}, {Updater.DisplayVersion})");
         report.AppendLine($"windows: {Environment.OSVersion.VersionString}, {RuntimeInformation.OSArchitecture}, {Environment.ProcessorCount} logical processors");
         report.AppendLine($"whisper-server: {(SpeechEngine.EngineInstalled ? Paths.ServerExe : "not found")}");
         report.AppendLine($"model complete: {SpeechEngine.Small.ModelIsComplete} ({SpeechEngine.Small.ModelPath})");

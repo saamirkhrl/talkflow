@@ -89,7 +89,8 @@ sealed class DashboardWindow : Window
     void RenderUpdate()
     {
         _updateArea.Children.Clear();
-        var version = Ui.Text($"v{Updater.CurrentVersion}", 11, Ui.Graphite, wrap: false);
+        var version = Ui.Text(Updater.DisplayVersion, 11, Ui.Graphite, wrap: false);
+        if (Updater.IsDevelopmentBuild) version.ToolTip = "A test build, not a release. Any release counts as newer.";
         version.Margin = new Thickness(0, 0, 8, 0);
         version.VerticalAlignment = VerticalAlignment.Center;
         var updater = _app.Updater;
@@ -121,7 +122,9 @@ sealed class DashboardWindow : Window
                 break;
             default:
                 _updateArea.Children.Add(version);
-                _updateArea.Children.Add(Link(updater.State == Updater.Phase.UpToDate ? "Up to date" : "Check for updates", () => _ = updater.Check()));
+                var check = Link(updater.State == Updater.Phase.UpToDate ? updater.UpToDateText : "Check for updates", () => _ = updater.Check());
+                check.ToolTip = "Check again";
+                _updateArea.Children.Add(check);
                 break;
         }
     }

@@ -44,6 +44,19 @@ public class DataTests : IDisposable
         Assert.Null(Updates.Parse("not json", "x64"));
     }
 
+    [Fact]
+    public void LatestVersionEvenWithoutAWindowsBuild()
+    {
+        // v0.1.3 shipped the Mac build only: no Windows update, but the app can name the version.
+        const string macOnly = """{"tag_name":"v0.1.3","assets":[{"name":"talkflow-macos.zip","browser_download_url":"https://e/a.zip"}]}""";
+        Assert.Null(Updates.Parse(macOnly, "x64"));
+        Assert.Equal("0.1.3", Updates.LatestVersion(macOnly));
+        Assert.Equal("0.1.4", Updates.LatestVersion("""{"schema":1,"version":"0.1.4","platforms":{"macos":{},"windows":{},"linux":{}}}"""));
+        Assert.Null(Updates.LatestVersion("""{"schema":2,"version":"9.0.0"}"""));
+        Assert.Null(Updates.LatestVersion("not json"));
+        Assert.Null(Updates.LatestVersion("[]"));
+    }
+
     static readonly string Sha = new('a', 64);
 
     static string Manifest(string windows) => """
@@ -151,5 +164,27 @@ public class DataTests : IDisposable
         Assert.Equal(36 + 6, BitConverter.ToInt32(wav, 4));
         Assert.Equal(16000, BitConverter.ToInt32(wav, 24));
         Assert.Equal(6, BitConverter.ToInt32(wav, 40));
+    }
+
+    [Fact]
+    public void WavReadsBackWhatItWrote()
+    {
+        var samples = new short[] { 1, -1, 300, short.MinValue, short.MaxValue };
+        Assert.Equal(samples, Wav.ReadSamples(Wav.FromSamples(samples, 16000)));
+    }
+
+    [Fact]
+    public void WavSkipsOtherChunksAndRefusesOtherFormats()
+    {
+        var plain = Wav.FromSamples(new short[] { 7, 8 }, 16000);
+        // A LIST chunk (odd size, padded) between fmt and data, as many tools write.
+        var list = new byte[] { (byte)'L', (byte)'I', (byte)'S', (byte)'T', 3, 0, 0, 0, 1, 2, 3, 0 };
+        var withList = plain[..36].Concat(list).Concat(plain[36..]).ToArray();
+        Assert.Equal(new short[] { 7, 8 }, Wav.ReadSamples(withList));
+
+        var stereo = (byte[])plain.Clone();
+        stereo[22] = 2;
+        Assert.Throws<InvalidDataException>(() => Wav.ReadSamples(stereo));
+        Assert.Throws<InvalidDataException>(() => Wav.ReadSamples(new byte[] { 1, 2, 3 }));
     }
 }

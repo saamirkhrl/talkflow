@@ -3,7 +3,11 @@
 # data folder (%APPDATA%\talkflow) survived while everything else is gone.
 #
 #   pwsh windows/tests/smoke-install.ps1 -Installer out\talkflow-windows-x64-setup.exe
-param([Parameter(Mandatory)] [string] $Installer)
+param(
+    [Parameter(Mandatory)] [string] $Installer,
+    # The version the installed app must report (0.0.0 for a build not made from a release tag).
+    [string] $ExpectVersion
+)
 $ErrorActionPreference = 'Stop'
 
 $app = Join-Path $env:LOCALAPPDATA 'Programs\talkflow'
@@ -28,7 +32,9 @@ $format = Get-Content (Join-Path $env:TEMP 'talkflow-formattest.txt') -Raw
 Write-Host $format
 if ($format -notmatch 'So the meeting is on Thursday\. See you there') { throw "unexpected --formattest output" }
 Run $exe @('--enginecheck')
-Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt')
+$check = Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt') -Raw
+Write-Host $check
+if ($ExpectVersion -and $check -notmatch "(?m)^version: $([regex]::Escape($ExpectVersion)) ") { throw "the installed app does not report version $ExpectVersion" }
 # "Report a problem...": a zip with the report and logs, and no dictated text.
 Run $exe @('--diagnostics')
 $zip = (Get-Content (Join-Path $env:TEMP 'talkflow-diagnostics.txt') -Raw).Trim()
