@@ -55,10 +55,11 @@ function LogLines {
     if (Test-Path $appLog) { return @(Get-Content $appLog) } else { return @() }
 }
 
-function WaitFor([scriptblock] $condition, [int] $seconds, [string] $what) {
+# (The parameter is not called $condition: the scripts it runs use that name.)
+function WaitFor([scriptblock] $until, [int] $seconds, [string] $what) {
     $deadline = (Get-Date).AddSeconds($seconds)
     while ((Get-Date) -lt $deadline) {
-        if (& $condition) { return $true }
+        if (& $until) { return $true }
         Start-Sleep -Milliseconds 250
     }
     Say "timed out after $seconds s waiting for $what"
@@ -81,8 +82,11 @@ function StopTalkflow {
     Start-Sleep -Seconds 1
 }
 
-# The text of the first document or edit control under a window.
+# The text of the first edit control under a window: WM_GETTEXT first, which
+# works for both Notepads, then UI Automation.
 function ReadText($hwnd) {
+    $direct = [E2e]::ChildText($hwnd)
+    if ($null -ne $direct) { return $direct }
     $window = $UIA::FromHandle($hwnd)
     foreach ($type in [System.Windows.Automation.ControlType]::Document, [System.Windows.Automation.ControlType]::Edit) {
         $condition = New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, $type)
@@ -97,6 +101,17 @@ function ReadText($hwnd) {
         }
     }
     return $null
+}
+
+# Windows 11 runners sometimes open a "Microsoft account" sign-in prompt
+# (WWAHost) that takes the foreground. Close it so the test can type.
+function CloseIntruders {
+    $intruders = Get-Process WWAHost -ErrorAction SilentlyContinue
+    if ($intruders) {
+        Say "closing a sign-in prompt that holds the foreground (WWAHost, pid $($intruders.Id -join ', '))"
+        $intruders | Stop-Process -Force
+        Start-Sleep -Seconds 1
+    }
 }
 
 function OverlayVisible($process) {
@@ -124,7 +139,11 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Say "=== $label ==="
     $process = Talkflow
     if ($null -eq $process) { Fail "${label}: talkflow is not running"; return }
-    if (-not [E2e]::Focus($hwnd)) { Say "warning: could not bring $([E2e]::Describe($hwnd)) to the front" }
+    if (-not [E2e]::Focus($hwnd)) {
+        Say "could not bring $([E2e]::Describe($hwnd)) to the front; in front: $([E2e]::Describe([E2e]::GetForegroundWindow()))"
+        CloseIntruders
+        if (-not [E2e]::Focus($hwnd)) { Fail "${label}: could not bring the target window to the front"; return }
+    }
     Say "foreground: $([E2e]::Describe([E2e]::GetForegroundWindow()))"
     $logStart = (LogLines).Count
     $holdSeconds = [Math]::Ceiling($script:wavSeconds) + 1.5
@@ -207,6 +226,7 @@ try {
     $env:TALKFLOW_TEST_MODEL = (Resolve-Path $Model).Path
     $env:TALKFLOW_LOG_TRANSCRIPTS = '1' # the test's own recording, so the log may show it
 
+    CloseIntruders
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
 

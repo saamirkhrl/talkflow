@@ -121,6 +121,34 @@ public static class E2e
         return found;
     }
 
+    [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr parent, EnumProc proc, IntPtr param);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr hwnd, uint msg, IntPtr w, StringBuilder l, uint flags, uint timeout, out IntPtr result);
+
+    /// <summary>
+    /// The text of the first edit control inside a window (classic Notepad's
+    /// "Edit", Windows 11 Notepad's "RichEditD2DPT"), by WM_GETTEXT. Null
+    /// when there is none.
+    /// </summary>
+    public static string ChildText(IntPtr window)
+    {
+        string text = null;
+        EnumChildWindows(window, (hwnd, _) =>
+        {
+            var cls = new StringBuilder(256);
+            GetClassName(hwnd, cls, 256);
+            var name = cls.ToString();
+            if (name != "Edit" && !name.StartsWith("RichEdit")) return true;
+            IntPtr length;
+            SendMessageTimeout(hwnd, 0x000E, IntPtr.Zero, IntPtr.Zero, 0, 2000, out length); // WM_GETTEXTLENGTH
+            var buffer = new StringBuilder(length.ToInt32() + 1);
+            IntPtr copied;
+            SendMessageTimeout(hwnd, 0x000D, (IntPtr)buffer.Capacity, buffer, 0, 2000, out copied); // WM_GETTEXT
+            text = buffer.ToString();
+            return false;
+        }, IntPtr.Zero);
+        return text;
+    }
+
     public static bool IsTopmostToolWindow(IntPtr hwnd)
     {
         int ex = GetWindowLong(hwnd, -20);
