@@ -14,7 +14,8 @@
 #   1. into Notepad (another app), letting go of Win first;
 #   2. into talkflow's own setup window, the "Try it" box, letting go of Ctrl
 #      first (talkflow reading and typing into its own window);
-#   3. into Notepad again with "type while speaking" on.
+#   3. into Notepad again with "type while speaking" on;
+#   4. with a microphone that never sends audio (see SilentHold).
 # Each one checks that the text arrived, that talkflow's windows kept
 # answering (a stuck UI thread does not answer WM_NULL), that the pill was on
 # screen while the keys were held and gone afterwards, that no key was left
@@ -48,6 +49,7 @@ $work = Join-Path $Out 'files'
 New-Item -ItemType Directory -Force $work | Out-Null
 
 $failures = New-Object System.Collections.Generic.List[string]
+$script:notepadMisses = New-Object System.Collections.Generic.List[string]
 $results = New-Object System.Collections.Generic.List[string]
 function Say($text) { Write-Host ("[{0:HH:mm:ss.fff}] {1}" -f (Get-Date), $text) }
 function Fail($text) { Say "FAIL: $text"; $failures.Add($text) }
@@ -117,12 +119,16 @@ function CloseIntruders {
         Start-Sleep -Seconds 1
     }
     # The Arm runner can open a "WSL must be updated" prompt by itself, which
-    # then takes the foreground in the middle of a dictation.
-    $wsl = Get-Process wsl, wslhost -ErrorAction SilentlyContinue
-    if ($wsl) {
-        Say "closing a WSL prompt the runner opened (pid $($wsl.Id -join ', '))"
-        $wsl | Stop-Process -Force
-        Start-Sleep -Seconds 1
+    # then takes the foreground in the middle of a dictation. It says "Press
+    # ESC to cancel", so it gets Escape; killing wsl.exe instead left its
+    # window up and Notepad then failed to open.
+    for ($i = 0; $i -lt 3; $i++) {
+        $prompt = [E2e]::FindWindow('wsl.exe')
+        if ($prompt -eq [IntPtr]::Zero) { break }
+        Say "cancelling a WSL prompt the runner opened: $([E2e]::Describe($prompt))"
+        [void][E2e]::Focus($prompt)
+        [void][E2e]::Press([E2e]::VK_ESCAPE, $false); [void][E2e]::Press([E2e]::VK_ESCAPE, $true)
+        Start-Sleep -Seconds 2
     }
     for ($i = 0; $i -lt 5; $i++) {
         $front = [E2e]::GetForegroundWindow()
@@ -147,6 +153,8 @@ function OpenNotepad($name) {
     Start-Process notepad.exe -ArgumentList "`"$file`"" | Out-Null
     $script:hwnd = [IntPtr]::Zero
     if (-not (WaitFor { $script:hwnd = [E2e]::FindWindow($name); $script:hwnd -ne [IntPtr]::Zero } 30 "Notepad with $name")) {
+        Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
+        Get-Process -Name notepad -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, MainWindowTitle | Out-String | Write-Host
         throw "Notepad did not open $file"
     }
     Start-Sleep -Seconds 1
@@ -155,7 +163,9 @@ function OpenNotepad($name) {
 
 # Holds Ctrl + Win for the WAV's length, then lets go in the given order,
 # watching talkflow the whole time. Then waits for the text to arrive.
-function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst) {
+# $intoNotepad: whether the text check is judged against the Notepad control
+# at the end (see there) instead of failing at once.
+function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst, [bool] $intoNotepad = $false) {
     Say "=== $label ==="
     CloseIntruders
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
@@ -223,7 +233,10 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Say "talkflow.log during this dictation:"
     $newLines | ForEach-Object { Write-Host "    $_" }
 
-    if (-not $arrived) { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    if (-not $arrived) {
+        if ($intoNotepad) { $script:notepadMisses.Add("${label}: the dictation never arrived (expected '$Expect')") }
+        else { Fail "${label}: the dictation never arrived (expected '$Expect')" }
+    }
     if ($unanswered -gt 0 -or $script:unansweredAfter -gt 0) { Fail "${label}: talkflow's windows stopped answering ($unanswered while holding, $($script:unansweredAfter) after)" }
     if ($stalls.Count -gt 0) { Fail "${label}: talkflow.log reports $($stalls.Count) UI stall line(s)" }
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
@@ -231,6 +244,52 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
     if ($startOpened) { Fail "${label}: another window (the Start menu?) came to the front when the keys were released" }
     $results.Add(("{0}: arrived={1} slowest-answer={2}ms/{3}ms stalls={4} pill={5}" -f $label, $arrived, $slowest, $script:slowestAfter, $stalls.Count, $overlaySeen))
+}
+
+# A microphone that opens but never sends a buffer (TALKFLOW_TEST_SILENT_MIC),
+# as one real USB microphone did. talkflow must say so in the pill, must not
+# send an empty recording to the engine (which answers HTTP 400), and must
+# type nothing.
+function SilentHold([IntPtr] $hwnd, [scriptblock] $read) {
+    $label = 'silent-mic'
+    Say "=== $label ==="
+    CloseIntruders
+    $process = Talkflow
+    if ($null -eq $process) { Fail "${label}: talkflow is not running"; return }
+    if (-not [E2e]::Focus($hwnd)) {
+        CloseIntruders
+        if (-not [E2e]::Focus($hwnd)) { Fail "${label}: could not bring the target window to the front"; return }
+    }
+    $before = & $read
+    $logStart = (LogLines).Count
+    [void][E2e]::Press([E2e]::VK_LCONTROL, $false)
+    Start-Sleep -Milliseconds 60
+    [void][E2e]::Press([E2e]::VK_LWIN, $false)
+    Say 'holding Ctrl + Win for 2.5 s with a microphone that sends nothing'
+    Start-Sleep -Milliseconds 2500
+    [void][E2e]::Press([E2e]::VK_LWIN, $true); Start-Sleep -Milliseconds 60; [void][E2e]::Press([E2e]::VK_LCONTROL, $true)
+    $script:finish = $null
+    [void](WaitFor {
+        $script:finish = @(LogLines | Select-Object -Skip $logStart | Where-Object { $_ -match ' finish: ' }) | Select-Object -Last 1
+        $null -ne $script:finish
+    } 30 'the end of the hold in talkflow.log')
+    Start-Sleep -Milliseconds 500
+    $pill = OverlayVisible $process
+    [E2e]::Screenshot((Join-Path $Out "$label-after.png"))
+    $after = & $read
+    $newLines = @(LogLines | Select-Object -Skip $logStart)
+    $stuck = @([E2e]::VK_LWIN, [E2e]::VK_LCONTROL) | Where-Object { [E2e]::IsDown($_) }
+    Say "pill on screen after letting go: $pill"
+    Say "talkflow.log during this hold:"
+    $newLines | ForEach-Object { Write-Host "    $_" }
+
+    if ($null -eq $script:finish) { Fail "${label}: the hold never finished" }
+    elseif ($script:finish -notmatch 'no audio from the microphone') { Fail "${label}: the hold did not end with 'no audio from the microphone': $($script:finish)" }
+    if (@($newLines | Where-Object { $_ -match 'transcription server returned|transcribed ' }).Count -gt 0) { Fail "${label}: an empty recording was sent to the speech engine" }
+    if (-not $pill) { Fail "${label}: the pill did not stay up to say what went wrong" }
+    if ($after -ne $before) { Fail "${label}: the text changed from [$before] to [$after]" }
+    if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
+    $results.Add(("{0}: finish=[{1}] pill={2}" -f $label, $script:finish, $pill))
 }
 
 try {
@@ -262,7 +321,7 @@ try {
 
     # 1. Notepad.
     $note1 = OpenNotepad 'pass1'
-    Dictate 'notepad' $note1 { ReadText $note1 } 'win'
+    Dictate 'notepad' $note1 { ReadText $note1 } 'win' $true
 
     # 2. talkflow's own setup window, the "Try it" box.
     $script:slowestAfter = 0; $script:unansweredAfter = 0
@@ -290,7 +349,14 @@ try {
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
     $note3 = OpenNotepad 'pass3'
-    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win'
+    Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win' $true
+
+    # 4. A microphone that never sends audio, into the same Notepad.
+    StopTalkflow
+    $env:TALKFLOW_TEST_SILENT_MIC = '1'
+    StartTalkflow
+    SilentHold $note3 { ReadText $note3 }
+    $env:TALKFLOW_TEST_SILENT_MIC = $null
 
     # Control, last (Windows 11 Notepad does not reopen quickly after being
     # closed, and opens files as tabs): the same kind of keystrokes talkflow
@@ -306,6 +372,15 @@ try {
         $typed = ReadText $control
         Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
         $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
+        $script:controlGarbled = $typed -ne $sentence
+    }
+    # A Notepad pass whose text did not arrive fails, unless Notepad on this
+    # machine also garbled the script's own keystrokes, with talkflow
+    # stopped: then Notepad cannot tell anything about talkflow, and the
+    # other checks of those passes (stalls, pill, keys, answers) still count.
+    foreach ($miss in $script:notepadMisses) {
+        if ($script:controlGarbled) { $results.Add("inconclusive, Notepad garbles keystrokes on this machine: $miss") }
+        else { Fail $miss }
     }
 
 }
