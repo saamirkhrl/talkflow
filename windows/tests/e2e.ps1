@@ -257,23 +257,6 @@ try {
     $env:TALKFLOW_LOG_TRANSCRIPTS = '1' # the test's own recording, so the log may show it
 
     CloseIntruders
-    # Control: the same kind of keystrokes talkflow sends (Unicode, 16 per
-    # SendInput call), typed by this script with talkflow not running. If
-    # this already comes out wrong, the app being typed into is the cause.
-    $control = OpenNotepad 'control'
-    if ([E2e]::Focus($control)) {
-        # Not the test phrase, so this tab can never pass for a dictation.
-        $sentence = 'The quick brown fox jumps over the lazy dog, then naps in the sun.'
-        [E2e]::TypeUnicode($sentence, 16, 4)
-        Start-Sleep -Seconds 1
-        $typed = ReadText $control
-        Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
-        $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
-    }
-    # Windows 11 Notepad would open the next file as a tab of this window.
-    Get-Process notepad -ErrorAction SilentlyContinue | Stop-Process -Force
-    Start-Sleep -Seconds 1
-
     StartTalkflow
     $script:slowestAfter = 0; $script:unansweredAfter = 0
 
@@ -308,6 +291,23 @@ try {
     $script:slowestAfter = 0; $script:unansweredAfter = 0
     $note3 = OpenNotepad 'pass3'
     Dictate 'type-while-speaking' $note3 { ReadText $note3 } 'win'
+
+    # Control, last (Windows 11 Notepad does not reopen quickly after being
+    # closed, and opens files as tabs): the same kind of keystrokes talkflow
+    # sends (Unicode, 16 per SendInput call), typed by this script with
+    # talkflow stopped. If this comes out wrong, the app typed into is the cause.
+    StopTalkflow
+    $control = OpenNotepad 'control'
+    if ([E2e]::Focus($control)) {
+        # Not the test phrase, so this tab can never pass for a dictation.
+        $sentence = 'The quick brown fox jumps over the lazy dog, then naps in the sun.'
+        [E2e]::TypeUnicode($sentence, 16, 4)
+        Start-Sleep -Seconds 1
+        $typed = ReadText $control
+        Say "control: typed [$sentence] with no talkflow; Notepad has [$typed]"
+        $results.Add("control: $(if ($typed -eq $sentence) { 'Notepad received the keystrokes exactly' } else { 'Notepad changed the keystrokes: [' + $typed + ']' })")
+    }
+
 }
 catch {
     Fail "error: $($_.Exception.Message)"
