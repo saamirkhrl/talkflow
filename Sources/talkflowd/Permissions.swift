@@ -29,8 +29,14 @@ enum Permissions {
     /// Needed to read the focused text field and write into it.
     static var accessibility: Bool { AXIsProcessTrusted() }
 
-    /// Needed for the Fn-key event tap.
-    static var inputMonitoring: Bool { CGPreflightListenEventAccess() }
+    /// Whether the Fn-key event tap can see the key. macOS allows a
+    /// listen-only tap to an app with Input Monitoring or with Accessibility,
+    /// and talkflow needs Accessibility anyway, so in practice it never has
+    /// to ask for Input Monitoring. That is also why talkflow does not appear
+    /// in the Input Monitoring list: macOS lists only apps that asked. (Setup
+    /// used to wait for Input Monitoring regardless, and so waited forever
+    /// for a switch the user could not find.)
+    static var inputMonitoring: Bool { CGPreflightListenEventAccess() || AXIsProcessTrusted() }
 
     static var allGranted: Bool {
         microphone == .granted && accessibility && inputMonitoring

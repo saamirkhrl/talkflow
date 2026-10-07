@@ -26,8 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PermissionHistory.recordCurrent()
 
         // When setup is needed the hotkey is started by the setup window, once
-        // it has explained why Input Monitoring is wanted. Creating the event tap
-        // first would make macOS raise its own permission prompt with no context.
+        // it has explained why Accessibility is wanted (which also lets the
+        // event tap see Fn). Creating the event tap first would make macOS
+        // raise its own permission prompt with no context.
         // A first-run setup that macOS interrupted with a relaunch (after a
         // grant) opens again too, on the step it had reached.
         if Onboarding.opensOnLaunch(allGranted: Permissions.allGranted, engineInstalled: SpeechEngine.isInstalled,

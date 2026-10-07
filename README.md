@@ -39,7 +39,9 @@ is what makes it feel smooth. English only.
 
 Setup walks you through it:
 
-1. Permissions: **Microphone**, **Accessibility** and **Input Monitoring**.
+1. Permissions: **Microphone** and **Accessibility**. Accessibility also lets
+   talkflow notice the fn key, so it does not ask for Input Monitoring (and
+   is not listed there).
 2. It installs the speech engine (`whisper-cpp` via Homebrew) and downloads the
    English model (about 500 MB).
 
@@ -75,7 +77,7 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete
 
 | Symptom | Fix |
 |---|---|
-| Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Input Monitoring was just granted, press **Restart talkflow**. |
+| Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Accessibility was just granted, press **Restart talkflow**. |
 | The emoji picker or dictation opens when you press fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
 | Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. |
 | A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Open **Setup...** and press **Reset and allow again** on that step, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
