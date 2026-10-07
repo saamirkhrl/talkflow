@@ -35,6 +35,25 @@ Run $exe @('--enginecheck')
 $check = Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt') -Raw
 Write-Host $check
 if ($ExpectVersion -and $check -notmatch "(?m)^version: $([regex]::Escape($ExpectVersion)) ") { throw "the installed app does not report version $ExpectVersion" }
+# "Report a problem...": a zip with the report and logs, and no dictated text.
+Run $exe @('--diagnostics')
+$zip = (Get-Content (Join-Path $env:TEMP 'talkflow-diagnostics.txt') -Raw).Trim()
+if (-not (Test-Path $zip)) { throw "--diagnostics did not save $zip" }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead($zip)
+$entries = $archive.Entries | ForEach-Object { $_.FullName }
+$report = $archive.Entries | Where-Object { $_.FullName -eq 'report.txt' } | ForEach-Object {
+    $reader = New-Object IO.StreamReader($_.Open()); try { $reader.ReadToEnd() } finally { $reader.Dispose() }
+}
+$archive.Dispose()
+Write-Host "diagnostics: $zip ($($entries -join ', '))"
+if ($entries -notcontains 'report.txt') { throw "the diagnostics zip has no report.txt" }
+Write-Host $report
+# The microphone section must be there even on a runner with no microphone.
+foreach ($line in 'microphones \(WASAPI\):', 'one second from the default microphone, WASAPI: ', 'one second from the default microphone, waveIn: ') {
+    if ($report -notmatch $line) { throw "report.txt has no '$line' line" }
+}
+Remove-Item $zip
 Run $exe @('--uninstallplan')
 Get-Content (Join-Path $env:TEMP 'talkflow-uninstallplan.txt')
 

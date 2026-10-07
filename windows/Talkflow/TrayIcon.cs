@@ -38,6 +38,7 @@ sealed class TrayIcon : IDisposable
         menu.Items.Add("Open talkflow", null, (_, _) => _app.ShowDashboard());
         menu.Items.Add("Settings", null, (_, _) => _app.ShowDashboard(settings: true));
         menu.Items.Add("Setup...", null, (_, _) => _app.ShowOnboarding());
+        menu.Items.Add("Report a problem...", null, (_, _) => _app.ReportProblem());
 
         var style = new ToolStripMenuItem("Writing style");
         _styles = new ToolStripMenuItem[WritingStyles.All.Length];

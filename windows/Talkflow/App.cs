@@ -126,15 +126,12 @@ sealed class App : Application
             return Write("talkflow-uninstallplan.txt", string.Join(Environment.NewLine, plan) + Environment.NewLine);
         }
         if (args.Contains("--enginecheck"))
+            return Write("talkflow-enginecheck.txt", Diagnostics.EngineReport());
+        if (args.Contains("--diagnostics"))
         {
-            var report = new StringBuilder();
-            report.AppendLine($"version: {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}, {Updater.DisplayVersion})");
-            report.AppendLine($"whisper-server: {(SpeechEngine.EngineInstalled ? Paths.ServerExe : "not found")}");
-            report.AppendLine($"model complete: {SpeechEngine.Small.ModelIsComplete} ({SpeechEngine.Small.ModelPath})");
-            report.AppendLine($"server responding on :{SpeechEngine.Small.Port}: {SpeechEngine.IsResponding(SpeechEngine.Small.Port)}");
-            report.AppendLine($"microphone: {Microphone.Check()}");
-            report.AppendLine($"data folder: {Paths.DataDir}");
-            return Write("talkflow-enginecheck.txt", report.ToString());
+            // The same zip as "Report a problem..." in the tray menu, for when the app will not start.
+            var zip = Diagnostics.Create();
+            return Write("talkflow-diagnostics.txt", zip + Environment.NewLine);
         }
         return null;
     }
@@ -359,6 +356,23 @@ sealed class App : Application
             return;
         }
         _ = Updater.Install(Quit);
+    }
+
+    /// <summary>Tray menu and Settings: saves the diagnostics zip to the Desktop and shows it.</summary>
+    public async void ReportProblem()
+    {
+        try
+        {
+            // Off the UI thread: the report asks both speech servers, which can take seconds.
+            var path = await Task.Run(Diagnostics.Create);
+            Diagnostics.Reveal(path);
+            Tray.Notify("Diagnostics saved", $"{Path.GetFileName(path)} is on your Desktop. Attach it to an issue or an email. It has no dictated text.");
+        }
+        catch (Exception e)
+        {
+            Log.Write($"could not save diagnostics: {e}");
+            MessageBox.Show($"Could not save the diagnostics file: {e.Message}", "talkflow");
+        }
     }
 
     public void Uninstall()

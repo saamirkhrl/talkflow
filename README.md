@@ -143,6 +143,12 @@ each release. Windows 10 (1809) or later.
 - **Your data:** `%APPDATA%\talkflow\` holds `stats.json` and `settings.json`,
   in the same format as on the Mac, plus `windows.json` (your shortcut, and which update you were last told about). Models
   and logs are in `%LOCALAPPDATA%\talkflow\`.
+- **Something wrong?** Tray menu > **Report a problem...** (also in
+  Settings) saves a zip to your Desktop: the version, setup checks, settings
+  switches and recent logs, without anything you dictated, your learned words
+  or API keys. Attach it to an issue. `talkflow.exe --diagnostics` makes the
+  same zip when the app will not start. `windows/TESTING.md` is the manual
+  test checklist, including how to test in Windows Sandbox.
 - **Uninstall:** Settings > **Uninstall...**, or Windows Settings > Apps >
   talkflow > Uninstall. Either removes the app, the speech engine, the models,
   logs, the startup entry and saved API keys, and keeps `%APPDATA%\talkflow\`.
