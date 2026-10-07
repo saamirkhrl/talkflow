@@ -29,6 +29,17 @@ Write-Host $format
 if ($format -notmatch 'So the meeting is on Thursday\. See you there') { throw "unexpected --formattest output" }
 Run $exe @('--enginecheck')
 Get-Content (Join-Path $env:TEMP 'talkflow-enginecheck.txt')
+# "Report a problem...": a zip with the report and logs, and no dictated text.
+Run $exe @('--diagnostics')
+$zip = (Get-Content (Join-Path $env:TEMP 'talkflow-diagnostics.txt') -Raw).Trim()
+if (-not (Test-Path $zip)) { throw "--diagnostics did not save $zip" }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [IO.Compression.ZipFile]::OpenRead($zip)
+$entries = $archive.Entries | ForEach-Object { $_.FullName }
+$archive.Dispose()
+Write-Host "diagnostics: $zip ($($entries -join ', '))"
+if ($entries -notcontains 'report.txt') { throw "the diagnostics zip has no report.txt" }
+Remove-Item $zip
 Run $exe @('--uninstallplan')
 Get-Content (Join-Path $env:TEMP 'talkflow-uninstallplan.txt')
 

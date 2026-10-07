@@ -354,6 +354,10 @@ sealed class DashboardWindow : Window
             $"Your stats, settings and learned words are kept in {Paths.DataDir}. Uninstalling keeps this folder, so installing again picks up where you left off.",
             openFolder));
 
+        panel.Children.Add(Ui.Row("Report a problem",
+            "Saves a zip to your Desktop with talkflow's version, setup checks, settings switches and recent logs, to attach to an issue or an email. It never includes what you dictated, your learned words or API keys.",
+            Ui.Button("Save diagnostics", _app.ReportProblem)));
+
         var uninstall = Ui.Button("Uninstall...", ConfirmUninstall);
         panel.Children.Add(Ui.Row("Uninstall talkflow",
             "Removes the app, the speech engine and models, saved API keys, logs and the startup entry. Keeps your data folder.",
