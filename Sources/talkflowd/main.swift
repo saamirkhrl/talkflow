@@ -75,6 +75,19 @@ if CommandLine.arguments.contains("--dashboardshot") {
     dispatchMain()
 }
 
+// Read-only: renders every setup step (fake permission states, including a
+// grant left over from an older build) to PNGs, in the folder given or the
+// temporary directory. Usage: --onboardingshot [folder]
+if let index = CommandLine.arguments.firstIndex(of: "--onboardingshot") {
+    let folder = CommandLine.arguments.dropFirst(index + 1).first.map { URL(fileURLWithPath: $0) }
+        ?? URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-onboarding")
+    Task { @MainActor in
+        for url in OnboardingController.renderSnapshots(to: folder) { print("talkflowd: wrote \(url.path)") }
+        exit(0)
+    }
+    dispatchMain()
+}
+
 // Runs the updater's install step (unpack, verify, sign, swap) on a local zip
 // and a target bundle, without downloading or relaunching anything.
 // Usage: --updatetest <zip> <target.app> <version>

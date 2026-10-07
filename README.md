@@ -95,6 +95,7 @@ $B --typetest                # the writing layer (takes focus)
 $B --rectest 3               # mic capture and transcription round trip
 $B --formattest "raw text"   # the text pipeline, no microphone
 $B --dashboardshot           # render the dashboard to PNGs
+$B --onboardingshot [dir]    # render every setup step to PNGs (fake permissions)
 $B --enginecheck             # setup state: engine, model, permissions
 $B --uninstallplan           # what Uninstall would remove, changes nothing
 $B --focusprobe              # what the focused element accepts
