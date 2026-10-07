@@ -42,6 +42,26 @@ static class Microphone
         _ => "No microphone found. Plug one in, or pick one in Settings > System > Sound > Input.",
     };
 
+    /// <summary>One line: which switch to turn on, for the page <see cref="OpenSettings"/> opens.</summary>
+    public static string Hint(State state) => state switch
+    {
+        State.BlockedForDesktopApps => "Turn on \"Let desktop apps access your microphone\". talkflow notices by itself.",
+        State.NoDevice => "Plug one in, or choose one in Sound settings. talkflow notices by itself.",
+        _ => "Turn on \"Microphone access\". talkflow notices by itself.",
+    };
+
+    public static void OpenSoundSettings()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:sound") { UseShellExecute = true });
+        }
+        catch (Exception e)
+        {
+            Log.Write($"could not open sound settings: {e.Message}");
+        }
+    }
+
     public static void OpenSettings()
     {
         try

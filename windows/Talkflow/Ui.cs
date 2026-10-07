@@ -109,14 +109,38 @@ static class Ui
             Padding = new Thickness(14, 5, 14, 5),
             FontSize = 12,
             Cursor = Cursors.Hand,
-            Foreground = primary ? Paper : Ink,
-            Background = primary ? Ink : Brushes.Transparent,
-            BorderBrush = primary ? Ink : Line,
             BorderThickness = new Thickness(1),
             Template = PillTemplate(),
         };
+        SetPrimary(button, primary);
         button.Click += (_, _) => onClick();
         return button;
+    }
+
+    /// <summary>Filled ink (the one main action) or an outline.</summary>
+    public static void SetPrimary(Button button, bool primary)
+    {
+        button.Foreground = primary ? Paper : Ink;
+        button.Background = primary ? Ink : Brushes.Transparent;
+        button.BorderBrush = primary ? Ink : Line;
+    }
+
+    /// <summary>A thin rounded progress bar: a hairline track with an ink fill.</summary>
+    public static ProgressBar Progress()
+    {
+        var template = new ControlTemplate(typeof(ProgressBar));
+        var root = new FrameworkElementFactory(typeof(Grid));
+        var track = new FrameworkElementFactory(typeof(Border), "PART_Track");
+        track.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+        track.SetValue(Border.BackgroundProperty, Line);
+        var fill = new FrameworkElementFactory(typeof(Border), "PART_Indicator");
+        fill.SetValue(Border.CornerRadiusProperty, new CornerRadius(2));
+        fill.SetValue(Border.BackgroundProperty, Ink);
+        fill.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Left);
+        root.AppendChild(track);
+        root.AppendChild(fill);
+        template.VisualTree = root;
+        return new ProgressBar { Height = 4, Minimum = 0, Maximum = 1, Template = template, IsTabStop = false };
     }
 
     /// <summary>A capsule button: border and fill from the button's own brushes.</summary>
