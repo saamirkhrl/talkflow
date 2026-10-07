@@ -8,8 +8,8 @@ namespace Talkflow.Core;
 /// </summary>
 public static class DiagnosticText
 {
-    /// <summary>"transcribed 3 sentences in 0.82s: what was said" loses what was said.</summary>
-    static readonly Regex Transcript = new(@"^(.*\btranscribed\b.*? in [0-9.]+s): .*$", RegexOptions.Multiline);
+    /// <summary>"transcribed 3 sentences in 0.82s: what was said" loses what was said (0,82s on a comma-decimal Windows).</summary>
+    static readonly Regex Transcript = new(@"^(.*\btranscribed\b.*? in [0-9.,]+s): .*$", RegexOptions.Multiline);
 
     public static string Redact(string log) => Transcript.Replace(log, "$1: [dictated text removed]");
 

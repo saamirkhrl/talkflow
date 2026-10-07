@@ -21,6 +21,15 @@ public class DiagnosticTextTests
     }
 
     [Fact]
+    public void RedactsTranscriptsWrittenWithADecimalComma()
+    {
+        // A German or French Windows writes the time as 0,82s.
+        var redacted = DiagnosticText.Redact("2026-10-06 10:00:03.000 transcribed 2 sentences in 0,82s: my bank password is hunter2");
+        Assert.DoesNotContain("hunter2", redacted);
+        Assert.Contains("in 0,82s: [dictated text removed]", redacted);
+    }
+
+    [Fact]
     public void KeepsOnlyTheEnginesOwnLines()
     {
         var log = "whisper_init_from_file_with_params_no_state: loading model from 'ggml-small.en.bin'\n" +
