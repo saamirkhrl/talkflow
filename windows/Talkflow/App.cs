@@ -27,6 +27,8 @@ sealed class App : Application
     public TrayIcon Tray { get; private set; } = null!;
     public Updater Updater { get; } = new();
     public bool HasRunBefore { get; private set; }
+    /// <summary>The model download; lives here so it survives closing the setup window.</summary>
+    public ModelDownload ModelDownload { get; private set; } = null!;
 
     public bool EngineReady { get; private set; }
     public bool FinalPassReady { get; private set; }
@@ -46,6 +48,7 @@ sealed class App : Application
     Task<bool>? _engineStart;
 
     public bool IsTryItFocused => _onboarding?.TryItFocused == true;
+    public bool OnboardingOpen => _onboarding is not null;
 
     /// <summary>What is around the caret when the dictation is into talkflow's own window: the Try it box, or nothing.</summary>
     public ScreenContext.Snapshot OwnFieldSnapshot()
@@ -149,6 +152,7 @@ sealed class App : Application
         if (TestHooks.Any) Log.Write(TestHooks.Describe());
         UiWatchdog.Start(Dispatcher);
 
+        ModelDownload = new ModelDownload(this);
         Settings = new SettingsStore(Paths.SettingsFile);
         Settings.BackUp();
         Stats = new StatsStore(Paths.StatsFile);

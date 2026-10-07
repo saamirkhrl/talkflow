@@ -256,9 +256,10 @@ static class SpeechEngine
     /// <summary>
     /// Downloads a model to a temporary name and moves it into place only when
     /// it is complete and big enough, so a dropped connection never leaves
-    /// something that looks like a finished model.
+    /// something that looks like a finished model. Progress is bytes written
+    /// and the total when the server says it (reported about 5 times a second).
     /// </summary>
-    public static async Task Download(WhisperServer server, IProgress<double>? progress, CancellationToken cancel)
+    public static async Task Download(WhisperServer server, IProgress<(long Written, long? Total)>? progress, CancellationToken cancel)
     {
         Directory.CreateDirectory(Paths.ModelsDir);
         var partial = server.ModelPath + ".download";
@@ -282,10 +283,10 @@ static class SpeechEngine
                 if (read == 0) break;
                 await target.WriteAsync(buffer.AsMemory(0, read), cancel);
                 written += read;
-                if (total > 0 && DateTime.UtcNow - lastReport > TimeSpan.FromMilliseconds(200))
+                if (DateTime.UtcNow - lastReport > TimeSpan.FromMilliseconds(200))
                 {
                     lastReport = DateTime.UtcNow;
-                    progress?.Report((double)written / total.Value);
+                    progress?.Report((written, total));
                 }
             }
         }
@@ -296,6 +297,6 @@ static class SpeechEngine
             throw new IOException($"The download ended early ({size:N0} bytes). Check your connection and try again.");
         }
         File.Move(partial, server.ModelPath, overwrite: true);
-        progress?.Report(1);
+        progress?.Report((size, size));
     }
 }
