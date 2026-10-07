@@ -41,8 +41,8 @@ public static class WritingStyles
 
     public static string Detail(this WritingStyle style) => style switch
     {
-        WritingStyle.Casual => "lowercase, no full stop at the end, \"I\" kept.",
-        WritingStyle.Lowercase => "every letter lowercase.",
+        WritingStyle.Casual => "lowercase, no final full stop.",
+        WritingStyle.Lowercase => "all lowercase.",
         _ => "Capitals and full stops.",
     };
 
