@@ -49,14 +49,16 @@ sealed class App : Application
 
         using var instance = new Mutex(initiallyOwned: true, @"Local\talkflow-app", out bool first);
         using var show = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\talkflow-show");
+        using var setup = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\talkflow-setup");
         if (!first)
         {
-            show.Set();
+            // `talkflow.exe --setup` while it runs opens setup; otherwise the dashboard.
+            (args.Contains("--setup") ? setup : show).Set();
             return 0;
         }
 
         var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show);
+        app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show, setup);
         app.DispatcherUnhandledException += (_, e) =>
         {
             Log.Write($"unhandled: {e.Exception}");
@@ -123,11 +125,13 @@ sealed class App : Application
 
     // MARK: - Startup
 
-    void Start(bool background, EventWaitHandle show)
+    void Start(bool background, EventWaitHandle show, EventWaitHandle setup)
     {
         Paths.EnsureCreated();
         HasRunBefore = File.Exists(Paths.SettingsFile);
-        Log.Write($"launched {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}), pid {Environment.ProcessId}");
+        Log.Write($"launched {Updater.CurrentVersion} ({RuntimeInformation.ProcessArchitecture}) on {Environment.OSVersion.VersionString}, pid {Environment.ProcessId}");
+        if (TestHooks.Any) Log.Write(TestHooks.Describe());
+        UiWatchdog.Start(Dispatcher);
 
         Settings = new SettingsStore(Paths.SettingsFile);
         Settings.BackUp();
@@ -155,7 +159,12 @@ sealed class App : Application
         // A second launch asks this one to show itself.
         new Thread(() =>
         {
-            while (show.WaitOne()) Dispatcher.BeginInvoke(() => ShowDashboard());
+            var signals = new WaitHandle[] { show, setup };
+            while (true)
+            {
+                if (WaitHandle.WaitAny(signals) == 0) Dispatcher.BeginInvoke(() => ShowDashboard());
+                else Dispatcher.BeginInvoke(ShowOnboarding);
+            }
         }) { IsBackground = true, Name = "talkflow activation" }.Start();
 
         Updater.Changed += OnUpdaterChanged;

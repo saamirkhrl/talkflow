@@ -29,13 +29,13 @@ sealed class WhisperServer
     Process? _process;
     readonly object _gate = new();
 
-    public WhisperServer(string name, int port, string modelFile, string url, long minimumBytes)
+    public WhisperServer(string name, int port, string modelFile, string url, long minimumBytes, string? modelOverride = null)
     {
         Name = name;
         Port = port;
-        ModelPath = Path.Combine(Paths.ModelsDir, modelFile);
+        ModelPath = modelOverride ?? Path.Combine(Paths.ModelsDir, modelFile);
         DownloadUrl = new Uri(url);
-        MinimumBytes = minimumBytes;
+        MinimumBytes = modelOverride is null ? minimumBytes : 1;
     }
 
     public Uri InferenceUrl => new($"http://127.0.0.1:{Port}/inference");
@@ -114,7 +114,7 @@ sealed class WhisperServer
 static class SpeechEngine
 {
     public static readonly WhisperServer Small = new("small.en", 8178, "ggml-small.en.bin",
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin", 480_000_000);
+        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin", 480_000_000, TestHooks.Model);
 
     /// <summary>The final-pass model; optional, the dictation falls back to small.en.</summary>
     public static readonly WhisperServer Large = new("large-v3-turbo", 8179, "ggml-large-v3-turbo-q5_0.bin",

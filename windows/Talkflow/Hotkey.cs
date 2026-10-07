@@ -186,7 +186,12 @@ sealed class HotkeyListener : IDisposable
     {
         if (nCode < 0) return Native.CallNextHookEx(_hook, nCode, wParam, lParam);
         var info = Marshal.PtrToStructure<Native.KBDLLHOOKSTRUCT>(lParam);
-        if ((info.flags & Native.LLKHF_INJECTED) != 0) return Native.CallNextHookEx(_hook, nCode, wParam, lParam);
+        // Keystrokes talkflow typed itself are never the shortcut. Other
+        // programs' injected keys are ignored too, except in the end-to-end
+        // test, which holds the shortcut with SendInput.
+        bool injected = (info.flags & Native.LLKHF_INJECTED) != 0;
+        if (injected && (info.dwExtraInfo == Native.InjectedTag || !TestHooks.AcceptInjectedKeys))
+            return Native.CallNextHookEx(_hook, nCode, wParam, lParam);
 
         int message = (int)wParam;
         bool isDown = message is Native.WM_KEYDOWN or Native.WM_SYSKEYDOWN;

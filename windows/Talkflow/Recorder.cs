@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using NAudio.Wave;
 using Talkflow.Core;
 
@@ -17,6 +19,7 @@ sealed class Recorder
     readonly object _gate = new();
     readonly List<short> _samples = new();
     WaveInEvent? _wave;
+    TestAudio? _test;
 
     /// <summary>Each buffer's level, roughly 0..1, on a background thread.</summary>
     public event Action<float>? Level;
@@ -24,6 +27,12 @@ sealed class Recorder
     public void Start()
     {
         lock (_gate) _samples.Clear();
+        if (TestHooks.AudioFile is { } file)
+        {
+            _test = new TestAudio(file, OnSamples);
+            _test.Start();
+            return;
+        }
         if (WaveInEvent.DeviceCount == 0) throw new InvalidOperationException("No microphone was found.");
         var wave = new WaveInEvent
         {
@@ -49,12 +58,18 @@ sealed class Recorder
     {
         int count = e.BytesRecorded / 2;
         if (count == 0) return;
-        double sum = 0;
         var chunk = new short[count];
-        for (int i = 0; i < count; i++)
+        Buffer.BlockCopy(e.Buffer, 0, chunk, 0, count * 2);
+        OnSamples(chunk);
+    }
+
+    void OnSamples(short[] chunk)
+    {
+        int count = chunk.Length;
+        if (count == 0) return;
+        double sum = 0;
+        foreach (short s in chunk)
         {
-            short s = BitConverter.ToInt16(e.Buffer, i * 2);
-            chunk[i] = s;
             double f = s / 32768.0;
             sum += f * f;
         }
@@ -79,6 +94,8 @@ sealed class Recorder
     /// <summary>Stops capture and returns the whole recording.</summary>
     public byte[] Stop()
     {
+        _test?.Stop();
+        _test = null;
         var wave = _wave;
         _wave = null;
         if (wave is not null)
@@ -88,5 +105,41 @@ sealed class Recorder
             wave.Dispose();
         }
         return SnapshotWav();
+    }
+
+    /// <summary>
+    /// TALKFLOW_TEST_AUDIO: a WAV played in real time in 50 ms buffers, as a
+    /// microphone would deliver it, then silence until the hold ends.
+    /// </summary>
+    sealed class TestAudio
+    {
+        readonly short[] _all;
+        readonly Action<short[]> _deliver;
+        volatile bool _stopped;
+
+        public TestAudio(string path, Action<short[]> deliver)
+        {
+            _all = Wav.ReadSamples(System.IO.File.ReadAllBytes(path));
+            _deliver = deliver;
+        }
+
+        public void Start() => new Thread(Run) { IsBackground = true, Name = "talkflow test audio" }.Start();
+
+        public void Stop() => _stopped = true;
+
+        void Run()
+        {
+            const int chunk = SampleRate / 20;
+            var clock = Stopwatch.StartNew();
+            for (int sent = 0; !_stopped; sent += chunk)
+            {
+                var buffer = new short[chunk];
+                if (sent < _all.Length) Array.Copy(_all, sent, buffer, 0, Math.Min(chunk, _all.Length - sent));
+                _deliver(buffer);
+                int due = (sent + chunk) * 1000 / SampleRate;
+                int wait = due - (int)clock.ElapsedMilliseconds;
+                if (wait > 0) Thread.Sleep(wait);
+            }
+        }
     }
 }
