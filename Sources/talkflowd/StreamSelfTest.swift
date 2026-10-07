@@ -889,12 +889,7 @@ enum StreamSelfTest {
         // The model, with fake permissions, as the window drives it.
         final class Fake { var mic = Permissions.MicrophoneStatus.notDetermined; var ax = false; var im = false }
         let fake = Fake()
-        let suite = "talkflow-streamtest-onboarding-\(UUID().uuidString)"
-        guard let defaults = UserDefaults(suiteName: suite) else {
-            check(false, "model: a scratch defaults suite could be made")
-            return
-        }
-        defer { defaults.removePersistentDomain(forName: suite) }
+        let defaults = MemoryDefaults()
         let environment = OnboardingEnvironment(
             microphone: { fake.mic }, accessibility: { fake.ax }, inputMonitoring: { fake.im },
             engineInstalled: { false }, defaults: defaults, advanceDelay: 0)
@@ -928,6 +923,21 @@ enum StreamSelfTest {
         // What finish() records (not called here: it changes the login item).
         defaults.set(true, forKey: Onboarding.completedKey)
         check(!Onboarding.wasInterrupted(defaults: defaults), "model: a finished setup does not reopen on launch")
+    }
+
+    /// The few UserDefaults calls setup makes, answered from a dictionary
+    /// (a real defaults suite would leave a file in ~/Library/Preferences).
+    private final class MemoryDefaults: UserDefaults {
+        private var store: [String: Any] = [:]
+
+        override func object(forKey key: String) -> Any? { store[key] }
+        override func set(_ value: Any?, forKey key: String) { store[key] = value }
+        override func set(_ value: Bool, forKey key: String) { store[key] = value }
+        override func set(_ value: Int, forKey key: String) { store[key] = value }
+        override func removeObject(forKey key: String) { store[key] = nil }
+        override func bool(forKey key: String) -> Bool { store[key] as? Bool ?? false }
+        override func integer(forKey key: String) -> Int { store[key] as? Int ?? 0 }
+        override func string(forKey key: String) -> String? { store[key] as? String }
     }
 
     /// GitHub release parsing and version order, for the update check.
