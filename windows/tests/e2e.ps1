@@ -117,12 +117,16 @@ function CloseIntruders {
         Start-Sleep -Seconds 1
     }
     # The Arm runner can open a "WSL must be updated" prompt by itself, which
-    # then takes the foreground in the middle of a dictation.
-    $wsl = Get-Process wsl, wslhost -ErrorAction SilentlyContinue
-    if ($wsl) {
-        Say "closing a WSL prompt the runner opened (pid $($wsl.Id -join ', '))"
-        $wsl | Stop-Process -Force
-        Start-Sleep -Seconds 1
+    # then takes the foreground in the middle of a dictation. It says "Press
+    # ESC to cancel", so it gets Escape; killing wsl.exe instead left its
+    # window up and Notepad then failed to open.
+    for ($i = 0; $i -lt 3; $i++) {
+        $prompt = [E2e]::FindWindow('wsl.exe')
+        if ($prompt -eq [IntPtr]::Zero) { break }
+        Say "cancelling a WSL prompt the runner opened: $([E2e]::Describe($prompt))"
+        [void][E2e]::Focus($prompt)
+        [void][E2e]::Press([E2e]::VK_ESCAPE, $false); [void][E2e]::Press([E2e]::VK_ESCAPE, $true)
+        Start-Sleep -Seconds 2
     }
     for ($i = 0; $i -lt 5; $i++) {
         $front = [E2e]::GetForegroundWindow()
@@ -147,6 +151,8 @@ function OpenNotepad($name) {
     Start-Process notepad.exe -ArgumentList "`"$file`"" | Out-Null
     $script:hwnd = [IntPtr]::Zero
     if (-not (WaitFor { $script:hwnd = [E2e]::FindWindow($name); $script:hwnd -ne [IntPtr]::Zero } 30 "Notepad with $name")) {
+        Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
+        Get-Process -Name notepad -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, MainWindowTitle | Out-String | Write-Host
         throw "Notepad did not open $file"
     }
     Start-Sleep -Seconds 1
