@@ -120,6 +120,7 @@ enum StreamSelfTest {
         runUpdaterCases()
         runOnboardingStepCases()
         runPermissionGrantCases()
+        runOnboardingProgressCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -889,7 +890,7 @@ enum StreamSelfTest {
 
         // The model, with fake permissions, as the window drives it.
         let fake = FakeSystem()
-        let defaults = MemoryDefaults()
+        let defaults = EphemeralDefaults()
         let environment = fake.environment(defaults: defaults)
         let model = OnboardingModel(startHotkey: { true }, environment: environment)
         var raised = 0
@@ -978,7 +979,7 @@ enum StreamSelfTest {
 
         // An update: the old build had everything; the new one is signed differently.
         let fake = FakeSystem()
-        let defaults = MemoryDefaults()
+        let defaults = EphemeralDefaults()
         fake.mic = .granted; fake.ax = true; fake.im = true
         fake.requirement = a
         let before = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
@@ -1020,7 +1021,7 @@ enum StreamSelfTest {
 
         // A first run: Allow, System Settings, back without it applying.
         let fresh = FakeSystem()
-        let freshDefaults = MemoryDefaults()
+        let freshDefaults = EphemeralDefaults()
         fresh.mic = .granted
         let model = OnboardingModel(startHotkey: { false }, environment: fresh.environment(defaults: freshDefaults))
         model.begin()
@@ -1054,19 +1055,37 @@ enum StreamSelfTest {
         check(micModel.status(.microphone) == .stale(.appChanged), "microphone: denied after an update is stale")
     }
 
-    /// The few UserDefaults calls setup makes, answered from a dictionary
-    /// (a real defaults suite would leave a file in ~/Library/Preferences).
-    private final class MemoryDefaults: UserDefaults {
-        private var store: [String: Any] = [:]
+    /// The redesigned setup's progress bar and live "waiting" state.
+    private static func runOnboardingProgressCases() {
+        report("case: the setup progress bar shows each step's live state")
+        typealias F = OnboardingFlow
+        check(F.mark(.accessibility, current: .microphone, status: .stale(.appChanged), engineDone: false) == .attention,
+              "progress: a stale permission asks for attention even when not on screen")
+        check(F.mark(.accessibility, current: .accessibility, status: .stale(.backFromSettings), engineDone: false) == .attention,
+              "progress: and on screen")
+        check(F.mark(.microphone, current: .microphone, status: .missing, engineDone: false) == .current,
+              "progress: the step on screen is current")
+        check(F.mark(.microphone, current: .engine, status: .granted, engineDone: false) == .done,
+              "progress: a granted permission is done")
+        check(F.mark(.inputMonitoring, current: .welcome, status: .missing, engineDone: false) == .pending,
+              "progress: a missing permission is pending")
+        check(F.mark(.engine, current: .ready, status: nil, engineDone: true) == .done, "progress: a working engine is done")
+        check(F.mark(.engine, current: .accessibility, status: nil, engineDone: false) == .pending, "progress: a missing engine is pending")
+        check(F.mark(.ready, current: .engine, status: nil, engineDone: true) == .pending, "progress: the last page is pending until reached")
 
-        override func object(forKey key: String) -> Any? { store[key] }
-        override func set(_ value: Any?, forKey key: String) { store[key] = value }
-        override func set(_ value: Bool, forKey key: String) { store[key] = value }
-        override func set(_ value: Int, forKey key: String) { store[key] = value }
-        override func removeObject(forKey key: String) { store[key] = nil }
-        override func bool(forKey key: String) -> Bool { store[key] as? Bool ?? false }
-        override func integer(forKey key: String) -> Int { store[key] as? Int ?? 0 }
-        override func string(forKey key: String) -> String? { store[key] as? String }
+        let fake = FakeSystem()
+        fake.mic = .granted
+        let model = OnboardingModel(startHotkey: { false }, environment: fake.environment(defaults: EphemeralDefaults()))
+        model.begin()
+        check(!model.isWaiting(.accessibility), "waiting: not before Allow")
+        model.allow(.accessibility)
+        check(model.isWaiting(.accessibility), "waiting: after Allow, until the grant lands")
+        check(model.mark(.accessibility) == .current, "waiting: still the current step")
+        fake.ax = true
+        model.refresh(announce: true)
+        check(!model.isWaiting(.accessibility), "waiting: cleared when the grant lands")
+        check(model.mark(.accessibility) == .done, "waiting: and the step shows done", "\(model.mark(.accessibility))")
+        model.stop()
     }
 
     /// Stands in for macOS in the setup checks: permission states, prompts,
@@ -1092,7 +1111,8 @@ enum StreamSelfTest {
                 request: { service, done in self.requests.append(service); self.asked.insert(service); done() },
                 openSettings: { self.settingsOpened.append($0) },
                 resetGrant: { service, done in self.resets.append(service); done(self.resetSucceeds) },
-                staleGrace: 0)
+                staleGrace: 0,
+                fnKeyHasSystemAction: { false })
         }
     }
 
