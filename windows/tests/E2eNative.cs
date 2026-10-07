@@ -41,7 +41,7 @@ public static class E2e
     [DllImport("kernel32.dll")] static extern bool ProcessIdToSessionId(uint pid, out uint session);
     [DllImport("kernel32.dll")] static extern uint WTSGetActiveConsoleSessionId();
 
-    public const int VK_LCONTROL = 0xA2, VK_LWIN = 0x5B, VK_MENU = 0x12;
+    public const int VK_LCONTROL = 0xA2, VK_LWIN = 0x5B, VK_MENU = 0x12, VK_ESCAPE = 0x1B;
 
     static INPUT Key(int vk, bool up)
     {

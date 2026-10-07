@@ -105,12 +105,23 @@ function ReadText($hwnd) {
 }
 
 # Windows 11 runners sometimes open a "Microsoft account" sign-in prompt
-# (WWAHost) that takes the foreground. Close it so the test can type.
+# (WWAHost) and then the Search flyout (SearchHost), before anything is
+# pressed; either takes the foreground. The prompt is closed; shell flyouts
+# (Search, Start) cannot be pushed behind with SetForegroundWindow, but close
+# on Escape.
 function CloseIntruders {
     $intruders = Get-Process WWAHost -ErrorAction SilentlyContinue
     if ($intruders) {
         Say "closing a sign-in prompt that holds the foreground (WWAHost, pid $($intruders.Id -join ', '))"
         $intruders | Stop-Process -Force
+        Start-Sleep -Seconds 1
+    }
+    for ($i = 0; $i -lt 5; $i++) {
+        $front = [E2e]::GetForegroundWindow()
+        $owner = Get-Process -Id ([E2e]::ProcessOf($front)) -ErrorAction SilentlyContinue
+        if ($null -eq $owner -or $owner.ProcessName -notin 'SearchHost', 'SearchApp', 'StartMenuExperienceHost', 'ShellExperienceHost') { return }
+        Say "closing a shell flyout that holds the foreground: $([E2e]::Describe($front))"
+        [void][E2e]::Press([E2e]::VK_ESCAPE, $false); [void][E2e]::Press([E2e]::VK_ESCAPE, $true)
         Start-Sleep -Seconds 1
     }
 }
