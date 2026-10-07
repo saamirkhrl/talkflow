@@ -90,6 +90,31 @@ public static class Updates
         }
     }
 
+    /// <summary>
+    /// The newest version a manifest or a GitHub "latest release" answer
+    /// names, whether or not it has a Windows build, so the app can say
+    /// "0.1.3 has no Windows installer" instead of "up to date". Null when
+    /// unreadable.
+    /// </summary>
+    public static string? LatestVersion(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            // A manifest of another schema counts as missing (docs/releases.md).
+            if (root.TryGetProperty("schema", out var schema) && (!schema.TryGetInt32(out var n) || n != 1)) return null;
+            if (Str(root, "version") is { Length: > 0 } version) return version;
+            if (Str(root, "tag_name") is { Length: > 0 } tag) return tag.StartsWith('v') ? tag[1..] : tag;
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     static string? Str(JsonElement obj, string name) =>
         obj.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 

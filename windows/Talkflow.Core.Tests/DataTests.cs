@@ -44,6 +44,19 @@ public class DataTests : IDisposable
         Assert.Null(Updates.Parse("not json", "x64"));
     }
 
+    [Fact]
+    public void LatestVersionEvenWithoutAWindowsBuild()
+    {
+        // v0.1.3 shipped the Mac build only: no Windows update, but the app can name the version.
+        const string macOnly = """{"tag_name":"v0.1.3","assets":[{"name":"talkflow-macos.zip","browser_download_url":"https://e/a.zip"}]}""";
+        Assert.Null(Updates.Parse(macOnly, "x64"));
+        Assert.Equal("0.1.3", Updates.LatestVersion(macOnly));
+        Assert.Equal("0.1.4", Updates.LatestVersion("""{"schema":1,"version":"0.1.4","platforms":{"macos":{},"windows":{},"linux":{}}}"""));
+        Assert.Null(Updates.LatestVersion("""{"schema":2,"version":"9.0.0"}"""));
+        Assert.Null(Updates.LatestVersion("not json"));
+        Assert.Null(Updates.LatestVersion("[]"));
+    }
+
     static readonly string Sha = new('a', 64);
 
     static string Manifest(string windows) => """
