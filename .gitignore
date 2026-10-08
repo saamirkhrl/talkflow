@@ -10,6 +10,7 @@
 # Secrets and signing material
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 *.p12
