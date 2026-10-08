@@ -217,7 +217,7 @@ export default function PrivacyPage() {
         public file listing the latest release (if that file is missing, it asks GitHub&apos;s
         release API instead). The request sends nothing about you or your dictation. Like any web
         request, it reaches GitHub with your IP address, and it names the app and its version (for
-        example &quot;talkflow/0.1.4&quot;). GitHub&apos;s privacy statement covers that request; we
+        example &quot;talkflow/0.1.5&quot;). GitHub&apos;s privacy statement covers that request; we
         don&apos;t receive it.
       </p>
       <p>
