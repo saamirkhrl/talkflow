@@ -321,6 +321,7 @@ sealed class App : Application
         {
             Log.Write($"device: {small.DeviceName}" + (SpeechEngine.HasGpuBackend ? " (no GPU offered by the driver)" : " (this engine has no GPU backend)"));
             double? alone = await TimeClipWhenIdle(small.InferenceUrl);
+            SmallSeconds = alone;
             Log.Write($"device: a 1 s clip took {Seconds(alone)} on the CPU");
             Remember(key, alone, null, useCpu: false);
             ReportSpeed();
