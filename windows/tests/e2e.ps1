@@ -15,7 +15,10 @@
 #   2. into talkflow's own setup window, the "Try it" box, letting go of Ctrl
 #      first (talkflow reading and typing into its own window);
 #   3. into Notepad again with "type while speaking" on;
-#   4. with a microphone that never sends audio (see SilentHold).
+#   4. with a microphone that never sends audio (see SilentHold);
+#   5. with a microphone that sends nothing and then never finishes closing
+#      (TALKFLOW_TEST_HANGING_MIC), followed by a normal dictation, which
+#      must still arrive: one stuck device must not take the next hold down.
 # Each one checks that the text arrived, that talkflow's windows kept
 # answering (a stuck UI thread does not answer WM_NULL), that the pill was on
 # screen while the keys were held and gone afterwards, that no key was left
@@ -250,8 +253,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
 # as one real USB microphone did. talkflow must say so in the pill, must not
 # send an empty recording to the engine (which answers HTTP 400), and must
 # type nothing.
-function SilentHold([IntPtr] $hwnd, [scriptblock] $read) {
-    $label = 'silent-mic'
+function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'silent-mic') {
     Say "=== $label ==="
     CloseIntruders
     $process = Talkflow
@@ -357,6 +359,16 @@ try {
     StartTalkflow
     SilentHold $note3 { ReadText $note3 }
     $env:TALKFLOW_TEST_SILENT_MIC = $null
+
+    # 5. A microphone that hangs on close, then a normal dictation.
+    StopTalkflow
+    $env:TALKFLOW_TEST_HANGING_MIC = '1'
+    StartTalkflow
+    $script:slowestAfter = 0; $script:unansweredAfter = 0
+    $note5 = OpenNotepad 'pass5'
+    SilentHold $note5 { ReadText $note5 } 'hanging-mic'
+    Dictate 'after-hanging-mic' $note5 { ReadText $note5 } 'win' $true
+    $env:TALKFLOW_TEST_HANGING_MIC = $null
 
     # Control, last (Windows 11 Notepad does not reopen quickly after being
     # closed, and opens files as tabs): the same kind of keystrokes talkflow

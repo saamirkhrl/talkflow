@@ -85,6 +85,8 @@ sealed class Recorder
     IWaveIn? _wave;
     MMDevice? _endpoint;
     TestAudio? _test;
+    bool _hangingUsed;
+    bool _hanging;
 
     void Open(int generation)
     {
@@ -94,6 +96,12 @@ sealed class Recorder
         if (TestHooks.SilentMicrophone)
         {
             Log.Write("test: a microphone that opens but never sends audio");
+            return;
+        }
+        if (TestHooks.HangingMicrophone && !_hangingUsed)
+        {
+            _hangingUsed = _hanging = true;
+            Log.Write("test: a microphone that sends nothing and never finishes closing");
             return;
         }
         if (TestHooks.AudioFile is { } file)
@@ -193,6 +201,11 @@ sealed class Recorder
     void Close()
     {
         var watch = Stopwatch.StartNew();
+        if (_hanging)
+        {
+            Log.Write("test: closing the hanging microphone, which never returns");
+            Thread.Sleep(Timeout.Infinite);
+        }
         _test?.Stop();
         _test = null;
         if (_wave is { } wave)
