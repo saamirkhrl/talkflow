@@ -14,3 +14,11 @@
   a PR.
 - `main` is protected on GitHub: other contributors must open a PR; only the owner pushes
   directly.
+
+## Windows ships one build
+
+Windows has a single build, x64 (`talkflow-windows-x64-setup.exe`). It runs on
+every Windows 10 (1809) or 11 PC, Arm PCs included, through Windows' built-in
+emulation. There is no arm64 build, installer, CI job or website choice; do not
+add one without the owner asking. (The Mac app is separate and stays universal.)
+
