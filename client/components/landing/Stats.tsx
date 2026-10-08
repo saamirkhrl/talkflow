@@ -8,8 +8,8 @@ export function Stats() {
       <div className="grid items-end gap-x-16 gap-y-8 lg:grid-cols-2">
         <SectionTitle className="max-w-[14ch]">See how much you didn&apos;t type.</SectionTitle>
         <p className="max-w-[44ch] text-[18px] text-graphite lg:justify-self-end">
-          Open Dashboard from the menu bar to see your words, speed, streak and the typing time you&apos;ve saved. It&apos;s
-          worked out on your Mac and stays there.
+          Open Dashboard from the menu bar (on Windows, Open talkflow in the tray) to see your words, speed, streak and the typing time you&apos;ve saved. It&apos;s
+          worked out on your computer and stays there.
         </p>
       </div>
 

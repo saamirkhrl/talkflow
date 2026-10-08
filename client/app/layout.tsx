@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s | talkflow",
   },
   description:
-    "The free, open-source Wispr Flow alternative. Hold fn, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac.",
+    "The free, open-source Wispr Flow alternative. Hold a key, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac or PC.",
 };
 
 

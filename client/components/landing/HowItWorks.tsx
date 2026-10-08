@@ -15,8 +15,8 @@ export function HowItWorks() {
             </kbd>
           </div>
           <div>
-            <h3 className="text-[19px] font-semibold">1. Hold fn</h3>
-            <p className="mt-1.5 text-graphite">The Globe key in the corner of your keyboard. talkflow starts listening.</p>
+            <h3 className="text-[19px] font-semibold">1. Hold the key</h3>
+            <p className="mt-1.5 text-graphite">fn, the Globe key, on a Mac. Ctrl + Win on Windows. talkflow starts listening.</p>
           </div>
         </li>
         <li className={STEP}>
