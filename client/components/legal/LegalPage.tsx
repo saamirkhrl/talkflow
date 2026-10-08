@@ -13,7 +13,7 @@ const PROSE = [
   "[&_hr]:my-14 [&_hr]:border-line",
 ].join(" ");
 
-export const CONTACT_EMAIL = "samirkhareltalkflow@gmail.com";
+export const CONTACT_EMAIL = "samir@talkflow.live";
 export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
 
 export function EmailLink() {

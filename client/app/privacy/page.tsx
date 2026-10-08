@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 5, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="October 7, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -345,8 +345,9 @@ export default function PrivacyPage() {
         legitimate interest in answering you.
       </p>
       <p>
-        Our contact inbox is Gmail, provided by Google, which processes messages on our behalf. We
-        keep emails only as long as needed to handle your request.
+        Our address forwards to a Gmail inbox. Google, and the email service that forwards the
+        messages, process them on our behalf. We keep emails only as long as needed to handle your
+        request.
       </p>
 
       <h2 id="selling">Selling and sharing</h2>
