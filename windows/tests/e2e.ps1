@@ -229,8 +229,15 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if ($overlayAfter) { Start-Sleep -Seconds 5; $overlayAfter = OverlayVisible $process }
 
     $newLines = @(LogLines | Select-Object -Skip $logStart)
-    $clipboard = (Get-Clipboard -Raw)
-    if ($null -ne $clipboard) { $clipboard = $clipboard.TrimEnd() }
+    # The release correction can still be writing (backspaces, then the
+    # paste, then the restore), so give the clipboard a moment to come back.
+    $script:clipboard = $null
+    [void](WaitFor {
+        $script:clipboard = Get-Clipboard -Raw
+        if ($null -ne $script:clipboard) { $script:clipboard = $script:clipboard.TrimEnd() }
+        $script:clipboard -eq $sentinel
+    } 5 'the clipboard to be put back')
+    $clipboard = $script:clipboard
     $copiedInstead = @($newLines | Where-Object { $_ -match 'copied to the clipboard' }).Count -gt 0
     $stalls = @($newLines | Where-Object { $_ -match 'STALL' })
     $stuck = @([E2e]::VK_LWIN, [E2e]::VK_LCONTROL) | Where-Object { [E2e]::IsDown($_) }
