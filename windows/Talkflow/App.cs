@@ -85,6 +85,7 @@ sealed class App : Application
         }
 
         var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources[typeof(System.Windows.Controls.Primitives.ScrollBar)] = Ui.ThinScrollBar();
         app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show, setup);
         app.DispatcherUnhandledException += (_, e) =>
         {
