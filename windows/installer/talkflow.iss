@@ -35,13 +35,9 @@ DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
 PrivilegesRequired=lowest
-#if Arch == "arm64"
-ArchitecturesAllowed=arm64
-ArchitecturesInstallIn64BitMode=arm64
-#else
+; x64compatible is x64 PCs and Windows on Arm 11, which runs x64 programs.
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-#endif
 MinVersion=10.0.17763
 OutputBaseFilename=talkflow-windows-{#Arch}-setup
 SetupIconFile=..\Talkflow\Assets\talkflow.ico

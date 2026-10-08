@@ -1,6 +1,6 @@
 # End-to-end test of the installed Windows app, as a person would use it:
 # install, start, hold Ctrl + Win while "speaking", let go, and check that the
-# words were typed. Runs on GitHub's Windows runners (x64 and Arm).
+# words were typed. Runs on a GitHub Windows runner (x64).
 #
 #   powershell -ExecutionPolicy Bypass -File windows\tests\e2e.ps1 `
 #       -Installer dist\talkflow-windows-x64-setup.exe -Model ggml-tiny.en.bin -Wav jfk.wav -Out e2e-out

@@ -44,7 +44,6 @@ ASSETS = {
     "talkflow-macos.zip": ("macos", "universal", ("update",)),
     "talkflow-macos.dmg": ("macos", "universal", ("installer",)),
     "talkflow-windows-x64-setup.exe": ("windows", "x64", ("update", "installer")),
-    "talkflow-windows-arm64-setup.exe": ("windows", "arm64", ("update", "installer")),
     # Reserved: picked up automatically the first time a release carries them.
     "talkflow-linux-x64.AppImage": ("linux", "x64", ("update", "installer")),
     "talkflow-linux-arm64.AppImage": ("linux", "arm64", ("update", "installer")),

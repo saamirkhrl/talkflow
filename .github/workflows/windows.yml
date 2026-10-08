@@ -1,7 +1,9 @@
-# Builds talkflow for Windows: the rule tests, whisper.cpp's server for x64 and
-# arm64, both installers, and smoke tests of each. On a published release (or
-# a manual run with a tag) it attaches talkflow-windows-x64-setup.exe and
-# talkflow-windows-arm64-setup.exe to that release, next to the Mac assets.
+# Builds talkflow for Windows: the rule tests, whisper.cpp's server for x64, the
+# installer, and smoke tests of each. Windows ships one build, x64: it runs on
+# every Windows PC, Arm ones included (their built-in emulation), so there is no
+# arm64 build to make or test. On a published release (or a manual run with a
+# tag) it attaches talkflow-windows-x64-setup.exe to that release, next to the
+# Mac assets.
 # It never creates a release. release-manifest.yml runs after it ("Windows")
 # and adds the installers to talkflow-release.json.
 name: Windows
@@ -88,21 +90,20 @@ jobs:
     # (engine/vulkan/ggml-vulkan.dll, which talkflow names in GGML_BACKEND_PATH
     # only for a GPU start; whisper-server loads every ggml-*.dll next to the
     # exe before it reads -ng, so a CPU start must not find it there);
-    # arm64 cross-compiled with clang,
-    # as whisper.cpp's own release does. OpenMP off, so the only runtime DLLs
-    # needed are the MSVC ones copied next to the exe.
+    # OpenMP off, so the only runtime DLLs needed are the MSVC ones copied next
+    # to the exe.
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        arch: [x64]
     steps:
       - uses: actions/checkout@v4
       - name: Fetch whisper.cpp ${{ env.WHISPER_CPP_TAG }}
         run: git clone --depth 1 --branch $env:WHISPER_CPP_TAG https://github.com/ggml-org/whisper.cpp.git whisper.cpp
       - uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.arch == 'arm64' && 'amd64_arm64' || 'amd64' }}
+          arch: amd64
       - name: Install the Vulkan SDK (x64)
         if: matrix.arch == 'x64'
         run: |
@@ -119,16 +120,6 @@ jobs:
           cmake -S . -B build -A x64 -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
             -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
           cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS --target whisper-server
-      - name: Build (arm64)
-        if: matrix.arch == 'arm64'
-        working-directory: whisper.cpp
-        shell: cmd
-        run: |
-          choco install ninja -y --no-progress
-          cmake -S . -B build -G "Ninja Multi-Config" -DCMAKE_TOOLCHAIN_FILE=cmake/arm64-windows-llvm.cmake ^
-            -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON ^
-            -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
-          cmake --build build --config Release --target whisper-server
       - name: Collect the engine and its runtime
         shell: pwsh
         run: |
@@ -157,7 +148,7 @@ jobs:
           if-no-files-found: error
 
   engine-smoke:
-    # Run each engine on its own architecture, with nothing but the shipped files.
+    # Run the engine with nothing but the shipped files.
     needs: engine
     strategy:
       fail-fast: false
@@ -165,8 +156,6 @@ jobs:
         include:
           - arch: x64
             runner: windows-latest
-          - arch: arm64
-            runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -187,7 +176,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        arch: [x64]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -217,7 +206,7 @@ jobs:
           & $iscc /Q "/DAppVersion=${{ needs.version.outputs.version }}" "/DArch=${{ matrix.arch }}" "/DSourceDir=$PWD\out\app" "/O$PWD\dist" windows\installer\talkflow.iss
           if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
           Get-ChildItem dist | Format-Table Name, Length
-      - name: Install, run, uninstall (x64 runs here; arm64 is checked on an Arm runner below)
+      - name: Install, run, uninstall
         if: matrix.arch == 'x64'
         shell: pwsh
         run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-x64-setup.exe -ExpectVersion ${{ needs.version.outputs.version }}
@@ -227,21 +216,8 @@ jobs:
           path: dist/talkflow-windows-${{ matrix.arch }}-setup.exe
           if-no-files-found: error
 
-  install-smoke-arm64:
-    needs: [version, package]
-    runs-on: windows-11-arm
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: installer-arm64
-          path: dist
-      - name: Install, run, uninstall on Windows on Arm
-        shell: pwsh
-        run: ./windows/tests/smoke-install.ps1 -Installer dist/talkflow-windows-arm64-setup.exe -ExpectVersion ${{ needs.version.outputs.version }}
-
   e2e:
-    # The installed app end to end on each architecture: hold Ctrl + Win with
+    # The installed app end to end: hold Ctrl + Win with
     # SendInput while a recording plays (runners have no microphone), and
     # check the words land in Notepad and in talkflow's own "Try it" box,
     # with the UI thread answering throughout. See windows/tests/e2e.ps1.
@@ -252,13 +228,7 @@ jobs:
         include:
           - arch: x64
             runner: windows-latest
-          - arch: arm64
-            runner: windows-11-arm
     runs-on: ${{ matrix.runner }}
-    # The windows-11-arm runner opens a WSL install prompt that takes the
-    # foreground mid-test and its Notepad garbles even the script's own
-    # keystrokes, so its result is reported but cannot hold back a release.
-    continue-on-error: ${{ matrix.arch == 'arm64' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -288,7 +258,7 @@ jobs:
           if-no-files-found: warn
 
   publish:
-    needs: [version, package, install-smoke-arm64, e2e]
+    needs: [version, package, e2e]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -307,5 +277,5 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | tee existing.txt
           # Only ever add Windows installers to a release that already has the Mac build.
           grep -qx 'talkflow-macos.dmg' existing.txt || { echo "release $TAG has no talkflow-macos.dmg; refusing" >&2; exit 1; }
-          gh release upload "$TAG" dist/talkflow-windows-x64-setup.exe dist/talkflow-windows-arm64-setup.exe --clobber --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" dist/talkflow-windows-x64-setup.exe --clobber --repo "$GITHUB_REPOSITORY"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'

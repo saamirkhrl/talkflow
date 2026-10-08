@@ -9,7 +9,7 @@
     <RootNamespace>Talkflow</RootNamespace>
     <ApplicationIcon>Assets\talkflow.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <!-- Lets the project build (not run) on macOS and Linux for quick checks. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <InvariantGlobalization>false</InvariantGlobalization>
