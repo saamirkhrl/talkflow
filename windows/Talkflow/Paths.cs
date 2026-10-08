@@ -31,6 +31,8 @@ static class Paths
 
     public static string ModelsDir => Path.Combine(LocalDir, "models");
     public static string LogsDir => Path.Combine(LocalDir, "logs");
+    /// <summary>What was measured on this PC; in the machine's own folder so a roaming profile never carries it to another one.</summary>
+    public static string DeviceFile => Path.Combine(LocalDir, "device.json");
     public static string UpdatesDir => Path.Combine(LocalDir, "updates");
 
     /// <summary>The folder talkflow.exe runs from.</summary>

@@ -19,6 +19,18 @@
 #   5. with a microphone that sends nothing and then never finishes closing
 #      (TALKFLOW_TEST_HANGING_MIC), followed by a normal dictation, which
 #      must still arrive: one stuck device must not take the next hold down.
+#   6. with a microphone that takes 700 ms to open and starts with 300 ms of
+#      near-silence (TALKFLOW_TEST_SLOW_MIC): a 0.4 s hold must say the
+#      microphone was still starting (not blame Sound settings, not reach the
+#      engine), and a full dictation must show "Starting microphone...", lose
+#      no words and trim the cold start.
+#   7. a hold of near-silence (a WAV of +-1 sample values): the pill says
+#      "Didn't catch that" and nothing reaches the engine.
+#   8. a slow engine (TALKFLOW_TEST_SLOW_ENGINE) with the accurate final pass
+#      on: the PC is called slow, live captions are off, the large model is
+#      neither downloaded nor started, and a dictation still arrives.
+#   9. the diagnostics zip has the speed, final-pass and hold-decision sections
+#      and none of the dictated words.
 # Each one checks that the text arrived, that talkflow's windows kept
 # answering (a stuck UI thread does not answer WM_NULL), that the pill was on
 # screen while the keys were held and gone afterwards, that no key was left
@@ -168,7 +180,9 @@ function OpenNotepad($name) {
 # watching talkflow the whole time. Then waits for the text to arrive.
 # $intoNotepad: whether the text check is judged against the Notepad control
 # at the end (see there) instead of failing at once.
-function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst, [bool] $intoNotepad = $false) {
+# $expectLog / $rejectLog: patterns that must / must not match a talkflow.log
+# line written during the dictation.
+function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] $releaseFirst, [bool] $intoNotepad = $false, [string[]] $expectLog = @(), [string[]] $rejectLog = @()) {
     Say "=== $label ==="
     CloseIntruders
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
@@ -262,14 +276,24 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if ($overlayAfter) { Fail "${label}: the pill was still on screen after the dictation" }
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
     if ($startOpened) { Fail "${label}: another window (the Start menu?) came to the front when the keys were released" }
+    foreach ($pattern in $expectLog) {
+        if (@($newLines | Where-Object { $_ -match $pattern }).Count -eq 0) { Fail "${label}: talkflow.log has no line matching '$pattern'" }
+    }
+    foreach ($pattern in $rejectLog) {
+        if (@($newLines | Where-Object { $_ -match $pattern }).Count -gt 0) { Fail "${label}: talkflow.log has a line matching '$pattern'" }
+    }
     $results.Add(("{0}: arrived={1} slowest-answer={2}ms/{3}ms stalls={4} pill={5}" -f $label, $arrived, $slowest, $script:slowestAfter, $stalls.Count, $overlaySeen))
 }
 
-# A microphone that opens but never sends a buffer (TALKFLOW_TEST_SILENT_MIC),
-# as one real USB microphone did. talkflow must say so in the pill, must not
-# send an empty recording to the engine (which answers HTTP 400), and must
-# type nothing.
-function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'silent-mic') {
+# A hold that ends without a transcript: a microphone that opens but never
+# sends a buffer (TALKFLOW_TEST_SILENT_MIC), as one real USB microphone did; a
+# hold shorter than a slow microphone takes to open; a hold of near-silence.
+# talkflow must say why in the pill, must not send an empty or silent
+# recording to the engine (which answers HTTP 400, or takes seconds to hear
+# nothing), and must type nothing. $finishPattern is what the hold's "finish:"
+# line must say; $expectLog / $rejectLog are patterns for the lines of the hold.
+function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'silent-mic', [int] $holdMs = 2500,
+                    [string] $finishPattern = 'no audio from the microphone', [string[]] $expectLog = @(), [string[]] $rejectLog = @()) {
     Say "=== $label ==="
     CloseIntruders
     $process = Talkflow
@@ -283,8 +307,8 @@ function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'sile
     [void][E2e]::Press([E2e]::VK_LCONTROL, $false)
     Start-Sleep -Milliseconds 60
     [void][E2e]::Press([E2e]::VK_LWIN, $false)
-    Say 'holding Ctrl + Win for 2.5 s with a microphone that sends nothing'
-    Start-Sleep -Milliseconds 2500
+    Say "holding Ctrl + Win for $holdMs ms ($label)"
+    Start-Sleep -Milliseconds $holdMs
     [void][E2e]::Press([E2e]::VK_LWIN, $true); Start-Sleep -Milliseconds 60; [void][E2e]::Press([E2e]::VK_LCONTROL, $true)
     $script:finish = $null
     [void](WaitFor {
@@ -302,12 +326,37 @@ function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'sile
     $newLines | ForEach-Object { Write-Host "    $_" }
 
     if ($null -eq $script:finish) { Fail "${label}: the hold never finished" }
-    elseif ($script:finish -notmatch 'no audio from the microphone') { Fail "${label}: the hold did not end with 'no audio from the microphone': $($script:finish)" }
+    elseif ($script:finish -notmatch $finishPattern) { Fail "${label}: the hold did not end with '$finishPattern': $($script:finish)" }
+    foreach ($pattern in $expectLog) {
+        if (@($newLines | Where-Object { $_ -match $pattern }).Count -eq 0) { Fail "${label}: talkflow.log has no line matching '$pattern'" }
+    }
+    foreach ($pattern in $rejectLog) {
+        if (@($newLines | Where-Object { $_ -match $pattern }).Count -gt 0) { Fail "${label}: talkflow.log has a line matching '$pattern'" }
+    }
     if (@($newLines | Where-Object { $_ -match 'transcription server returned|transcribed ' }).Count -gt 0) { Fail "${label}: an empty recording was sent to the speech engine" }
     if (-not $pill) { Fail "${label}: the pill did not stay up to say what went wrong" }
     if ($after -ne $before) { Fail "${label}: the text changed from [$before] to [$after]" }
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
     $results.Add(("{0}: finish=[{1}] pill={2}" -f $label, $script:finish, $pill))
+}
+
+# A 16 kHz mono WAV of samples that are only -1, 0 and 1: what a microphone
+# that is open but hears nothing delivers (RMS about 0.00002).
+function NewQuietWav([string] $path, [double] $seconds) {
+    $n = [int](16000 * $seconds)
+    $stream = New-Object IO.MemoryStream
+    $w = New-Object IO.BinaryWriter($stream)
+    $w.Write([Text.Encoding]::ASCII.GetBytes('RIFF')); $w.Write([int](36 + 2 * $n)); $w.Write([Text.Encoding]::ASCII.GetBytes('WAVEfmt '))
+    $w.Write([int]16); $w.Write([int16]1); $w.Write([int16]1); $w.Write([int]16000); $w.Write([int]32000); $w.Write([int16]2); $w.Write([int16]16)
+    $w.Write([Text.Encoding]::ASCII.GetBytes('data')); $w.Write([int](2 * $n))
+    for ($i = 0; $i -lt $n; $i++) { $w.Write([int16](($i % 3) - 1)) }
+    $w.Flush()
+    [IO.File]::WriteAllBytes($path, $stream.ToArray())
+}
+
+# Waits until a line matching $pattern is in the log beyond line $from.
+function WaitLog([string] $pattern, [int] $from, [int] $seconds) {
+    return WaitFor { @(LogLines | Select-Object -Skip $from | Where-Object { $_ -match $pattern }).Count -gt 0 } $seconds "a log line matching '$pattern'"
 }
 
 try {
@@ -385,6 +434,73 @@ try {
     SilentHold $note5 { ReadText $note5 } 'hanging-mic'
     Dictate 'after-hanging-mic' $note5 { ReadText $note5 } 'win' $true
     $env:TALKFLOW_TEST_HANGING_MIC = $null
+
+    # 6. A slow-opening microphone (700 ms, then 300 ms of near-silence).
+    StopTalkflow
+    $env:TALKFLOW_TEST_SLOW_MIC = '700'
+    StartTalkflow
+    $script:slowestAfter = 0; $script:unansweredAfter = 0
+    $note6 = OpenNotepad 'pass6'
+    # A hold that ends while the microphone is still opening: the honest message, nothing sent to the engine.
+    SilentHold $note6 { ReadText $note6 } 'cold-mic-short-hold' 400 'before the microphone was delivering' `
+        @('pill: Hold the shortcut a moment longer, the microphone was still starting') @('Sound > Input', 'transcribed ')
+    # A full dictation: the "starting" pill, the first words intact, the cold start trimmed.
+    Dictate 'cold-mic' $note6 { ReadText $note6 } 'win' $true `
+        @('pill: Starting microphone', 'microphone ready \d+ ms after the press', 'microphone opened in \d+ ms: test microphone', '(\d{3,}) ms of silence first') `
+        @('Sound > Input')
+    $coldLine = @(LogLines | Where-Object { $_ -match 'recording: .* (\d+) ms of silence first' }) | Select-Object -Last 1
+    if ($coldLine -match '(\d+) ms of silence first' -and [int]$Matches[1] -lt 300) { Fail "cold-mic: only $($Matches[1]) ms of silence before the speech; the 300 ms cold start was not seen" }
+    $env:TALKFLOW_TEST_SLOW_MIC = $null
+
+    # 7. A hold of near-silence.
+    StopTalkflow
+    $quiet = Join-Path $work 'quiet.wav'
+    NewQuietWav $quiet 3.5
+    $loudWav = $env:TALKFLOW_TEST_AUDIO
+    $env:TALKFLOW_TEST_AUDIO = $quiet
+    StartTalkflow
+    $note7 = OpenNotepad 'pass7'
+    SilentHold $note7 { ReadText $note7 } 'near-silent-hold' 2500 'too quiet to be speech' `
+        @("pill: Didn't catch that") @('Sound > Input', 'transcribed ', 'transcription server returned')
+    $env:TALKFLOW_TEST_AUDIO = $loudWav
+
+    # 8. A slow engine with the accurate final pass on: no 574 MB download on a PC that cannot use it.
+    StopTalkflow
+    Set-Content -Path (Join-Path $data 'settings.json') -Value '{ "accurateFinalPass": true, "typeWhileSpeaking": false }'
+    $env:TALKFLOW_TEST_SLOW_ENGINE = '1500'
+    $logFrom = (LogLines).Count
+    StartTalkflow
+    [void](WaitLog 'final-pass model: skipped' $logFrom 240)
+    $startLines = @(LogLines | Select-Object -Skip $logFrom)
+    $startLines | ForEach-Object { Write-Host "    $_" }
+    if (@($startLines | Where-Object { $_ -match 'slow PC: small\.en needs .* live captions are off' }).Count -eq 0) { Fail 'slow-engine: the PC was not called slow, or live captions stayed on' }
+    if (@($startLines | Where-Object { $_ -match 'final-pass model: skipped, small\.en needs .* not downloaded or started' }).Count -eq 0) { Fail 'slow-engine: the final-pass model was not skipped for a slow small.en' }
+    if (@($startLines | Where-Object { $_ -match 'downloading the final-pass model|started large-v3-turbo server' }).Count -gt 0) { Fail 'slow-engine: the large model was downloaded or started on a PC that cannot use it' }
+    $servers = @(Get-Process whisper-server -ErrorAction SilentlyContinue).Count
+    Say "whisper-server processes: $servers"
+    if ($servers -ne 1) { Fail "slow-engine: expected one whisper-server process (small.en), found $servers" }
+    $script:slowestAfter = 0; $script:unansweredAfter = 0
+    $note8 = OpenNotepad 'pass8'
+    Dictate 'slow-engine' $note8 { ReadText $note8 } 'win' $true @(', 0 previews ') @('large-v3-turbo')
+
+    # 9. The diagnostics zip: the new sections, and never the words.
+    $diag = Start-Process -FilePath $exe -ArgumentList '--diagnostics' -Wait -PassThru
+    $zipPath = (Get-Content (Join-Path $env:TEMP 'talkflow-diagnostics.txt') -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($diag.ExitCode -ne 0 -or -not $zipPath -or -not (Test-Path $zipPath)) { Fail "diagnostics: no zip was written (exit $($diag.ExitCode), path [$zipPath])" }
+    else {
+        $unzipped = Join-Path $work 'diagnostics'
+        Expand-Archive -Path $zipPath -DestinationPath $unzipped -Force
+        Copy-Item (Join-Path $unzipped 'report.txt') (Join-Path $Out 'diagnostics-report.txt') -Force
+        $report = Get-Content (Join-Path $unzipped 'report.txt') -Raw
+        foreach ($section in 'speed on this PC:', 'engine threads:', 'measured here', 'live captions:', 'final pass:', 'microphone stays open after a hold:', 'speech gate:', 'last decisions from talkflow.log:', 'microphones \(WASAPI\):') {
+            if ($report -notmatch $section) { Fail "diagnostics: report.txt has no '$section'" }
+        }
+        foreach ($file in Get-ChildItem $unzipped -File) {
+            if ((Get-Content $file.FullName -Raw) -match 'ask not what your country') { Fail "diagnostics: $($file.Name) contains dictated words" }
+        }
+        $results.Add('diagnostics: report.txt has the speed, final-pass and decision sections and no dictated words')
+    }
+    $env:TALKFLOW_TEST_SLOW_ENGINE = $null
 
     # Control, last (Windows 11 Notepad does not reopen quickly after being
     # closed, and opens files as tabs): the same kind of keystrokes talkflow

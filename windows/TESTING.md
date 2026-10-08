@@ -94,3 +94,34 @@ Desktop. It has no dictated text.
     the notification area, and dictation works without opening anything.
 14. Settings > **Uninstall...**: the app, models and logs are gone,
     `%APPDATA%\talkflow` is kept.
+15. **First press after a pause.** Dictate once, wait a full minute without
+    touching the shortcut, then hold it. If the microphone is slow to open (an
+    Intel Smart Sound array, a Bluetooth headset) the pill shows a grey dot and
+    "Starting microphone..." until sound is flowing, then the dot turns red:
+    wait for it, then speak. The first words must be in the text. A second hold
+    within two minutes shows no "starting" line (the microphone is still open;
+    Windows shows its microphone-in-use icon meanwhile, and drops it about two
+    minutes after the last hold on a slow-opening microphone, four seconds on a
+    fast one).
+16. **A 0.4 s hold.** Tap-and-hold the shortcut for under half a second right
+    after a pause (a cold microphone). The pill must say "Hold the shortcut a
+    moment longer, the microphone was still starting." and must not send you to
+    Sound settings. Nothing is typed.
+17. **A hold with no speech.** Hold for three seconds and say nothing. Within a
+    moment the pill says "Didn't catch that" (not an error, red), and nothing
+    is typed. Tray > Report a problem: the log line for the hold says "too
+    quiet to be speech", with no "transcribed" line after it.
+18. **A slow PC** (an integrated-graphics laptop, a small.en 1 s clip over 0.8
+    s in `report.txt` under "measured here"). Settings > Accurate final pass
+    says "Not used on this PC" with the reason; `ggml-large-v3-turbo-q5_0.bin`
+    is never downloaded to `%LOCALAPPDATA%\talkflow\models`; Task Manager shows
+    one `whisper-server.exe`, not two; the Models card shows the live caption
+    as off; the text appears about a second plus the dictation's length after
+    letting go. Restart talkflow: the log says the speed was "not measured
+    again", and no model is downloaded, started or timed. Dictate during the
+    first minute after launch: no slowdown from a model starting.
+19. **Diagnostics on a PC with a flaky audio driver.** Report a problem and
+    open `report.txt`: every microphone endpoint is listed by number, a bad one
+    says what could not be read instead of hiding the others, and "speed on this
+    PC" has the thread count, the speed tests, the final-pass verdict, the
+    microphone keep-open time and the last holds' decisions.

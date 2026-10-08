@@ -48,4 +48,39 @@ public class DiagnosticTextTests
         Assert.DoesNotContain("fellow Americans", kept);
         Assert.Contains("(1 other lines omitted", kept);
     }
+
+    static readonly DateTime When = new(2026, 10, 8, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void ReportsTheSpeedTestsAndTheFinalPassVerdict()
+    {
+        var text = DiagnosticText.DeviceLines(new[]
+        {
+            ("ggml-small.en.bin|engine 1@2|Intel(R) Iris(R) Xe Graphics", new DeviceEntry(1.29, 6.79, false, null, When)),
+            ("ggml-large-v3-turbo-q5_0.bin|engine 1@2|Intel(R) Iris(R) Xe Graphics", new DeviceEntry(4.69, null, null, true, When)),
+        });
+        Assert.Contains("ggml-small.en.bin on Intel(R) Iris(R) Xe Graphics: a 1 s clip took 1.29 s, 6.79 s on the CPU; runs on the GPU", text);
+        Assert.Contains("ggml-large-v3-turbo-q5_0.bin on Intel(R) Iris(R) Xe Graphics: a 1 s clip took 4.69 s, too slow (budget 2.00 s), so it is not used", text);
+        Assert.Equal("  nothing measured yet", DiagnosticText.DeviceLines(Array.Empty<(string, DeviceEntry)>()));
+    }
+
+    [Fact]
+    public void KeepsTheDecisionLinesAndNothingTyped()
+    {
+        var log = string.Join("\n",
+            "2026-10-08 12:02:49.055 microphone opened in 717 ms: Microphone Array (WASAPI, device format 48000 Hz, 2 ch)",
+            "2026-10-08 12:02:49.830 recording: 18 buffers, first after 631 ms, peak level 0.00, 0 ms of sound, 1200 ms of silence first",
+            "2026-10-08 12:02:59.877 typed into talkflow [-0 +5]",
+            "2026-10-08 12:03:19.991 pill: Hold the shortcut a moment longer, the microphone was still starting.",
+            "2026-10-08 12:03:20.087 transcribed 5 chars / 1 words in 6.39s: [dictated text removed]",
+            "2026-10-08 12:04:38.383 finish: stop recorder 262 ms, (total 3631 ms): too quiet to be speech");
+        var kept = DiagnosticText.RecentDecisions(log);
+        Assert.Contains("microphone opened in 717 ms", kept);
+        Assert.Contains("0 ms of sound", kept);
+        Assert.Contains("still starting", kept);
+        Assert.Contains("too quiet to be speech", kept);
+        Assert.DoesNotContain("typed into", kept);
+        Assert.DoesNotContain("transcribed", kept);
+        Assert.Equal(2, DiagnosticText.RecentDecisions(log, 2).Split('\n').Length);
+    }
 }

@@ -282,4 +282,43 @@ static class Native
     public static extern bool GetUserNameEx(int nameFormat, StringBuilder buffer, ref uint size);
 
     public const int NameDisplay = 3;
+
+    // MARK: - Physical cores
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool GetLogicalProcessorInformation(IntPtr buffer, ref uint returnedLength);
+
+    /// <summary>
+    /// How many physical cores the PC has: the RelationProcessorCore entries of
+    /// GetLogicalProcessorInformation (one per core, however many hyperthreads
+    /// it has). Null when Windows will not say. Entries are 32 bytes on the
+    /// 64-bit builds talkflow ships: a mask, the relationship at offset 8, then a 16-byte union.
+    /// </summary>
+    public static int? PhysicalCoreCount()
+    {
+        if (IntPtr.Size != 8) return null;
+        try
+        {
+            uint length = 0;
+            GetLogicalProcessorInformation(IntPtr.Zero, ref length);
+            if (length == 0) return null;
+            var buffer = Marshal.AllocHGlobal((int)length);
+            try
+            {
+                if (!GetLogicalProcessorInformation(buffer, ref length)) return null;
+                int cores = 0;
+                for (int at = 0; at + 32 <= length; at += 32)
+                    if (Marshal.ReadInt32(buffer, at + 8) == 0) cores++; // RelationProcessorCore
+                return cores > 0 ? cores : null;
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 }

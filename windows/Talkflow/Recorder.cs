@@ -27,19 +27,20 @@ namespace Talkflow;
 /// the microphone on a new thread. Start and Stop return at once (Stop after
 /// a short tail); a hold's audio is whatever arrived between them.
 ///
-/// A device that delivered audio stays open for a few seconds after a hold:
-/// a Bluetooth headset takes about a second to switch to its microphone, and
-/// a second hold right after the first should not lose that second again.
+/// A device that delivered audio stays open after a hold, so the next hold
+/// does not lose the start of its words to the device opening again: for a few
+/// seconds when it opens fast or very slowly, for two minutes when it opens in
+/// a quarter to a full second (an Intel Smart Sound array takes 300 to 700 ms,
+/// and its first buffers are near-silent). A Bluetooth headset, about a second
+/// to switch to its microphone, keeps the short window: open, it would stay in
+/// hands-free mode. See DevicePolicy.KeepOpenMs for the privacy cost: Windows
+/// shows the microphone as in use for as long as it is open.
 /// </summary>
 sealed class Recorder
 {
     public const int SampleRate = 16000;
-    /// <summary>How long a device that worked stays open after a hold.</summary>
-    const int KeepOpenMs = 4000;
     /// <summary>A device call still running this long when a hold starts is taken as stuck.</summary>
     const int StuckMs = 1000;
-    /// <summary>A device open this long without a single buffer is given up on.</summary>
-    const int DeadMs = 1500;
 
     readonly object _gate = new();
     readonly List<short> _samples = new();
@@ -56,11 +57,18 @@ sealed class Recorder
     Timer? _openWatch;
     static bool s_hangingUsed;
 
-    /// <summary>What one hold captured. Buffers is 0 when the device sent nothing at all.</summary>
-    public sealed record Capture(byte[] Wav, int Buffers, float Peak, string? Device);
+    /// <summary>
+    /// What one hold captured. Buffers is 0 when the device sent nothing at
+    /// all. Wav has the near-silence of a cold start cut from its front;
+    /// Seconds is the audio before that cut, and Sound describes it.
+    /// </summary>
+    public sealed record Capture(byte[] Wav, int Buffers, float Peak, string? Device, double Seconds, SpeechGate.Analysis Sound, double FirstAudioMs);
 
     /// <summary>Each buffer's level, roughly 0..1, on a background thread.</summary>
     public event Action<float>? Level;
+
+    /// <summary>The first buffer of a hold has arrived (the microphone is delivering), with the hold's number from <see cref="Start"/>; on a background thread.</summary>
+    public event Action<int>? FirstAudio;
 
     /// <summary>The device could not be opened; on a background thread, with a message for the pill.</summary>
     public event Action<string>? Failed;
@@ -70,7 +78,8 @@ sealed class Recorder
         _device = new Device(this);
     }
 
-    public void Start()
+    /// <summary>Begins a hold and returns its number.</summary>
+    public int Start()
     {
         lock (_gate)
         {
@@ -91,6 +100,7 @@ sealed class Recorder
             // close queued just before this open.
             _openWatch?.Dispose();
             _openWatch = new Timer(_ => Rescue(device, generation), null, StuckMs, Timeout.Infinite);
+            return generation;
         }
     }
 
@@ -137,14 +147,18 @@ sealed class Recorder
         }
         // Speech RMS is quiet; scaled for a visible range, as on the Mac.
         float level = (float)Math.Min(1, Math.Sqrt(sum / chunk.Length) * 8);
+        bool first;
+        int hold;
         lock (_gate)
         {
             if (!_capturing || device != _device) return; // kept open between holds, or left behind
             _samples.AddRange(chunk);
             if (_firstAudioMs < 0) _firstAudioMs = Stopwatch.GetElapsedTime(_startedTicks).TotalMilliseconds;
-            _buffers++;
+            first = _buffers++ == 0;
+            hold = _generation;
             _peak = Math.Max(_peak, level);
         }
+        if (first) FirstAudio?.Invoke(hold);
         Level?.Invoke(level);
     }
 
@@ -153,12 +167,25 @@ sealed class Recorder
         get { lock (_gate) return (double)_samples.Count / SampleRate; }
     }
 
-    /// <summary>Everything captured so far, as a WAV. Always the whole buffer (see StreamCommit).</summary>
-    public byte[] SnapshotWav()
+    /// <summary>
+    /// Everything captured so far, as a WAV, for a live preview. Always the
+    /// whole buffer (see StreamCommit), with a cold start's lead-in cut as in
+    /// the final one. Null while nothing in it is loud enough to be speech yet:
+    /// a preview of silence would only queue ahead of the real ones.
+    /// </summary>
+    public byte[]? SnapshotForPreview()
     {
         short[] copy;
         lock (_gate) copy = _samples.ToArray();
-        return Wav.FromSamples(copy, SampleRate);
+        var sound = SpeechGate.Analyze(copy);
+        return sound.HasSpeech ? Wav.FromSamples(SpeechGate.TrimLeading(copy, sound), SampleRate) : null;
+    }
+
+    Capture MakeCapture(short[] samples, int buffers, float peak, string? device, double firstAudioMs)
+    {
+        var sound = SpeechGate.Analyze(samples);
+        return new Capture(Wav.FromSamples(SpeechGate.TrimLeading(samples, sound), SampleRate), buffers, peak, device,
+            (double)samples.Length / SampleRate, sound, firstAudioMs);
     }
 
     /// <summary>
@@ -176,7 +203,7 @@ sealed class Recorder
             generation = _generation;
             released = _samples.Count;
             if (_buffers == 0) tailMs = 0; // nothing is coming
-            if (tailMs > 0) atRelease = new Capture(Wav.FromSamples(_samples.ToArray(), SampleRate), _buffers, _peak, _deviceName);
+            if (tailMs > 0) atRelease = MakeCapture(_samples.ToArray(), _buffers, _peak, _deviceName, _firstAudioMs);
         }
         if (tailMs > 0) await Task.Delay(tailMs);
 
@@ -184,6 +211,7 @@ sealed class Recorder
         int buffers;
         float peak;
         string? device;
+        double firstAudioMs;
         string summary;
         lock (_gate)
         {
@@ -200,13 +228,17 @@ sealed class Recorder
             buffers = _buffers;
             peak = _peak;
             device = _deviceName;
+            firstAudioMs = _firstAudioMs;
+            var sound = SpeechGate.Analyze(samples);
             summary = _buffers == 0
                 ? "no audio arrived from the microphone"
-                : $"{_buffers} buffers, first after {_firstAudioMs:F0} ms, peak level {_peak:F2}"
+                : $"{_buffers} buffers, first after {_firstAudioMs:F0} ms, peak level {_peak:F2}, {sound.VoicedMs} ms of sound, {sound.LeadSilenceMs} ms of silence first"
                   + (tailMs > 0 ? $", {(samples.Length - released) * 1000 / SampleRate} ms in the {tailMs} ms after release" : "");
             var current = _device;
             if (current.WorthKeeping)
             {
+                int keepMs = DevicePolicy.KeepOpenMs(current.OpenTookMs);
+                summary += $"; the microphone opened in {current.OpenTookMs} ms, so it stays open for {keepMs / 1000} s";
                 _closeTimer = new Timer(_ =>
                 {
                     lock (_gate)
@@ -214,7 +246,7 @@ sealed class Recorder
                         if (_capturing || current != _device) return;
                         current.Post("close", current.Close);
                     }
-                }, null, KeepOpenMs, Timeout.Infinite);
+                }, null, keepMs, Timeout.Infinite);
             }
             else
             {
@@ -222,7 +254,7 @@ sealed class Recorder
             }
         }
         Log.Write($"recording: {summary}");
-        return new Capture(Wav.FromSamples(samples, SampleRate), buffers, peak, device);
+        return MakeCapture(samples, buffers, peak, device, firstAudioMs);
     }
 
     /// <summary>The microphone and the thread that opens and closes it.</summary>
@@ -244,6 +276,8 @@ sealed class Recorder
         public volatile int OpenedGeneration;
         /// <summary>A buffer has arrived since the device opened.</summary>
         public volatile bool Heard;
+        /// <summary>How long the last successful open took.</summary>
+        public long OpenTookMs;
 
         public Device(Recorder recorder)
         {
@@ -292,7 +326,7 @@ sealed class Recorder
         long OpenMs => Volatile.Read(ref _openedTicks) is var t and not 0 ? (long)Stopwatch.GetElapsedTime(t).TotalMilliseconds : 0;
 
         /// <summary>A real microphone that works, or has only just opened: kept open between holds.</summary>
-        public bool WorthKeeping => _wave is not null && !_failed && (Heard || OpenMs < DeadMs);
+        public bool WorthKeeping => _wave is not null && !_failed && (Heard || OpenMs < HoldCheck.DeadMs);
 
         public void Open(int generation)
         {
@@ -325,9 +359,14 @@ sealed class Recorder
             }
             if (TestHooks.AudioFile is { } file)
             {
-                _test = new TestAudio(file, samples => _recorder.OnSamples(this, samples));
+                // A slow test microphone takes its time to open, then sends a few
+                // hundred milliseconds of near-silence before the recording.
+                if (TestHooks.SlowMicrophoneMs > 0) Thread.Sleep(TestHooks.SlowMicrophoneMs);
+                _test = new TestAudio(file, samples => _recorder.OnSamples(this, samples), TestHooks.SlowMicrophoneMs > 0 ? TestHooks.ColdSilenceMs : 0);
                 _test.Start();
+                OpenTookMs = watch.ElapsedMilliseconds;
                 Log.Write($"test audio: playing {System.IO.Path.GetFileName(file)} instead of the microphone");
+                if (TestHooks.SlowMicrophoneMs > 0) Log.Write($"microphone opened in {OpenTookMs} ms: test microphone, {TestHooks.ColdSilenceMs} ms of near-silence first");
                 return;
             }
             string description;
@@ -350,6 +389,7 @@ sealed class Recorder
                 }
             }
             _name = _endpoint?.FriendlyName;
+            OpenTookMs = watch.ElapsedMilliseconds;
             Volatile.Write(ref _openedTicks, Stopwatch.GetTimestamp());
             _recorder.Opened(generation, _name);
             Log.Write($"microphone opened in {watch.ElapsedMilliseconds} ms: {description}");
@@ -456,18 +496,22 @@ sealed class Recorder
 
     /// <summary>
     /// TALKFLOW_TEST_AUDIO: a WAV played in real time in 50 ms buffers, as a
-    /// microphone would deliver it, then silence until the hold ends.
+    /// microphone would deliver it, then silence until the hold ends. With a
+    /// lead-in, that much near-silence (samples of -1, 0 or 1) comes first, as
+    /// from a cold microphone array.
     /// </summary>
     sealed class TestAudio
     {
         readonly short[] _all;
         readonly Action<short[]> _deliver;
+        readonly int _leadSamples;
         volatile bool _stopped;
 
-        public TestAudio(string path, Action<short[]> deliver)
+        public TestAudio(string path, Action<short[]> deliver, int leadMs = 0)
         {
             _all = Wav.ReadSamples(System.IO.File.ReadAllBytes(path));
             _deliver = deliver;
+            _leadSamples = leadMs * SampleRate / 1000;
         }
 
         public void Start() => new Thread(Run) { IsBackground = true, Name = "talkflow test audio" }.Start();
@@ -481,7 +525,10 @@ sealed class Recorder
             for (int sent = 0; !_stopped; sent += chunk)
             {
                 var buffer = new short[chunk];
-                if (sent < _all.Length) Array.Copy(_all, sent, buffer, 0, Math.Min(chunk, _all.Length - sent));
+                if (sent < _leadSamples)
+                    for (int i = 0; i < chunk; i++) buffer[i] = (short)((i + sent) % 3 - 1);
+                else if (sent - _leadSamples < _all.Length)
+                    Array.Copy(_all, sent - _leadSamples, buffer, 0, Math.Min(chunk, _all.Length - (sent - _leadSamples)));
                 _deliver(buffer);
                 int due = (sent + chunk) * 1000 / SampleRate;
                 int wait = due - (int)clock.ElapsedMilliseconds;
