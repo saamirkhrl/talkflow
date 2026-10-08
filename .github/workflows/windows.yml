@@ -85,8 +85,10 @@ jobs:
   engine:
     # whisper-server.exe from whisper.cpp source. x64 with MSVC, runtime CPU
     # dispatch (one DLL per instruction set) and the Vulkan GPU backend
-    # (ggml-vulkan.dll, loaded only when a Vulkan driver is present; without
-    # one whisper runs on the CPU as before); arm64 cross-compiled with clang,
+    # (engine/vulkan/ggml-vulkan.dll, which talkflow names in GGML_BACKEND_PATH
+    # only for a GPU start; whisper-server loads every ggml-*.dll next to the
+    # exe before it reads -ng, so a CPU start must not find it there);
+    # arm64 cross-compiled with clang,
     # as whisper.cpp's own release does. OpenMP off, so the only runtime DLLs
     # needed are the MSVC ones copied next to the exe.
     runs-on: windows-2022
@@ -134,6 +136,10 @@ jobs:
           New-Item -ItemType Directory -Force engine | Out-Null
           Copy-Item "$bin/whisper-server.exe" engine/
           Copy-Item "$bin/*.dll" engine/
+          if (Test-Path engine/ggml-vulkan.dll) {
+            New-Item -ItemType Directory -Force engine/vulkan | Out-Null
+            Move-Item engine/ggml-vulkan.dll engine/vulkan/
+          }
           $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
           $redist = Get-ChildItem "$vs\VC\Redist\MSVC" -Directory | Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
           $crt = Get-ChildItem "$($redist.FullName)\${{ matrix.arch }}" -Directory -Filter 'Microsoft.VC*.CRT' | Select-Object -First 1

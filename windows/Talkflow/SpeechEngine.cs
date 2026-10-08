@@ -79,7 +79,9 @@ sealed class WhisperServer
             }
             else
             {
-                var log = Path.Combine(Paths.LogsDir, $"whisper-server-{Port}.log");
+                // Its own file for a CPU start, which can follow a GPU start whose
+                // killed process still holds the first one open.
+                var log = Path.Combine(Paths.LogsDir, $"whisper-server-{Port}{(_cpuOnly ? "-cpu" : "")}.log");
                 var info = new ProcessStartInfo(Paths.ServerExe)
                 {
                     WorkingDirectory = Paths.EngineDir,
@@ -91,6 +93,7 @@ sealed class WhisperServer
                 foreach (var arg in new[] { "-m", ModelPath, "--host", "127.0.0.1", "--port", Port.ToString(), "-nt", "-t", SpeechEngine.Threads.ToString() })
                     info.ArgumentList.Add(arg);
                 if (_cpuOnly) info.ArgumentList.Add("-ng");
+                else if (SpeechEngine.HasGpuBackend) info.Environment["GGML_BACKEND_PATH"] = SpeechEngine.GpuBackend;
                 lock (_startOutput) _startOutput.Clear();
                 try
                 {
@@ -237,8 +240,17 @@ static class SpeechEngine
 
     public static bool EngineInstalled => File.Exists(Paths.ServerExe);
 
-    /// <summary>The engine was built with whisper's Vulkan backend (x64); whisper uses it when a Vulkan driver is present.</summary>
-    public static bool HasGpuBackend => File.Exists(Path.Combine(Paths.EngineDir, "ggml-vulkan.dll"));
+    /// <summary>
+    /// whisper's Vulkan backend (x64 only). It sits in its own folder because
+    /// whisper-server loads every ggml-*.dll next to it before reading -ng, and
+    /// loading this one starts the Vulkan driver: a driver that crashes or hangs
+    /// there would take the CPU start down too. A GPU start names it in
+    /// GGML_BACKEND_PATH; a CPU start never loads it.
+    /// </summary>
+    public static string GpuBackend => Path.Combine(Paths.EngineDir, "vulkan", "ggml-vulkan.dll");
+
+    /// <summary>The engine was built with whisper's Vulkan backend; whisper uses it when a Vulkan driver is present.</summary>
+    public static bool HasGpuBackend => File.Exists(GpuBackend);
 
     static readonly HttpClient Probe = new(new SocketsHttpHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(1.5) };
 
