@@ -118,6 +118,7 @@ enum StreamSelfTest {
         runInsertOnceCases()
         runWritingStyleCases()
         runUpdaterCases()
+        runInstallCounterCases()
         runEngineCases()
         runOnboardingStepCases()
         runPermissionGrantCases()
@@ -1654,6 +1655,77 @@ enum StreamSelfTest {
     private static func containsWord(_ word: String, in text: String) -> Bool {
         text.split(whereSeparator: { !$0.isLetter && !$0.isNumber })
             .contains { $0.lowercased() == word.lowercased() }
+    }
+
+    /// The install counter (docs/telemetry.md), with a fake network and a
+    /// throwaway defaults domain: nothing is sent and the real flag is untouched.
+    private static func runInstallCounterCases() {
+        report("case: the install counter sends one empty POST, once, and only from a release build")
+        let url = URL(string: "https://counter.invalid/api/install")!
+        let suite = "talkflow-installcounter-selftest-\(ProcessInfo.processInfo.processIdentifier)"
+        guard let defaults = UserDefaults(suiteName: suite) else { check(false, "a scratch defaults domain"); return }
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        var sent: [URLRequest] = []
+        var answer: Int? = 204
+        let fake: InstallCounter.Transport = { request, finish in
+            sent.append(request)
+            finish(answer)
+        }
+        func run() -> Bool {
+            let counted = defaults.bool(forKey: InstallCounter.countedKey)
+            guard InstallCounter.shouldSend(url: url, counted: counted, arguments: ["talkflowd"], environment: [:]) else { return false }
+            InstallCounter.send(to: url, defaults: defaults, transport: fake)
+            return true
+        }
+
+        check(InstallCounter.url(from: nil) == nil, "no baked-in URL -> nothing to send to")
+        check(InstallCounter.url(from: "") == nil && InstallCounter.url(from: "  ") == nil, "an empty URL (an unset TALKFLOW_TELEMETRY_URL) -> nothing to send to")
+        check(InstallCounter.url(from: "http://counter.invalid/api/install") == nil, "a plain-http URL is refused")
+        check(InstallCounter.url(from: "https://counter.invalid/api/install") == url, "an https URL is used as given")
+        check(!InstallCounter.shouldSend(url: nil, counted: false, arguments: ["talkflowd"], environment: [:]),
+              "a build without the URL never sends")
+        // Source builds have none; a release.sh build has one. Either is fine here.
+        report("note: this build \(InstallCounter.configuredURL == nil ? "has no install counter URL, so it never sends" : "has an install counter URL baked in")")
+        check(Bundle.main.object(forInfoDictionaryKey: InstallCounter.infoKey) == nil || InstallCounter.configuredURL != nil,
+              "a baked-in URL, if any, is a usable https URL")
+
+        let request = InstallCounter.request(for: url)
+        check(request.httpMethod == "POST" && request.url == url, "the request is a POST to the URL")
+        check(request.httpBody == nil && request.httpBodyStream == nil, "the request has no body")
+        check((request.allHTTPHeaderFields ?? [:]).isEmpty, "the request sets no headers of its own",
+              "\(request.allHTTPHeaderFields ?? [:])")
+        check(!request.httpShouldHandleCookies, "the request sends no cookies")
+
+        answer = 204
+        check(run(), "a fresh install sends")
+        check(sent.count == 1, "exactly one request")
+        check(defaults.bool(forKey: InstallCounter.countedKey), "a 2xx answer marks the install counted")
+        check(!run() && sent.count == 1, "once counted, later launches send nothing")
+
+        defaults.removeObject(forKey: InstallCounter.countedKey)
+        sent = []
+        for (status, label) in [(500, "a 500"), (429, "a 429 (rate limited)"), (301, "a redirect"), (nil, "a timeout or no connection")] as [(Int?, String)] {
+            answer = status
+            _ = run()
+            check(!defaults.bool(forKey: InstallCounter.countedKey), "\(label) leaves the install uncounted")
+        }
+        check(sent.count == 4, "each failed launch tried once", "\(sent.count) requests")
+        answer = 200
+        check(run() && defaults.bool(forKey: InstallCounter.countedKey), "after failures, the next launch retries and a 2xx counts")
+        check(sent.count == 5, "the retry was one more request", "\(sent.count) requests")
+
+        for flag in InstallCounter.selfTestArguments.sorted() {
+            check(!InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd", flag], environment: [:]),
+                  "never sends in \(flag)")
+        }
+        check(!InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd"], environment: ["CI": "true"]),
+              "never sends under CI")
+        check(!InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd"], environment: ["TALKFLOW_DATA_DIR": "/tmp/x"]),
+              "never sends with a test data folder")
+        check(InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd", "--onboarding"], environment: [:]),
+              "opening setup (--onboarding) is a real launch and may send")
+        check(!UserData.settingKeys.contains(InstallCounter.countedKey), "the flag is not in the settings backup")
     }
 
     private static func check(_ condition: Bool, _ label: String, _ detail: String = "") {
