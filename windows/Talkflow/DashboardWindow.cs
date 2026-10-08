@@ -413,7 +413,9 @@ sealed class DashboardWindow : Window
     FrameworkElement ModelsInUse()
     {
         var settings = _app.Settings;
-        string local = _app.FinalPassReady && settings.AccurateFinalPass ? "Whisper large-v3-turbo, on this PC" : "Whisper small.en, on this PC";
+        string local = _app.FinalPassUsable && settings.AccurateFinalPass ? "Whisper large-v3-turbo, on this PC"
+            : _app.FinalPassTooSlow && settings.AccurateFinalPass ? "Whisper small.en, on this PC (large-v3-turbo is too slow here)"
+            : "Whisper small.en, on this PC";
         string final = settings.UseOpenAITranscription && ApiKeys.Has(ApiKeys.Provider.OpenAI) ? $"OpenAI {CloudTranscriber.Model}, your key" : local;
         string punctuation = settings.UseClaudePunctuation && ApiKeys.Has(ApiKeys.Provider.Anthropic)
             ? SettingsStore.ClaudeModels.First(m => m.Id == settings.ClaudeModel).Title + ", your key"

@@ -26,6 +26,8 @@ sealed class OverlayWindow : Window
     readonly TextBlock _caption;
     readonly DispatcherTimer _messageTimer;
     bool _holding;
+    /// <summary>Audio has arrived this hold; until then the pill is dim (a Bluetooth headset takes about a second).</summary>
+    bool _heard;
 
     static readonly Brush Ink = new SolidColorBrush(Color.FromRgb(0x1F, 0x1E, 0x22));
     static readonly Brush Paper = new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF3));
@@ -134,7 +136,8 @@ sealed class OverlayWindow : Window
         _messageTimer.Stop();
         _bubble.Visibility = Visibility.Collapsed;
         _pill.Visibility = Visibility.Visible;
-        _pill.Opacity = 1;
+        _pill.Opacity = WaitingOpacity;
+        _heard = false;
         Array.Clear(_levels);
         foreach (var bar in _bars) bar.Height = 4;
         if (!IsVisible) base.Show();
@@ -148,11 +151,22 @@ sealed class OverlayWindow : Window
     }
 
     /// <summary>Release: the caption stays while the final text is worked out.</summary>
-    public void ShowWorking() => _pill.Opacity = 0.6;
+    public void ShowWorking()
+    {
+        _heard = true;
+        _pill.Opacity = 0.6;
+    }
+
+    const double WaitingOpacity = 0.4;
 
     public void PushLevel(float level)
     {
         if (!_holding) return;
+        if (!_heard)
+        {
+            _heard = true;
+            _pill.Opacity = 1; // the microphone is listening: speak now
+        }
         Array.Copy(_levels, 1, _levels, 0, BarCount - 1);
         _levels[BarCount - 1] = level;
         for (int i = 0; i < BarCount; i++)

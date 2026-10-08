@@ -36,6 +36,8 @@ sealed class Dictation
     readonly DispatcherTimer _watchdog;
 
     const double MinDuration = 0.3;
+    /// <summary>How long the microphone keeps listening after release, for the last word still on its way.</summary>
+    const int TailMs = 250;
     /// <summary>A preview slower than this pauses the live caption for the rest of the hold (a slow PC).</summary>
     const double PreviewBudgetSeconds = 2.5;
 
@@ -148,7 +150,7 @@ sealed class Dictation
         if (!_recording) return;
         _recording = false;
         StopTimers();
-        _recorder.Stop();
+        _ = _recorder.Stop();
         Dismiss();
         Log.Write($"hold abandoned: {why}");
     }
@@ -178,7 +180,7 @@ sealed class Dictation
         double duration = _startedAt is { } start ? (DateTime.UtcNow - start).TotalSeconds : 0;
         _startedAt = null;
         steps.Next("stop recorder");
-        var capture = _recorder.Stop();
+        var capture = await _recorder.Stop(TailMs);
         var wav = capture.Wav;
         if (duration < MinDuration)
         {
@@ -343,15 +345,17 @@ sealed class Dictation
             }
             _app.Overlay.ShowError(error + ", used this PC instead");
         }
-        if (_app.Settings.AccurateFinalPass && _app.FinalPassReady)
+        if (_app.Settings.AccurateFinalPass && _app.FinalPassUsable)
         {
-            var (large, _) = await Transcriber.Transcribe(wav, SpeechEngine.Large.InferenceUrl, TimeSpan.FromSeconds(8 + duration), prompt);
+            // A budget, not a hang: past it, small.en answers instead.
+            var budget = TimeSpan.FromSeconds(3 + 0.5 * duration);
+            var (large, _) = await Transcriber.Transcribe(wav, SpeechEngine.Large.InferenceUrl, budget, prompt);
             if (large is not null)
             {
                 Log.Write("final pass via large-v3-turbo");
                 return (large, null);
             }
-            Log.Write("final-pass model did not answer, falling back to small.en");
+            Log.Write($"final-pass model did not answer within {budget.TotalSeconds:F1}s, falling back to small.en");
         }
         // Longer recordings take longer, most of all on a slow PC.
         return await Transcriber.Transcribe(wav, SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(20 + 2 * duration), prompt);

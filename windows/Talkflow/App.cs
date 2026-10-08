@@ -32,6 +32,14 @@ sealed class App : Application
 
     public bool EngineReady { get; private set; }
     public bool FinalPassReady { get; private set; }
+    /// <summary>
+    /// large-v3-turbo is loaded but too slow on this PC to wait for (a 1 s
+    /// clip took over FinalPassBudgetSeconds); the final text comes from small.en.
+    /// </summary>
+    public bool FinalPassTooSlow { get; private set; }
+    public bool FinalPassUsable => FinalPassReady && !FinalPassTooSlow;
+    /// <summary>The longest a 1 s clip may take on large-v3-turbo for the final pass to be used.</summary>
+    public const double FinalPassBudgetSeconds = 2.0;
     /// <summary>Whether small.en's server is being started right now.</summary>
     public bool EngineStarting => _engineStart is { IsCompleted: false };
     /// <summary>Why the speech engine is not running, for the pill and setup; null while it runs or starts.</summary>
@@ -287,6 +295,7 @@ sealed class App : Application
             }
             FinalPassReady = await Task.Run(() => SpeechEngine.Large.Start(TimeSpan.FromSeconds(60)));
             Log.Write(FinalPassReady ? "final-pass model ready" : "final-pass server did not answer; using small.en");
+            if (FinalPassReady) await MeasureFinalPass();
         }
         catch (Exception e)
         {
@@ -296,6 +305,27 @@ sealed class App : Application
         {
             _finalPassStarting = false;
         }
+    }
+
+    /// <summary>
+    /// Times large-v3-turbo on a 1 s clip of silence. Whisper encodes a full
+    /// 30 s window whatever the length, so this is about the least any final
+    /// pass costs; on a PC where that is seconds, every dictation would wait.
+    /// </summary>
+    async Task MeasureFinalPass()
+    {
+        var clip = Wav.FromSamples(new short[Recorder.SampleRate], Recorder.SampleRate);
+        var (result, failure) = await Transcriber.Transcribe(clip, SpeechEngine.Large.InferenceUrl, TimeSpan.FromSeconds(30), "");
+        if (result is null)
+        {
+            Log.Write($"final-pass model: the speed test failed ({failure?.Message}); using it anyway");
+            return;
+        }
+        FinalPassTooSlow = result.Elapsed > FinalPassBudgetSeconds;
+        Log.Write(FinalPassTooSlow
+            ? $"final-pass model: a 1 s clip took {result.Elapsed:F1}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
+            : $"final-pass model: a 1 s clip took {result.Elapsed:F1}s, using it for the final text");
+        EngineChanged?.Invoke();
     }
 
     // MARK: - Windows
