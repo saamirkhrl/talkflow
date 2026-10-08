@@ -4,15 +4,17 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Talkflow.Core;
 
 namespace Talkflow;
 
 /// <summary>
 /// Choices that only exist on Windows, in windows.json next to settings.json:
-/// the hold-to-dictate shortcut, and which update was last announced. Kept out of settings.json so that file stays
-/// exactly the Mac's schema, and kept in the data folder so it survives a reinstall.
+/// the hold-to-dictate shortcut, which update was last announced, and whether this install has been counted
+/// (InstallCounter). Kept out of settings.json so that file stays exactly the Mac's schema and never carries the
+/// counted flag to another PC, and kept in the data folder so it survives a reinstall.
 /// </summary>
-sealed class WindowsPrefs
+sealed class WindowsPrefs : IInstallFlag
 {
     sealed class Data
     {
@@ -20,6 +22,8 @@ sealed class WindowsPrefs
         [JsonPropertyName("hotkey")] public List<List<int>>? Hotkey { get; set; }
         /// <summary>The newest version the user has been told about, so each update is announced once.</summary>
         [JsonPropertyName("notifiedVersion")] public string? NotifiedVersion { get; set; }
+        /// <summary>Set once the install counter got a 2xx answer (docs/telemetry.md).</summary>
+        [JsonPropertyName("installCounted")] public bool InstallCounted { get; set; }
     }
 
     Data _data = new();
@@ -55,6 +59,16 @@ sealed class WindowsPrefs
         set
         {
             _data.NotifiedVersion = value;
+            Save();
+        }
+    }
+
+    public bool InstallCounted
+    {
+        get => _data.InstallCounted;
+        set
+        {
+            _data.InstallCounted = value;
             Save();
         }
     }

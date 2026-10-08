@@ -206,10 +206,27 @@ sealed class App : Application
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(6) };
         _updateTimer.Tick += (_, _) => _ = Updater.Check();
         _updateTimer.Start();
+        // Release builds only: one empty POST, once per install (docs/telemetry.md).
+        var count = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        count.Tick += (_, _) => { count.Stop(); _ = CountInstall(); };
+        count.Start();
 
         _ = StartEngine();
         if (NeedsSetup) ShowOnboarding();
         else if (!background) ShowDashboard();
+    }
+
+    /// <summary>
+    /// Sends the install counter's one request if this install hasn't been
+    /// counted. Silent either way (nothing in the log, so diagnostics carry
+    /// nothing new); a failure is retried on the next launch.
+    /// </summary>
+    async Task CountInstall()
+    {
+        var url = InstallCounter.ConfiguredUrl(typeof(App).Assembly);
+        if (url is null) return;
+        using var http = new System.Net.Http.HttpMessageInvoker(InstallCounter.Handler());
+        await InstallCounter.CountOnce(url, Prefs, TestHooks.Any, Environment.GetEnvironmentVariable("CI"), http);
     }
 
     /// <summary>
