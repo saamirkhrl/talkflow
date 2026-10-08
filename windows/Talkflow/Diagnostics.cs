@@ -16,8 +16,10 @@ namespace Talkflow;
 /// "Report a problem...": one zip on the Desktop with what is needed to find
 /// out why talkflow misbehaved on someone's PC: the version and architecture,
 /// the --enginecheck report, the microphones and a one-second test of the
-/// default one, the settings switches, the end of talkflow.log and the speech
-/// engine's startup and error lines.
+/// default one, the settings switches, what was measured on this PC (the speed
+/// tests, the final-pass verdict, the thread count), the microphone's keep-open
+/// and speech-gate settings with the last holds' decisions, the end of
+/// talkflow.log and the speech engine's startup and error lines.
 ///
 /// Never what was dictated: transcripts are cut out of the log (they are only
 /// there when TALKFLOW_LOG_TRANSCRIPTS=1), the engine log keeps only lines it
@@ -51,8 +53,9 @@ static class Diagnostics
         var path = Path.Combine(folder, $"talkflow-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
         using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
         {
-            Add(zip, "report.txt", Report());
-            Add(zip, "talkflow.log", DiagnosticText.Redact(Tail(Log.FilePath, LogLines)));
+            var log = DiagnosticText.Redact(Tail(Log.FilePath, LogLines));
+            Add(zip, "report.txt", Report(log));
+            Add(zip, "talkflow.log", log);
             foreach (var engineLog in Directory.Exists(Paths.LogsDir) ? Directory.EnumerateFiles(Paths.LogsDir, "whisper-server-*.log") : Enumerable.Empty<string>())
                 Add(zip, Path.GetFileName(engineLog), DiagnosticText.EngineLines(ReadShared(engineLog)));
         }
@@ -60,7 +63,7 @@ static class Diagnostics
         return path;
     }
 
-    static string Report()
+    static string Report(string log)
     {
         var text = new StringBuilder();
         text.AppendLine($"talkflow diagnostics, {DateTime.Now:yyyy-MM-dd HH:mm:ss zzz}");
@@ -88,7 +91,42 @@ static class Diagnostics
         }
         text.AppendLine($"  start with Windows: {StartupEntry.IsEnabled}");
         text.AppendLine();
+        text.Append(Speed(log));
+        text.AppendLine();
         text.Append(Microphones());
+        return text.ToString();
+    }
+
+    /// <summary>
+    /// How this PC was tuned: processors and engine threads, what small.en and
+    /// the final-pass model measured here (device.json, kept by the app), whether
+    /// live captions run, how long the microphone stays open, the speech gate's
+    /// thresholds, and the last holds' decisions from the log. Nothing dictated.
+    /// </summary>
+    static string Speed(string log)
+    {
+        var text = new StringBuilder();
+        text.AppendLine("speed on this PC:");
+        text.AppendLine($"  {Environment.ProcessorCount} logical processors, {SpeechEngine.PhysicalCores?.ToString() ?? "an unknown number of"} cores; speech engine threads: {SpeechEngine.Threads}");
+        text.AppendLine($"  engine build: {SpeechEngine.Stamp}");
+        try
+        {
+            var entries = new DeviceStore(Paths.DeviceFile).All();
+            text.AppendLine("  measured here (kept 30 days; the app measures when a model, engine build or device is new):");
+            text.AppendLine("  " + DiagnosticText.DeviceLines(entries).Replace("\n", "\n  "));
+            var small = entries.Where(e => e.Key.StartsWith("ggml-small", StringComparison.Ordinal)).Select(e => e.Entry.Seconds).FirstOrDefault();
+            text.AppendLine($"  live captions: {(small is null ? "on (not measured yet)" : DevicePolicy.LivePreviews(small) ? $"on (limit {DevicePolicy.SlowSmallSeconds:F1} s per 1 s clip)" : $"off, small.en needs {small:F2} s per 1 s clip and the limit is {DevicePolicy.SlowSmallSeconds:F1} s")}");
+            var plan = DevicePolicy.DecideFinalPass(new SettingsStore(Paths.SettingsFile).AccurateFinalPass, entries.Where(e => e.Key.StartsWith("ggml-large", StringComparison.Ordinal)).Select(e => e.Entry).FirstOrDefault(), small);
+            text.AppendLine($"  final pass: {plan} (model file {(SpeechEngine.Large.ModelIsComplete ? "downloaded" : "not downloaded")}; skipped without a download when small.en needs more than {DevicePolicy.FinalPassBudgetSeconds / DevicePolicy.LargeToSmallRatio:F2} s)");
+        }
+        catch (Exception e)
+        {
+            text.AppendLine($"  could not read what was measured: {e.Message}");
+        }
+        text.AppendLine($"  microphone stays open after a hold: {DevicePolicy.FastOpenKeepMs / 1000} s if it opens in under {DevicePolicy.SlowOpenMs} ms, otherwise {DevicePolicy.SlowOpenKeepMs / 1000} s");
+        text.AppendLine($"  speech gate: a frame at {SpeechGate.VoicedRms:F4} RMS or more is sound; {SpeechGate.MinVoicedMs} ms of it is needed or nothing is sent to the engine; a hold of {HoldCheck.DeadMs} ms or more with no audio at all is a dead microphone");
+        text.AppendLine("  last decisions from talkflow.log:");
+        text.AppendLine(DiagnosticText.RecentDecisions(log));
         return text.ToString();
     }
 
@@ -122,27 +160,13 @@ static class Diagnostics
             using var devices = new MMDeviceEnumerator();
             string? console = DefaultId(devices, Role.Console);
             string? communications = DefaultId(devices, Role.Communications);
-            foreach (var device in devices.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.All))
-            {
-                using (device)
-                {
-                    var marks = (device.ID == console ? " [default]" : "") + (device.ID == communications ? " [default for calls]" : "");
-                    string format = "";
-                    if (device.State == DeviceState.Active)
-                    {
-                        try
-                        {
-                            var mix = device.AudioClient.MixFormat;
-                            format = $", {mix.SampleRate} Hz, {mix.Channels} ch";
-                        }
-                        catch (Exception e)
-                        {
-                            format = $", format unreadable: {Describe(e)}";
-                        }
-                    }
-                    text.AppendLine($"  {device.FriendlyName}: {device.State}{format}{marks}");
-                }
-            }
+            // One endpoint at a time: a single bad one (0xE000020B on the PC this
+            // was written for) must not hide the rest.
+            var endpoints = devices.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.All);
+            int count = endpoints.Count;
+            for (int i = 0; i < count; i++)
+                text.AppendLine(DescribeEndpoint(endpoints, i, console, communications));
+            if (count == 0) text.AppendLine("  none");
             if (console is null) text.AppendLine("  no default input device");
         }
         catch (Exception e)
@@ -163,6 +187,49 @@ static class Diagnostics
         text.AppendLine($"one second from the default microphone, WASAPI: {Probe(() => new WasapiCapture(WasapiCapture.GetDefaultCaptureDevice(), false, 100) { WaveFormat = new WaveFormat(Recorder.SampleRate, 16, 1) })}");
         text.AppendLine($"one second from the default microphone, waveIn: {Probe(() => new WaveInEvent { DeviceNumber = -1, WaveFormat = new WaveFormat(Recorder.SampleRate, 16, 1), BufferMilliseconds = 50, NumberOfBuffers = 4 })}");
         return text.ToString();
+    }
+
+    /// <summary>One line for the endpoint at an index; each property is read on its own, so what cannot be read is named and the line still comes out.</summary>
+    static string DescribeEndpoint(MMDeviceCollection endpoints, int index, string? console, string? communications)
+    {
+        MMDevice device;
+        try
+        {
+            device = endpoints[index];
+        }
+        catch (Exception e)
+        {
+            return $"  endpoint #{index}: could not be opened: {Describe(e)}";
+        }
+        using (device)
+        {
+            string id = Attempt(() => device.ID, out var idError) ?? $"(id unreadable: {idError})";
+            string name = Attempt(() => device.FriendlyName, out var nameError) ?? $"(name unreadable: {nameError})";
+            string state = Attempt(() => device.State.ToString(), out var stateError) ?? $"(state unreadable: {stateError})";
+            var marks = (id == console ? " [default]" : "") + (id == communications ? " [default for calls]" : "");
+            string format = "";
+            if (state == nameof(DeviceState.Active))
+            {
+                format = Attempt(() => { var mix = device.AudioClient.MixFormat; return $", {mix.SampleRate} Hz, {mix.Channels} ch"; }, out var formatError)
+                    ?? $", format unreadable: {formatError}";
+            }
+            return $"  endpoint #{index}: {name}: {state}{format}{marks}";
+        }
+    }
+
+    /// <summary>The value, or null with the reason in <paramref name="error"/>.</summary>
+    static string? Attempt(Func<string> read, out string error)
+    {
+        try
+        {
+            error = "";
+            return read();
+        }
+        catch (Exception e)
+        {
+            error = Describe(e);
+            return null;
+        }
     }
 
     static string? DefaultId(MMDeviceEnumerator devices, Role role)
