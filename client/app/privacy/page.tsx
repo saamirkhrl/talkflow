@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
 
-// TODO before merging: the first app version that counts installs (docs/telemetry.md).
-const COUNTED_FROM = "[X]";
+// The first app version that counts installs (docs/telemetry.md).
+const COUNTED_FROM = "0.1.6";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
