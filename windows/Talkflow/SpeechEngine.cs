@@ -90,6 +90,7 @@ sealed class WhisperServer
                 };
                 foreach (var arg in new[] { "-m", ModelPath, "--host", "127.0.0.1", "--port", Port.ToString(), "-nt", "-t", SpeechEngine.Threads.ToString() })
                     info.ArgumentList.Add(arg);
+                if (_cpuOnly) info.ArgumentList.Add("-ng");
                 lock (_startOutput) _startOutput.Clear();
                 try
                 {
@@ -110,7 +111,7 @@ sealed class WhisperServer
                     process.BeginErrorReadLine();
                     SpeechEngine.AdoptChild(process);
                     _process = process;
-                    Log.Write($"started {Name} server on :{Port} (pid {process.Id}, model {Path.GetFileName(ModelPath)}, {SpeechEngine.Threads} threads)");
+                    Log.Write($"started {Name} server on :{Port} (pid {process.Id}, model {Path.GetFileName(ModelPath)}, {SpeechEngine.Threads} threads{(_cpuOnly ? ", CPU only" : "")})");
                 }
                 catch (Exception e)
                 {
@@ -127,7 +128,7 @@ sealed class WhisperServer
         {
             if (SpeechEngine.IsResponding(Port))
             {
-                Log.Write($"{Name} server answered after {watch.Elapsed.TotalSeconds:F1}s");
+                Log.Write($"{Name} server answered after {watch.Elapsed.TotalSeconds:F1}s on {Device()}");
                 LastError = null;
                 return true;
             }
@@ -136,12 +137,47 @@ sealed class WhisperServer
                 process.WaitForExit(); // flushes the output handlers
                 int code = process.ExitCode;
                 Log.Write($"{Name} server exited during startup with code {code} (0x{code:X8}) after {watch.Elapsed.TotalSeconds:F1}s; its output began:\n{OutputHead()}");
+                if (RetryOnCpu()) return Start(TimeSpan.FromSeconds(Math.Max(15, (timeout - watch.Elapsed).TotalSeconds)));
                 return Failed($"The speech engine stopped while starting ({SpeechEngine.DescribeExit(code)}).");
             }
             Thread.Sleep(250);
         }
         Log.Write($"{Name} server did not answer within {timeout.TotalSeconds:F0}s; its output began:\n{OutputHead()}");
+        if (RetryOnCpu())
+        {
+            Stop();
+            return Start(timeout);
+        }
         return Failed($"The speech engine did not answer within {timeout.TotalSeconds:F0} seconds.");
+    }
+
+    /// <summary>Set once a start with the GPU backend failed; the server then runs with -ng.</summary>
+    volatile bool _cpuOnly;
+
+    /// <summary>
+    /// A GPU driver that crashes or hangs whisper at startup must not cost the
+    /// user dictation: once, the server is started again on the CPU only.
+    /// </summary>
+    bool RetryOnCpu()
+    {
+        if (_cpuOnly || !SpeechEngine.HasGpuBackend) return false;
+        _cpuOnly = true;
+        Log.Write($"{Name} server: starting again on the CPU only (-ng)");
+        return true;
+    }
+
+    /// <summary>What whisper said it runs on, from its startup output: the GPU's name, or the CPU.</summary>
+    string Device()
+    {
+        string output;
+        lock (_startOutput) output = _startOutput.ToString();
+        foreach (var line in output.Split('\n'))
+        {
+            // "whisper_backend_init_gpu: device 0: Vulkan0 (NVIDIA GeForce RTX 4070) (type: 1)" or "...: CPU (type: 0)"
+            int at = line.IndexOf("whisper_backend_init_gpu: device", StringComparison.Ordinal);
+            if (at >= 0) return line[(line.IndexOf(':', at + 25) + 1)..].Trim();
+        }
+        return _cpuOnly ? "the CPU (-ng)" : "an unreported device";
     }
 
     string OutputHead()
@@ -179,6 +215,9 @@ static class SpeechEngine
     public static int Threads => Math.Clamp(Environment.ProcessorCount - 1, 1, 8);
 
     public static bool EngineInstalled => File.Exists(Paths.ServerExe);
+
+    /// <summary>The engine was built with whisper's Vulkan backend (x64); whisper uses it when a Vulkan driver is present.</summary>
+    public static bool HasGpuBackend => File.Exists(Path.Combine(Paths.EngineDir, "ggml-vulkan.dll"));
 
     static readonly HttpClient Probe = new(new SocketsHttpHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(1.5) };
 
