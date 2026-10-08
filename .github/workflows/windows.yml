@@ -29,6 +29,10 @@ concurrency:
 
 env:
   WHISPER_CPP_TAG: v1.9.4
+  # For whisper.cpp's Vulkan GPU backend (x64 only): its shaders are compiled
+  # at build time with the SDK's glslc. At run time the backend needs only
+  # vulkan-1.dll, which every current NVIDIA, AMD and Intel driver installs.
+  VULKAN_SDK_VERSION: 1.4.313.2
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
 
@@ -79,8 +83,10 @@ jobs:
           if ($report -notmatch '(?m)^version: 1\.2\.3 ') { throw "a -p:Version=1.2.3 build did not report 1.2.3" }
 
   engine:
-    # whisper-server.exe from whisper.cpp source. x64 with MSVC and runtime CPU
-    # dispatch (one DLL per instruction set); arm64 cross-compiled with clang,
+    # whisper-server.exe from whisper.cpp source. x64 with MSVC, runtime CPU
+    # dispatch (one DLL per instruction set) and the Vulkan GPU backend
+    # (ggml-vulkan.dll, loaded only when a Vulkan driver is present; without
+    # one whisper runs on the CPU as before); arm64 cross-compiled with clang,
     # as whisper.cpp's own release does. OpenMP off, so the only runtime DLLs
     # needed are the MSVC ones copied next to the exe.
     runs-on: windows-2022
@@ -95,12 +101,21 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.arch == 'arm64' && 'amd64_arm64' || 'amd64' }}
+      - name: Install the Vulkan SDK (x64)
+        if: matrix.arch == 'x64'
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'vulkansdk.exe'
+          curl.exe -fsSL -o $installer "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkansdk-windows-X64-$env:VULKAN_SDK_VERSION.exe"
+          & $installer --accept-licenses --default-answer --confirm-command install
+          if ($LASTEXITCODE -ne 0) { throw "Vulkan SDK installer exited with $LASTEXITCODE" }
+          Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_SDK_VERSION"
+          Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$env:VULKAN_SDK_VERSION\bin"
       - name: Build (x64)
         if: matrix.arch == 'x64'
         working-directory: whisper.cpp
         run: |
           cmake -S . -B build -A x64 -DBUILD_SHARED_LIBS=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF `
-            -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
+            -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON -DGGML_VULKAN=ON -DWHISPER_SDL2=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=ON
           cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS --target whisper-server
       - name: Build (arm64)
         if: matrix.arch == 'arm64'
