@@ -13,7 +13,7 @@ whatever text field you are in. No account needed.
 | macOS (Intel) | [Download](https://talkflow.live/download/mac-intel) |
 | Windows | [Download](https://talkflow.live/download/windows) |
 
-Requires macOS 13 or later. Windows is in progress (the Windows page says when it is ready).
+Requires macOS 13 or later, or Windows 10 (1809) or later.
 
 The app is not notarized yet, so macOS asks you to confirm the first time you
 open a downloaded copy.

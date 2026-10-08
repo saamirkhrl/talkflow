@@ -52,8 +52,8 @@ function PriceCompare() {
   );
 }
 
-// Desktop visitors get the button for their own OS: on a Mac it downloads the
-// latest build straight away; on Windows it says the Windows build is coming.
+// Desktop visitors get the button for their own OS, which opens the chooser
+// for its builds (while WINDOWS_AVAILABLE is off, Windows says it is coming).
 // Under it, the one-line Terminal install and a menu of every build. Phones
 // can't run talkflow, so they get a way to carry the link to a computer
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
@@ -228,7 +228,7 @@ function CopyLink({ align, compare }: { align: "center" | "start"; compare: bool
         {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
         {copied ? "Link copied" : "Copy link for your computer"}
       </button>
-      <p className="text-[15px] text-graphite">talkflow runs on your computer, not your phone. Open this page on your Mac to download it.</p>
+      <p className="text-[15px] text-graphite">talkflow runs on your computer, not your phone. Open this page on your Mac or PC to download it.</p>
     </div>
   );
 }

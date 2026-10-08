@@ -125,6 +125,12 @@ export function DownloadChooser({ os }: { os: Os }) {
         </div>
 
         {ready && <p className="mt-6 max-w-[64ch] text-[15px] leading-[1.6] text-graphite">{HOW_TO_CHECK[os]}</p>}
+        {os === "windows" && ready && (
+          <p className="mt-4 max-w-[64ch] text-[15px] leading-[1.6] text-graphite">
+            The installer is not code-signed yet, so Windows may say it &quot;protected your PC&quot;. Click{" "}
+            <strong className="font-medium text-ink">More info</strong>, then <strong className="font-medium text-ink">Run anyway</strong>.
+          </p>
+        )}
         {os === "mac" && (
           <p className="mt-4 max-w-[64ch] text-[15px] leading-[1.6] text-graphite">
             Or install from Terminal: <code className="rounded bg-mist px-1.5 py-0.5 font-mono text-[13px] text-ink">curl -fsSL https://talkflow.live{INSTALL_SCRIPT_PATH} | bash</code>

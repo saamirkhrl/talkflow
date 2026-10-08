@@ -2,7 +2,7 @@ import { CloudOff, Cpu, Mic, TextCursorInput } from "lucide-react";
 import { REPO_URL } from "./content";
 
 const FACTS = [
-  ["Runs on your Mac", "Speech is recognized by OpenAI's Whisper model, running through whisper.cpp on your own processor."],
+  ["Runs on your computer", "Speech is recognized by OpenAI's Whisper model, running through whisper.cpp on your own processor."],
   ["No cloud, no account", "No sign-in, no analytics and no crash reports. It works the same with Wi-Fi off; when you're online it only asks GitHub whether there's a newer version."],
   ["Audio is never saved", "Your voice is kept in memory only, never written to disk, and replaced by your next dictation."],
   ["Open source", "Every line is public under the MIT License, so you don't have to take our word for any of this."],
@@ -10,7 +10,7 @@ const FACTS = [
 
 const NODES = [
   { icon: Mic, label: "Your voice" },
-  { icon: Cpu, label: "Speech engine on your Mac" },
+  { icon: Cpu, label: "Speech engine on your computer" },
   { icon: TextCursorInput, label: "Text at your cursor" },
 ];
 
@@ -20,7 +20,7 @@ export function Privacy() {
       <div className="mx-auto max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-ink px-gutter py-[clamp(72px,10vw,128px)] text-paper">
         <div className="mx-auto max-w-[1072px]">
           <h2 className="max-w-[13ch] font-serif text-[clamp(40px,6vw,80px)] leading-[0.98] font-normal tracking-[-0.025em]">
-            Your voice never leaves your Mac.
+            Your voice never leaves your computer.
           </h2>
           <p className="mt-6 max-w-[50ch] text-[18px] text-fog">
             talkflow sends your audio to exactly one place: a speech engine running on your own computer. Nothing is uploaded,
@@ -29,7 +29,7 @@ export function Privacy() {
 
           <div className="mt-14 flex flex-wrap items-center gap-6">
             <div className="relative flex flex-[1_1_560px] flex-wrap items-center justify-between gap-5 rounded-3xl border border-paper/15 px-6 pt-10 pb-7 sm:px-8">
-              <span className="absolute -top-3 left-6 bg-ink px-2 text-[14px] text-fog">Your Mac</span>
+              <span className="absolute -top-3 left-6 bg-ink px-2 text-[14px] text-fog">Your computer</span>
               {NODES.map(({ icon: Icon, label }, i) => (
                 <div key={label} className="contents">
                   {i > 0 && <span aria-hidden="true" className="h-px min-w-6 flex-[0_1_64px] bg-paper/30" />}

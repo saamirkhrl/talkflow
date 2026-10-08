@@ -18,13 +18,13 @@ export const INSTALL_SCRIPT_PATH = "/install.sh";
 // without permission. Set to false to show text-only download buttons.
 export const SHOW_OS_LOGOS = true;
 
-// There is no Windows build yet (see the FAQ). While this is false the site
-// offers only the Mac download and says Windows is coming, instead of
-// advertising a Windows download that doesn't exist.
-export const WINDOWS_AVAILABLE: boolean = false;
+// The Windows installers are attached to every release by
+// .github/workflows/windows.yml. Set this to false to offer only the Mac
+// download and say Windows is coming instead.
+export const WINDOWS_AVAILABLE: boolean = true;
 // A native Windows on Arm build. While false, the Arm choice serves the x64
 // installer, which Windows on Arm runs through its built-in emulation.
-export const WINDOWS_ARM64_AVAILABLE: boolean = false;
+export const WINDOWS_ARM64_AVAILABLE: boolean = true;
 
 // Every build the site offers, by the path it is served from:
 // talkflow.live/download/<id> redirects to that release asset (see
@@ -105,7 +105,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Which key do I hold?",
-    "fn, the Globe key in the bottom-left corner of Mac keyboards. Hold it while you talk and let go when you're done.",
+    "On a Mac, fn, the Globe key in the bottom-left corner of Mac keyboards. On Windows, Ctrl + Win (you can change it in Settings). Hold it while you talk and let go when you're done.",
   ],
   [
     "Does it rewrite what I say?",
@@ -121,7 +121,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "What do I need to run it?",
-    "A Mac with macOS 13 or later. It's built and tested on Apple silicon. The speech model needs about 500 MB of disk space. A Windows version is planned.",
+    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, x64 or Arm. The speech model needs about 500 MB of disk space.",
   ],
 ];
 
