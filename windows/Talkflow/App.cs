@@ -379,20 +379,21 @@ sealed class App : Application
     /// Times large-v3-turbo on a 1 s clip of silence. Whisper encodes a full
     /// 30 s window whatever the length, so this is about the least any final
     /// pass costs; on a PC where that is seconds, every dictation would wait.
+    /// The second of two runs counts: on a GPU the first one also prepares
+    /// its programs (7.6 s, then 0.13 s, on an RTX 4070).
     /// </summary>
     async Task MeasureFinalPass()
     {
-        var clip = Wav.FromSamples(new short[Recorder.SampleRate], Recorder.SampleRate);
-        var (result, failure) = await Transcriber.Transcribe(clip, SpeechEngine.Large.InferenceUrl, TimeSpan.FromSeconds(30), "");
-        if (result is null)
+        double? elapsed = await TimeClip(SpeechEngine.Large.InferenceUrl);
+        if (elapsed is not { } seconds)
         {
-            Log.Write($"final-pass model: the speed test failed ({failure?.Message}); using it anyway");
+            Log.Write("final-pass model: the speed test got no answer; using it anyway");
             return;
         }
-        FinalPassTooSlow = result.Elapsed > FinalPassBudgetSeconds;
+        FinalPassTooSlow = seconds > FinalPassBudgetSeconds;
         Log.Write(FinalPassTooSlow
-            ? $"final-pass model: a 1 s clip took {result.Elapsed:F1}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
-            : $"final-pass model: a 1 s clip took {result.Elapsed:F1}s, using it for the final text");
+            ? $"final-pass model: a 1 s clip took {seconds:F2}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
+            : $"final-pass model: a 1 s clip took {seconds:F2}s, using it for the final text");
         EngineChanged?.Invoke();
     }
 

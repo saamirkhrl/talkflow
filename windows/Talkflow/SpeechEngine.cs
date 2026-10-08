@@ -186,6 +186,12 @@ sealed class WhisperServer
     {
         string output;
         lock (_startOutput) output = _startOutput.ToString();
+        // "ggml_vulkan: 0 = NVIDIA GeForce RTX 4070 (NVIDIA) | uma: 0 | ..." names the card; whisper's own line does not.
+        foreach (var line in output.Split('\n'))
+        {
+            int named = line.IndexOf("ggml_vulkan: 0 = ", StringComparison.Ordinal);
+            if (named >= 0 && !_cpuOnly) return line[(named + 17)..].Split('|')[0].Trim();
+        }
         foreach (var line in output.Split('\n'))
         {
             // "whisper_backend_init_gpu: device 0: Vulkan0 (NVIDIA GeForce RTX 4070) (type: 1)" or "...: CPU (type: 0)"
