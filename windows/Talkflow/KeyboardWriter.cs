@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 using Talkflow.Core.Text;
 using Forms = System.Windows.Forms;
@@ -41,6 +43,18 @@ static class KeyboardWriter
     const int PasteRestoreMs = 750;
     /// <summary>How long a paste waits for the user to let go of Ctrl, Shift, Alt and Win.</summary>
     const int ModifierWaitMs = 1000;
+
+    /// <summary>
+    /// Apps that get keystrokes even for long text: terminals and editors where
+    /// Ctrl+V is not paste (mintty, the Git Bash window, and PuTTY send it to the
+    /// shell as ^V), and remote desktops and VMs, which forward keys to another
+    /// computer whose clipboard may not have caught up yet.
+    /// </summary>
+    static readonly HashSet<string> NeverPaste = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mintty", "putty", "kitty", "alacritty", "wezterm-gui", "emacs", "runemacs", "gvim",
+        "mstsc", "msrdc", "vmconnect", "vmware", "VirtualBoxVM", "wfica32", "CDViewer", "vncviewer", "tvnviewer",
+    };
 
     const ushort VK_BACK = 0x08, VK_RETURN = 0x0D, VK_SHIFT = 0x10, VK_CONTROL = 0x11, VK_MENU = 0x12, VK_LWIN = 0x5B, VK_RWIN = 0x5C, VK_V = 0x56;
 
@@ -110,6 +124,12 @@ static class KeyboardWriter
     /// <summary>Ctrl+V with the text on the clipboard, then the user's clipboard back. False when it could not paste; nothing was written then.</summary>
     static bool Paste(string text)
     {
+        var app = FocusTarget.Current().ProcessName;
+        if (app is not null && NeverPaste.Contains(app))
+        {
+            Log.Write($"paste: {app} does not take Ctrl+V as paste, typing instead");
+            return false;
+        }
         var waited = Stopwatch.StartNew();
         while (ModifierHeld() && waited.ElapsedMilliseconds < ModifierWaitMs) Thread.Sleep(20);
         if (ModifierHeld())
@@ -143,13 +163,26 @@ static class KeyboardWriter
             return false;
         }
         uint ours = Native.GetClipboardSequenceNumber();
-        Send(Native.Key(VK_CONTROL, false), Native.Key(VK_V, false), Native.Key(VK_V, true), Native.Key(VK_CONTROL, true));
+        // Saving the clipboard can take a moment; a key pressed meanwhile would turn Ctrl+V into another shortcut.
+        if (ModifierHeld())
+        {
+            Log.Write("paste: a modifier key was pressed, typing instead");
+            Restore(saved);
+            return false;
+        }
+        Send(Native.KeyWithScan(VK_CONTROL, false), Native.KeyWithScan(VK_V, false), Native.KeyWithScan(VK_V, true), Native.KeyWithScan(VK_CONTROL, true));
         Thread.Sleep(PasteRestoreMs);
         if (Native.GetClipboardSequenceNumber() != ours)
         {
             Log.Write("paste: the clipboard changed after the paste; left as it is");
             return true;
         }
+        Restore(saved);
+        return true;
+    }
+
+    static void Restore(Forms.IDataObject? saved)
+    {
         try
         {
             if (saved is null) Forms.Clipboard.Clear();
@@ -159,28 +192,75 @@ static class KeyboardWriter
         {
             Log.Write($"paste: could not put the clipboard back ({e.Message})");
         }
-        return true;
     }
 
-    /// <summary>A copy of every format on the clipboard that can be read, or null when it is empty.</summary>
+    /// <summary>
+    /// A copy of every format on the clipboard that can be read as plain
+    /// memory, byte for byte, or null when it is empty. Never through
+    /// IDataObject.GetData: for a custom format WinForms would run the bytes
+    /// (which any app or web page can put there) through BinaryFormatter.
+    /// Formats held as GDI objects are skipped; Windows makes the bitmap again
+    /// from the DIB bytes. The copy is kept out of clipboard history, which
+    /// already has the original.
+    /// </summary>
     static Forms.IDataObject? Save(Forms.IDataObject? current)
     {
-        if (current is null) return null;
+        if (current is not IDataObject com) return null;
         var formats = current.GetFormats(false);
         if (formats.Length == 0) return null;
         var copy = new Forms.DataObject();
         foreach (var format in formats)
         {
-            try
-            {
-                if (current.GetData(format, false) is { } value) copy.SetData(format, false, value);
-            }
-            catch (Exception)
-            {
-                // Some formats are rendered on demand by the app that copied them and cannot be read back.
-            }
+            if (ReadBytes(com, format) is { } bytes) copy.SetData(format, false, new MemoryStream(bytes));
+        }
+        foreach (var marker in new[] { "ExcludeClipboardContentFromMonitorProcessing", "CanIncludeInClipboardHistory", "CanUploadToCloudClipboard" })
+        {
+            if (!copy.GetDataPresent(marker, false)) copy.SetData(marker, false, new MemoryStream(new byte[4]));
         }
         return copy;
+    }
+
+    static byte[]? ReadBytes(IDataObject data, string format)
+    {
+        var request = new FORMATETC
+        {
+            cfFormat = unchecked((short)Forms.DataFormats.GetFormat(format).Id),
+            dwAspect = DVASPECT.DVASPECT_CONTENT,
+            lindex = -1,
+            tymed = TYMED.TYMED_HGLOBAL,
+        };
+        try
+        {
+            if (data.QueryGetData(ref request) != 0) return null;
+            data.GetData(ref request, out var medium);
+            try
+            {
+                if (medium.tymed != TYMED.TYMED_HGLOBAL || medium.unionmember == IntPtr.Zero) return null;
+                long size = (long)Native.GlobalSize(medium.unionmember);
+                if (size <= 0 || size > int.MaxValue) return null;
+                var memory = Native.GlobalLock(medium.unionmember);
+                if (memory == IntPtr.Zero) return null;
+                try
+                {
+                    var bytes = new byte[size];
+                    Marshal.Copy(memory, bytes, 0, (int)size);
+                    return bytes;
+                }
+                finally
+                {
+                    Native.GlobalUnlock(medium.unionmember);
+                }
+            }
+            finally
+            {
+                Native.ReleaseStgMedium(ref medium);
+            }
+        }
+        catch (Exception)
+        {
+            // Some formats are rendered on demand by the app that copied them and cannot be read back.
+            return null;
+        }
     }
 
     static void Send(params Native.INPUT[] inputs)

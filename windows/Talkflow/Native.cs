@@ -110,6 +110,30 @@ static class Native
         U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, dwFlags = (up ? KEYEVENTF_KEYUP : 0) | (extended ? KEYEVENTF_EXTENDEDKEY : 0), dwExtraInfo = InjectedTag } },
     };
 
+    /// <summary>A key with its scan code as well, as a real keyboard sends it: remote desktops and VMs forward scan codes.</summary>
+    public static INPUT KeyWithScan(ushort vk, bool up) => new()
+    {
+        type = INPUT_KEYBOARD,
+        U = new InputUnion { ki = new KEYBDINPUT { wVk = vk, wScan = (ushort)MapVirtualKey(vk, MAPVK_VK_TO_VSC), dwFlags = up ? KEYEVENTF_KEYUP : 0, dwExtraInfo = InjectedTag } },
+    };
+
+    public const uint MAPVK_VK_TO_VSC = 0;
+
+    [DllImport("user32.dll")]
+    public static extern uint MapVirtualKey(uint code, uint mapType);
+
+    [DllImport("kernel32.dll")]
+    public static extern UIntPtr GlobalSize(IntPtr hMem);
+
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GlobalLock(IntPtr hMem);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool GlobalUnlock(IntPtr hMem);
+
+    [DllImport("ole32.dll")]
+    public static extern void ReleaseStgMedium(ref System.Runtime.InteropServices.ComTypes.STGMEDIUM medium);
+
     public static INPUT Unicode(char c, bool up) => new()
     {
         type = INPUT_KEYBOARD,
