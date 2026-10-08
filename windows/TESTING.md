@@ -1,6 +1,6 @@
 # Testing talkflow on a Windows PC
 
-CI already installs every build and dictates with it on x64 and Arm
+CI already installs every build and dictates with it on x64
 (`windows/tests/e2e.ps1`, the `e2e` job in `.github/workflows/windows.yml`).
 CI runners have no microphone, no Bluetooth headset and no real user, though,
 so these checks need a person and a real PC.
@@ -10,7 +10,7 @@ so these checks need a person and a real PC.
 - A release: <https://talkflow.live/download/windows>, or the
   `talkflow-windows-<arch>-setup.exe` assets on GitHub Releases.
 - A pull request build: open the PR's **Windows** check, then **Summary**,
-  then download `installer-x64` (or `installer-arm64` on an Arm PC). It is a
+  then download `installer-x64` (it runs on Arm PCs too). It is a
   zip with the installer inside. These builds say "dev build" and a commit in
   the dashboard instead of a version number.
 

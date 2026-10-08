@@ -3,7 +3,7 @@ import { DownloadChooser } from "@/components/landing/DownloadChooser";
 
 export const metadata: Metadata = {
   title: "Download for Windows",
-  description: "Download talkflow for Windows: x64 or Arm.",
+  description: "Download talkflow for Windows 10 and 11. One installer for every PC.",
 };
 
 export default function DownloadWindowsPage() {

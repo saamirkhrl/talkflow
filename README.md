@@ -143,8 +143,9 @@ The marketing site is a Next.js app in `client/`.
 
 The Windows app lives in `windows/` and is built by
 `.github/workflows/windows.yml`, which attaches
-`talkflow-windows-x64-setup.exe` and `talkflow-windows-arm64-setup.exe` to
-each release. Windows 10 (1809) or later.
+`talkflow-windows-x64-setup.exe` to each release. There is one Windows build,
+x64: it runs on every Windows 10 (1809) or later PC, Arm PCs included, through
+Windows' built-in emulation.
 
 - **Install:** run the installer. It installs for your account only, no
   administrator rights, to `%LOCALAPPDATA%\Programs\talkflow`. The installer is

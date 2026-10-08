@@ -9,15 +9,14 @@ import { BUILDS, INSTALL_SCRIPT_PATH, WINDOWS_AVAILABLE, type BuildId } from "./
 type Os = "mac" | "windows";
 type Arch = "arm" | "x86" | null;
 
-const CHOICES: Record<Os, [BuildId, BuildId]> = {
+const CHOICES: Record<Os, BuildId[]> = {
   mac: ["mac-apple-silicon", "mac-intel"],
-  windows: ["windows-x64", "windows-arm64"],
+  windows: ["windows-x64"],
 };
 const ARCH_OF: Record<BuildId, Arch> = {
   "mac-apple-silicon": "arm",
   "mac-intel": "x86",
   "windows-x64": "x86",
-  "windows-arm64": "arm",
 };
 
 // Best guess at this computer's processor, or null when the browser won't
@@ -52,8 +51,8 @@ const HOW_TO_CHECK: Record<Os, React.ReactNode> = {
   ),
   windows: (
     <>
-      Not sure? Open <strong className="font-medium text-ink">Settings &gt; System &gt; About</strong> and look at{" "}
-      <em>System type</em>. &quot;x64-based processor&quot; means x64; &quot;ARM-based processor&quot; means Arm.
+      One installer for every Windows PC. On a PC with an Arm processor (Snapdragon and similar) Windows runs it
+      through its built-in emulation, so it works there too, only a little slower to start dictating.
     </>
   ),
 };
@@ -80,10 +79,11 @@ export function DownloadChooser({ os }: { os: Os }) {
             : "The Windows version is being built. Check back soon, or use talkflow on a Mac today."}
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+        <div className={cn("mt-10 grid gap-4", CHOICES[os].length > 1 && "sm:grid-cols-2")}>
           {CHOICES[os].map((id) => {
             const build = BUILDS[id];
-            const recommended = ready && arch !== null && ARCH_OF[id] === arch;
+            // Only when there is a real choice: one build is the build.
+            const recommended = ready && CHOICES[os].length > 1 && arch !== null && ARCH_OF[id] === arch;
             const body = (
               <>
                 <span className="flex items-center justify-between gap-3">

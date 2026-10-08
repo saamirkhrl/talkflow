@@ -31,8 +31,7 @@ non-prerelease release, so the URL never changes.
     },
     "windows": {
       "x64":   { "update": { "name": "talkflow-windows-x64-setup.exe", "...": "..." },
-                 "installer": { "name": "talkflow-windows-x64-setup.exe", "...": "..." } },
-      "arm64": { "...": "..." }
+                 "installer": { "name": "talkflow-windows-x64-setup.exe", "...": "..." } }
     },
     "linux": {}
   }
@@ -63,7 +62,6 @@ The names are fixed. The website links to
 | `talkflow-macos.zip` | macos / universal | update |
 | `talkflow-macos.dmg` | macos / universal | installer |
 | `talkflow-windows-x64-setup.exe` | windows / x64 | update, installer |
-| `talkflow-windows-arm64-setup.exe` | windows / arm64 | update, installer |
 | `talkflow-linux-x64.AppImage` | linux / x64 | update, installer (reserved) |
 | `talkflow-linux-arm64.AppImage` | linux / arm64 | update, installer (reserved) |
 
@@ -82,8 +80,9 @@ Any other asset on a release (and the manifest itself) is left out.
   app checks the downloaded zip's sha256 against the expected one and refuses
   to install on a mismatch ("The download did not match the release's
   checksum, so it was not installed").
-- **Windows** reads `platforms.windows.<arch>.update`, where `<arch>` is `x64`
-  or `arm64`.
+- **Windows** reads `platforms.windows.x64.update`. Windows ships one build,
+  x64, for every PC; Windows on Arm runs it through emulation. (Releases up to
+  0.1.4 may also carry `talkflow-windows-arm64-setup.exe`; nothing reads it now.)
 - **Linux**, when it exists, reads `platforms.linux.<arch>.update`.
 
 ### When the Mac app checks

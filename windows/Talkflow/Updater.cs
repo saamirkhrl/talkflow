@@ -80,9 +80,8 @@ sealed class Updater
             ? $"{latest} has no Windows build yet"
             : "Up to date";
 
-    /// <summary>"x64" or "arm64": the build this process is. An x64 build on an Arm PC still asks for arm64 first.</summary>
-    public static string Architecture =>
-        RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "arm64" : "x64";
+    /// <summary>Windows ships one build, x64, for every PC (Windows on Arm emulates it), so updates are always the x64 installer.</summary>
+    public static string Architecture => "x64";
 
     public Task CheckIfStale() =>
         DateTime.UtcNow - _lastCheck < TimeSpan.FromHours(6) || State is Phase.Checking ? Task.CompletedTask : Check();
