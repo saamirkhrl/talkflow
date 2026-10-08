@@ -34,12 +34,14 @@ sealed class App : Application
     public bool FinalPassReady { get; private set; }
     /// <summary>
     /// large-v3-turbo is loaded but too slow on this PC to wait for (a 1 s
-    /// clip took over FinalPassBudgetSeconds); the final text comes from small.en.
+    /// clip took over DevicePolicy.FinalPassBudgetSeconds); the final text comes from small.en.
     /// </summary>
     public bool FinalPassTooSlow { get; private set; }
     public bool FinalPassUsable => FinalPassReady && !FinalPassTooSlow;
-    /// <summary>The longest a 1 s clip may take on large-v3-turbo for the final pass to be used.</summary>
-    public const double FinalPassBudgetSeconds = 2.0;
+    /// <summary>How long small.en takes for a 1 s clip on this PC; null until measured.</summary>
+    public double? SmallSeconds { get; private set; }
+    /// <summary>Live captions (and typing while speaking) run unless this PC is too slow for them to keep up with the final text.</summary>
+    public bool LivePreviews => DevicePolicy.LivePreviews(SmallSeconds);
     /// <summary>Whether small.en's server is being started right now.</summary>
     public bool EngineStarting => _engineStart is { IsCompleted: false };
     /// <summary>Why the speech engine is not running, for the pill and setup; null while it runs or starts.</summary>
@@ -390,9 +392,9 @@ sealed class App : Application
             Log.Write("final-pass model: the speed test got no answer; using it anyway");
             return;
         }
-        FinalPassTooSlow = seconds > FinalPassBudgetSeconds;
+        FinalPassTooSlow = seconds > DevicePolicy.FinalPassBudgetSeconds;
         Log.Write(FinalPassTooSlow
-            ? $"final-pass model: a 1 s clip took {seconds:F2}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
+            ? $"final-pass model: a 1 s clip took {seconds:F2}s (budget {DevicePolicy.FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
             : $"final-pass model: a 1 s clip took {seconds:F2}s, using it for the final text");
         EngineChanged?.Invoke();
     }

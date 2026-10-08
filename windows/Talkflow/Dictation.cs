@@ -34,14 +34,20 @@ sealed class Dictation
     readonly FieldSync _field = new();
     readonly DispatcherTimer _preview;
     readonly DispatcherTimer _watchdog;
+    readonly DispatcherTimer _starting;
 
-    const double MinDuration = 0.3;
+    /// <summary>A microphone that has delivered nothing this long after the press gets the "starting" pill; a warm one delivers in under 50 ms.</summary>
+    const int StartingPillMs = 150;
     /// <summary>How long the microphone keeps listening after release, for the last word still on its way.</summary>
     const int TailMs = 250;
     /// <summary>A preview slower than this pauses the live caption for the rest of the hold (a slow PC).</summary>
     const double PreviewBudgetSeconds = 2.5;
 
     bool _recording;
+    /// <summary>Finishes under way: a hold's transcription can still run when the next hold has begun.</summary>
+    int _finishing;
+    bool _heard;
+    bool _startingShown;
     DateTime? _startedAt;
     FocusTarget? _target;
     string _lastStreamed = "";
@@ -59,10 +65,17 @@ sealed class Dictation
 
     public bool IsRecording => _recording;
 
+    /// <summary>A hold is being recorded or its text is still being worked out: not a moment to time or start a model.</summary>
+    public bool InFlight => _recording || _finishing > 0;
+
+    /// <summary>Counts every hold's start and end, so a speed test can tell whether a dictation overlapped it.</summary>
+    public int Activity { get; private set; }
+
     public Dictation(App app)
     {
         _app = app;
         _recorder.Level += level => _app.Dispatcher.BeginInvoke(() => _app.Overlay.PushLevel(level));
+        _recorder.FirstAudio += () => _app.Dispatcher.BeginInvoke(OnFirstAudio);
         _recorder.Failed += message => _app.Dispatcher.BeginInvoke(() =>
         {
             if (!_recording) return;
@@ -70,6 +83,7 @@ sealed class Dictation
             _app.Overlay.ShowError("Could not use the microphone: " + message);
         });
         _preview = new DispatcherTimer(TimeSpan.FromSeconds(0.7), DispatcherPriority.Normal, (_, _) => TickPreview(), app.Dispatcher) { IsEnabled = false };
+        _starting = new DispatcherTimer(TimeSpan.FromMilliseconds(StartingPillMs), DispatcherPriority.Normal, (_, _) => ShowStarting(), app.Dispatcher) { IsEnabled = false };
         // A key-up Windows never delivered (the lock screen) must not leave a hold running.
         _watchdog = new DispatcherTimer(TimeSpan.FromMilliseconds(250), DispatcherPriority.Normal, (_, _) =>
         {
@@ -115,6 +129,9 @@ sealed class Dictation
         }
 
         _recording = true;
+        Activity++;
+        _heard = false;
+        _startingShown = false;
         _startedAt = DateTime.UtcNow;
         _field.Reset();
         _stream.Reset();
@@ -123,7 +140,7 @@ sealed class Dictation
         _leadingSpace = "";
         _liveTyping = _app.Settings.TypeWhileSpeaking;
         _style = _app.Settings.WritingStyle;
-        _previewsPaused = false;
+        _previewsPaused = !_app.LivePreviews;
         _previews = 0;
         _slowestPreview = 0;
         steps.Next("focus");
@@ -131,6 +148,7 @@ sealed class Dictation
 
         steps.Next("start recorder");
         _recorder.Start(); // returns at once; the device opens on the microphone thread
+        _starting.Start();
         steps.Next("tray");
         _app.Tray.SetState(TrayState.Recording);
         steps.Next("pill");
@@ -140,6 +158,28 @@ sealed class Dictation
         steps.Next("screen context");
         ReadContext();
         steps.End($"recording into {_target.ProcessName ?? "unknown"}" + (_liveTyping ? ", typing while speaking" : ""));
+    }
+
+    /// <summary>StartingPillMs after the press and still nothing from the microphone: tell the user to wait.</summary>
+    void ShowStarting()
+    {
+        _starting.Stop();
+        if (!_recording || _heard) return;
+        _startingShown = true;
+        _app.Overlay.ShowStarting();
+        Log.Write("pill: Starting microphone...");
+    }
+
+    /// <summary>The device delivered its first buffer: if the pill said it was starting, it now says speak.</summary>
+    void OnFirstAudio()
+    {
+        if (!_recording) return;
+        _heard = true;
+        _starting.Stop();
+        if (!_startingShown) return;
+        _startingShown = false;
+        _app.Overlay.MicrophoneReady();
+        Log.Write($"microphone ready {(_startedAt is { } at ? (DateTime.UtcNow - at).TotalMilliseconds : 0):F0} ms after the press");
     }
 
     /// <summary>Ends a hold without inserting anything (another shortcut was pressed, or the microphone failed).</summary>
@@ -158,6 +198,7 @@ sealed class Dictation
     public async void Finish()
     {
         if (!_recording) return;
+        _finishing++;
         try
         {
             await FinishHold();
@@ -169,6 +210,11 @@ sealed class Dictation
             UiWatchdog.Step = "idle";
             Dismiss();
             _app.Overlay.ShowError("Something went wrong finishing this dictation: " + e.Message);
+        }
+        finally
+        {
+            _finishing--;
+            Activity++;
         }
     }
 
@@ -182,27 +228,28 @@ sealed class Dictation
         steps.Next("stop recorder");
         var capture = await _recorder.Stop(TailMs);
         var wav = capture.Wav;
-        if (duration < MinDuration)
+        // Decided before anything reaches the engine: it answers HTTP 400 to an
+        // empty recording, and takes 3 to 5 s on a slow PC to find nothing in a
+        // silent one. What is said depends on why there is nothing to send.
+        var sound = capture.Sound;
+        var hold = HoldCheck.Classify(new HoldCheck.Facts(duration, capture.Buffers, capture.Seconds, sound));
+        if (hold != HoldOutcome.Speech)
         {
             Dismiss();
-            steps.End($"hold was {duration:F2}s, discarded as an accidental tap");
-            return;
-        }
-        // Nothing to transcribe: the engine would only answer HTTP 400 to an
-        // empty recording, which says nothing about the microphone.
-        string microphone = capture.Device ?? "the microphone";
-        if (capture.Buffers == 0)
-        {
-            Dismiss();
-            _app.Overlay.ShowError($"No sound came from {microphone}. Check Settings > System > Sound > Input.");
-            steps.End($"no audio from the microphone ({capture.Device ?? "unnamed"}) in {duration:F1}s, nothing sent to the engine");
-            return;
-        }
-        if (capture.Peak == 0)
-        {
-            Dismiss();
-            _app.Overlay.ShowError($"{microphone} sent only silence. It may be muted, or blocked in Privacy & security > Microphone.");
-            steps.End($"only digital silence from the microphone ({capture.Device ?? "unnamed"}) in {duration:F1}s, nothing sent to the engine");
+            if (HoldCheck.Message(hold, capture.Device) is { } message)
+            {
+                if (HoldCheck.IsError(hold)) _app.Overlay.ShowError(message);
+                else _app.Overlay.ShowNotice(message);
+            }
+            string device = capture.Device ?? "not opened yet";
+            steps.End(hold switch
+            {
+                HoldOutcome.TooShort => $"hold was {duration:F2}s, discarded as an accidental tap",
+                HoldOutcome.StillStarting => $"the hold ended after {duration:F1}s, before the microphone was delivering ({device}); nothing sent to the engine",
+                HoldOutcome.NoAudio => $"no audio from the microphone ({device}) in {duration:F1}s, nothing sent to the engine",
+                HoldOutcome.Muted => $"only digital silence from the microphone ({device}) in {duration:F1}s, nothing sent to the engine",
+                _ => $"too quiet to be speech: {sound.VoicedMs} ms of sound above {SpeechGate.VoicedRms:F4} RMS (loudest frame {sound.LoudestRms:F4}) in {capture.Seconds:F1}s of audio, nothing sent to the engine",
+            });
             return;
         }
 
@@ -364,13 +411,14 @@ sealed class Dictation
     async void TickPreview()
     {
         if (!_recording || _previewInFlight || _previewsPaused || _recorder.DurationSeconds < 0.5) return;
+        if (_recorder.SnapshotForPreview() is not { } snapshot) return; // nothing but a cold start so far
         _previewInFlight = true;
         int hold = _holdNumber;
         // No short timeout: whisper-server finishes a request even after the
         // client gives up, so an abandoned preview would only queue the next
         // one, and the final text, behind it. One preview at a time, always
         // waited for.
-        var (result, _) = await Transcriber.Transcribe(_recorder.SnapshotWav(), SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(120), Prompt);
+        var (result, _) = await Transcriber.Transcribe(snapshot, SpeechEngine.Small.InferenceUrl, TimeSpan.FromSeconds(120), Prompt);
         _previewInFlight = false;
         if (hold != _holdNumber) return;
         _previews++;
@@ -488,6 +536,7 @@ sealed class Dictation
     {
         _preview.Stop();
         _watchdog.Stop();
+        _starting.Stop();
     }
 
     void Dismiss()
