@@ -57,6 +57,11 @@ LicenseFile=..\..\LICENSE
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; Builds before the Vulkan backend moved to engine\vulkan\ had it next to
+; whisper-server.exe, where every start (even a CPU-only one) loads it.
+Type: files; Name: "{app}\engine\ggml-vulkan.dll"
+
 [Icons]
 Name: "{userprograms}\talkflow"; Filename: "{app}\talkflow.exe"; Comment: "Hold a key, speak, let go"
 

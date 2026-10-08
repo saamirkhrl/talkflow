@@ -15,7 +15,10 @@
 #   2. into talkflow's own setup window, the "Try it" box, letting go of Ctrl
 #      first (talkflow reading and typing into its own window);
 #   3. into Notepad again with "type while speaking" on;
-#   4. with a microphone that never sends audio (see SilentHold).
+#   4. with a microphone that never sends audio (see SilentHold);
+#   5. with a microphone that sends nothing and then never finishes closing
+#      (TALKFLOW_TEST_HANGING_MIC), followed by a normal dictation, which
+#      must still arrive: one stuck device must not take the next hold down.
 # Each one checks that the text arrived, that talkflow's windows kept
 # answering (a stuck UI thread does not answer WM_NULL), that the pill was on
 # screen while the keys were held and gone afterwards, that no key was left
@@ -178,6 +181,10 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     }
     Say "foreground: $([E2e]::Describe([E2e]::GetForegroundWindow()))"
     $logStart = (LogLines).Count
+    # A dictation is pasted with the user's clipboard saved and put back
+    # (KeyboardWriter.Paste); this must survive it.
+    $sentinel = "e2e clipboard $label $(Get-Random)"
+    Set-Clipboard -Value $sentinel
     $holdSeconds = [Math]::Ceiling($script:wavSeconds) + 1.5
     $slowest = 0; $unanswered = 0; $overlaySeen = $false
 
@@ -222,6 +229,16 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if ($overlayAfter) { Start-Sleep -Seconds 5; $overlayAfter = OverlayVisible $process }
 
     $newLines = @(LogLines | Select-Object -Skip $logStart)
+    # The release correction can still be writing (backspaces, then the
+    # paste, then the restore), so give the clipboard a moment to come back.
+    $script:clipboard = $null
+    [void](WaitFor {
+        $script:clipboard = Get-Clipboard -Raw
+        if ($null -ne $script:clipboard) { $script:clipboard = $script:clipboard.TrimEnd() }
+        $script:clipboard -eq $sentinel
+    } 5 'the clipboard to be put back')
+    $clipboard = $script:clipboard
+    $copiedInstead = @($newLines | Where-Object { $_ -match 'copied to the clipboard' }).Count -gt 0
     $stalls = @($newLines | Where-Object { $_ -match 'STALL' })
     $stuck = @([E2e]::VK_LWIN, [E2e]::VK_LCONTROL) | Where-Object { [E2e]::IsDown($_) }
 
@@ -230,6 +247,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
     Say "slowest window answer while holding: $slowest ms ($unanswered probes unanswered within 5 s); after: $($script:slowestAfter) ms ($($script:unansweredAfter) unanswered)"
     Say "pill seen while holding: $overlaySeen; still visible 5 s after: $overlayAfter"
+    Say "clipboard after: [$clipboard] (expected [$sentinel])"
     Say "talkflow.log during this dictation:"
     $newLines | ForEach-Object { Write-Host "    $_" }
 
@@ -239,6 +257,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     }
     if ($unanswered -gt 0 -or $script:unansweredAfter -gt 0) { Fail "${label}: talkflow's windows stopped answering ($unanswered while holding, $($script:unansweredAfter) after)" }
     if ($stalls.Count -gt 0) { Fail "${label}: talkflow.log reports $($stalls.Count) UI stall line(s)" }
+    if (-not $copiedInstead -and $clipboard -ne $sentinel) { Fail "${label}: the clipboard was not put back after the dictation: [$clipboard]" }
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
     if ($overlayAfter) { Fail "${label}: the pill was still on screen after the dictation" }
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }
@@ -250,8 +269,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
 # as one real USB microphone did. talkflow must say so in the pill, must not
 # send an empty recording to the engine (which answers HTTP 400), and must
 # type nothing.
-function SilentHold([IntPtr] $hwnd, [scriptblock] $read) {
-    $label = 'silent-mic'
+function SilentHold([IntPtr] $hwnd, [scriptblock] $read, [string] $label = 'silent-mic') {
     Say "=== $label ==="
     CloseIntruders
     $process = Talkflow
@@ -357,6 +375,16 @@ try {
     StartTalkflow
     SilentHold $note3 { ReadText $note3 }
     $env:TALKFLOW_TEST_SILENT_MIC = $null
+
+    # 5. A microphone that hangs on close, then a normal dictation.
+    StopTalkflow
+    $env:TALKFLOW_TEST_HANGING_MIC = '1'
+    StartTalkflow
+    $script:slowestAfter = 0; $script:unansweredAfter = 0
+    $note5 = OpenNotepad 'pass5'
+    SilentHold $note5 { ReadText $note5 } 'hanging-mic'
+    Dictate 'after-hanging-mic' $note5 { ReadText $note5 } 'win' $true
+    $env:TALKFLOW_TEST_HANGING_MIC = $null
 
     # Control, last (Windows 11 Notepad does not reopen quickly after being
     # closed, and opens files as tabs): the same kind of keystrokes talkflow

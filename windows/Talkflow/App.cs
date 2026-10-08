@@ -32,6 +32,14 @@ sealed class App : Application
 
     public bool EngineReady { get; private set; }
     public bool FinalPassReady { get; private set; }
+    /// <summary>
+    /// large-v3-turbo is loaded but too slow on this PC to wait for (a 1 s
+    /// clip took over FinalPassBudgetSeconds); the final text comes from small.en.
+    /// </summary>
+    public bool FinalPassTooSlow { get; private set; }
+    public bool FinalPassUsable => FinalPassReady && !FinalPassTooSlow;
+    /// <summary>The longest a 1 s clip may take on large-v3-turbo for the final pass to be used.</summary>
+    public const double FinalPassBudgetSeconds = 2.0;
     /// <summary>Whether small.en's server is being started right now.</summary>
     public bool EngineStarting => _engineStart is { IsCompleted: false };
     /// <summary>Why the speech engine is not running, for the pill and setup; null while it runs or starts.</summary>
@@ -77,6 +85,7 @@ sealed class App : Application
         }
 
         var app = new App { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.Resources[typeof(System.Windows.Controls.Primitives.ScrollBar)] = Ui.ThinScrollBar();
         app.Startup += (_, _) => app.Start(background: args.Contains("--background"), show, setup);
         app.DispatcherUnhandledException += (_, e) =>
         {
@@ -259,8 +268,75 @@ sealed class App : Application
         EngineReady = up;
         Log.Write(up ? "speech engine ready" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
         EngineChanged?.Invoke();
-        if (up) StartFinalPass();
+        if (up)
+        {
+            await ChooseDevice();
+            StartFinalPass();
+        }
         return up;
+    }
+
+    bool _deviceChosen;
+
+    /// <summary>
+    /// GPU or CPU, decided by measuring this PC, once per launch. whisper
+    /// runs on the GPU when the engine has a GPU backend and the driver offers
+    /// a device (as the Mac runs on Metal), but a weak integrated GPU can be
+    /// slower than a good CPU. So small.en times a 1 s clip where it runs, a
+    /// CPU-only copy on a spare port times the same clip, and the slower one
+    /// loses. The final-pass model starts after this, on the same device.
+    /// </summary>
+    async Task ChooseDevice()
+    {
+        if (_deviceChosen) return;
+        _deviceChosen = true;
+        var small = SpeechEngine.Small;
+        if (!small.OnGpu)
+        {
+            Log.Write($"device: {small.DeviceName}" + (SpeechEngine.HasGpuBackend ? " (no GPU offered by the driver)" : " (this engine has no GPU backend)"));
+            return;
+        }
+        double? gpu = await TimeClip(small.InferenceUrl);
+        var probe = new WhisperServer("small.en CPU check", 8180, "ggml-small.en.bin", small.DownloadUrl.ToString(), 1, small.ModelPath);
+        probe.UseCpu();
+        double? cpu = null;
+        try
+        {
+            if (await Task.Run(() => probe.Start(TimeSpan.FromSeconds(60)))) cpu = await TimeClip(probe.InferenceUrl);
+        }
+        finally
+        {
+            probe.Stop();
+        }
+        // The CPU has to win clearly: the GPU leaves the CPU to the app being typed into.
+        bool useCpu = gpu is null || cpu is not null && cpu < gpu * 0.8;
+        Log.Write($"device: a 1 s clip took {Seconds(gpu)} on {small.DeviceName}, {Seconds(cpu)} on the CPU; using the {(useCpu ? "CPU" : "GPU")}");
+        if (!useCpu) return;
+        SpeechEngine.Small.UseCpu();
+        SpeechEngine.Large.UseCpu();
+        while (_dictation.IsRecording) await Task.Delay(500); // never pull the engine out from under a hold
+        EngineReady = false;
+        EngineChanged?.Invoke();
+        SpeechEngine.Small.Stop();
+        EngineReady = await Task.Run(() => SpeechEngine.Small.Start(TimeSpan.FromSeconds(60)));
+        Log.Write(EngineReady ? "speech engine ready on the CPU" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
+        EngineChanged?.Invoke();
+    }
+
+    static string Seconds(double? s) => s is { } v ? $"{v:F2}s" : "(no answer)";
+
+    /// <summary>The second of two runs of a 1 s clip of silence: the first loads whatever the device loads lazily.</summary>
+    static async Task<double?> TimeClip(Uri server)
+    {
+        var clip = Wav.FromSamples(new short[Recorder.SampleRate], Recorder.SampleRate);
+        double? last = null;
+        for (int run = 0; run < 2; run++)
+        {
+            var (result, _) = await Transcriber.Transcribe(clip, server, TimeSpan.FromSeconds(30), "");
+            last = result?.Elapsed;
+            if (last is null) break;
+        }
+        return last;
     }
 
     /// <summary>A transcription found nothing listening: the server died. Starts it again.</summary>
@@ -287,6 +363,7 @@ sealed class App : Application
             }
             FinalPassReady = await Task.Run(() => SpeechEngine.Large.Start(TimeSpan.FromSeconds(60)));
             Log.Write(FinalPassReady ? "final-pass model ready" : "final-pass server did not answer; using small.en");
+            if (FinalPassReady) await MeasureFinalPass();
         }
         catch (Exception e)
         {
@@ -296,6 +373,28 @@ sealed class App : Application
         {
             _finalPassStarting = false;
         }
+    }
+
+    /// <summary>
+    /// Times large-v3-turbo on a 1 s clip of silence. Whisper encodes a full
+    /// 30 s window whatever the length, so this is about the least any final
+    /// pass costs; on a PC where that is seconds, every dictation would wait.
+    /// The second of two runs counts: on a GPU the first one also prepares
+    /// its programs (7.6 s, then 0.13 s, on an RTX 4070).
+    /// </summary>
+    async Task MeasureFinalPass()
+    {
+        double? elapsed = await TimeClip(SpeechEngine.Large.InferenceUrl);
+        if (elapsed is not { } seconds)
+        {
+            Log.Write("final-pass model: the speed test got no answer; using it anyway");
+            return;
+        }
+        FinalPassTooSlow = seconds > FinalPassBudgetSeconds;
+        Log.Write(FinalPassTooSlow
+            ? $"final-pass model: a 1 s clip took {seconds:F2}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
+            : $"final-pass model: a 1 s clip took {seconds:F2}s, using it for the final text");
+        EngineChanged?.Invoke();
     }
 
     // MARK: - Windows

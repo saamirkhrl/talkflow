@@ -341,12 +341,10 @@ sealed class DashboardWindow : Window
         panel.Children.Add(ModelsInUse());
 
         panel.Children.Add(Ui.Row("Type while speaking",
-            "Type words as you speak instead of when you let go.",
+            "Words appear as you speak.",
             Ui.Switch(settings.TypeWhileSpeaking, on => settings.TypeWhileSpeaking = on)));
         panel.Children.Add(Ui.Row("Accurate final pass",
-            SpeechEngine.Large.ModelIsComplete
-                ? "More accurate, a little slower."
-                : "More accurate, a little slower. Downloads 574 MB once.",
+            SpeechEngine.Large.ModelIsComplete ? "" : "Downloads 574 MB once.",
             Ui.Switch(settings.AccurateFinalPass, on => { settings.AccurateFinalPass = on; if (on) _app.StartFinalPass(); })));
         panel.Children.Add(Ui.Row("Start with Windows",
             "",
@@ -358,16 +356,16 @@ sealed class DashboardWindow : Window
         var openFolder = Ui.Button("Open folder", () =>
             Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Paths.DataDir}\"") { UseShellExecute = true }));
         panel.Children.Add(Ui.Row("Your data",
-            "Stats, settings and learned words. Kept if you uninstall.",
+            "Kept if you uninstall.",
             openFolder));
 
         panel.Children.Add(Ui.Row("Report a problem",
-            "Saves a zip to your Desktop with talkflow's version, setup checks, settings switches and recent logs, to attach to an issue or an email. It never includes what you dictated, your learned words or API keys.",
+            "Saves a zip to your Desktop. Never includes what you said.",
             Ui.Button("Save diagnostics", _app.ReportProblem)));
 
         var uninstall = Ui.Button("Uninstall...", ConfirmUninstall);
         panel.Children.Add(Ui.Row("Uninstall talkflow",
-            "Removes talkflow, its speech models, keys and logs. Your data stays.",
+            "Your data stays.",
             uninstall));
 
         return new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -413,15 +411,15 @@ sealed class DashboardWindow : Window
     FrameworkElement ModelsInUse()
     {
         var settings = _app.Settings;
-        string local = _app.FinalPassReady && settings.AccurateFinalPass ? "Whisper large-v3-turbo, on this PC" : "Whisper small.en, on this PC";
-        string final = settings.UseOpenAITranscription && ApiKeys.Has(ApiKeys.Provider.OpenAI) ? $"OpenAI {CloudTranscriber.Model}, your key" : local;
+        string local = _app.FinalPassUsable && settings.AccurateFinalPass ? "large-v3-turbo" : "small.en";
+        string final = settings.UseOpenAITranscription && ApiKeys.Has(ApiKeys.Provider.OpenAI) ? $"OpenAI {CloudTranscriber.Model}" : local;
         string punctuation = settings.UseClaudePunctuation && ApiKeys.Has(ApiKeys.Provider.Anthropic)
-            ? SettingsStore.ClaudeModels.First(m => m.Id == settings.ClaudeModel).Title + ", your key"
-            : "Built-in rules only";
+            ? SettingsStore.ClaudeModels.First(m => m.Id == settings.ClaudeModel).Title
+            : "Built-in";
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        var rows = new[] { ("Live caption", "Whisper small.en, on this PC"), ("Final text", final), ("Punctuation", punctuation) };
+        var rows = new[] { ("Live caption", "small.en"), ("Final text", final), ("Punctuation", punctuation) };
         for (int i = 0; i < rows.Length; i++)
         {
             grid.RowDefinitions.Add(new RowDefinition());
@@ -434,7 +432,7 @@ sealed class DashboardWindow : Window
             grid.Children.Add(model);
         }
         var stack = new StackPanel();
-        var title = Ui.Title("Models in use");
+        var title = Ui.Title("Models");
         title.Margin = new Thickness(0, 0, 0, 6);
         stack.Children.Add(title);
         stack.Children.Add(grid);
@@ -448,17 +446,17 @@ sealed class DashboardWindow : Window
         var settings = _app.Settings;
         var panel = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
         panel.Children.Add(Ui.Title("Your own API keys"));
-        var intro = Ui.Detail("Optional. Stored in Credential Manager and billed to your account.");
+        var intro = Ui.Detail("Optional. Billed to your account.");
         intro.Margin = new Thickness(0, 4, 0, 12);
         panel.Children.Add(intro);
 
         panel.Children.Add(KeyRow(ApiKeys.Provider.OpenAI, "sk-..."));
-        panel.Children.Add(Ui.Row("Use my OpenAI key for transcription",
-            $"{CloudTranscriber.Model} writes the final text.",
+        panel.Children.Add(Ui.Row("Use OpenAI for transcription",
+            "",
             Gate(Ui.Switch(settings.UseOpenAITranscription, on => settings.UseOpenAITranscription = on), ApiKeys.Provider.OpenAI)));
         panel.Children.Add(KeyRow(ApiKeys.Provider.Anthropic, "sk-ant-..."));
-        panel.Children.Add(Ui.Row("Use my Anthropic key for punctuation",
-            "Claude fixes punctuation. Never changes your words.",
+        panel.Children.Add(Ui.Row("Use Claude for punctuation",
+            "Never changes your words.",
             Gate(Ui.Switch(settings.UseClaudePunctuation, on => settings.UseClaudePunctuation = on), ApiKeys.Provider.Anthropic)));
         var models = new ComboBox { FontSize = 12, Width = 200 };
         foreach (var model in SettingsStore.ClaudeModels) models.Items.Add(model.Title);
@@ -528,7 +526,7 @@ sealed class DashboardWindow : Window
             });
             remove.Margin = new Thickness(4, 0, 0, 0);
             buttons.Children.Add(remove);
-            status.Text = "A key is saved in Credential Manager.";
+            status.Text = "Saved.";
         }
         DockPanel.SetDock(buttons, Dock.Right);
         row.Children.Add(buttons);

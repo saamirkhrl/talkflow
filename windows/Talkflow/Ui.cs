@@ -28,6 +28,61 @@ static class Ui
     public static readonly SolidColorBrush Bad = Freeze(new SolidColorBrush(Color.FromRgb(0xD9, 0x48, 0x3B)));
 
     public static readonly FontFamily Sans = new("Segoe UI Variable Text, Segoe UI");
+
+    /// <summary>
+    /// A thin scroll bar for every window: a 6 px rounded thumb, no arrows,
+    /// no track, faint until the pointer is on it. Registered once as the
+    /// app's ScrollBar style (App.Main).
+    /// </summary>
+    public static Style ThinScrollBar()
+    {
+        string ink = $"{InkColor.R:X2}{InkColor.G:X2}{InkColor.B:X2}";
+        string Thumb(string margin) => $@"
+            <Thumb>
+              <Thumb.Template>
+                <ControlTemplate TargetType=""Thumb"">
+                  <Border x:Name=""b"" CornerRadius=""3"" Background=""#33{ink}"" Margin=""{margin}""/>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property=""IsMouseOver"" Value=""True""><Setter TargetName=""b"" Property=""Background"" Value=""#66{ink}""/></Trigger>
+                    <Trigger Property=""IsDragging"" Value=""True""><Setter TargetName=""b"" Property=""Background"" Value=""#80{ink}""/></Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Thumb.Template>
+            </Thumb>";
+        string xaml = $@"
+<Style TargetType=""ScrollBar"" xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+  <Setter Property=""Background"" Value=""Transparent""/>
+  <Setter Property=""Width"" Value=""8""/>
+  <Setter Property=""MinWidth"" Value=""8""/>
+  <Setter Property=""Template"">
+    <Setter.Value>
+      <ControlTemplate TargetType=""ScrollBar"">
+        <Track x:Name=""PART_Track"" IsDirectionReversed=""True"">
+          <Track.Thumb>{Thumb("1,2,1,2")}</Track.Thumb>
+        </Track>
+      </ControlTemplate>
+    </Setter.Value>
+  </Setter>
+  <Style.Triggers>
+    <Trigger Property=""Orientation"" Value=""Horizontal"">
+      <Setter Property=""Width"" Value=""Auto""/>
+      <Setter Property=""MinWidth"" Value=""0""/>
+      <Setter Property=""Height"" Value=""8""/>
+      <Setter Property=""MinHeight"" Value=""8""/>
+      <Setter Property=""Template"">
+        <Setter.Value>
+          <ControlTemplate TargetType=""ScrollBar"">
+            <Track x:Name=""PART_Track"">
+              <Track.Thumb>{Thumb("2,1,2,1")}</Track.Thumb>
+            </Track>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Trigger>
+  </Style.Triggers>
+</Style>";
+        return (Style)System.Windows.Markup.XamlReader.Parse(xaml);
+    }
     public static readonly FontFamily Serif = new("Georgia");
 
     static SolidColorBrush Freeze(SolidColorBrush brush)

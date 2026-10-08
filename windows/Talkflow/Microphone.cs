@@ -18,7 +18,7 @@ static class Microphone
 
     public static State Check()
     {
-        if (TestHooks.AudioFile is not null || TestHooks.SilentMicrophone) return State.Allowed; // the test stands in for the device
+        if (TestHooks.AudioFile is not null || TestHooks.SilentMicrophone || TestHooks.HangingMicrophone) return State.Allowed; // the test stands in for the device
         if (Read(Registry.LocalMachine, Consent) == "Deny") return State.BlockedForDevice;
         if (Read(Registry.CurrentUser, Consent) == "Deny") return State.BlockedForUser;
         if (Read(Registry.CurrentUser, Consent + @"\NonPackaged") == "Deny") return State.BlockedForDesktopApps;
