@@ -180,6 +180,11 @@ jobs:
       - name: Transcribe a real recording
         shell: pwsh
         run: ./windows/tests/smoke-engine.ps1 -EngineDir dl/engine -Model ggml-tiny.en.bin -Wav dl/jfk.wav
+      - name: Thread count, old against new (informational)
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        shell: pwsh
+        run: ./windows/tests/bench-threads.ps1 -EngineDir dl/engine -Model ggml-tiny.en.bin -Wav dl/jfk.wav
 
   package:
     needs: [version, test, engine, engine-smoke]
