@@ -29,6 +29,9 @@ sealed class DashboardWindow : Window
     readonly StackPanel _updateArea = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
     readonly Button _dashboardTab, _settingsTab;
     bool _showingSettings;
+    /// <summary>Parts of the Settings page that follow the engine's state while it is open.</summary>
+    ContentControl? _modelsHost;
+    TextBlock? _finalPassDetail;
 
     public DashboardWindow(App app)
     {
@@ -66,9 +69,25 @@ sealed class DashboardWindow : Window
         Content = root;
 
         _app.Updater.Changed += OnUpdaterChanged;
-        Closed += (_, _) => _app.Updater.Changed -= OnUpdaterChanged;
+        _app.EngineChanged += OnEngineChanged;
+        Closed += (_, _) =>
+        {
+            _app.Updater.Changed -= OnUpdaterChanged;
+            _app.EngineChanged -= OnEngineChanged;
+        };
         RenderUpdate();
     }
+
+    void OnEngineChanged() => Dispatcher.BeginInvoke(() =>
+    {
+        if (!_showingSettings) return;
+        if (_modelsHost is not null) _modelsHost.Content = ModelsInUse();
+        if (_finalPassDetail is { } detail)
+        {
+            detail.Text = _app.FinalPassStatus;
+            detail.Visibility = detail.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
+        }
+    });
 
     void OnUpdaterChanged() => Dispatcher.BeginInvoke(RenderUpdate);
 
@@ -81,6 +100,8 @@ sealed class DashboardWindow : Window
             tab.Foreground = selected ? Ui.Paper : Ui.Ink;
         }
         _app.Stats.Reload();
+        _modelsHost = null;
+        _finalPassDetail = null;
         _page.Content = settings ? BuildSettings() : BuildDashboard();
     }
 
@@ -338,14 +359,20 @@ sealed class DashboardWindow : Window
         panel.Children.Add(ShortcutRow());
 
         // Models in use
-        panel.Children.Add(ModelsInUse());
+        _modelsHost = new ContentControl { Content = ModelsInUse() };
+        panel.Children.Add(_modelsHost);
 
         panel.Children.Add(Ui.Row("Type while speaking",
             "Words appear as you speak.",
             Ui.Switch(settings.TypeWhileSpeaking, on => settings.TypeWhileSpeaking = on)));
         panel.Children.Add(Ui.Row("Accurate final pass",
-            SpeechEngine.Large.ModelIsComplete ? "" : "Downloads 574 MB once.",
-            Ui.Switch(settings.AccurateFinalPass, on => { settings.AccurateFinalPass = on; if (on) _app.StartFinalPass(); })));
+            _app.FinalPassStatus,
+            Ui.Switch(settings.AccurateFinalPass, on =>
+            {
+                settings.AccurateFinalPass = on;
+                if (on) _app.StartFinalPass();
+                OnEngineChanged();
+            }), out _finalPassDetail));
         panel.Children.Add(Ui.Row("Start with Windows",
             "",
             Ui.Switch(StartupEntry.IsEnabled, StartupEntry.Set)));
@@ -419,7 +446,7 @@ sealed class DashboardWindow : Window
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        var rows = new[] { ("Live caption", "small.en"), ("Final text", final), ("Punctuation", punctuation) };
+        var rows = new[] { ("Live caption", _app.LivePreviews ? "small.en" : "Off (this PC is too slow for it)"), ("Final text", final), ("Punctuation", punctuation) };
         for (int i = 0; i < rows.Length; i++)
         {
             grid.RowDefinitions.Add(new RowDefinition());
