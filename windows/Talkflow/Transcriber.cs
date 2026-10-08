@@ -51,6 +51,7 @@ static class Transcriber
         try
         {
             using var cancel = new CancellationTokenSource(timeout);
+            if (TestHooks.SlowEngineMs > 0) await Task.Delay(TestHooks.SlowEngineMs, cancel.Token);
             using var response = await Local.PostAsync(server, content, cancel.Token);
             if (!response.IsSuccessStatusCode)
             {

@@ -39,6 +39,7 @@ sealed class OverlayWindow : Window
     readonly Rectangle[] _bars = new Rectangle[BarCount];
     readonly double[] _levels = new double[BarCount];
     readonly Border _pill;
+    readonly Ellipse _dot;
     readonly Border _bubble;
     readonly TextBlock _caption;
     readonly Border _notice;
@@ -46,6 +47,8 @@ sealed class OverlayWindow : Window
     readonly TextBlock _noticeText;
     readonly DispatcherTimer _noticeTimer;
     bool _holding;
+    /// <summary>The bubble says the microphone is still starting.</summary>
+    bool _starting;
 
     static readonly Brush Panel = Frozen(Color.FromArgb(0xE0, 0, 0, 0)); // black, 0.88
     static readonly Brush White = Brushes.White;
@@ -78,7 +81,7 @@ sealed class OverlayWindow : Window
 
         // The pill: dot on the left, a tight cluster of bars centred in the rest.
         var canvas = new Canvas { Width = PillWidth, Height = PillHeight };
-        var dot = new Ellipse { Width = DotSize, Height = DotSize, Fill = Red };
+        var dot = _dot = new Ellipse { Width = DotSize, Height = DotSize, Fill = Red };
         Canvas.SetLeft(dot, SidePadding);
         Canvas.SetTop(dot, (PillHeight - DotSize) / 2);
         canvas.Children.Add(dot);
@@ -218,6 +221,8 @@ sealed class OverlayWindow : Window
     public new void Show()
     {
         _holding = true;
+        _starting = false;
+        _dot.Fill = Red;
         _bubble.Visibility = Visibility.Collapsed;
         _pill.Visibility = Visibility.Visible;
         Array.Clear(_levels);
@@ -229,6 +234,7 @@ sealed class OverlayWindow : Window
     public new void Hide()
     {
         _holding = false;
+        _starting = false;
         _pill.Visibility = Visibility.Hidden;
         _bubble.Visibility = Visibility.Collapsed;
         if (_notice.Visibility != Visibility.Visible) base.Hide();
@@ -255,10 +261,35 @@ sealed class OverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// The microphone has not delivered anything yet (some take 0.7 s to open):
+    /// the dot goes grey and a line above says to wait. Words spoken now would
+    /// be lost, and until this appears the pill looks exactly like one that is listening.
+    /// </summary>
+    public void ShowStarting()
+    {
+        if (!_holding) return;
+        _starting = true;
+        _dot.Fill = Dim;
+        _caption.Inlines.Clear();
+        _caption.Inlines.Add(new Run("Starting microphone...") { Foreground = White });
+        _bubble.Visibility = Visibility.Visible;
+    }
+
+    /// <summary>The first audio arrived: the dot is red again and the line is gone, so speak.</summary>
+    public void MicrophoneReady()
+    {
+        if (!_starting) return;
+        _starting = false;
+        _dot.Fill = Red;
+        _bubble.Visibility = Visibility.Collapsed;
+    }
+
     /// <summary>What has been heard so far; only the end of a long dictation, as on the Mac.</summary>
     public void ShowCaption(string settled, string pending)
     {
         if (!_holding) return;
+        if (_starting) MicrophoneReady();
         string full = settled + pending;
         if (full.Trim().Length == 0) return;
         int cut = Math.Max(0, full.Length - CaptionMaxCharacters);

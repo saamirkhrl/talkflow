@@ -21,6 +21,8 @@ sealed class App : Application
 {
     public SettingsStore Settings { get; private set; } = null!;
     public StatsStore Stats { get; private set; } = null!;
+    /// <summary>What was measured on this PC (device.json).</summary>
+    DeviceStore _store = null!;
     public WindowsPrefs Prefs { get; private set; } = null!;
     public HotkeyListener Hotkey { get; private set; } = null!;
     public OverlayWindow Overlay { get; private set; } = null!;
@@ -34,12 +36,14 @@ sealed class App : Application
     public bool FinalPassReady { get; private set; }
     /// <summary>
     /// large-v3-turbo is loaded but too slow on this PC to wait for (a 1 s
-    /// clip took over FinalPassBudgetSeconds); the final text comes from small.en.
+    /// clip took over DevicePolicy.FinalPassBudgetSeconds); the final text comes from small.en.
     /// </summary>
     public bool FinalPassTooSlow { get; private set; }
     public bool FinalPassUsable => FinalPassReady && !FinalPassTooSlow;
-    /// <summary>The longest a 1 s clip may take on large-v3-turbo for the final pass to be used.</summary>
-    public const double FinalPassBudgetSeconds = 2.0;
+    /// <summary>How long small.en takes for a 1 s clip on this PC; null until measured.</summary>
+    public double? SmallSeconds { get; private set; }
+    /// <summary>Live captions (and typing while speaking) run unless this PC is too slow for them to keep up with the final text.</summary>
+    public bool LivePreviews => DevicePolicy.LivePreviews(SmallSeconds);
     /// <summary>Whether small.en's server is being started right now.</summary>
     public bool EngineStarting => _engineStart is { IsCompleted: false };
     /// <summary>Why the speech engine is not running, for the pill and setup; null while it runs or starts.</summary>
@@ -162,6 +166,7 @@ sealed class App : Application
         Settings = new SettingsStore(Paths.SettingsFile);
         Settings.BackUp();
         Stats = new StatsStore(Paths.StatsFile);
+        _store = new DeviceStore(Paths.DeviceFile);
         Prefs = new WindowsPrefs();
         ScreenText.IsName = word =>
             !CommonWords.Contains(Chars.Lower(word)) && SpellCheck.IsKnown(Chars.Lower(word)) != true;
@@ -277,32 +282,59 @@ sealed class App : Application
     }
 
     bool _deviceChosen;
+    /// <summary>ChooseDevice is done: SmallSeconds and the device name are known (or could not be measured).</summary>
+    bool _speedKnown;
+    /// <summary>The GPU small.en started on, or "CPU only"; names the device in what is measured on this PC.</summary>
+    string _deviceLabel = "CPU only";
+
+    string MeasurementKey(WhisperServer server) =>
+        DeviceStore.Key(Path.GetFileName(server.ModelPath), SpeechEngine.Stamp + TestHooks.MeasurementTag, _deviceLabel);
 
     /// <summary>
-    /// GPU or CPU, decided by measuring this PC, once per launch. whisper
+    /// GPU or CPU, decided by measuring this PC, once per PC (the result is
+    /// kept in device.json for this engine build and device). whisper
     /// runs on the GPU when the engine has a GPU backend and the driver offers
     /// a device (as the Mac runs on Metal), but a weak integrated GPU can be
     /// slower than a good CPU. So small.en times a 1 s clip where it runs, a
     /// CPU-only copy on a spare port times the same clip, and the slower one
-    /// loses. The final-pass model starts after this, on the same device.
+    /// loses. The time of the winner is what marks a slow PC (see
+    /// DevicePolicy). Never while a dictation is in flight. The final-pass
+    /// model starts after this, on the same device.
     /// </summary>
     async Task ChooseDevice()
     {
         if (_deviceChosen) return;
         _deviceChosen = true;
         var small = SpeechEngine.Small;
+        _deviceLabel = small.OnGpu ? small.DeviceName : "CPU only";
+        var key = MeasurementKey(small);
+        if (_store.Get(key) is { Seconds: { } known } earlier)
+        {
+            SmallSeconds = known;
+            Log.Write($"device: {_deviceLabel}: a 1 s clip took {Seconds(known)}" + (earlier.CpuSeconds is { } c ? $" ({Seconds(c)} on the CPU)" : "")
+                + $" when measured on {earlier.At.ToLocalTime():yyyy-MM-dd}; using the {(earlier.UseCpu == true || !small.OnGpu ? "CPU" : "GPU")} (not measured again)");
+            if (earlier.UseCpu == true) await SwitchToCpu();
+            ReportSpeed();
+            return;
+        }
         if (!small.OnGpu)
         {
             Log.Write($"device: {small.DeviceName}" + (SpeechEngine.HasGpuBackend ? " (no GPU offered by the driver)" : " (this engine has no GPU backend)"));
+            double? alone = await TimeClipWhenIdle(small.InferenceUrl);
+            SmallSeconds = alone;
+            Log.Write($"device: a 1 s clip took {Seconds(alone)} on the CPU");
+            Remember(key, alone, null, useCpu: false);
+            ReportSpeed();
             return;
         }
-        double? gpu = await TimeClip(small.InferenceUrl);
+        double? gpu = await TimeClipWhenIdle(small.InferenceUrl);
+        await WaitUntilIdle();
         var probe = new WhisperServer("small.en CPU check", 8180, "ggml-small.en.bin", small.DownloadUrl.ToString(), 1, small.ModelPath);
         probe.UseCpu();
         double? cpu = null;
         try
         {
-            if (await Task.Run(() => probe.Start(TimeSpan.FromSeconds(60)))) cpu = await TimeClip(probe.InferenceUrl);
+            if (await Task.Run(() => probe.Start(TimeSpan.FromSeconds(60)))) cpu = await TimeClipWhenIdle(probe.InferenceUrl);
         }
         finally
         {
@@ -310,11 +342,25 @@ sealed class App : Application
         }
         // The CPU has to win clearly: the GPU leaves the CPU to the app being typed into.
         bool useCpu = gpu is null || cpu is not null && cpu < gpu * 0.8;
+        SmallSeconds = useCpu ? cpu : gpu;
         Log.Write($"device: a 1 s clip took {Seconds(gpu)} on {small.DeviceName}, {Seconds(cpu)} on the CPU; using the {(useCpu ? "CPU" : "GPU")}");
-        if (!useCpu) return;
+        Remember(key, SmallSeconds, cpu, useCpu);
+        if (useCpu) await SwitchToCpu();
+        ReportSpeed();
+    }
+
+    /// <summary>Keeps a speed test for the next launch, unless it got no answer.</summary>
+    void Remember(string key, double? seconds, double? cpuSeconds, bool useCpu)
+    {
+        if (seconds is null) return;
+        _store.Set(key, new DeviceEntry(seconds, cpuSeconds, useCpu, null, DateTime.UtcNow));
+    }
+
+    async Task SwitchToCpu()
+    {
         SpeechEngine.Small.UseCpu();
         SpeechEngine.Large.UseCpu();
-        while (_dictation.IsRecording) await Task.Delay(500); // never pull the engine out from under a hold
+        while (_dictation.InFlight) await Task.Delay(500); // never pull the engine out from under a hold
         EngineReady = false;
         EngineChanged?.Invoke();
         SpeechEngine.Small.Stop();
@@ -323,7 +369,43 @@ sealed class App : Application
         EngineChanged?.Invoke();
     }
 
+    /// <summary>Says in the log what the speed means for this PC: slow ones run no live captions (Dictation reads LivePreviews).</summary>
+    void ReportSpeed()
+    {
+        _speedKnown = true;
+        Log.Write(DevicePolicy.IsSlow(SmallSeconds)
+            ? $"slow PC: small.en needs {Seconds(SmallSeconds)} for a 1 s clip (limit {DevicePolicy.SlowSmallSeconds:F1}s), so live captions are off and the final text never queues behind one"
+            : $"live captions are on: small.en needs {Seconds(SmallSeconds)} for a 1 s clip");
+        EngineChanged?.Invoke();
+    }
+
     static string Seconds(double? s) => s is { } v ? $"{v:F2}s" : "(no answer)";
+
+    /// <summary>Waits for the hold and its text to be finished: a speed test or a model start taking the CPU in the middle of one would slow it and read as the PC's speed.</summary>
+    async Task WaitUntilIdle()
+    {
+        while (_dictation.InFlight) await Task.Delay(500);
+    }
+
+    /// <summary>
+    /// <see cref="TimeClip"/> when no dictation is in flight, and only counted
+    /// if none started or ended during it (then it is done again, three times
+    /// at most): a number measured while a dictation shared the engine would
+    /// be kept as this PC's speed.
+    /// </summary>
+    async Task<double?> TimeClipWhenIdle(Uri server)
+    {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            await WaitUntilIdle();
+            int activity = _dictation.Activity;
+            double? seconds = await TimeClip(server);
+            if (_dictation.Activity == activity && !_dictation.InFlight) return seconds;
+            Log.Write("speed test: a dictation overlapped it, so it is done again");
+        }
+        Log.Write("speed test: not counted, a dictation overlapped every try");
+        return null;
+    }
 
     /// <summary>The second of two runs of a 1 s clip of silence: the first loads whatever the device loads lazily.</summary>
     static async Task<double?> TimeClip(Uri server)
@@ -349,21 +431,57 @@ sealed class App : Application
         _ = StartEngine();
     }
 
-    /// <summary>large-v3-turbo for the final pass: downloaded in the background on first use.</summary>
+    /// <summary>What was decided about the final pass on this PC; the Settings page words it.</summary>
+    public FinalPassAction FinalPassPlan { get; private set; } = FinalPassAction.StartAndMeasure;
+    double? _largeSeconds;
+
+    public string FinalPassStatus => Settings.AccurateFinalPass
+        ? FinalPassText.Describe(FinalPassPlan, SmallSeconds, _largeSeconds, FinalPassUsable, SpeechEngine.Large.ModelIsComplete)
+        : "Downloads 574 MB once, if this PC can use it.";
+
+    /// <summary>
+    /// large-v3-turbo for the final pass: downloaded in the background on
+    /// first use, but only on a PC that can use it. Decided from what is
+    /// already known (DevicePolicy.DecideFinalPass): a verdict kept from an
+    /// earlier launch, or small.en's own speed, which says the large model
+    /// cannot meet the budget before 574 MB are downloaded for it. Otherwise
+    /// it is downloaded, started once no dictation is in flight, timed, and
+    /// stopped again if too slow.
+    /// </summary>
     public async void StartFinalPass()
     {
-        if (!Settings.AccurateFinalPass || _finalPassStarting || FinalPassReady || !SpeechEngine.EngineInstalled) return;
+        // Not before the device is chosen and small.en timed: the decision rests on both.
+        if (!Settings.AccurateFinalPass || _finalPassStarting || FinalPassReady || !SpeechEngine.EngineInstalled || !_speedKnown) return;
         _finalPassStarting = true;
         try
         {
+            var key = MeasurementKey(SpeechEngine.Large);
+            FinalPassPlan = DevicePolicy.DecideFinalPass(true, _store.Get(key), SmallSeconds);
+            _largeSeconds = _store.Get(key)?.Seconds;
+            switch (FinalPassPlan)
+            {
+                case FinalPassAction.SkipKnownSlow:
+                    FinalPassTooSlow = true;
+                    Log.Write($"final-pass model: skipped, an earlier test on this PC took {Seconds(_largeSeconds)} for a 1 s clip (budget {DevicePolicy.FinalPassBudgetSeconds:F1}s); not downloaded or started");
+                    EngineChanged?.Invoke();
+                    return;
+                case FinalPassAction.SkipPredictedSlow:
+                    FinalPassTooSlow = true;
+                    Log.Write($"final-pass model: skipped, small.en needs {Seconds(SmallSeconds)} for a 1 s clip, so large-v3-turbo would need at least {Seconds(DevicePolicy.PredictedLargeSeconds(SmallSeconds!.Value))} (budget {DevicePolicy.FinalPassBudgetSeconds:F1}s); not downloaded or started");
+                    EngineChanged?.Invoke();
+                    return;
+            }
+            EngineChanged?.Invoke();
             if (!SpeechEngine.Large.ModelIsComplete)
             {
                 Log.Write("downloading the final-pass model in the background");
                 await Task.Run(() => SpeechEngine.Download(SpeechEngine.Large, null, CancellationToken.None));
             }
+            await WaitUntilIdle();
             FinalPassReady = await Task.Run(() => SpeechEngine.Large.Start(TimeSpan.FromSeconds(60)));
             Log.Write(FinalPassReady ? "final-pass model ready" : "final-pass server did not answer; using small.en");
-            if (FinalPassReady) await MeasureFinalPass();
+            if (FinalPassReady && FinalPassPlan == FinalPassAction.StartAndMeasure) await MeasureFinalPass(key);
+            EngineChanged?.Invoke();
         }
         catch (Exception e)
         {
@@ -380,21 +498,30 @@ sealed class App : Application
     /// 30 s window whatever the length, so this is about the least any final
     /// pass costs; on a PC where that is seconds, every dictation would wait.
     /// The second of two runs counts: on a GPU the first one also prepares
-    /// its programs (7.6 s, then 0.13 s, on an RTX 4070).
+    /// its programs (7.6 s, then 0.13 s, on an RTX 4070). A model that is too
+    /// slow is stopped at once (it held 570 MB of graphics memory and a second
+    /// process for nothing) and the verdict is kept, so the next launch does
+    /// not download, start and time it again.
     /// </summary>
-    async Task MeasureFinalPass()
+    async Task MeasureFinalPass(string key)
     {
-        double? elapsed = await TimeClip(SpeechEngine.Large.InferenceUrl);
+        double? elapsed = await TimeClipWhenIdle(SpeechEngine.Large.InferenceUrl);
         if (elapsed is not { } seconds)
         {
             Log.Write("final-pass model: the speed test got no answer; using it anyway");
             return;
         }
-        FinalPassTooSlow = seconds > FinalPassBudgetSeconds;
-        Log.Write(FinalPassTooSlow
-            ? $"final-pass model: a 1 s clip took {seconds:F2}s (budget {FinalPassBudgetSeconds:F1}s), too slow on this PC; the final text comes from small.en"
-            : $"final-pass model: a 1 s clip took {seconds:F2}s, using it for the final text");
-        EngineChanged?.Invoke();
+        _largeSeconds = seconds;
+        FinalPassTooSlow = seconds > DevicePolicy.FinalPassBudgetSeconds;
+        _store.Set(key, new DeviceEntry(seconds, null, null, FinalPassTooSlow, DateTime.UtcNow));
+        if (!FinalPassTooSlow)
+        {
+            Log.Write($"final-pass model: a 1 s clip took {seconds:F2}s, using it for the final text");
+            return;
+        }
+        FinalPassReady = false;
+        await Task.Run(SpeechEngine.Large.Stop);
+        Log.Write($"final-pass model: a 1 s clip took {seconds:F2}s (budget {DevicePolicy.FinalPassBudgetSeconds:F1}s), too slow on this PC; stopped it, and the final text comes from small.en");
     }
 
     // MARK: - Windows

@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Talkflow.Core;
 
 namespace Talkflow;
 
@@ -114,7 +115,7 @@ sealed class WhisperServer
                     process.BeginErrorReadLine();
                     SpeechEngine.AdoptChild(process);
                     _process = process;
-                    Log.Write($"started {Name} server on :{Port} (pid {process.Id}, model {Path.GetFileName(ModelPath)}, {SpeechEngine.Threads} threads{(_cpuOnly ? ", CPU only" : "")})");
+                    Log.Write($"started {Name} server on :{Port} (pid {process.Id}, model {Path.GetFileName(ModelPath)}, {SpeechEngine.Threads} threads of {SpeechEngine.PhysicalCores?.ToString() ?? "?"} cores/{Environment.ProcessorCount} logical{(_cpuOnly ? ", CPU only" : "")})");
                 }
                 catch (Exception e)
                 {
@@ -235,8 +236,28 @@ static class SpeechEngine
     public static readonly WhisperServer Large = new("large-v3-turbo", 8179, "ggml-large-v3-turbo-q5_0.bin",
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin", 570_000_000);
 
-    /// <summary>Leaves cores for the app the user is typing into.</summary>
-    public static int Threads => Math.Clamp(Environment.ProcessorCount - 1, 1, 8);
+    /// <summary>Physical cores, from Windows; null when it would not say.</summary>
+    public static int? PhysicalCores { get; } = Native.PhysicalCoreCount();
+
+    /// <summary>The physical cores (not the logical processors), keeping one for the app the user is typing into on a bigger chip. See DevicePolicy.Threads.</summary>
+    public static int Threads { get; } = DevicePolicy.Threads(Environment.ProcessorCount, PhysicalCores);
+
+    /// <summary>Which build of the engine this is, so what was measured on an older one is not trusted: whisper-server.exe's size and date.</summary>
+    public static string Stamp
+    {
+        get
+        {
+            try
+            {
+                var info = new FileInfo(Paths.ServerExe);
+                return $"engine {info.Length}@{info.LastWriteTimeUtc.Ticks / TimeSpan.TicksPerSecond}";
+            }
+            catch (Exception)
+            {
+                return "engine unknown";
+            }
+        }
+    }
 
     public static bool EngineInstalled => File.Exists(Paths.ServerExe);
 
