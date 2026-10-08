@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EmailLink, LegalPage, REPO_URL } from "@/components/legal/LegalPage";
 
+// TODO before merging: the first app version that counts installs (docs/telemetry.md).
+const COUNTED_FROM = "[X]";
+
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
@@ -10,19 +13,22 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 7, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="October 8, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
           <strong>The app works on your Mac.</strong> Your speech is turned into text on your own
-          computer, by a speech engine running on your Mac. Apart from that, the app only asks GitHub
-          whether a newer version exists (see{" "}<a href="#app-updates">Update checks</a>), and contacts
-          OpenAI or Anthropic only if you add your own API key. We don&apos;t receive your audio, your
-          text or your usage stats.
+          computer, by a speech engine running on your Mac. Apart from that, the app asks GitHub
+          whether a newer version exists (see{" "}<a href="#app-updates">Update checks</a>), tells us
+          once that it was installed (see <a href="#app-receive">What we receive from the app</a>),
+          and contacts OpenAI or Anthropic only if you add your own API key. We don&apos;t receive
+          your audio, your text or your usage stats.
         </li>
         <li>
-          <strong>The app has no accounts and no telemetry.</strong> It checks GitHub for updates,
-          and an update installs only when you click. Audio is never saved to disk.
+          <strong>The app has no accounts and doesn&apos;t track how you use it.</strong> The first
+          time it runs, it tells us once so we can count installs. talkflow puts no ID, no device
+          information and no usage data in that request, and we store only a total number. It checks GitHub for
+          updates, and an update installs only when you click. Audio is never saved to disk.
         </li>
         <li>
           <strong>The website has no cookies and no forms, and uses only basic, cookieless
@@ -147,6 +153,12 @@ export default function PrivacyPage() {
         Our hosting provider (Vercel Inc.) handles this information in order to serve the site. See
         Vercel&apos;s <a href="https://vercel.com/legal/privacy-notice">Privacy Notice</a>.
       </p>
+      <p>
+        The app&apos;s one-time install request (see{" "}
+        <a href="#app-receive">What we receive from the app</a>) reaches us the same way, through
+        Vercel. The total it adds to is kept in a database hosted by Neon, which receives only that
+        number.
+      </p>
       <p>We don&apos;t share website information with anyone else, except where the law requires it.</p>
 
       <h3 id="website-retention">How long it&apos;s kept</h3>
@@ -204,10 +216,41 @@ export default function PrivacyPage() {
 
       <h3 id="app-receive">What we receive from the app</h3>
       <p>
-        Nothing. The app doesn&apos;t send your audio, your text, your stats or any other
-        information to us. There are no accounts, no telemetry, no analytics and no crash reports
-        sent to us. Apart from the speech engine on your own Mac, the app connects only to GitHub to
-        check for updates (below), and to OpenAI or Anthropic if you add your own API key in Settings.
+        One thing: the first time a newly installed copy of talkflow runs while online, it tells us
+        once, so we can count how many times talkflow has been installed. This applies to versions{" "}
+        {COUNTED_FROM} and later; earlier versions send us nothing.
+      </p>
+      <ul>
+        <li>
+          The app sends one empty request to our website. talkflow puts nothing in it: no ID, no
+          information about your device or operating system, and no usage data, audio or text.
+        </li>
+        <li>
+          We store only a running total. We don&apos;t store your IP address or anything else from
+          the request, so we can&apos;t tell installs apart or link the count to you.
+        </li>
+        <li>
+          Like any web request, it reaches our hosting provider (Vercel) with your IP address and the
+          standard technical details your operating system adds to web requests. Vercel&apos;s
+          ordinary request logs apply to it, as they do to the website (see{" "}
+          <a href="#website-retention">How long it&apos;s kept</a>). The total is stored in a database
+          hosted by Neon.
+        </li>
+        <li>
+          Once our site confirms it received the request, the app remembers that (a yes/no flag on
+          your computer) and doesn&apos;t send it again. If the request fails, the app tries again
+          the next time it starts. Reinstalling talkflow may count again.
+        </li>
+        <li>
+          Copies of talkflow built from the source code don&apos;t send this request at all.
+        </li>
+      </ul>
+      <p>
+        Apart from that, the app doesn&apos;t send your audio, your text, your stats or any other
+        information to us. There are no accounts, no usage analytics and no crash reports sent to
+        us. Besides the speech engine on your own Mac and this one-time request, the app connects
+        only to GitHub to check for updates (below), and to OpenAI or Anthropic if you add your own
+        API key in Settings.
       </p>
 
       <h3 id="app-updates">Update checks</h3>
@@ -227,8 +270,9 @@ export default function PrivacyPage() {
         checks again later.
       </p>
       <p>
-        Because we don&apos;t receive anything from the app, we can&apos;t see, recover or delete
-        anything on your Mac for you. You are in control of it.
+        Apart from the one-time install count, which can&apos;t be linked to you, we don&apos;t
+        receive anything from the app, so we can&apos;t see, recover or delete anything on your Mac
+        for you. You are in control of it.
       </p>
 
       <h3 id="app-setup">Setting up the app</h3>
@@ -261,6 +305,10 @@ export default function PrivacyPage() {
           <code>~/Library/Logs/talkflow/talkflow.log</code>. It grows until you delete it. For each
           dictation it records technical details, such as its length and timing and the name of the
           app you dictated into. It does not record your words.
+        </li>
+        <li>
+          <strong>Whether this copy has been counted.</strong> A yes/no flag in the app&apos;s
+          preferences, so the install count described above is sent only once.
         </li>
         <li>
           <strong>The speech engine&apos;s own log.</strong> Depending on how the speech engine is
@@ -330,10 +378,10 @@ export default function PrivacyPage() {
 
       <h3 id="app-future">Future versions</h3>
       <p>
-        This part describes the app as of the &quot;Last updated&quot; date above. If we ever add a
-        feature that sends any other information off your Mac, such as crash reports, we
-        will update this policy before releasing that version and describe the change in the release
-        notes.
+        This part describes the app as of the &quot;Last updated&quot; date above. The one-time
+        install count starts with version {COUNTED_FROM}. If we ever add a feature that sends any
+        other information off your Mac, such as crash reports, we will update this policy before
+        releasing that version and describe the change in the release notes.
       </p>
 
       <hr />
@@ -377,8 +425,9 @@ export default function PrivacyPage() {
         <li>not be treated differently for using any of these rights.</li>
       </ul>
       <p>
-        In practice we hold very little. We have no app data about you at all, and we don&apos;t
-        keep copies of website request logs. If you contact us about website logs, we may not be
+        In practice we hold very little. We have no app data about you at all (the install count
+        is a single total that can&apos;t be linked to anyone), and we don&apos;t keep copies of
+        website request logs. If you contact us about website logs, we may not be
         able to find them, because they are held by our hosting provider.
       </p>
       <p>
@@ -413,8 +462,13 @@ export default function PrivacyPage() {
       <ul>
         <li>The website is served over encrypted HTTPS connections.</li>
         <li>
-          The app only ever connects to 127.0.0.1, your own computer. When the speech engine is set up
-          as described in the README, it listens only on your own computer, not on your network.
+          The app talks to its speech engine at 127.0.0.1, your own computer. When the speech engine
+          is set up as described in the README, it listens only on your own computer, not on your
+          network.
+        </li>
+        <li>
+          The app&apos;s other connections (update checks, the one-time install count, and OpenAI or
+          Anthropic if you add a key) use encrypted HTTPS.
         </li>
       </ul>
       <p>

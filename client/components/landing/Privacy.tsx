@@ -6,7 +6,7 @@ const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
 
 const FACTS: [React.ReactNode, string][] = [
   [<>Runs on your {YOUR_COMPUTER}</>, "Speech is recognized by OpenAI's Whisper model, running through whisper.cpp on your own processor."],
-  ["No cloud, no account", "No sign-in, no analytics and no crash reports. It works the same with Wi-Fi off; when you're online it only asks GitHub whether there's a newer version."],
+  ["No cloud, no account", "No sign-in, no usage analytics and no crash reports. It works the same with Wi-Fi off. Online, it asks GitHub whether there's a newer version, and once, after you install it, tells us so we can count installs: no ID, nothing about you."],
   ["Audio is never saved", "Your voice is kept in memory only, never written to disk, and replaced by your next dictation."],
   ["Open source", "Every line is public under the MIT License, so you don't have to take our word for any of this."],
 ];

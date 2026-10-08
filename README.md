@@ -67,6 +67,12 @@ installed; `brew uninstall whisper-cpp` removes it if nothing else needs it.
   notification. Updates install only when you click, and not at all if the
   download does not match the release's sha256 checksum. See
   [docs/releases.md](docs/releases.md).
+- Install count: the first time an official release runs while online, it
+  sends one empty request to talkflow's website so installs can be counted.
+  It sends no ID and nothing about you, your computer or your usage; the site
+  stores only a running total. If it fails, it tries again next launch; once it
+  succeeds, never again. Builds from source send nothing. See
+  [docs/telemetry.md](docs/telemetry.md).
 - Your data lives in one folder, `~/Library/Application Support/talkflow/`:
   `stats.json` for your stats, `settings.json` for your settings and learned
   words.
