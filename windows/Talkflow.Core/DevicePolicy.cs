@@ -87,6 +87,8 @@ public static class DevicePolicy
     public const int SlowOpenKeepMs = 120_000;
     /// <summary>A device that took this long to open is cold-start-slow (an array behind a driver, a Bluetooth headset).</summary>
     public const int SlowOpenMs = 250;
+    /// <summary>An open this slow is a Bluetooth headset switching to its hands-free profile: kept open, it stays in that low-quality mode and the music it was playing stays degraded.</summary>
+    public const int BluetoothLikeOpenMs = 1000;
 
     /// <summary>
     /// A microphone that opens in an instant is only kept for a few seconds;
@@ -94,9 +96,11 @@ public static class DevicePolicy
     /// PC this was fixed for, each hold losing the start of the first words)
     /// stays open for two minutes, so a pause between dictations does not
     /// cost the next one. The price is that Windows' "microphone in use"
-    /// indicator stays lit for that long after each hold.
+    /// indicator stays lit for that long after each hold. An open of a second
+    /// or more is left at the short window: that is a headset, and holding its
+    /// microphone open keeps it in hands-free mode, which degrades its sound.
     /// </summary>
-    public static int KeepOpenMs(long openMs) => openMs >= SlowOpenMs ? SlowOpenKeepMs : FastOpenKeepMs;
+    public static int KeepOpenMs(long openMs) => openMs is >= SlowOpenMs and < BluetoothLikeOpenMs ? SlowOpenKeepMs : FastOpenKeepMs;
 }
 
 /// <summary>What the Settings page and the diagnostics say about the final pass on this PC.</summary>

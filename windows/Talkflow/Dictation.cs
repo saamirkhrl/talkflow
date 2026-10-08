@@ -47,6 +47,8 @@ sealed class Dictation
     /// <summary>Finishes under way: a hold's transcription can still run when the next hold has begun.</summary>
     int _finishing;
     bool _heard;
+    /// <summary>The recorder's number for the hold in progress, so a late first-audio signal from the last one is ignored.</summary>
+    int _recorderHold;
     bool _startingShown;
     DateTime? _startedAt;
     FocusTarget? _target;
@@ -75,7 +77,7 @@ sealed class Dictation
     {
         _app = app;
         _recorder.Level += level => _app.Dispatcher.BeginInvoke(() => _app.Overlay.PushLevel(level));
-        _recorder.FirstAudio += () => _app.Dispatcher.BeginInvoke(OnFirstAudio);
+        _recorder.FirstAudio += hold => _app.Dispatcher.BeginInvoke(() => OnFirstAudio(hold));
         _recorder.Failed += message => _app.Dispatcher.BeginInvoke(() =>
         {
             if (!_recording) return;
@@ -147,7 +149,7 @@ sealed class Dictation
         _target = FocusTarget.Current();
 
         steps.Next("start recorder");
-        _recorder.Start(); // returns at once; the device opens on the microphone thread
+        _recorderHold = _recorder.Start(); // returns at once; the device opens on the microphone thread
         _starting.Start();
         steps.Next("tray");
         _app.Tray.SetState(TrayState.Recording);
@@ -171,9 +173,9 @@ sealed class Dictation
     }
 
     /// <summary>The device delivered its first buffer: if the pill said it was starting, it now says speak.</summary>
-    void OnFirstAudio()
+    void OnFirstAudio(int hold)
     {
-        if (!_recording) return;
+        if (!_recording || hold != _recorderHold) return;
         _heard = true;
         _starting.Stop();
         if (!_startingShown) return;

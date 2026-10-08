@@ -121,7 +121,9 @@ public class DevicePolicyTests : IDisposable
     [InlineData(250, 120_000)]
     [InlineData(305, 120_000)]   // the log's fastest SST open
     [InlineData(717, 120_000)]   // its slowest
-    [InlineData(1500, 120_000)]
+    [InlineData(999, 120_000)]
+    [InlineData(1000, 4000)]     // a Bluetooth headset: never held in hands-free mode
+    [InlineData(1500, 4000)]
     public void ASlowToOpenMicrophoneStaysOpenLonger(long openMs, int keepMs) =>
         Assert.Equal(keepMs, DevicePolicy.KeepOpenMs(openMs));
 

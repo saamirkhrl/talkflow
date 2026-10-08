@@ -29,11 +29,12 @@ namespace Talkflow;
 ///
 /// A device that delivered audio stays open after a hold, so the next hold
 /// does not lose the start of its words to the device opening again: for a few
-/// seconds when it opens fast, for two minutes when it opened slowly (a
-/// Bluetooth headset takes about a second to switch to its microphone, an Intel
-/// Smart Sound array 300 to 700 ms, and its first buffers are near-silent). See
-/// DevicePolicy.KeepOpenMs for the privacy cost: Windows shows the microphone
-/// as in use for as long as it is open.
+/// seconds when it opens fast or very slowly, for two minutes when it opens in
+/// a quarter to a full second (an Intel Smart Sound array takes 300 to 700 ms,
+/// and its first buffers are near-silent). A Bluetooth headset, about a second
+/// to switch to its microphone, keeps the short window: open, it would stay in
+/// hands-free mode. See DevicePolicy.KeepOpenMs for the privacy cost: Windows
+/// shows the microphone as in use for as long as it is open.
 /// </summary>
 sealed class Recorder
 {
@@ -66,8 +67,8 @@ sealed class Recorder
     /// <summary>Each buffer's level, roughly 0..1, on a background thread.</summary>
     public event Action<float>? Level;
 
-    /// <summary>The first buffer of a hold has arrived (the microphone is delivering); on a background thread.</summary>
-    public event Action? FirstAudio;
+    /// <summary>The first buffer of a hold has arrived (the microphone is delivering), with the hold's number from <see cref="Start"/>; on a background thread.</summary>
+    public event Action<int>? FirstAudio;
 
     /// <summary>The device could not be opened; on a background thread, with a message for the pill.</summary>
     public event Action<string>? Failed;
@@ -77,7 +78,8 @@ sealed class Recorder
         _device = new Device(this);
     }
 
-    public void Start()
+    /// <summary>Begins a hold and returns its number.</summary>
+    public int Start()
     {
         lock (_gate)
         {
@@ -98,6 +100,7 @@ sealed class Recorder
             // close queued just before this open.
             _openWatch?.Dispose();
             _openWatch = new Timer(_ => Rescue(device, generation), null, StuckMs, Timeout.Infinite);
+            return generation;
         }
     }
 
@@ -145,15 +148,17 @@ sealed class Recorder
         // Speech RMS is quiet; scaled for a visible range, as on the Mac.
         float level = (float)Math.Min(1, Math.Sqrt(sum / chunk.Length) * 8);
         bool first;
+        int hold;
         lock (_gate)
         {
             if (!_capturing || device != _device) return; // kept open between holds, or left behind
             _samples.AddRange(chunk);
             if (_firstAudioMs < 0) _firstAudioMs = Stopwatch.GetElapsedTime(_startedTicks).TotalMilliseconds;
             first = _buffers++ == 0;
+            hold = _generation;
             _peak = Math.Max(_peak, level);
         }
-        if (first) FirstAudio?.Invoke();
+        if (first) FirstAudio?.Invoke(hold);
         Level?.Invoke(level);
     }
 
