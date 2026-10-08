@@ -267,8 +267,75 @@ sealed class App : Application
         EngineReady = up;
         Log.Write(up ? "speech engine ready" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
         EngineChanged?.Invoke();
-        if (up) StartFinalPass();
+        if (up)
+        {
+            await ChooseDevice();
+            StartFinalPass();
+        }
         return up;
+    }
+
+    bool _deviceChosen;
+
+    /// <summary>
+    /// GPU or CPU, decided by measuring this PC, once per launch. whisper
+    /// runs on the GPU when the engine has a GPU backend and the driver offers
+    /// a device (as the Mac runs on Metal), but a weak integrated GPU can be
+    /// slower than a good CPU. So small.en times a 1 s clip where it runs, a
+    /// CPU-only copy on a spare port times the same clip, and the slower one
+    /// loses. The final-pass model starts after this, on the same device.
+    /// </summary>
+    async Task ChooseDevice()
+    {
+        if (_deviceChosen) return;
+        _deviceChosen = true;
+        var small = SpeechEngine.Small;
+        if (!small.OnGpu)
+        {
+            Log.Write($"device: {small.DeviceName}" + (SpeechEngine.HasGpuBackend ? " (no GPU offered by the driver)" : " (this engine has no GPU backend)"));
+            return;
+        }
+        double? gpu = await TimeClip(small.InferenceUrl);
+        var probe = new WhisperServer("small.en CPU check", 8180, "ggml-small.en.bin", small.DownloadUrl.ToString(), 1, small.ModelPath);
+        probe.UseCpu();
+        double? cpu = null;
+        try
+        {
+            if (await Task.Run(() => probe.Start(TimeSpan.FromSeconds(60)))) cpu = await TimeClip(probe.InferenceUrl);
+        }
+        finally
+        {
+            probe.Stop();
+        }
+        // The CPU has to win clearly: the GPU leaves the CPU to the app being typed into.
+        bool useCpu = gpu is null || cpu is not null && cpu < gpu * 0.8;
+        Log.Write($"device: a 1 s clip took {Seconds(gpu)} on {small.DeviceName}, {Seconds(cpu)} on the CPU; using the {(useCpu ? "CPU" : "GPU")}");
+        if (!useCpu) return;
+        SpeechEngine.Small.UseCpu();
+        SpeechEngine.Large.UseCpu();
+        while (_dictation.IsRecording) await Task.Delay(500); // never pull the engine out from under a hold
+        EngineReady = false;
+        EngineChanged?.Invoke();
+        SpeechEngine.Small.Stop();
+        EngineReady = await Task.Run(() => SpeechEngine.Small.Start(TimeSpan.FromSeconds(60)));
+        Log.Write(EngineReady ? "speech engine ready on the CPU" : $"speech engine is not running: {SpeechEngine.Small.LastError}");
+        EngineChanged?.Invoke();
+    }
+
+    static string Seconds(double? s) => s is { } v ? $"{v:F2}s" : "(no answer)";
+
+    /// <summary>The second of two runs of a 1 s clip of silence: the first loads whatever the device loads lazily.</summary>
+    static async Task<double?> TimeClip(Uri server)
+    {
+        var clip = Wav.FromSamples(new short[Recorder.SampleRate], Recorder.SampleRate);
+        double? last = null;
+        for (int run = 0; run < 2; run++)
+        {
+            var (result, _) = await Transcriber.Transcribe(clip, server, TimeSpan.FromSeconds(30), "");
+            last = result?.Elapsed;
+            if (last is null) break;
+        }
+        return last;
     }
 
     /// <summary>A transcription found nothing listening: the server died. Starts it again.</summary>

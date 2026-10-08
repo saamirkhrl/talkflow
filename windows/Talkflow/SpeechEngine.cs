@@ -151,8 +151,23 @@ sealed class WhisperServer
         return Failed($"The speech engine did not answer within {timeout.TotalSeconds:F0} seconds.");
     }
 
-    /// <summary>Set once a start with the GPU backend failed; the server then runs with -ng.</summary>
+    /// <summary>Set once a start with the GPU backend failed, or the CPU measured faster; the server then runs with -ng.</summary>
     volatile bool _cpuOnly;
+
+    /// <summary>Runs this server on the CPU only (-ng) from its next start.</summary>
+    public void UseCpu() => _cpuOnly = true;
+
+    /// <summary>whisper named a GPU at this server's last start (and it is not held to the CPU).</summary>
+    public bool OnGpu
+    {
+        get
+        {
+            var device = Device();
+            return !_cpuOnly && device != "an unreported device" && !device.StartsWith("CPU", StringComparison.Ordinal);
+        }
+    }
+
+    public string DeviceName => Device();
 
     /// <summary>
     /// A GPU driver that crashes or hangs whisper at startup must not cost the
