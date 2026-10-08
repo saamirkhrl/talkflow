@@ -140,7 +140,12 @@ static class KeyboardWriter
         Forms.IDataObject? saved;
         try
         {
-            saved = Save(Forms.Clipboard.GetDataObject());
+            if (!TrySave(Forms.Clipboard.GetDataObject(), out saved))
+            {
+                // Putting it back would empty the user's clipboard.
+                Log.Write("paste: nothing on the clipboard could be saved, typing instead");
+                return false;
+            }
         }
         catch (Exception e)
         {
@@ -196,28 +201,37 @@ static class KeyboardWriter
 
     /// <summary>
     /// A copy of every format on the clipboard that can be read as plain
-    /// memory, byte for byte, or null when it is empty. Never through
+    /// memory, byte for byte (null when it is empty); false when it holds
+    /// something but none of it could be read. Never through
     /// IDataObject.GetData: for a custom format WinForms would run the bytes
     /// (which any app or web page can put there) through BinaryFormatter.
     /// Formats held as GDI objects are skipped; Windows makes the bitmap again
     /// from the DIB bytes. The copy is kept out of clipboard history, which
     /// already has the original.
     /// </summary>
-    static Forms.IDataObject? Save(Forms.IDataObject? current)
+    static bool TrySave(Forms.IDataObject? current, out Forms.IDataObject? saved)
     {
-        if (current is not IDataObject com) return null;
+        saved = null;
+        if (current is not IDataObject com) return true;
         var formats = current.GetFormats(false);
-        if (formats.Length == 0) return null;
+        if (formats.Length == 0) return true;
         var copy = new Forms.DataObject();
+        int read = 0;
         foreach (var format in formats)
         {
-            if (ReadBytes(com, format) is { } bytes) copy.SetData(format, false, new MemoryStream(bytes));
+            if (ReadBytes(com, format) is { } bytes)
+            {
+                copy.SetData(format, false, new MemoryStream(bytes));
+                read++;
+            }
         }
+        if (read == 0) return false;
         foreach (var marker in new[] { "ExcludeClipboardContentFromMonitorProcessing", "CanIncludeInClipboardHistory", "CanUploadToCloudClipboard" })
         {
             if (!copy.GetDataPresent(marker, false)) copy.SetData(marker, false, new MemoryStream(new byte[4]));
         }
-        return copy;
+        saved = copy;
+        return true;
     }
 
     static byte[]? ReadBytes(IDataObject data, string format)
