@@ -46,7 +46,10 @@ enum SelfCorrection {
         // sees the text the previous one left. Bounded in case two rules ever
         // disagree about a fixed point.
         for _ in 0..<16 {
-            guard let next = scratchThat(tokens) ?? typedRepair(tokens) ?? restart(tokens)
+            // typedRepair first: it also handles "scratch that" when only a
+            // value changed, so "at 4 p.m., scratch that, 5 p.m." keeps the
+            // words around the value. scratchThat drops the clause otherwise.
+            guard let next = typedRepair(tokens) ?? scratchThat(tokens) ?? restart(tokens)
                 ?? stutter(tokens) ?? hedge(tokens) else { break }
             tokens = next
         }
@@ -120,12 +123,37 @@ enum SelfCorrection {
                       needsClauseEnd: !hasWait && !words.contains("no"))
     }
 
+    /// Words that may lead into "scratch that": "10 to 20, actually scratch
+    /// that, 10 to 30".
+    private static let retractLeads: Set<String> = runWords.union(["okay", "ok", "um", "uh", "hmm", "so", "well"])
+
+    /// "scratch that" (or strike / ignore / disregard that), with any filler
+    /// words in front of it, starting at `index`. Always a strong marker, but
+    /// only when it is plainly a command: after a filler ("actually scratch
+    /// that"), or set off by punctuation on both sides. "Please scratch that
+    /// itch" is neither.
+    private static func scratch(at index: Int, in tokens: [Token]) -> Marker? {
+        var words: [String] = []
+        var i = index
+        while i < tokens.count, words.count < 3, retractLeads.contains(tokens[i].norm),
+              i == index || !tokens[i].leading.contains("\n") {
+            words.append(tokens[i].norm)
+            i += 1
+        }
+        guard i + 1 < tokens.count, retractVerbs.contains(tokens[i].norm), tokens[i + 1].norm == "that",
+              !tokens[i].leading.contains("\n") || i == index, !tokens[i + 1].leading.contains("\n") else { return nil }
+        let setOff = !words.isEmpty
+            || (index > 0 && tokens[index - 1].trailingPunctuation != nil && tokens[i + 1].trailingPunctuation != nil)
+        guard setOff else { return nil }
+        return Marker(words: words + [tokens[i].norm, "that"], strong: true, needsClauseEnd: false)
+    }
+
     /// Markers starting at `index` that are set off the way a correction is.
     /// Returns (marker, index of the first token after it).
     private static func markers(at index: Int, in tokens: [Token]) -> [(Marker, Int)] {
         guard index > 0 else { return [] } // nothing before it to replace
         var found: [(Marker, Int)] = []
-        for marker in markers + [run(at: index, in: tokens)].compactMap({ $0 }) {
+        for marker in markers + [run(at: index, in: tokens), scratch(at: index, in: tokens)].compactMap({ $0 }) {
             let end = index + marker.words.count
             guard end < tokens.count else { continue } // nothing after it either
             let span = tokens[index..<end]
@@ -164,6 +192,8 @@ enum SelfCorrection {
                 for lead in staticLead > 0 ? (setOff ? [staticLead, 0] : [staticLead]) : [0] {
                     let after = markerEnd + lead
                     guard after < tokens.count else { continue }
+                    // "not a short" negates the old phrase; it is no replacement.
+                    guard tokens[after].norm != "not" else { continue }
                     let old = unitsBackward(from: m, in: tokens)
                     let new = unitsForward(from: after, in: tokens)
                     for n in 1...maxUnits where n <= old.count && n <= new.count {
@@ -298,8 +328,9 @@ enum SelfCorrection {
     /// first appeared. Everything from that point through the marker goes.
     private static func restart(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
-            for (_, after) in markers(at: m, in: tokens) where after + 1 < tokens.count {
-                guard !tokens[after + 1].leading.contains("\n") else { continue }
+            for (_, markerEnd) in markers(at: m, in: tokens) {
+                let after = skipNegation(at: markerEnd, before: m, in: tokens)
+                guard after + 1 < tokens.count, !tokens[after + 1].leading.contains("\n") else { continue }
                 let opening = [tokens[after].norm, tokens[after + 1].norm]
                 let start = max(clauseStart(tokens, before: m - 1), m - 12)
                 var p = m - 2
@@ -314,6 +345,21 @@ enum SelfCorrection {
         return nil
     }
 
+    /// "a short, actually no not a short, we'll add a long one": after the
+    /// marker, "not" plus the very words just before it (ending in
+    /// punctuation) only negates them, so the restart begins after it.
+    private static func skipNegation(at index: Int, before m: Int, in tokens: [Token]) -> Int {
+        guard index < tokens.count, tokens[index].norm == "not" else { return index }
+        for k in 1...4 where index + k < tokens.count && m - k >= 0 {
+            let phrase = tokens[(index + 1)...(index + k)]
+            guard tokens[index + k].trailingPunctuation != nil,
+                  !phrase.dropLast().contains(where: { $0.trailingPunctuation != nil }),
+                  phrase.map(\.norm) == tokens[(m - k)..<m].map(\.norm) else { continue }
+            return index + k + 1
+        }
+        return index
+    }
+
     private static let retractVerbs: Set<String> = ["scratch", "strike", "ignore", "disregard"]
 
     /// "let's do it tomorrow, scratch that (or strike / ignore / disregard that),
@@ -322,17 +368,18 @@ enum SelfCorrection {
     /// on both sides - "scratch that itch" is not a command - and something must
     /// follow it to be what was meant instead.
     private static func scratchThat(_ tokens: [Token]) -> [Token]? {
-        for m in tokens.indices.dropFirst() where m + 2 < tokens.count {
-            guard retractVerbs.contains(tokens[m].norm), tokens[m + 1].norm == "that",
-                  tokens[m - 1].trailingPunctuation != nil,
-                  tokens[m + 1].trailingPunctuation != nil,
-                  !tokens[m + 1].leading.contains("\n"),
-                  !tokens[m + 2].leading.contains("\n") else { continue }
+        for m in tokens.indices.dropFirst() {
+            guard let marker = scratch(at: m, in: tokens) else { continue }
+            var end = m + marker.words.count
+            // "scratch that, scratch that" is one command said twice.
+            while end + 2 < tokens.count, retractVerbs.contains(tokens[end].norm), tokens[end + 1].norm == "that",
+                  !tokens[end].leading.contains("\n") { end += 2 }
+            guard end < tokens.count, !tokens[end].leading.contains("\n") else { continue }
             var start = m - 1
             while start > 0, tokens[start - 1].trailingPunctuation == nil, !tokens[start].leading.contains("\n") {
                 start -= 1
             }
-            return delete(tokens, start..<(m + 2))
+            return delete(tokens, start..<end)
         }
         return nil
     }

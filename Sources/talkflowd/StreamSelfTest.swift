@@ -524,6 +524,48 @@ enum StreamSelfTest {
             ("Let's go to the park. Strike that. Let's go home.", "Let's go home."),
             ("Order pizza, scratch that, order sushi.", "Order sushi."),
             ("We should leave now, ignore that, we should wait.", "We should wait."),
+            // "scratch that" after a filler word or without commas, and a value
+            // swap that keeps the words around it.
+            ("it'll be like 10 to 20, actually scratch that, it'll be like 10 to 30 seconds long and it's just going to be a short and punchy reel",
+             "it'll be like 10 to 30 seconds long and it's just going to be a short and punchy reel"),
+            ("it'll be like 10 to 20 actually scratch that it'll be like 10 to 30 seconds long",
+             "it'll be like 10 to 30 seconds long"),
+            ("It'll be like 10 to 20, actually, scratch that, it'll be like 10 to 30 seconds.",
+             "It'll be like 10 to 30 seconds."),
+            ("It'll be like 10 to 20, wait, scratch that, 10 to 30 seconds.",
+             "It'll be like 10 to 30 seconds."),
+            ("it's gonna be 4 p.m., scratch that, 5 p.m. that works", "it's gonna be 5 p.m. that works"),
+            ("Let's meet at 4 p.m., scratch that, 5 p.m.", "Let's meet at 5 p.m."),
+            ("Let's meet at 4 p.m. Scratch that. 5 p.m. works.", "Let's meet at 5 p.m. works."),
+            ("Let's meet at 4 pm, scratch that, 5 pm works for me.", "Let's meet at 5 pm works for me."),
+            ("It starts at 4, actually scratch that, 5.", "It starts at 5."),
+            ("Meet on Friday, oh scratch that, Thursday.", "Meet on Thursday."),
+            ("Okay scratch that, the budget is 20 dollars.", "Okay scratch that, the budget is 20 dollars."),
+            ("Send it to Sarah, scratch that, send it to Sam.", "Send it to Sam."),
+            ("I'll call him tomorrow, scratch that, I'll text him instead.", "I'll text him instead."),
+            ("Buy milk. Actually scratch that. Buy eggs.", "Buy eggs."),
+            ("Let's go to the park, actually scratch that, let's go home.", "Let's go home."),
+            ("Let's go to the park, um, scratch that, let's go home.", "Let's go home."),
+            ("First line.\nActually scratch that, second line.", "Second line."),
+            ("Call Sam at 3, scratch that, scratch that, call Sam at 4.", "Call Sam at 4."),
+            ("Pay 20 dollars, strike that, pay 30 dollars.", "Pay 30 dollars."),
+            ("Ship it Monday, disregard that, ship it Friday.", "Ship it Friday."),
+            ("Let's meet at 4, scratch that", "Let's meet at 4, scratch that"),
+            ("We'll go at 6 am, scratch that, 7 am, and then eat.", "We'll go at 7 am, and then eat."),
+            // "actually no not a short, <restart>": the negated phrase is skipped
+            ("let's make the demo video 45 minutes and then we'll just add a short, actually no not a short, we'll just add a long youtube video",
+             "let's make the demo video 45 minutes and then we'll just add a long youtube video"),
+            ("We'll add a short, no wait not a short, we'll add a long video.", "We'll add a long video."),
+            ("I want a red one, actually not a red one, I want a blue one.", "I want a blue one."),
+            ("It is not a short, it is long.", "It is not a short, it is long."),
+            ("I like it, actually not bad, I mean good.", "I like it, actually not bad, I mean good."),
+            // not commands
+            ("Please, scratch that itch.", "Please, scratch that itch."),
+            ("You can scratch that itch later, actually.", "You can scratch that itch later, actually."),
+            ("I need to scratch that itch.", "I need to scratch that itch."),
+            ("Actually scratch that.", "Actually scratch that."),
+            ("The cat will scratch that couch, probably.", "The cat will scratch that couch, probably."),
+            ("He told me to strike that chord, actually.", "He told me to strike that chord, actually."),
             // stutters and restarts
             ("the the meeting is at noon", "the meeting is at noon"),
             ("The the meeting is at noon.", "The meeting is at noon."),
@@ -566,6 +608,15 @@ enum StreamSelfTest {
             let got = SelfCorrection.apply(to: raw)
             check(got == want, "\(raw.debugDescription) -> \(want.debugDescription)", got.debugDescription)
         }
+
+        // The real pipeline, on what whisper actually returned.
+        let spoken = Dictation.render("it'll be like 10 to 20, actually scratch that, it'll be like 10 to 30 seconds long and it's just going to be a short and punchy reel",
+                                      leadingSpace: "", structure: true)
+        check(!spoken.lowercased().contains("scratch") && spoken.contains("10 to 30") && !spoken.contains("20"),
+              "pipeline: a spoken 'scratch that' leaves only the corrected range", spoken.debugDescription)
+        let spokenTime = Dictation.render("Let's meet at 4 p.m., scratch that, 5 p.m. that works.", leadingSpace: "", structure: true)
+        check(!spokenTime.contains("4") && spokenTime.contains("5 p.m."),
+              "pipeline: scratch that swaps 4 p.m. for 5 p.m.", spokenTime.debugDescription)
 
         // The guard that makes corruption impossible by construction.
         check(SelfCorrection.isDeletionOnly(original: "meet at 2, no wait, 3", result: "meet at 3"),
