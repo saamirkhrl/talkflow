@@ -21,6 +21,11 @@
 # talkflow.app/Contents/Helpers/whisper-server, built from a pinned tag by
 # scripts/build-whisper-macos.sh. Users need no Homebrew.
 #
+# TALKFLOW_TELEMETRY_URL (optional, from the environment): the install counter's
+# URL (docs/telemetry.md). It goes only into the built app's own Info.plist,
+# never into Packaging/Info.plist, so it is never committed and source builds
+# never send. Unset, the release builds the same and never sends.
+#
 # Prerequisites on the release machine: the Swift toolchain and Command Line
 # Tools (xcode-select --install), git, cmake 3.23+ (https://cmake.org/download/,
 # or brew install cmake) for the engine, and to publish, gh (signed in) and
@@ -30,6 +35,11 @@ set -euo pipefail
 VERSION="${1:-}"
 DRY_RUN="${2:-}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: $0 <major.minor.patch> [--dry-run]" >&2; exit 2; }
+TELEMETRY_URL="${TALKFLOW_TELEMETRY_URL:-}"
+if [ -n "$TELEMETRY_URL" ] && ! [[ "$TELEMETRY_URL" =~ ^https://[^[:space:]\"\']+$ ]]; then
+    echo "error: TALKFLOW_TELEMETRY_URL must be a single https:// URL" >&2
+    exit 2
+fi
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLIST="$PROJECT_DIR/Packaging/Info.plist"
@@ -72,6 +82,13 @@ rm -rf "$OUT"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$BIN" "$APP/Contents/MacOS/talkflowd"
 cp "$PLIST" "$APP/Contents/Info.plist"
+# Before signing, so the signature seals it. This copy only; the plist in git stays clean.
+if [ -n "$TELEMETRY_URL" ]; then
+    /usr/libexec/PlistBuddy -c "Add :TalkflowTelemetryURL string $TELEMETRY_URL" "$APP/Contents/Info.plist"
+    echo "    install counter: on"
+else
+    echo "    install counter: off (TALKFLOW_TELEMETRY_URL is not set)"
+fi
 cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server"
 cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"

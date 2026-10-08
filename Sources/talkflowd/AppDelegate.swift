@@ -71,6 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UpdateNotice.shared.start()
         Updater.shared.onAvailabilityChange = { [weak self] version in self?.statusBar.setUpdate(version: version) }
         Updater.shared.startBackgroundChecks()
+        // Release builds only: one empty POST, once per install (docs/telemetry.md).
+        InstallCounter.startWhenOnline()
     }
 
     /// Clicking the Dock icon, which exists while setup is open (it makes
