@@ -22,9 +22,9 @@ export const SHOW_OS_LOGOS = true;
 // .github/workflows/windows.yml. Set this to false to offer only the Mac
 // download and say Windows is coming instead.
 export const WINDOWS_AVAILABLE: boolean = true;
-// A native Windows on Arm build. While false, the Arm choice serves the x64
-// installer, which Windows on Arm runs through its built-in emulation.
-export const WINDOWS_ARM64_AVAILABLE: boolean = true;
+// Windows has one build, x64. It runs on every Windows 10 (1809) and 11 PC,
+// Arm PCs included, which run it through Windows' built-in emulation. There is
+// no separate Arm build.
 
 // Every build the site offers, by the path it is served from:
 // talkflow.live/download/<id> redirects to that release asset (see
@@ -33,7 +33,7 @@ export const WINDOWS_ARM64_AVAILABLE: boolean = true;
 // The Mac release is one universal app (Apple Silicon and Intel in the same
 // binary), so both Mac paths serve the same disk image. Give one its own
 // asset name here if separate builds are ever published.
-export type BuildId = "mac-apple-silicon" | "mac-intel" | "windows-x64" | "windows-arm64";
+export type BuildId = "mac-apple-silicon" | "mac-intel" | "windows-x64";
 export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; detail: string; asset: string; available: boolean }> = {
   "mac-apple-silicon": {
     os: "mac",
@@ -51,16 +51,9 @@ export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; det
   },
   "windows-x64": {
     os: "windows",
-    label: "x64",
-    detail: "Most Windows PCs (Intel or AMD processor)",
+    label: "Windows",
+    detail: "Any PC with Windows 10 (version 1809) or 11, Intel, AMD or Arm",
     asset: "talkflow-windows-x64-setup.exe",
-    available: WINDOWS_AVAILABLE,
-  },
-  "windows-arm64": {
-    os: "windows",
-    label: "Arm",
-    detail: "Windows on Arm (Snapdragon and other Arm processors)",
-    asset: WINDOWS_ARM64_AVAILABLE ? "talkflow-windows-arm64-setup.exe" : "talkflow-windows-x64-setup.exe",
     available: WINDOWS_AVAILABLE,
   },
 };
@@ -121,7 +114,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "What do I need to run it?",
-    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, x64 or Arm. The speech model needs about 500 MB of disk space.",
+    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, including Arm PCs. The speech model needs about 500 MB of disk space.",
   ],
 ];
 

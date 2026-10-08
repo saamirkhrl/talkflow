@@ -178,7 +178,7 @@ function OtherBuilds() {
               {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none" />}
               <span className="flex flex-col">
                 <span className="text-[15px] text-ink">Windows</span>
-                <span className="text-[12px] text-graphite">x64 and Arm, Windows 10 and 11</span>
+                <span className="text-[12px] text-graphite">Any PC with Windows 10 or 11</span>
               </span>
               <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
             </Link>
