@@ -140,6 +140,24 @@ Three things run it:
    `release` workflows from the copy of the file on the default branch.
 3. Anyone, by hand, with the commands above.
 
+## The install counter
+
+Release builds carry the URL of the anonymous install counter
+([telemetry.md](telemetry.md)); no other build does. It is never committed.
+
+- **macOS:** run `release.sh` with `TALKFLOW_TELEMETRY_URL` set, e.g.
+  `TALKFLOW_TELEMETRY_URL=https://<site>/api/install ./release.sh 0.2.0`. It
+  must be a single `https://` URL. The script writes it into the built app's
+  own `Info.plist` (`TalkflowTelemetryURL`), never `Packaging/Info.plist`, and
+  prints `install counter: on` or `off`. Check a build with
+  `/usr/libexec/PlistBuddy -c "Print :TalkflowTelemetryURL" .build/release-artifacts/talkflow.app/Contents/Info.plist`.
+- **Windows:** the `Windows` workflow passes the repository secret
+  `TALKFLOW_TELEMETRY_URL` as `-p:TalkflowTelemetryUrl` on published releases
+  only.
+- Unset, a release builds the same and never sends. The privacy policy must
+  describe the counter (with this version filled in) before the first release
+  that carries the URL ships.
+
 ## Adding Linux
 
 1. Build and attach `talkflow-linux-x64.AppImage` and/or
