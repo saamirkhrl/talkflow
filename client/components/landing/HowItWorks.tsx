@@ -1,7 +1,10 @@
 import { RecDot, SectionTitle, Waveform } from "./primitives";
+import { ForOs } from "./visitor";
 
 const STEP = "flex flex-col gap-5 border-t border-line pt-6";
 const STAGE = "flex h-36 items-center justify-center rounded-3xl bg-mist px-6";
+const KEY =
+  "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-line border-b-[5px] bg-paper p-2.5 font-sans text-[22px] text-ink shadow-[0_1px_0_rgba(31,30,34,0.05)]";
 
 export function HowItWorks() {
   return (
@@ -10,13 +13,28 @@ export function HowItWorks() {
       <ol className="mt-14 grid gap-x-8 gap-y-12 md:grid-cols-3">
         <li className={STEP}>
           <div className={STAGE}>
-            <kbd className="grid h-[68px] w-[76px] place-items-end rounded-[14px] border border-line border-b-[5px] bg-paper p-2.5 font-sans text-[22px] text-ink shadow-[0_1px_0_rgba(31,30,34,0.05)]">
-              fn
-            </kbd>
+            <ForOs
+              mac={<kbd className={KEY}>fn</kbd>}
+              windows={
+                <span className="flex items-center gap-3">
+                  <kbd className={KEY}>Ctrl</kbd>
+                  <span aria-hidden="true" className="text-[22px] text-graphite">+</span>
+                  <kbd className={KEY}>Win</kbd>
+                </span>
+              }
+            />
           </div>
           <div>
-            <h3 className="text-[19px] font-semibold">1. Hold the key</h3>
-            <p className="mt-1.5 text-graphite">fn, the Globe key, on a Mac. Ctrl + Win on Windows. talkflow starts listening.</p>
+            <h3 className="text-[19px] font-semibold">
+              1. Hold <ForOs mac="fn" windows="Ctrl + Win" />
+            </h3>
+            <p className="mt-1.5 text-graphite">
+              <ForOs
+                mac="The Globe key in the corner of your keyboard."
+                windows="Ctrl and the Windows key, bottom left. You can pick another shortcut in Settings."
+              />{" "}
+              talkflow starts listening.
+            </p>
           </div>
         </li>
         <li className={STEP}>

@@ -49,6 +49,12 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   return <VisitorContext.Provider value={{ os, mobile: mobileUa || narrow }}>{children}</VisitorContext.Provider>;
 }
 
+// Copy that names the visitor's computer or shortcut: the Mac wording on a Mac
+// (and while rendering on the server), the Windows wording on Windows.
+export function ForOs({ mac, windows }: { mac: React.ReactNode; windows: React.ReactNode }) {
+  return <>{useVisitor().os === "windows" ? windows : mac}</>;
+}
+
 export function useVisitor(): Visitor {
   const visitor = useContext(VisitorContext);
   if (!visitor) throw new Error("useVisitor must be used inside <VisitorProvider>");

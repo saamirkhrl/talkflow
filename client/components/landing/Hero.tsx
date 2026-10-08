@@ -1,5 +1,6 @@
 import { DownloadCta } from "./DownloadCta";
 import { HeroRibbon } from "./HeroRibbon";
+import { ForOs } from "./visitor";
 
 export function Hero() {
   return (
@@ -15,7 +16,8 @@ export function Hero() {
           <em>for free, forever.</em>
         </h1>
         <p className="mt-5 max-w-[44ch] text-[clamp(17px,1.6vw,20px)] leading-[1.5] text-graphite">
-          Hold a key, speak, and your words are typed wherever your cursor is. Open source, and it never leaves your computer.
+          Hold <ForOs mac="fn" windows="Ctrl + Win" />, speak, and your words are typed wherever your cursor is. Open source, and it
+          never leaves your <ForOs mac="Mac" windows="computer" />.
         </p>
         <div className="relative z-10 mt-7">
           <DownloadCta compare />
