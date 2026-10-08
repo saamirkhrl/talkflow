@@ -181,6 +181,10 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     }
     Say "foreground: $([E2e]::Describe([E2e]::GetForegroundWindow()))"
     $logStart = (LogLines).Count
+    # A dictation is pasted with the user's clipboard saved and put back
+    # (KeyboardWriter.Paste); this must survive it.
+    $sentinel = "e2e clipboard $label $(Get-Random)"
+    Set-Clipboard -Value $sentinel
     $holdSeconds = [Math]::Ceiling($script:wavSeconds) + 1.5
     $slowest = 0; $unanswered = 0; $overlaySeen = $false
 
@@ -225,6 +229,9 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     if ($overlayAfter) { Start-Sleep -Seconds 5; $overlayAfter = OverlayVisible $process }
 
     $newLines = @(LogLines | Select-Object -Skip $logStart)
+    $clipboard = (Get-Clipboard -Raw)
+    if ($null -ne $clipboard) { $clipboard = $clipboard.TrimEnd() }
+    $copiedInstead = @($newLines | Where-Object { $_ -match 'copied to the clipboard' }).Count -gt 0
     $stalls = @($newLines | Where-Object { $_ -match 'STALL' })
     $stuck = @([E2e]::VK_LWIN, [E2e]::VK_LCONTROL) | Where-Object { [E2e]::IsDown($_) }
 
@@ -233,6 +240,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     Write-Host "visible windows:"; Write-Host ([E2e]::ListWindows())
     Say "slowest window answer while holding: $slowest ms ($unanswered probes unanswered within 5 s); after: $($script:slowestAfter) ms ($($script:unansweredAfter) unanswered)"
     Say "pill seen while holding: $overlaySeen; still visible 5 s after: $overlayAfter"
+    Say "clipboard after: [$clipboard] (expected [$sentinel])"
     Say "talkflow.log during this dictation:"
     $newLines | ForEach-Object { Write-Host "    $_" }
 
@@ -242,6 +250,7 @@ function Dictate([string] $label, [IntPtr] $hwnd, [scriptblock] $read, [string] 
     }
     if ($unanswered -gt 0 -or $script:unansweredAfter -gt 0) { Fail "${label}: talkflow's windows stopped answering ($unanswered while holding, $($script:unansweredAfter) after)" }
     if ($stalls.Count -gt 0) { Fail "${label}: talkflow.log reports $($stalls.Count) UI stall line(s)" }
+    if (-not $copiedInstead -and $clipboard -ne $sentinel) { Fail "${label}: the clipboard was not put back after the dictation: [$clipboard]" }
     if (-not $overlaySeen) { Fail "${label}: the pill was never on screen while the keys were held" }
     if ($overlayAfter) { Fail "${label}: the pill was still on screen after the dictation" }
     if ($stuck) { Fail "${label}: keys still logically down after release: $($stuck -join ', ')" }

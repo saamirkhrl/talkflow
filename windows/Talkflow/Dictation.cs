@@ -464,10 +464,10 @@ sealed class Dictation
             return;
         }
         _lastStreamed = desired;
-        SyncField(desired);
+        SyncField(desired, paste: false); // the shortcut is held: Ctrl+V would arrive as Ctrl+Win+V
     }
 
-    void SyncField(string desired)
+    void SyncField(string desired, bool paste = true)
     {
         if (_focusLeft) return;
         var now = FocusTarget.Current();
@@ -480,7 +480,7 @@ sealed class Dictation
             _field.Reset();
             return;
         }
-        var (deleting, inserting) = _field.Sync(desired);
+        var (deleting, inserting) = _field.Sync(desired, paste);
         Log.Write($"typed into {now.ProcessName ?? "unknown"} [-{deleting} +{Chars.Count(inserting)}]");
     }
 
@@ -504,11 +504,11 @@ sealed class FieldSync
 
     public void Reset() => TypedText = "";
 
-    public (int Deleting, string Inserting) Sync(string desired)
+    public (int Deleting, string Inserting) Sync(string desired, bool paste = true)
     {
         if (desired == TypedText) return (0, "");
         var edit = FieldEdit.Edit(TypedText, desired);
-        KeyboardWriter.Rewrite(edit.Deleting, edit.Inserting);
+        KeyboardWriter.Rewrite(edit.Deleting, edit.Inserting, paste);
         TypedText = desired;
         return edit;
     }

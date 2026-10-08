@@ -61,6 +61,9 @@ static class Native
     [DllImport("user32.dll")]
     public static extern short GetAsyncKeyState(int vKey);
 
+    [DllImport("user32.dll")]
+    public static extern uint GetClipboardSequenceNumber();
+
     // MARK: - SendInput
 
     public const uint INPUT_KEYBOARD = 1;
