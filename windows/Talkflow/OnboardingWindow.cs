@@ -28,16 +28,9 @@ sealed class OnboardingWindow : Window
 {
     sealed record Facts(Microphone.State Mic, bool EngineInstalled, bool ModelComplete);
 
-    sealed record Mark(Ellipse Disc, TextBlock Number, Path Check, TextBlock Label);
-
-    static readonly Brush Faint = Ui.Ink_(0.3);
-    static readonly string[] StageNames = { "Microphone", "Speech engine", "Try it" };
-
     readonly App _app;
     readonly DispatcherTimer _poll;
     readonly TextBlock _lead;
-    readonly Mark[] _marks = new Mark[3];
-    readonly Border[] _links = new Border[2];
     readonly Border _micCard, _speechCard, _tryCard;
     readonly TextBlock _micStatus, _micHint, _speechStatus, _speechDetail, _speechNote;
     readonly Button _micButton, _retry, _done;
@@ -67,25 +60,6 @@ sealed class OnboardingWindow : Window
         header.Children.Add(brand);
         _lead = Ui.Text("", 13, Ui.Graphite);
         header.Children.Add(_lead);
-
-        // The step row: numbered discs joined by hairlines.
-        var steps = new Grid { Margin = new Thickness(0, 0, 0, 24) };
-        for (int i = 0; i < 3; i++)
-        {
-            if (i > 0)
-            {
-                steps.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                var link = new Border { Height = 1, Background = Ui.Line, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 12, 0) };
-                Grid.SetColumn(link, steps.ColumnDefinitions.Count - 1);
-                steps.Children.Add(link);
-                _links[i - 1] = link;
-            }
-            steps.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var (node, mark) = BuildMark(i);
-            Grid.SetColumn(node, steps.ColumnDefinitions.Count - 1);
-            steps.Children.Add(node);
-            _marks[i] = mark;
-        }
 
         // 1. Microphone.
         _micButton = Ui.Button("Open microphone settings", () => _micAction(), primary: true);
@@ -158,7 +132,6 @@ sealed class OnboardingWindow : Window
 
         var body = new StackPanel { Margin = new Thickness(32, 28, 32, 8) };
         body.Children.Add(header);
-        body.Children.Add(steps);
         body.Children.Add(_micCard);
         body.Children.Add(_speechCard);
         body.Children.Add(_tryCard);
@@ -173,7 +146,7 @@ sealed class OnboardingWindow : Window
         var startup = Ui.Switch(StartupEntry.IsEnabled || !_app.HasRunBefore, StartupEntry.Set);
         AutomationProperties.SetName(startup, "Start talkflow when I sign in to Windows");
         if (startup.IsChecked == true) StartupEntry.Set(true);
-        var startRow = Ui.Row("Start with Windows", "talkflow waits quietly in the tray, ready when you are.", startup);
+        var startRow = Ui.Row("Start with Windows", "", startup);
         startRow.Margin = new Thickness(0, 0, 0, 14);
         _done = Ui.Button("Finish later", Close);
         _done.HorizontalAlignment = HorizontalAlignment.Right;
@@ -225,41 +198,6 @@ sealed class OnboardingWindow : Window
     }
 
     // MARK: - Building blocks
-
-    static (FrameworkElement Node, Mark Mark) BuildMark(int index)
-    {
-        var disc = new Ellipse { Width = 26, Height = 26, StrokeThickness = 1.2, Stroke = Faint, Fill = Brushes.Transparent };
-        var number = new TextBlock
-        {
-            Text = (index + 1).ToString(),
-            FontFamily = Ui.Serif,
-            FontSize = 14,
-            Foreground = Ui.Graphite,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var check = new Path
-        {
-            Data = Geometry.Parse("M 7.5,13.5 L 11.5,17.5 L 18.5,8.5"),
-            Stroke = Brushes.White,
-            StrokeThickness = 2,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Visibility = Visibility.Collapsed,
-        };
-        var circle = new Grid { Width = 26, Height = 26 };
-        circle.Children.Add(disc);
-        circle.Children.Add(number);
-        circle.Children.Add(check);
-        var label = Ui.Text(StageNames[index], 13, Ui.Graphite, wrap: false);
-        label.VerticalAlignment = VerticalAlignment.Center;
-        label.Margin = new Thickness(9, 0, 0, 0);
-        var node = new StackPanel { Orientation = Orientation.Horizontal };
-        node.Children.Add(circle);
-        node.Children.Add(label);
-        return (node, new Mark(disc, number, check, label));
-    }
 
     static Border BuildCard(string title, UIElement? action, out StackPanel body)
     {
@@ -375,7 +313,7 @@ sealed class OnboardingWindow : Window
     {
         if (_closed) return;
         string shortcut = _app.Hotkey.Spec.Describe();
-        _lead.Text = $"Hold {shortcut}, speak, let go. Your words are typed where your cursor is.";
+        _lead.Text = $"Hold {shortcut}, speak, let go.";
         if (_facts is not { } facts) return;
 
         var download = _app.ModelDownload;
@@ -390,8 +328,6 @@ sealed class OnboardingWindow : Window
         ApplyTryIt(ready, shortcut);
 
         bool[] done = { micOk, _phase == SpeechPhase.Ready, ready && _tried };
-        for (int i = 0; i < 3; i++) ApplyMark(i, done[i], (int)stage == i);
-        for (int i = 0; i < 2; i++) _links[i].Background = done[i] ? Ui.Good : Ui.Line;
         foreach (var (card, index) in new[] { (_micCard, 0), (_speechCard, 1), (_tryCard, 2) })
         {
             bool current = (int)stage == index;
@@ -415,23 +351,11 @@ sealed class OnboardingWindow : Window
         else _kickedEngine = false;
     }
 
-    void ApplyMark(int index, bool done, bool current)
-    {
-        var mark = _marks[index];
-        mark.Check.Visibility = done ? Visibility.Visible : Visibility.Collapsed;
-        mark.Number.Visibility = done ? Visibility.Collapsed : Visibility.Visible;
-        mark.Disc.Fill = done ? Ui.Good : current ? Ui.Ink : Brushes.Transparent;
-        mark.Disc.Stroke = done ? Ui.Good : current ? Ui.Ink : Faint;
-        mark.Number.Foreground = current ? Ui.Paper : Ui.Graphite;
-        mark.Label.Foreground = done || current ? Ui.Ink : Ui.Graphite;
-        mark.Label.FontWeight = current ? FontWeights.SemiBold : FontWeights.Normal;
-    }
-
     void ApplyMicrophone(Microphone.State mic, SetupStage stage)
     {
         if (mic == Microphone.State.Allowed)
         {
-            SetText(_micStatus, "Microphone is on.", Ui.Graphite);
+            SetText(_micStatus, "On.", Ui.Graphite);
             Show(_micHint, false);
             Show(_micButton, false);
             return;
@@ -455,18 +379,17 @@ sealed class OnboardingWindow : Window
         switch (_phase)
         {
             case SpeechPhase.EngineMissing:
-                status = "whisper-server.exe is missing from the install folder. Reinstall talkflow.";
+                status = "Some files are missing. Reinstall talkflow.";
                 statusColor = Ui.Bad;
                 break;
             case SpeechPhase.Preparing:
-                status = "Getting ready to download the speech model...";
-                note = "One time, about 488 MB. After that talkflow works offline.";
+                status = "Getting ready...";
+                note = "One-time download, 488 MB.";
                 break;
             case SpeechPhase.Downloading:
                 var meter = download.Meter;
-                status = meter.Percent is { } percent ? $"Downloading the speech model... {percent}%" : "Downloading the speech model...";
+                status = meter.Percent is { } percent ? $"Downloading... {percent}%" : "Downloading...";
                 detail = meter.Describe();
-                note = "You can close this window. The download keeps going.";
                 bar = true;
                 _progress.Value = meter.Total is > 0 ? Math.Min(1, (double)meter.Written / meter.Total.Value) : 0;
                 break;
@@ -478,8 +401,7 @@ sealed class OnboardingWindow : Window
                 retry = true;
                 break;
             case SpeechPhase.Starting:
-                status = "Starting the speech engine...";
-                note = "Loading the model. The first start can take a moment.";
+                status = "Starting...";
                 break;
             case SpeechPhase.EngineFailed:
                 // Said once and left there: retrying by itself every few seconds would hide the reason.
@@ -489,7 +411,7 @@ sealed class OnboardingWindow : Window
                 retry = true;
                 break;
             case SpeechPhase.Ready:
-                status = "Ready. Runs on this PC.";
+                status = "Ready.";
                 break;
         }
         SetText(_speechStatus, status, statusColor);
@@ -507,7 +429,7 @@ sealed class OnboardingWindow : Window
         _tryIt.IsEnabled = ready;
         if (!ready)
         {
-            SetText(_tryPrompt, "Unlocks when the steps above are done.", Ui.Graphite);
+            SetText(_tryPrompt, "Available after setup.", Ui.Graphite);
             _tryPrompt.FontFamily = Ui.Sans;
             _tryPrompt.FontSize = 12;
         }
