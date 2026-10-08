@@ -552,6 +552,13 @@ enum StreamSelfTest {
             ("Ship it Monday, disregard that, ship it Friday.", "Ship it Friday."),
             ("Let's meet at 4, scratch that", "Let's meet at 4, scratch that"),
             ("We'll go at 6 am, scratch that, 7 am, and then eat.", "We'll go at 7 am, and then eat."),
+            // "actually no not a short, <restart>": the negated phrase is skipped
+            ("let's make the demo video 45 minutes and then we'll just add a short, actually no not a short, we'll just add a long youtube video",
+             "let's make the demo video 45 minutes and then we'll just add a long youtube video"),
+            ("We'll add a short, no wait not a short, we'll add a long video.", "We'll add a long video."),
+            ("I want a red one, actually not a red one, I want a blue one.", "I want a blue one."),
+            ("It is not a short, it is long.", "It is not a short, it is long."),
+            ("I like it, actually not bad, I mean good.", "I like it, actually not bad, I mean good."),
             // not commands
             ("Please, scratch that itch.", "Please, scratch that itch."),
             ("You can scratch that itch later, actually.", "You can scratch that itch later, actually."),

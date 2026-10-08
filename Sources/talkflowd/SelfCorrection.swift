@@ -192,6 +192,8 @@ enum SelfCorrection {
                 for lead in staticLead > 0 ? (setOff ? [staticLead, 0] : [staticLead]) : [0] {
                     let after = markerEnd + lead
                     guard after < tokens.count else { continue }
+                    // "not a short" negates the old phrase; it is no replacement.
+                    guard tokens[after].norm != "not" else { continue }
                     let old = unitsBackward(from: m, in: tokens)
                     let new = unitsForward(from: after, in: tokens)
                     for n in 1...maxUnits where n <= old.count && n <= new.count {
@@ -326,8 +328,9 @@ enum SelfCorrection {
     /// first appeared. Everything from that point through the marker goes.
     private static func restart(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
-            for (_, after) in markers(at: m, in: tokens) where after + 1 < tokens.count {
-                guard !tokens[after + 1].leading.contains("\n") else { continue }
+            for (_, markerEnd) in markers(at: m, in: tokens) {
+                let after = skipNegation(at: markerEnd, before: m, in: tokens)
+                guard after + 1 < tokens.count, !tokens[after + 1].leading.contains("\n") else { continue }
                 let opening = [tokens[after].norm, tokens[after + 1].norm]
                 let start = max(clauseStart(tokens, before: m - 1), m - 12)
                 var p = m - 2
@@ -340,6 +343,21 @@ enum SelfCorrection {
             }
         }
         return nil
+    }
+
+    /// "a short, actually no not a short, we'll add a long one": after the
+    /// marker, "not" plus the very words just before it (ending in
+    /// punctuation) only negates them, so the restart begins after it.
+    private static func skipNegation(at index: Int, before m: Int, in tokens: [Token]) -> Int {
+        guard index < tokens.count, tokens[index].norm == "not" else { return index }
+        for k in 1...4 where index + k < tokens.count && m - k >= 0 {
+            let phrase = tokens[(index + 1)...(index + k)]
+            guard tokens[index + k].trailingPunctuation != nil,
+                  !phrase.dropLast().contains(where: { $0.trailingPunctuation != nil }),
+                  phrase.map(\.norm) == tokens[(m - k)..<m].map(\.norm) else { continue }
+            return index + k + 1
+        }
+        return index
     }
 
     private static let retractVerbs: Set<String> = ["scratch", "strike", "ignore", "disregard"]
