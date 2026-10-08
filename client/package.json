@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/*.test.mts",
     "logos": "node scripts/build-brand-logos.mjs"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "@vercel/analytics": "^2.0.1",
     "lenis": "^1.3.26",
     "lucide-react": "^1.48.0",
@@ -23,6 +25,7 @@
     "@iconify-json/simple-icons": "^1.2.98",
     "@iconify-json/thesvg": "^1.2.7",
     "@iconify/utils": "^3.1.7",
+    "@neon/config": "^1.8.5",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
