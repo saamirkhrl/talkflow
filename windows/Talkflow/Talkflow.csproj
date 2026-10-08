@@ -35,6 +35,12 @@
     <ProjectReference Include="..\Talkflow.Core\Talkflow.Core.csproj" />
   </ItemGroup>
 
+  <!-- The install counter's URL (docs/telemetry.md). Only the release workflow passes
+       -p:TalkflowTelemetryUrl=...; every other build has none and never sends. -->
+  <ItemGroup Condition="'$(TalkflowTelemetryUrl)' != ''">
+    <AssemblyMetadata Include="TalkflowTelemetryUrl" Value="$(TalkflowTelemetryUrl)" />
+  </ItemGroup>
+
   <ItemGroup>
     <Resource Include="Assets\talkflow-256.png" />
     <EmbeddedResource Include="Assets\talkflow.ico" LogicalName="talkflow.ico" />

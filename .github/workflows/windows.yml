@@ -192,9 +192,14 @@ jobs:
           name: engine-${{ matrix.arch }}
           path: dl
       - name: Publish talkflow (self-contained, win-${{ matrix.arch }})
+        env:
+          # The install counter's URL (docs/telemetry.md), from a repository
+          # secret and for published releases only: pull request and test builds
+          # get an empty value, so their app never sends. Unset secret: same.
+          TELEMETRY_URL: ${{ needs.version.outputs.publish == 'true' && secrets.TALKFLOW_TELEMETRY_URL || '' }}
         run: |
           dotnet publish windows/Talkflow -c Release -r win-${{ matrix.arch }} --self-contained true `
-            -p:Version=${{ needs.version.outputs.version }} -o out/app
+            -p:Version=${{ needs.version.outputs.version }} "-p:TalkflowTelemetryUrl=$env:TELEMETRY_URL" -o out/app
           Copy-Item -Recurse dl/engine out/app/engine
           Copy-Item LICENSE out/app/LICENSE.txt
       - name: Install Inno Setup if needed
