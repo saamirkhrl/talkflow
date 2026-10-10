@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // idle: the field has focus and nothing is held. listening: fn is down and
 // words are arriving. done: fn is up and the text is in place. sent: the app
@@ -19,14 +19,8 @@ export function typedText(text: string, d: Dictation): string {
 // pauses after commas and sentence ends, and loops for as long as it plays.
 // When it stops playing it keeps its last frame while the scene fades out,
 // then clears, so the next visit starts from an empty field.
-// With `onEnd` it plays once and calls it when the text has been shown, instead of looping.
-export function useDictation(text: string, playing: boolean, reduced: boolean, sends: boolean, onEnd?: () => void): Dictation {
+export function useDictation(text: string, playing: boolean, reduced: boolean, sends: boolean): Dictation {
   const [dictation, setDictation] = useState(EMPTY);
-  const end = useRef(onEnd);
-  useEffect(() => {
-    end.current = onEnd;
-  });
-  const once = !!onEnd;
 
   useEffect(() => {
     if (reduced) return;
@@ -47,7 +41,7 @@ export function useDictation(text: string, playing: boolean, reduced: boolean, s
       later(() => {
         setDictation({ words: 0, phase: "listening" });
         later(() => step(0), 450);
-      }, once ? 1400 : 550);
+      }, 550);
     };
 
     const step = (i: number) => {
@@ -56,8 +50,7 @@ export function useDictation(text: string, playing: boolean, reduced: boolean, s
           setDictation({ words: words.length, phase: "done" });
           later(() => {
             if (sends) setDictation({ words: words.length, phase: "sent" });
-            if (once) later(() => end.current?.(), sends ? 1500 : 2200);
-            else later(play, sends ? 3600 : 3200);
+            later(play, sends ? 3600 : 3200);
           }, 900);
         }, 600);
         return;
@@ -75,7 +68,7 @@ export function useDictation(text: string, playing: boolean, reduced: boolean, s
 
     later(play, 0);
     return () => window.clearTimeout(timer);
-  }, [text, playing, reduced, sends, once]);
+  }, [text, playing, reduced, sends]);
 
   return reduced ? { words: text.split(" ").length, phase: "done" } : dictation;
 }

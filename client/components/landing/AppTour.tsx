@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type RefObject } from "react";
+import { useLenis } from "lenis/react";
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { GmailMock, MessagesMock, NotionMock, SlackMock, WhatsAppMock, type MockProps } from "./AppMocks";
@@ -9,8 +11,9 @@ import { BrandLogo } from "./BrandLogo";
 import { ClaudeCodeMock } from "./ClaudeCodeMock";
 import { DICTATIONS } from "./content";
 import { useDictation, type Phase } from "./dictation";
-import { RecDot, Waveform, wallpaperStyle } from "./primitives";
+import { Waveform } from "./primitives";
 import { useReducedMotion } from "./visitor";
+import { Wallpaper } from "./Wallpaper";
 
 type Scene = {
   name: string;
@@ -32,19 +35,94 @@ const SCENES: Scene[] = [
 
 const LOGOS = SCENES.map((s) => APP_LOGOS.find((logo) => logo.name === s.logo)!);
 
-// The overlay talkflow shows at the bottom of the screen: a red dot and input
-// levels while fn is held.
+// How much page scroll each app gets, in viewport heights.
+const STEP_SVH = 70;
+
+// The stage is a little Mac screen drawn in points and scaled to fit. Windows
+// are a real small window size, or a narrow one on phones, where their
+// sidebars collapse. They grow taller to use any spare height.
+const WIDE = { w: 720, h: 430 };
+const NARROW = { w: 380, h: 450 };
+const MAX_GROW = 1.25;
+// The overlay is 40 pt tall (Overlay.swift), sitting just above the Dock;
+// the window keeps clear of it.
+const PILL_BOTTOM = 80;
+const PILL_HEIGHT = 40;
+const WINDOW_BOTTOM = PILL_BOTTOM + PILL_HEIGHT + 12;
+const MARGIN = 12;
+// dock.png is 893 x 123 at 2x.
+const DOCK = { w: 446.5, h: 61.5 };
+
+// Which scene the page is scrolled to: the track's scroll range is split
+// evenly between the scenes while its sticky stage is pinned.
+function useActiveScene(track: RefObject<HTMLDivElement | null>): number {
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const update = () => {
+      const el = track.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const range = rect.height - innerHeight;
+      const progress = range > 0 ? Math.min(Math.max(-rect.top / range, 0), 0.9999) : 0;
+      setActive(Math.floor(progress * SCENES.length));
+    };
+    const frame = requestAnimationFrame(update);
+    addEventListener("scroll", update, { passive: true });
+    addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener("scroll", update);
+      removeEventListener("resize", update);
+    };
+  }, [track]);
+
+  return active;
+}
+
+type Fit = { scale: number; width: number; height: number; win: { w: number; h: number } };
+
+// How much to scale the screen so a whole window, the overlay and the Dock fit
+// the stage. Measured, so it is unknown until the first layout.
+function useFit(stage: RefObject<HTMLElement | null>): Fit | null {
+  const [fit, setFit] = useState<Fit | null>(null);
+
+  useEffect(() => {
+    const el = stage.current;
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      const base = width < 560 ? NARROW : WIDE;
+      const scale = Math.min(width / (base.w + 2 * MARGIN), height / (base.h + MARGIN + WINDOW_BOTTOM), 1.1);
+      const room = height / scale - MARGIN - WINDOW_BOTTOM;
+      const win = { w: base.w, h: Math.round(Math.min(Math.max(room, base.h), base.h * MAX_GROW)) };
+      setFit({ scale, width: width / scale, height: height / scale, win });
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [stage]);
+
+  return fit;
+}
+
+// talkflow's overlay, at its real size: a black capsule with the red recording
+// dot and nine level bars while fn is held. Between dictations it shows the hint.
 function Pill({ listening }: { listening: boolean }) {
   return (
-    <div className="absolute bottom-[68px] left-1/2 flex h-11 min-w-[172px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)] ring-1 ring-white/20">
+    <div
+      className="absolute left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black/88 text-[13px] whitespace-nowrap text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] transition-[width] duration-300"
+      style={{ bottom: PILL_BOTTOM, height: PILL_HEIGHT, width: listening ? 150 : 168 }}
+    >
       {listening ? (
-        <>
-          <RecDot />
-          <Waveform bars={12} height={20} />
-        </>
+        <span className="flex w-full items-center px-4">
+          <span className="size-2.5 flex-none animate-dot-pulse rounded-full bg-rec" />
+          <span className="flex flex-1 justify-center pl-3.5">
+            <Waveform bars={9} height={28} barWidth={2.5} gap={3.5} />
+          </span>
+        </span>
       ) : (
-        <span className="flex items-center gap-2 text-paper/80">
-          Hold <kbd className="rounded-md border border-paper/25 px-1.5 py-px font-sans text-[12px] text-paper">fn</kbd> to
+        <span className="flex items-center gap-2 text-white/80">
+          Hold <kbd className="rounded-md border border-white/25 px-1.5 py-px font-sans text-[12px] text-white">fn</kbd> to
           talk
         </span>
       )}
@@ -52,105 +130,158 @@ function Pill({ listening }: { listening: boolean }) {
   );
 }
 
-const DOCK_ICON = "grid size-10 flex-none place-items-center rounded-[11px] bg-white/90 p-[7px] shadow-[0_1px_3px_rgba(0,0,0,0.25)] sm:size-11";
+// Where a scene sits relative to the one on show: the next ones wait just
+// below, the ones already passed sink back behind it.
+type Place = "before" | "active" | "after";
 
-// One app's window. It waits a little smaller, and zooms in when talkflow starts listening.
+const EASE = "cubic-bezier(.2,.8,.2,1)";
+const PLACE = {
+  // On top, turns opaque fast so the window underneath never shows through.
+  active: { className: "z-10 opacity-100", transition: `opacity 180ms ease-out, translate 700ms ${EASE}` },
+  before: { className: "pointer-events-none -translate-y-3 opacity-0", transition: `opacity 380ms ease-in 140ms, translate 700ms ${EASE}` },
+  after: { className: "pointer-events-none translate-y-10 opacity-0", transition: `opacity 380ms ease-in 140ms, translate 700ms ${EASE}` },
+};
+
+// One app's window, centred above the overlay. It waits a little smaller and
+// zooms in when talkflow starts listening.
 function SceneView({
   scene,
-  active,
+  place,
   reduced,
+  win,
   onPhase,
-  onEnd,
 }: {
   scene: Scene;
-  active: boolean;
+  place: Place;
   reduced: boolean;
+  win: { w: number; h: number };
   onPhase: (phase: Phase) => void;
-  onEnd: () => void;
 }) {
-  const d = useDictation(scene.text, active, reduced, scene.sends, onEnd);
+  const d = useDictation(scene.text, place === "active", reduced, scene.sends);
   const { Mock } = scene;
-  const zoomed = d.phase !== "idle";
 
   useEffect(() => {
-    if (active) onPhase(d.phase);
-  }, [active, d.phase, onPhase]);
+    if (place === "active") onPhase(d.phase);
+  }, [place, d.phase, onPhase]);
 
   return (
     <div
-      className={cn(
-        "absolute inset-x-0 top-0 bottom-[116px] origin-[50%_60%] [transition:opacity_300ms_ease-out,scale_1100ms_cubic-bezier(.2,.8,.2,1)]",
-        active ? "z-10 opacity-100" : "pointer-events-none opacity-0",
-        zoomed ? "scale-100" : "scale-[0.9]",
-      )}
+      className={cn("absolute inset-x-0 grid place-items-center", PLACE[place].className)}
+      style={{ top: MARGIN, bottom: WINDOW_BOTTOM, transition: PLACE[place].transition }}
     >
-      <div className="absolute inset-0 overflow-hidden rounded-xl border border-black/15 shadow-[0_40px_80px_-24px_rgba(0,10,40,0.6)]">
+      <div
+        className={cn(
+          "@container relative overflow-hidden rounded-[12px] shadow-[0_0_0_0.5px_rgba(0,0,0,0.35),0_22px_56px_-6px_rgba(0,0,0,0.5),0_8px_18px_-4px_rgba(0,0,0,0.22)] [transition:scale_900ms_cubic-bezier(.2,.8,.2,1)]",
+          d.phase === "idle" ? "scale-[0.95]" : "scale-100",
+        )}
+        style={{ width: win.w, height: win.h }}
+      >
         <Mock text={scene.text} d={d} />
       </div>
     </div>
   );
 }
 
-// "Say the whole thought": a looping demo, like a screen recording. talkflow's pill and a
-// dock of apps sit on the Mac desktop; the pill wakes up, the app in front zooms in a
-// little and the dictated words arrive. Then the next app takes over. Pauses off screen.
+// The right-hand column of "Say the whole thought": a tall scroll track with a
+// pinned stage. Scrolling through the track walks the stage from Claude Code
+// through the apps listed in "Speak, and it appears in", each with something
+// being dictated into it. The stage is a Mac desktop: the window in front,
+// talkflow's overlay and the Dock below it.
 export function AppTour() {
+  const track = useRef<HTMLDivElement>(null);
   const stage = useRef<HTMLElement>(null);
-  const [active, setActive] = useState(0);
+  const active = useActiveScene(track);
+  const fit = useFit(stage);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [visible, setVisible] = useState(false);
   const reduced = useReducedMotion();
 
-  useEffect(() => {
-    const el = stage.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.35 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const lenis = useLenis();
 
-  const next = useCallback(() => setActive((i) => (i + 1) % SCENES.length), []);
+  // Scrolls to the middle of a scene's share of the track.
+  const show = (i: number) => {
+    const el = track.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + scrollY;
+    const range = el.offsetHeight - innerHeight;
+    const target = top + (range * (i + 0.5)) / SCENES.length;
+    if (lenis) lenis.scrollTo(target, { duration: 1.1 });
+    else scrollTo({ top: target, behavior: reduced ? "auto" : "smooth" });
+  };
 
   return (
-    <div className="flex flex-col justify-center">
-      <figure
-        ref={stage}
-        className="relative mx-auto h-[min(500px,calc(100svh-120px))] w-full max-w-[1200px] overflow-hidden rounded-3xl sm:h-[560px]"
-        style={wallpaperStyle}
-      >
-        <figcaption className="sr-only">
-          talkflow typing a dictated message into {SCENES[active].name}. The demo cycles through other apps.
-        </figcaption>
-        <div aria-hidden="true" className="absolute inset-3 sm:inset-8">
-          {SCENES.map((s, i) => (
-            <SceneView key={s.name} scene={s} active={i === active && visible} reduced={reduced} onPhase={setPhase} onEnd={next} />
-          ))}
-          <Pill listening={phase === "listening"} />
+    <div ref={track} className="relative" style={{ height: `calc(100svh + ${(SCENES.length - 1) * STEP_SVH}svh)` }}>
+      <div className="sticky top-0 flex h-svh flex-col justify-center pt-16 pb-4">
+        <div className="mb-5 flex justify-center">
+          <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-1">
+            {SCENES.map((s, i) => (
+              <button
+                key={s.name}
+                type="button"
+                onClick={() => show(i)}
+                aria-label={`Show ${s.name}`}
+                aria-current={i === active ? "true" : undefined}
+                className={cn(
+                  "flex h-9 items-center rounded-full px-2 text-[13.5px] transition-[background-color,box-shadow,color] duration-300 sm:px-2.5 sm:text-[14px]",
+                  i === active ? "bg-white text-ink shadow-[0_1px_3px_rgba(31,30,34,0.14)]" : "text-graphite hover:bg-ink/5",
+                )}
+              >
+                <BrandLogo logo={LOGOS[i]} className="size-[18px]" />
+                <span
+                  className={cn(
+                    "grid transition-[grid-template-columns] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
+                    i === active ? "grid-cols-[1fr]" : "grid-cols-[0fr]",
+                  )}
+                >
+                  <span className="overflow-hidden pl-2 whitespace-nowrap">{s.name}</span>
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 rounded-[22px] border border-white/30 bg-white/25 p-1.5 shadow-[0_10px_30px_rgba(0,10,40,0.35)] backdrop-blur-xl">
-          {SCENES.map((s, i) => (
-            <button
-              key={s.name}
-              type="button"
-              onClick={() => setActive(i)}
-              aria-label={`Show ${s.name}`}
-              aria-current={i === active ? "true" : undefined}
-              className="relative flex flex-col items-center"
+
+        <figure
+          ref={stage}
+          className="relative isolate h-[min(580px,calc(100svh-190px))] overflow-hidden rounded-3xl"
+        >
+          <figcaption className="sr-only">
+            talkflow typing a dictated message into {SCENES[active].name}. Scroll to see it in other apps.
+          </figcaption>
+          <Wallpaper className="-z-10" />
+          {fit && (
+            <div
+              aria-hidden="true"
+              className="absolute top-0 left-0 origin-top-left"
+              style={{ width: fit.width, height: fit.height, scale: fit.scale }}
             >
-              <span className={cn(DOCK_ICON, "transition-transform duration-300", i === active && "-translate-y-1.5 scale-110")}>
-                <BrandLogo logo={LOGOS[i]} className="size-full" />
-              </span>
-              <span className={cn("absolute -bottom-1 size-1 rounded-full bg-white/90 transition-opacity", i === active ? "opacity-100" : "opacity-0")} />
-            </button>
-          ))}
-        </div>
-      </figure>
-      <p className="mt-4 text-center text-[12.5px] text-graphite/80">
-        talkflow isn&apos;t affiliated with these apps.{" "}
-        <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
-          Trademarks
-        </Link>
-      </p>
+              {SCENES.map((s, i) => (
+                <SceneView
+                  key={s.name}
+                  scene={s}
+                  place={i < active ? "before" : i > active ? "after" : "active"}
+                  reduced={reduced}
+                  win={fit.win}
+                  onPhase={setPhase}
+                />
+              ))}
+              <Pill listening={phase === "listening"} />
+              {/* The real Tahoe Dock: its glass, captured, with the apps' own icons. The glass blurs what is behind it. */}
+              <div
+                className="absolute bottom-[3px] left-1/2 -translate-x-1/2"
+                style={{ width: `min(${DOCK.w}px, 100% - 16px)`, aspectRatio: `${DOCK.w} / ${DOCK.h}` }}
+              >
+                <span className="absolute inset-x-[0.5%] top-[5%] bottom-[2.5%] rounded-[30%/50%] backdrop-blur-xl backdrop-saturate-150" />
+                <Image src="/app/dock.png" alt="" fill unoptimized className="relative" />
+              </div>
+            </div>
+          )}
+        </figure>
+        <p className="mt-4 text-center text-[12.5px] text-graphite/80">
+          talkflow isn&apos;t affiliated with these apps.{" "}
+          <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
+            Trademarks
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
