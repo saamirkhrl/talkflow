@@ -1,4 +1,4 @@
-import { CloudOff, Cpu, Mic, TextCursorInput } from "lucide-react";
+import { CloudOff, Cpu, Mic, TextCursorInput, Unlink } from "lucide-react";
 import { ForOs } from "./visitor";
 
 const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
@@ -45,12 +45,14 @@ export function Privacy() {
             ))}
           </div>
 
+          {/* A snapped cable: two solid ends that stop short, with a broken link where they would meet. */}
           <span
             aria-hidden="true"
-            className="flex h-16 flex-col items-center justify-center gap-3 md:mt-[calc(var(--pad)+1px+var(--tile)/2)] md:h-px md:w-[clamp(80px,9vw,140px)] md:flex-row md:px-4"
+            className="flex h-24 flex-col items-center justify-center gap-2 text-fog md:mt-[calc(var(--pad)+1px+var(--tile)/2)] md:h-0 md:w-[clamp(96px,10vw,160px)] md:flex-row md:px-3"
           >
-            <span className="w-0 flex-1 border-l border-dashed border-paper/35 md:h-0 md:w-auto md:border-t md:border-l-0" />
-            <span className="w-0 flex-1 border-l border-dashed border-paper/35 md:h-0 md:w-auto md:border-t md:border-l-0" />
+            <span className="w-px flex-1 bg-linear-to-b from-paper/40 to-paper/10 md:h-px md:w-auto md:bg-linear-to-r" />
+            <Unlink className="size-6 flex-none rotate-90 md:rotate-0" strokeWidth={1.5} />
+            <span className="w-px flex-1 bg-linear-to-t from-paper/40 to-paper/10 md:h-px md:w-auto md:bg-linear-to-l" />
           </span>
 
           <div className="flex flex-col items-center gap-4 text-center text-fog md:pt-[calc(var(--pad)+1px)]">
