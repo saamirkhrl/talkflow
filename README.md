@@ -16,6 +16,16 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 
 </div>
 
+<p align="center">
+<a href="https://www.star-history.com/#saamirkhrl/talkflow&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date">
+    <img alt="Star history chart for saamirkhrl/talkflow" src="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date">
+  </picture>
+</a>
+</p>
+
 <br>
 
 ![How talkflow works: hold fn, Whisper transcribes on your Mac, simple rules tidy the text, the words are typed into your app](docs/how-it-works.svg)
@@ -30,7 +40,6 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 - [Uninstall](#uninstall)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
-- [Star history](#star-history)
 - [License](#license)
 
 ## Features
@@ -123,16 +132,6 @@ Bug reports, ideas and pull requests are welcome.
 - **Bugs and ideas:** [open an issue](https://github.com/saamirkhrl/talkflow/issues). Include your OS version and steps to reproduce.
 - **Pull requests:** keep each one focused on a single change, and describe how you tested it.
 - **Security issues:** please don't file a public issue. See [SECURITY.md](SECURITY.md) for private reporting.
-
-## Star history
-
-<a href="https://www.star-history.com/#saamirkhrl/talkflow&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date&theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date">
-    <img alt="Star history chart for saamirkhrl/talkflow" src="https://api.star-history.com/svg?repos=saamirkhrl/talkflow&type=Date">
-  </picture>
-</a>
 
 ## License
 
