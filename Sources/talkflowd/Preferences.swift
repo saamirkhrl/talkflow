@@ -16,18 +16,27 @@ enum Preferences {
     }
 
     /// Transcribe the final pass with the large model when it is installed.
-    /// On by default, except on a Mac with under 8 GB of memory, where holding
-    /// both models would crowd out everything else. The small model still
-    /// drives the live caption. A choice made in Settings always wins.
+    /// On by default, except on a Mac with 8 GB of memory or less, where holding
+    /// both models (about 1.4 GB) crowds out everything else. The small model
+    /// still drives the live caption. A choice made in Settings always wins.
     static var accurateFinalPass: Bool {
         get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? !hasLittleMemory }
         set { defaults.set(newValue, forKey: "accurateFinalPass") }
     }
 
-    /// Under 8 GB. An "8 GB" Mac reports a little less than 8 GiB of usable
-    /// memory, so the cut is 7.5 GiB, which leaves every 8 GB Mac on.
+    /// 8 GB or less. A Mac reports its memory exactly (an 8 GB one says
+    /// 8,589,934,592 bytes), so this takes in every 8 GB Mac.
     static var hasLittleMemory: Bool {
-        ProcessInfo.processInfo.physicalMemory < 8_053_063_680 // 7.5 GiB
+        ProcessInfo.processInfo.physicalMemory <= 8 << 30
+    }
+
+    /// Set once talkflow has found the large model too slow on this Mac and
+    /// turned the accurate final pass off (see `FinalPassSpeed`). Kept for good,
+    /// and backed up with the settings, because the Mac will not get faster. A
+    /// user who turns the pass back on after that is never overruled again.
+    static var finalPassTooSlow: Bool {
+        get { defaults.bool(forKey: "finalPassTooSlow") }
+        set { defaults.set(newValue, forKey: "finalPassTooSlow") }
     }
 
     /// Let Apple's on-device model suggest punctuation, casing and line breaks
