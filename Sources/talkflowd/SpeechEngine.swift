@@ -487,6 +487,43 @@ enum FinalPassEngine {
     }
 }
 
+/// Watches how long the large model takes at release. On a slow Mac it can be
+/// several times slower than small.en, so two slow passes in a row turn the
+/// accurate final pass off (and unload the model); the Settings toggle shows it
+/// and can turn it back on. Fast Macs never get near the limit: 46s of speech
+/// takes about 2.6s on an M4.
+enum FinalPassSpeed {
+    /// A pass is slow past 2s plus a quarter of the audio's length.
+    static func isSlow(elapsed: TimeInterval, audioSeconds: TimeInterval) -> Bool {
+        elapsed > 2 + 0.25 * audioSeconds
+    }
+
+    /// 16 kHz, 16-bit mono PCM behind a 44-byte header.
+    static func seconds(ofWav wav: Data) -> TimeInterval {
+        Double(max(0, wav.count - 44)) / 32000
+    }
+
+    /// Consecutive slow passes; any quick one resets it.
+    private static var slowStreak = 0
+
+    /// Called from the transcription completion, which is not on the main thread.
+    static func record(elapsed: TimeInterval, audioSeconds: TimeInterval) {
+        DispatchQueue.main.async { count(elapsed: elapsed, audioSeconds: audioSeconds) }
+    }
+
+    private static func count(elapsed: TimeInterval, audioSeconds: TimeInterval) {
+        guard isSlow(elapsed: elapsed, audioSeconds: audioSeconds) else { slowStreak = 0; return }
+        slowStreak += 1
+        print("talkflowd: large-model pass was slow (\(String(format: "%.1f", elapsed))s for \(String(format: "%.1f", audioSeconds))s of speech), \(slowStreak) in a row")
+        guard slowStreak >= 2 else { return }
+        slowStreak = 0
+        Preferences.accurateFinalPass = false
+        FinalPassEngine.stop()
+        NotificationCenter.default.post(name: .accurateFinalPassChanged, object: nil)
+        print("talkflowd: accurate final pass turned off, this Mac is too slow for it")
+    }
+}
+
 struct EngineError: LocalizedError {
     let message: String
     init(_ message: String) { self.message = message }

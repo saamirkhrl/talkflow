@@ -16,10 +16,18 @@ enum Preferences {
     }
 
     /// Transcribe the final pass with the large model when it is installed.
-    /// On by default; the small model still drives the live caption.
+    /// On by default, except on a Mac with under 8 GB of memory, where holding
+    /// both models would crowd out everything else. The small model still
+    /// drives the live caption. A choice made in Settings always wins.
     static var accurateFinalPass: Bool {
-        get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? true }
+        get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? !hasLittleMemory }
         set { defaults.set(newValue, forKey: "accurateFinalPass") }
+    }
+
+    /// Under 8 GB. An "8 GB" Mac reports a little less than 8 GiB of usable
+    /// memory, so the cut is 7.5 GiB, which leaves every 8 GB Mac on.
+    static var hasLittleMemory: Bool {
+        ProcessInfo.processInfo.physicalMemory < 8_053_063_680 // 7.5 GiB
     }
 
     /// Let Apple's on-device model suggest punctuation, casing and line breaks
@@ -83,6 +91,9 @@ extension Notification.Name {
     /// Posted when the writing style changes, so the menu and the Settings
     /// page stay in step whichever one changed it.
     static let writingStyleChanged = Notification.Name("talkflowWritingStyleChanged")
+    /// Posted when talkflow turns the accurate final pass off by itself (see
+    /// `FinalPassSpeed`), so the Settings toggle follows.
+    static let accurateFinalPassChanged = Notification.Name("talkflowAccurateFinalPassChanged")
     /// Posted when the shortcut changes, so the key listener follows it.
     static let hotkeyChanged = Notification.Name("talkflowHotkeyChanged")
 }

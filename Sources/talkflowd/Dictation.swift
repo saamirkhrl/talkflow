@@ -306,6 +306,7 @@ final class Dictation {
         Transcriber.transcribe(wav: wav, serverURL: FinalPassEngine.inferenceURL, timeout: 8, prompt: prompt) { result in
             if let result {
                 print("talkflowd: final pass via large-v3-turbo")
+                FinalPassSpeed.record(elapsed: result.elapsed, audioSeconds: FinalPassSpeed.seconds(ofWav: wav))
                 completion(result)
                 return
             }
