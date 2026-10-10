@@ -11,22 +11,27 @@ import Network
 /// instead, taking the first zip attached. Either way the zip holds
 /// `talkflow.app`, tagged `v<CFBundleShortVersionString>`. Installing checks
 /// the download against the manifest's sha256, swaps the bundle the app is
-/// running from, re-signs it, and relaunches. Nothing installs without a click.
+/// running from, and relaunches. Nothing installs without a click.
 ///
 /// Checked shortly after launch once the network is up, every few hours while
 /// running, and when the dashboard opens (`checkIfStale`).
 ///
-/// Re-signing matters: macOS ties the microphone, Accessibility and Input
-/// Monitoring grants to the code signature, and a release zip is signed
-/// ad hoc. When this Mac has the "talkflow Local Dev" identity that the
-/// install scripts use, the update is signed with it and every permission
-/// carries over. Without it the update keeps its ad-hoc signature and macOS
-/// asks for the permissions again - said in the UI before the user clicks.
+/// The signature matters: macOS ties the microphone, Accessibility and Input
+/// Monitoring grants to the code signature's designated requirement. Releases
+/// are signed with one certificate (release.sh), so every release has the
+/// same requirement, `releaseRequirement`, and a download that satisfies it
+/// is installed with its own signature: the permissions carry over. Anything
+/// else (a release from before that, or a test copy with its own identifier)
+/// is re-signed as before, with the local "talkflow Local Dev" identity when
+/// this Mac has one, otherwise ad hoc, and then macOS asks again.
 @MainActor
 final class Updater: ObservableObject {
     static let shared = Updater()
     nonisolated static let repository = "saamirkhrl/talkflow"
     nonisolated static let signingIdentity = "talkflow Local Dev"
+    /// The designated requirement every release is signed to. Keep it in step
+    /// with RELEASE_DR in release.sh.
+    nonisolated static let releaseRequirement = #"identifier "com.samir.talkflow" and certificate leaf = H"f38edda5db8580c91c067ff8ee3aefef8b5f05ba""#
 
     /// Every app asks this one URL; GitHub serves it from the newest release.
     nonisolated static let manifestURL = URL(string: "https://github.com/\(repository)/releases/latest/download/talkflow-release.json")!
@@ -139,7 +144,7 @@ final class Updater: ObservableObject {
         // A quiet failure leaves `lastCheck` alone, so opening the dashboard
         // still checks (and shows the error) as it always has.
         if quietly { lastBackgroundAttempt = Date() } else { lastCheck = Date() }
-        DispatchQueue.global(qos: .utility).async { _ = Self.localIdentityHash }
+        DispatchQueue.global(qos: .utility).async { _ = Self.keepsPermissions }
         Self.fetchLatest { result in
             DispatchQueue.main.async {
                 switch result {
@@ -281,7 +286,17 @@ final class Updater: ObservableObject {
         return line?.split(separator: " ").first { $0.count == 40 && $0.allSatisfy(\.isHexDigit) }.map(String.init)
     }()
 
-    nonisolated static var keepsPermissions: Bool { localIdentityHash != nil }
+    /// Whether this running copy is itself release signed, so the next
+    /// release has the same designated requirement. Read once.
+    nonisolated static let runningCopyIsReleaseSigned: Bool = isReleaseSigned(Bundle.main.bundleURL)
+
+    nonisolated static var keepsPermissions: Bool { runningCopyIsReleaseSigned || localIdentityHash != nil }
+
+    /// Whether `app` is validly signed, its helper included, by the release
+    /// certificate.
+    nonisolated static func isReleaseSigned(_ app: URL) -> Bool {
+        run("/usr/bin/codesign", ["--verify", "--deep", "--strict", "-R=\(releaseRequirement)", app.path]).status == 0
+    }
 
     // MARK: - Steps
 
@@ -302,24 +317,31 @@ final class Updater: ObservableObject {
         guard info["CFBundleShortVersionString"] as? String == version else {
             return "The update says it is \(info["CFBundleShortVersionString"] as? String ?? "?"), expected \(version)"
         }
-        // Keep this install's identifier, so a test copy stays a test copy.
-        let currentID = Bundle.main.bundleIdentifier
-        if let currentID, info["CFBundleIdentifier"] as? String != currentID {
-            _ = run("/usr/libexec/PlistBuddy", ["-c", "Set :CFBundleIdentifier \(currentID)", app.appendingPathComponent("Contents/Info.plist").path])
-        }
         _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", app.path])
-        let identity = localIdentityHash ?? "-"
-        // --deep also re-signs the bundled speech engine,
-        // Contents/Helpers/whisper-server, with the same identity.
-        guard run("/usr/bin/codesign", ["--force", "--deep", "--sign", identity, app.path]).status == 0 else {
-            return "Could not sign the update"
+        // A release-signed talkflow replacing talkflow is installed exactly as
+        // published; editing or re-signing it would change its requirement.
+        let currentID = Bundle.main.bundleIdentifier
+        let signed = info["CFBundleIdentifier"] as? String == currentID && isReleaseSigned(app)
+        var signedWith = "the release signature"
+        if !signed {
+            // Keep this install's identifier, so a test copy stays a test copy.
+            if let currentID, info["CFBundleIdentifier"] as? String != currentID {
+                _ = run("/usr/libexec/PlistBuddy", ["-c", "Set :CFBundleIdentifier \(currentID)", app.appendingPathComponent("Contents/Info.plist").path])
+            }
+            let identity = localIdentityHash ?? "-"
+            // --deep also re-signs the bundled speech engine,
+            // Contents/Helpers/whisper-server, with the same identity.
+            guard run("/usr/bin/codesign", ["--force", "--deep", "--sign", identity, app.path]).status == 0 else {
+                return "Could not sign the update"
+            }
+            signedWith = identity == "-" ? "an ad-hoc signature" : signingIdentity
         }
         do {
             _ = try FileManager.default.replaceItemAt(target, withItemAt: app)
         } catch {
             return "Could not replace the app: \(error.localizedDescription)"
         }
-        print("talkflowd: installed update \(version), signed with \(identity == "-" ? "an ad-hoc signature" : signingIdentity)")
+        print("talkflowd: installed update \(version), signed with \(signedWith)")
         return nil
     }
 

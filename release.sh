@@ -13,9 +13,14 @@
 #   ./release.sh 0.2.0 --dry-run  build and zip only, publish nothing
 #
 # Sets CFBundleShortVersionString in Packaging/Info.plist to the version given
-# and bumps CFBundleVersion; commit that change along with the release. The zip
-# is signed ad hoc - the updater re-signs it on each Mac with the local
-# "talkflow Local Dev" identity when that Mac has one, so permissions survive.
+# and bumps CFBundleVersion; commit that change along with the release.
+#
+# A published release is signed with the "TalkFlow Local Dev" certificate,
+# pinned below by its SHA-1, and the script stops if this Mac does not have it.
+# macOS ties the microphone, Accessibility and Input Monitoring grants to the
+# signature's designated requirement; every release signed with the same
+# certificate has the same one, so updates keep those grants (docs/signing.md).
+# A --dry-run on a Mac without the certificate (CI) is signed ad hoc instead.
 #
 # The app carries its own speech engine, whisper.cpp's whisper-server, at
 # talkflow.app/Contents/Helpers/whisper-server, built from a pinned tag by
@@ -52,6 +57,20 @@ ZIP="$OUT/talkflow-macos.zip"
 DMG="$OUT/talkflow-macos.dmg"
 # One binary for Apple Silicon and Intel Macs.
 ARCHS=(--arch arm64 --arch x86_64)
+
+# The release certificate (see the top of this file). Keep RELEASE_DR in step
+# with Updater.releaseRequirement in Sources/talkflowd/Updater.swift.
+RELEASE_CERT_SHA1="F38EDDA5DB8580C91C067FF8EE3AEFEF8B5F05BA"
+RELEASE_DR='identifier "com.samir.talkflow" and certificate leaf = H"f38edda5db8580c91c067ff8ee3aefef8b5f05ba"'
+if security find-identity -v -p codesigning | grep -q "$RELEASE_CERT_SHA1"; then
+    SIGN_WITH="$RELEASE_CERT_SHA1"
+elif [ "$DRY_RUN" = "--dry-run" ]; then
+    SIGN_WITH="-"
+else
+    echo "error: the release certificate ($RELEASE_CERT_SHA1) is not in this Mac's keychain." >&2
+    echo "       An ad-hoc release would make every user grant the permissions again; see docs/signing.md." >&2
+    exit 1
+fi
 
 if [ "$DRY_RUN" != "--dry-run" ]; then
     command -v gh >/dev/null || { echo "error: the GitHub CLI (gh) is needed to publish" >&2; exit 1; }
@@ -93,10 +112,20 @@ cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server"
 cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
 # Inside out: the engine first, then the app, whose signature seals it. The
-# updater's `codesign --force --deep` on each Mac re-signs both the same way.
-codesign --force --sign - --identifier com.samir.talkflow.whisper-server "$APP/Contents/Helpers/whisper-server"
-codesign --force --sign - "$APP"
+# updater installs a download that satisfies RELEASE_DR as it is, so these
+# signatures are the ones users run.
+if [ "$SIGN_WITH" = "-" ]; then
+    echo "    signing ad hoc (dry run, no release certificate on this Mac)"
+else
+    echo "    signing with the release certificate"
+fi
+codesign --force --sign "$SIGN_WITH" --identifier com.samir.talkflow.whisper-server "$APP/Contents/Helpers/whisper-server"
+codesign --force --sign "$SIGN_WITH" "$APP"
 codesign --verify --deep --strict "$APP" || { echo "error: $APP does not verify" >&2; exit 1; }
+if [ "$SIGN_WITH" != "-" ]; then
+    ACTUAL_DR=$(codesign -d -r - "$APP" 2>/dev/null | sed -n 's/^designated => //p')
+    [ "$ACTUAL_DR" = "$RELEASE_DR" ] || { echo "error: unexpected designated requirement: $ACTUAL_DR" >&2; exit 1; }
+fi
 "$APP/Contents/Helpers/whisper-server" --help >/dev/null 2>&1 || { echo "error: the bundled whisper-server does not run" >&2; exit 1; }
 "$PROJECT_DIR/scripts/build-whisper-macos.sh" --check "$APP/Contents/Helpers/whisper-server"
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ZIP"
