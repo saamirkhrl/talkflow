@@ -11,6 +11,7 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 [![License: MIT](https://img.shields.io/github/license/saamirkhrl/talkflow?color=1f1e22)](LICENSE)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-1f1e22)](#download)
 [![GitHub stars](https://img.shields.io/github/stars/saamirkhrl/talkflow?style=flat&color=1f1e22)](https://github.com/saamirkhrl/talkflow/stargazers)
+![Visits](https://visitor-badge.laobi.icu/badge?page_id=saamirkhrl.talkflow&left_text=visits&left_color=%231f1e22)
 
 [Website](https://talkflow.live) · [Download](#download) · [Report a bug](https://github.com/saamirkhrl/talkflow/issues/new) · [Security](SECURITY.md)
 
