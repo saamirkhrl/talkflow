@@ -8,7 +8,7 @@ final class DashboardController: NSWindowController {
 
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 560),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -57,10 +57,14 @@ final class DashboardController: NSWindowController {
                 }
             }
         }
-        // The Settings page's content, unscrolled, at the page's width. Its
-        // switches, pickers and fields are AppKit views and render as
-        // placeholders; the text and spacing are what this checks.
-        for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+        // The Settings page's content, unscrolled, at the page's width, with
+        // Models and API keys closed and open. Its switches, pickers and
+        // fields are AppKit views and render as placeholders; the text and
+        // spacing are what this checks.
+        let showedAdvanced = model.settings.showAdvanced
+        defer { model.settings.showAdvanced = showedAdvanced }
+        for (name, appearance, advanced) in [("light", NSAppearance.Name.aqua, false), ("dark", .darkAqua, false), ("advanced-light", .aqua, true)] {
+            model.settings.showAdvanced = advanced
             NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
                 let renderer = ImageRenderer(content: SettingsView(model: model.settings, scrolls: false)
                     .frame(width: 504)
@@ -168,6 +172,7 @@ private struct DashboardView: View {
                 hero
                 grid
                 chart
+                Spacer(minLength: 0)
             case .settings:
                 SettingsView(model: model.settings)
                 Spacer(minLength: 0)
@@ -176,7 +181,7 @@ private struct DashboardView: View {
         .padding(.horizontal, 28)
         .padding(.top, 40)
         .padding(.bottom, 24)
-        .frame(width: 560, height: 620)
+        .frame(width: 560, height: 560)
         .background(Color.paper)
     }
 
@@ -227,49 +232,56 @@ private struct DashboardView: View {
                 .font(.system(size: 68, weight: .regular, design: .serif))
                 .monospacedDigit()
                 .foregroundColor(.ink)
-            Text("about \((s.totalWords / 500).formatted()) pages")
-                .font(.system(size: 12))
-                .foregroundColor(.graphite)
         }
     }
 
     private var grid: some View {
+        // One row, so no tile is left empty.
         let tiles: [(String, [(value: String, unit: String)])] = [
-            ("Words today", [(s.todayWords.formatted(), "")]),
+            ("Today", [(s.todayWords.formatted(), "words")]),
             ("Speed", [("\(s.averageWPM)", "wpm")]),
-            ("Day streak", [("\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days")]),
-            ("Time saved", timeSavedParts(minutes: s.estimatedMinutesSaved)),
-            ("Dictations", [(s.totalSessions.formatted(), "")])
+            ("Streak", [("\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days")]),
+            ("Time saved", timeSavedParts(minutes: s.estimatedMinutesSaved))
         ]
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 3), spacing: 0) {
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: tiles.count), spacing: 0) {
             ForEach(tiles, id: \.0) { tile in
                 VStack(alignment: .leading, spacing: 6) {
                     Text(tile.0)
                         .font(.system(size: 12))
                         .foregroundColor(.graphite)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        ForEach(Array(tile.1.enumerated()), id: \.offset) { _, part in
-                            Text(part.value)
-                                .font(.system(size: 30, weight: .regular, design: .serif))
-                                .monospacedDigit()
-                            if !part.unit.isEmpty {
-                                Text(part.unit)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.graphite)
-                                    .padding(.trailing, 2)
-                            }
-                        }
+                    // "16 h 48 min" when it fits the tile, else "16 h".
+                    ViewThatFits(in: .horizontal) {
+                        value(tile.1)
+                        value(Array(tile.1.prefix(1)))
                     }
                     .foregroundColor(.ink)
                 }
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(14)
                 .overlay(Rectangle().stroke(Color.line, lineWidth: 0.5))
             }
         }
         .overlay(Rectangle().stroke(Color.line, lineWidth: 0.5))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
+    }
+
+    private func value(_ parts: [(value: String, unit: String)]) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                Text(part.value)
+                    .font(.system(size: 26, weight: .regular, design: .serif))
+                    .monospacedDigit()
+                if !part.unit.isEmpty {
+                    Text(part.unit)
+                        .font(.system(size: 12))
+                        .foregroundColor(.graphite)
+                        .padding(.trailing, 2)
+                }
+            }
+        }
+        .fixedSize()
     }
 
     // MARK: - Activity chart
@@ -547,6 +559,9 @@ final class SettingsModel: ObservableObject {
     @Published var checking: Set<String> = []
     /// The step the uninstaller is on, once the user has confirmed it.
     @Published var uninstallStep: String?
+    /// Whether the Models and API keys section is open. Starts open when a
+    /// key is saved, so a key in use is never hidden.
+    @Published var showAdvanced = APIKeys.hasKey(.openAI) || APIKeys.hasKey(.anthropic)
 
     private var styleObserver: NSObjectProtocol?
 
@@ -641,61 +656,73 @@ final class SettingsModel: ObservableObject {
 }
 
 /// The Settings page: how dictation is written, and the words it has learned.
-/// Every setting takes effect from the next hold.
+/// Every setting takes effect from the next hold. Each row is a title and its
+/// control; what a setting does is in its tooltip, and a line under the title
+/// only for what the user must know before switching it (a download, a
+/// missing requirement).
 private struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     /// Off only for `--dashboardshot`: ImageRenderer draws a ScrollView's
     /// contents blank.
     var scrolls = true
 
+    /// The page's side margin. The scroll view reaches the window's edges and
+    /// pads its content by this much, so the scroll bar sits in the margin
+    /// instead of over the switches.
+    private let margin: CGFloat = 28
+
     var body: some View {
-        if scrolls { ScrollView { content } } else { content }
+        if scrolls {
+            ScrollView { content.padding(.horizontal, margin) }
+                .padding(.horizontal, -margin)
+        } else {
+            content
+        }
     }
 
     private var content: some View {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 shortcutChoice
                 styleChoice
-                modelsInUse
                 toggle("Type while speaking",
-                       detail: "Type words as you speak instead of when you let go.",
+                       help: "Type words as you speak instead of when you let go.",
                        isOn: $model.typeWhileSpeaking)
                 toggle("Accurate final pass",
-                       detail: FinalPassEngine.modelIsComplete
-                           ? "More accurate, a little slower."
-                           : "More accurate, a little slower. Downloads 574 MB once.",
+                       help: "More accurate, a little slower.",
+                       note: FinalPassEngine.modelIsComplete ? nil : "Downloads 574 MB once.",
                        isOn: $model.accurateFinalPass)
                 toggle("AI punctuation",
-                       detail: model.polishAvailable
-                           ? "Fixes punctuation on this Mac. Never changes your words."
-                           : "Needs Apple Intelligence.",
+                       help: "Fixes punctuation on this Mac. Never changes your words.",
+                       note: model.polishAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
-                apiKeys
                 learnedWords
-                yourData
-                uninstall
+                advanced
+                footer
             }
             .padding(.vertical, 4)
             .onDisappear { model.cancelHotkeyRecording() }
     }
 
+    private func title(_ text: String) -> some View {
+        Text(text).font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+    }
+
     private var shortcutChoice: some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Shortcut").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.recordingHotkey
-                     ? "Hold the keys you want (Fn, Control, Option, Shift or Command), then let go. Esc cancels."
-                     : model.canRecordHotkey
-                         ? "Hold \(model.hotkey.name), speak, let go."
-                         : "Hold \(model.hotkey.name), speak, let go. Recording a new one needs setup finished first.")
-                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-                if model.hotkey.usesFn && !model.recordingHotkey && Permissions.fnKeyHasSystemAction {
-                    Text("If the emoji picker or system dictation opens, set \"Press the globe key to\" to \"Do Nothing\".")
-                        .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-                    Button("Open Keyboard settings") { Permissions.openKeyboardSettings() }
+                title("Shortcut")
+                if model.recordingHotkey {
+                    note("Hold the new keys, then let go. Esc cancels.")
+                } else if model.hotkey.usesFn && Permissions.fnKeyHasSystemAction {
+                    Button("Globe key opens emoji? Set it to Do Nothing") { Permissions.openKeyboardSettings() }
                         .buttonStyle(.link)
                         .font(.system(size: 12))
+                        .help("In Keyboard settings, set \"Press the globe key to\" to \"Do Nothing\".")
                 }
             }
             Spacer()
@@ -708,58 +735,19 @@ private struct SettingsView: View {
                 .pickerStyle(.menu)
                 .labelsHidden()
                 .fixedSize()
+                .help("Hold \(model.hotkey.name), speak, let go.")
                 Button("Record...") { model.recordHotkey() }
                     .disabled(!model.canRecordHotkey)
+                    .help(model.canRecordHotkey
+                          ? "Hold any keys (Fn, Control, Option, Shift or Command) to use them instead."
+                          : "Finish setup first.")
             }
-        }
-    }
-
-    private var yourData: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Your data").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text("Stats, settings and learned words. Kept if you uninstall.")
-                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([UserData.directory]) }
-        }
-    }
-
-    private var uninstall: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Uninstall talkflow").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.uninstallStep ?? "Removes talkflow, its speech models, keys and logs. Your data stays.")
-                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-            Button(model.uninstallStep == nil ? "Uninstall..." : "Uninstalling...") { model.uninstall() }
-                .disabled(model.uninstallStep != nil)
-        }
-        .padding(.top, 6)
-    }
-
-    private func toggle(_ title: String, detail: String, isOn: Binding<Bool>) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(detail).font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-            Toggle("", isOn: isOn)
-                .toggleStyle(.switch)
-                .labelsHidden()
         }
     }
 
     private var styleChoice: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Writing style").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text(model.writingStyle.detail)
-                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            }
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            title("Writing style")
             Spacer()
             Picker("", selection: $model.writingStyle) {
                 ForEach(WritingStyle.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -767,12 +755,98 @@ private struct SettingsView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
+            .help(model.writingStyle.detail)
+        }
+    }
+
+    private func toggle(_ text: String, help: String, note: String? = nil, isOn: Binding<Bool>) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                title(text)
+                if let note { self.note(note) }
+            }
+            Spacer()
+            Toggle("", isOn: isOn)
+                .toggleStyle(.switch)
+                .labelsHidden()
+        }
+        .help(help)
+    }
+
+    private var learnedWords: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            title("Learned words")
+            if model.learned.isEmpty {
+                note("Fix a misheard word after dictating and talkflow learns it.")
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
+                ForEach(model.learned, id: \.self) { word in
+                    Button {
+                        model.forget(word)
+                    } label: {
+                        Text(word + "  x")
+                            .font(.system(size: 12))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .foregroundColor(.ink)
+                            .overlay(Capsule().stroke(Color.line, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Remove \"\(word)\"")
+                }
+            }
+        }
+    }
+
+    // MARK: - Advanced: the models in use and the user's own API keys
+
+    /// Collapsed until opened, or while a key is saved.
+    private var advanced: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Button {
+                model.showAdvanced.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .rotationEffect(.degrees(model.showAdvanced ? 90 : 0))
+                    title("Models and API keys")
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundColor(.ink)
+            if model.showAdvanced {
+                modelsInUse
+                keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
+                toggle("Use my OpenAI key for transcription",
+                       help: "\(CloudTranscriber.model) writes the final text. Billed to your account.",
+                       isOn: $model.useOpenAI)
+                    .disabled(!model.hasOpenAIKey)
+                keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
+                toggle("Use my Anthropic key for punctuation",
+                       help: "Claude fixes punctuation. Never changes your words. Billed to your account.",
+                       isOn: $model.useClaude)
+                    .disabled(!model.hasAnthropicKey)
+                if model.useClaude && model.hasAnthropicKey {
+                    HStack {
+                        Text("Claude model").font(.system(size: 12)).foregroundColor(.graphite)
+                        Spacer()
+                        Picker("", selection: $model.claudeModel) {
+                            ForEach(ClaudePolish.Model.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                        .fixedSize()
+                    }
+                }
+            }
         }
     }
 
     private var modelsInUse: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Models in use").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
             ForEach(model.modelsInUse, id: \.role) { row in
                 HStack(spacing: 8) {
                     Text(row.role).font(.system(size: 12)).foregroundColor(.graphite).frame(width: 90, alignment: .leading)
@@ -785,38 +859,6 @@ private struct SettingsView: View {
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.line, lineWidth: 1))
     }
 
-    private var apiKeys: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Your own API keys").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-                Text("Optional. Stored in your Keychain and billed to your account.")
-                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            }
-            keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
-            toggle("Use my OpenAI key for transcription",
-                   detail: "\(CloudTranscriber.model) writes the final text.",
-                   isOn: $model.useOpenAI)
-                .disabled(!model.hasOpenAIKey)
-            keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
-            toggle("Use my Anthropic key for punctuation",
-                   detail: "Claude fixes punctuation. Never changes your words.",
-                   isOn: $model.useClaude)
-                .disabled(!model.hasAnthropicKey)
-            if model.useClaude && model.hasAnthropicKey {
-                HStack {
-                    Text("Claude model").font(.system(size: 12)).foregroundColor(.graphite)
-                    Spacer()
-                    Picker("", selection: $model.claudeModel) {
-                        ForEach(ClaudePolish.Model.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                    .fixedSize()
-                }
-            }
-        }
-    }
-
     private func keyRow(_ provider: APIKeys.Provider, placeholder: String, draft: Binding<String>, saved: Bool) -> some View {
         let busy = model.checking.contains(provider.rawValue)
         let status = model.keyStatus[provider.rawValue]
@@ -827,6 +869,7 @@ private struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .onSubmit { model.saveKey(provider) }
+                    .help("Optional. Stored in your Keychain.")
                 Button(busy ? "Checking..." : "Use key") { model.saveKey(provider) }
                     .disabled(busy || draft.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
                 if saved {
@@ -842,29 +885,21 @@ private struct SettingsView: View {
         }
     }
 
-    private var learnedWords: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Learned words").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
-            Text(model.learned.isEmpty
-                 ? "Fix a misheard word after dictating and talkflow learns it."
-                 : "Click a word to remove it.")
-                .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
-                ForEach(model.learned, id: \.self) { word in
-                    Button {
-                        model.forget(word)
-                    } label: {
-                        Text(word + "  x")
-                            .font(.system(size: 12))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .foregroundColor(.ink)
-                            .overlay(Capsule().stroke(Color.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
+    // MARK: - Your data and uninstalling
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Button("Show my data") { NSWorkspace.shared.activateFileViewerSelecting([UserData.directory]) }
+                    .help("Stats, settings and learned words. Kept if you uninstall.")
+                Spacer()
+                Button(model.uninstallStep == nil ? "Uninstall..." : "Uninstalling...") { model.uninstall() }
+                    .disabled(model.uninstallStep != nil)
+                    .help("Removes talkflow, its speech models, keys and logs. Your data stays.")
             }
+            if let step = model.uninstallStep { note(step) }
         }
+        .padding(.top, 8)
     }
 }
 

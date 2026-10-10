@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import Security
 
 /// `talkflowd --streamtest` - replays realistic whisper revision sequences
 /// through the live path and proves the property the whole design rests on: a
@@ -1673,6 +1674,15 @@ enum StreamSelfTest {
               "the download's sha256 is computed correctly")
         try? FileManager.default.removeItem(at: file)
         check(Updater.sha256Hex(of: file) == nil, "a missing download has no sha256")
+
+        // The requirement a release must satisfy to keep its own signature.
+        var requirement: SecRequirement?
+        check(SecRequirementCreateWithString(Updater.releaseRequirement as CFString, [], &requirement) == errSecSuccess,
+              "release signing: the pinned requirement is valid")
+        let releaseScript = (try? String(contentsOfFile: "release.sh", encoding: .utf8)) ?? ""
+        check(releaseScript.isEmpty || releaseScript.contains("RELEASE_DR='\(Updater.releaseRequirement)'"),
+              "release signing: release.sh pins the same requirement")
+        check(!Updater.isReleaseSigned(URL(fileURLWithPath: NSTemporaryDirectory())), "release signing: unsigned code is not release signed")
     }
 
     private static func runCase(_ testCase: Case) {

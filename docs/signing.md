@@ -1,8 +1,31 @@
 # Code signing and permissions across updates
 
-Status: a plan for the owner to choose from. Nothing in this file has been
-run. No certificate, key or secret exists in this repository, and none should
-ever be added to it.
+Status: **Option B, reusing the "TalkFlow Local Dev" certificate**, chosen by
+the owner on 2026-10-09 and in effect from 0.1.8. No certificate, key or
+secret exists in this repository, and none should ever be added to it.
+
+What is in place:
+
+- `release.sh` signs the app and its bundled engine with the certificate
+  whose SHA-1 is `F38EDDA5DB8580C91C067FF8EE3AEFEF8B5F05BA`, checks the
+  result's designated requirement against `RELEASE_DR`, and refuses to
+  publish without that certificate. Only `--dry-run` (CI) falls back to ad hoc.
+- `Updater.installBundle` installs a download that satisfies
+  `Updater.releaseRequirement` exactly as published, without editing or
+  re-signing it. Anything else is re-signed as before.
+- The certificate's private key lives only in the owner's login keychain.
+  **Export it (Keychain Access > My Certificates > TalkFlow Local Dev >
+  Export, as a password-protected .p12) and keep it offline before this Mac
+  is replaced.** Losing it means one more re-grant for every user; leaking it
+  lets anyone ship an app macOS treats as talkflow.
+- Existing users: 0.1.8 is installed by the old updater (re-signed ad hoc on
+  their Macs, so one re-grant as before). 0.1.9 is installed by 0.1.8's
+  updater with the release signature (one last re-grant, as the requirement
+  changes from a cdhash to the stable one). From then on, updates keep every
+  permission. New installs from the DMG, the zip or install.sh have the
+  stable signature from the start.
+
+The rest of this file is the analysis the choice was made from.
 
 ## The problem
 

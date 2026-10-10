@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function DownloadMacPage() {
-  return <DownloadChooser os="mac" />;
+  return <DownloadChooser />;
 }
