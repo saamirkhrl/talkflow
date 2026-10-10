@@ -1,14 +1,13 @@
 import { CloudOff, Cpu, Mic, TextCursorInput } from "lucide-react";
-import { REPO_URL } from "./content";
 import { ForOs } from "./visitor";
 
 const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
 
 const FACTS: [React.ReactNode, string][] = [
-  [<>Runs on your {YOUR_COMPUTER}</>, "Speech is recognized by Whisper, running on your own processor."],
-  ["No cloud, no account", "No sign-in, analytics or crash reports. It works with Wi-Fi off. Online, it only checks GitHub for updates and counts your install once, with no ID."],
-  ["Audio is never saved", "Your voice stays in memory, never on disk, and is replaced by your next dictation."],
-  ["Open source", "Every line is public under the MIT License."],
+  [<>Runs on your {YOUR_COMPUTER}</>, "Whisper recognizes your speech on your own processor."],
+  ["No cloud, no account", "No sign-in or analytics, and it works offline. Online, it only checks for updates and counts installs, anonymously."],
+  ["Audio is never saved", "Held in memory, never written to disk."],
+  ["Open source", "Every line is public, MIT licensed."],
 ];
 
 const NODES: { icon: typeof Mic; label: React.ReactNode }[] = [
@@ -25,31 +24,32 @@ export function Privacy() {
           <h2 className="max-w-[13ch] font-serif text-[clamp(40px,6vw,80px)] leading-[0.98] font-normal tracking-[-0.025em]">
             Your voice never leaves your {YOUR_COMPUTER}.
           </h2>
-          <p className="mt-6 max-w-[50ch] text-[18px] text-fog">
-            talkflow sends your audio to exactly one place: a speech engine running on your own computer. Nothing is uploaded,
-            because there&apos;s nowhere to upload it to.
-          </p>
+        </div>
 
-          <div className="mx-auto mt-8 flex w-fit max-w-full flex-wrap items-center justify-center gap-x-4 gap-y-3 rounded-2xl border border-paper/15 px-5 py-3 text-[14px]">
-            {NODES.map(({ icon: Icon, label }, i) => (
-              <div key={i} className="contents">
-                {i > 0 && <span aria-hidden="true" className="hidden h-px w-6 bg-paper/30 sm:block" />}
-                <span className="flex items-center gap-2.5">
-                  <span className="grid size-9 place-items-center rounded-xl bg-paper/8">
-                    <Icon size={18} strokeWidth={1.5} aria-hidden="true" />
-                  </span>
-                  {label}
+        {/* Where your audio goes, edge to edge: voice, the engine on your computer, your cursor, and no cloud anywhere. */}
+        <div className="mt-[clamp(32px,4vw,56px)] flex flex-col gap-5 rounded-[clamp(20px,2.5vw,32px)] border border-paper/15 px-[clamp(20px,3vw,44px)] py-[clamp(20px,3vw,40px)] text-[clamp(17px,1.9vw,26px)] md:flex-row md:items-center md:gap-[clamp(16px,2vw,32px)]">
+          {NODES.map(({ icon: Icon, label }, i) => (
+            <div key={i} className="contents">
+              {i > 0 && <span aria-hidden="true" className="hidden h-px min-w-6 flex-1 bg-paper/30 md:block" />}
+              <span className="flex items-center gap-[clamp(12px,1.4vw,20px)]">
+                <span className="grid size-[clamp(48px,5vw,72px)] flex-none place-items-center rounded-[clamp(14px,1.4vw,20px)] bg-paper/8">
+                  <Icon className="size-[45%]" strokeWidth={1.5} aria-hidden="true" />
                 </span>
-              </div>
-            ))}
-            <span aria-hidden="true" className="hidden h-6 w-px bg-paper/20 sm:block" />
-            <span className="flex items-center gap-2 text-fog">
-              <CloudOff size={18} strokeWidth={1.5} aria-hidden="true" />
-              No cloud
+                {label}
+              </span>
+            </div>
+          ))}
+          <span aria-hidden="true" className="hidden h-[clamp(32px,4vw,56px)] w-px flex-none bg-paper/20 md:block" />
+          <span className="flex items-center gap-[clamp(12px,1.4vw,20px)] text-fog">
+            <span className="grid size-[clamp(48px,5vw,72px)] flex-none place-items-center md:size-auto">
+              <CloudOff className="size-[clamp(22px,2.2vw,32px)]" strokeWidth={1.5} aria-hidden="true" />
             </span>
-          </div>
+            No cloud
+          </span>
+        </div>
 
-          <div className="mt-8 grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto max-w-[1072px]">
+          <div className="mt-[clamp(32px,4vw,56px)] grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
             {FACTS.map(([title, body]) => (
               <div key={body} className="border-t border-paper/15 pt-4">
                 <h3 className="text-[17px] font-semibold">{title}</h3>
@@ -57,18 +57,6 @@ export function Privacy() {
               </div>
             ))}
           </div>
-
-          <p className="mt-8 text-[15px] text-fog">
-            The details are in the{" "}
-            <a href="/privacy" className="text-paper underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
-              privacy policy
-            </a>
-            , and the code is on{" "}
-            <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="text-paper underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
-              GitHub
-            </a>
-            .
-          </p>
         </div>
       </div>
     </section>

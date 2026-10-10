@@ -28,9 +28,6 @@ export function Stats() {
             alt="The talkflow Dashboard window: 56,607 total words dictated, 968 words today, 145 wpm, a 62-day streak and 17 hours 4 minutes saved, above a grid of daily activity for the last 26 weeks."
           />
         </div>
-        <figcaption className="mt-4 text-[13px] text-graphite">
-          A real dashboard, from talkflow 0.1.7. Time saved compares your speaking time with typing the same words at 40 wpm.
-        </figcaption>
       </figure>
     </section>
   );
