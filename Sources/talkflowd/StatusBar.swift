@@ -10,7 +10,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
         case processing
     }
 
-    private let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private static let autosaveName = "talkflow-status"
+    private var item = StatusBar.makeItem()
+    private let menu = NSMenu()
+    private var state: State = .idle
     var onDashboardClicked: (() -> Void)?
     var onSetupClicked: (() -> Void)?
     /// Opens the dashboard, where the Update button is.
@@ -21,7 +24,6 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     override init() {
         super.init()
-        let menu = NSMenu()
         menu.delegate = self
         // Only while a newer version is available (see setUpdate).
         updateItem.action = #selector(updateClicked)
@@ -50,10 +52,40 @@ final class StatusBar: NSObject, NSMenuDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit talkflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        configure()
+        // Give the system a moment to lay the menu bar out, then check.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in self?.clearCoveredItem(attempt: 0) }
+    }
+
+    private static func makeItem() -> NSStatusItem {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.autosaveName = autosaveName
+        return item
+    }
+
+    private func configure() {
         item.menu = menu
         item.button?.image = Self.barsImage
         item.button?.image?.isTemplate = true
-        setState(.idle)
+        setState(state)
+    }
+
+    /// Notch apps (Dynamic Island style extensions) draw their own window over
+    /// the left of the menu bar, which can sit on top of our icon. When the
+    /// icon is covered at launch, step it right (toward the clock) one slot at
+    /// a time until it is visible again. Bounded, and launch-only: a full
+    /// screen space also hides the bar and must not move the icon.
+    private func clearCoveredItem(attempt: Int) {
+        guard attempt < 6, let window = item.button?.window, let screen = window.screen,
+              NSApp.presentationOptions.isDisjoint(with: [.autoHideMenuBar, .hideMenuBar]) else { return }
+        if window.occlusionState.contains(.visible) { return }
+        let fromRight = screen.frame.maxX - window.frame.maxX
+        let key = "NSStatusItem Preferred Position \(Self.autosaveName)"
+        UserDefaults.standard.set(max(10, fromRight - 36), forKey: key)
+        NSStatusBar.system.removeStatusItem(item)
+        item = Self.makeItem()
+        configure()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.clearCoveredItem(attempt: attempt + 1) }
     }
 
     @objc private func dashboardClicked() {
@@ -88,6 +120,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     }
 
     func setState(_ state: State) {
+        self.state = state
         item.button?.contentTintColor = state == .recording ? .systemRed : (state == .processing ? .systemOrange : nil)
         item.button?.toolTip = state.description
     }
