@@ -122,11 +122,3 @@ export const FAQ: [question: string, answer: string][] = [
   ],
 ];
 
-// What the talkflow dashboard shows, with example numbers.
-export const DASHBOARD = [
-  { label: "Total words dictated", value: "56,327", unit: "" },
-  { label: "Today", value: "688", unit: "words" },
-  { label: "Speed", value: "145", unit: "wpm" },
-  { label: "Streak", value: "62", unit: "days" },
-  { label: "Time saved", value: "16", unit: "h" },
-];
