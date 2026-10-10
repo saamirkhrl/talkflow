@@ -34,29 +34,33 @@ export const WINDOWS_AVAILABLE: boolean = true;
 // binary), so both Mac paths serve the same disk image. Give one its own
 // asset name here if separate builds are ever published.
 export type BuildId = "mac-apple-silicon" | "mac-intel" | "windows-x64";
-export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; detail: string; asset: string; available: boolean }> = {
+// `chips` are what the Mac download page lists on each choice, so people can
+// match the one in About This Mac.
+export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; chips: string[]; asset: string; available: boolean }> = {
   "mac-apple-silicon": {
     os: "mac",
     label: "Apple Silicon",
-    detail: "Macs with an M1, M2, M3, M4 or newer chip",
+    chips: ["M1", "M2", "M3", "M4", "M5"],
     asset: "talkflow-macos.dmg",
     available: true,
   },
   "mac-intel": {
     os: "mac",
     label: "Intel",
-    detail: "Macs with an Intel processor",
+    chips: ["Core i3", "Core i5", "Core i7", "Core i9"],
     asset: "talkflow-macos.dmg",
     available: true,
   },
   "windows-x64": {
     os: "windows",
     label: "Windows",
-    detail: "Any PC with Windows 10 (version 1809) or 11, Intel, AMD or Arm",
+    chips: [],
     asset: "talkflow-windows-x64-setup.exe",
     available: WINDOWS_AVAILABLE,
   },
 };
+// Where every Windows Download button points: the route downloads the installer.
+export const WINDOWS_DOWNLOAD_PATH = "/download/windows-x64";
 export const buildUrl = (id: BuildId) => `${REPO_URL}/releases/latest/download/${BUILDS[id].asset}`;
 
 // What gets dictated into each app in the "Say the whole thought" scroll demo.

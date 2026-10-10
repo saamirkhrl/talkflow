@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WISPR_FLOW_PRICE } from "./content";
+import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WINDOWS_DOWNLOAD_PATH, WISPR_FLOW_PRICE } from "./content";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
 
@@ -52,8 +52,9 @@ function PriceCompare() {
   );
 }
 
-// Desktop visitors get the button for their own OS, which opens the chooser
-// for its builds (while WINDOWS_AVAILABLE is off, Windows says it is coming).
+// Desktop visitors get the button for their own OS: on a Mac it opens the
+// Apple Silicon / Intel page, on Windows it downloads the one installer
+// (while WINDOWS_AVAILABLE is off, Windows says it is coming).
 // Under it, the one-line Terminal install and a menu of every build. Phones
 // can't run talkflow, so they get a way to carry the link to a computer
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
@@ -66,12 +67,17 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
   return (
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
-        {os === "mac" || WINDOWS_AVAILABLE ? (
-          // Opens the chooser for this OS (Apple Silicon or Intel; x64 or Arm).
-          <Link href={`/download/${os}`} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS[os].logo} className="size-[18px] -translate-y-px" />}
-            Download for {OS[os].label}
+        {os === "mac" ? (
+          <Link href="/download/mac" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS.mac.logo} className="size-[18px] -translate-y-px" />}
+            Download for Mac
           </Link>
+        ) : WINDOWS_AVAILABLE ? (
+          // A plain link: the route redirects to the installer, which downloads.
+          <a href={WINDOWS_DOWNLOAD_PATH} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
+            Download for Windows
+          </a>
         ) : (
           <span aria-disabled="true" className={cn(buttonClass.secondary, "h-13 cursor-default px-7 text-[17px] text-graphite hover:bg-transparent")}>
             {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
@@ -174,14 +180,14 @@ function OtherBuilds() {
             <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
           </Link>
           {WINDOWS_AVAILABLE ? (
-            <Link role="menuitem" href="/download/windows" onClick={() => setOpen(false)} className={menuItem}>
+            <a role="menuitem" href={WINDOWS_DOWNLOAD_PATH} onClick={() => setOpen(false)} className={menuItem}>
               {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none" />}
               <span className="flex flex-col">
                 <span className="text-[15px] text-ink">Windows</span>
                 <span className="text-[12px] text-graphite">Any PC with Windows 10 or 11</span>
               </span>
               <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
-            </Link>
+            </a>
           ) : (
             <div role="menuitem" aria-disabled="true" className={cn(menuItem, "cursor-default hover:bg-transparent")}>
               {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none opacity-60" />}
