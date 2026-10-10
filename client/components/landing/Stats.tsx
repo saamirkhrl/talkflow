@@ -16,8 +16,17 @@ export function Stats() {
       </div>
 
       <figure className="mt-14">
-        <div className="relative isolate grid place-items-center overflow-hidden rounded-3xl px-3 py-8 sm:py-12">
+        <div className="relative isolate grid place-items-center overflow-hidden rounded-3xl px-3 pt-8 pb-[clamp(64px,9vw,96px)] sm:pt-12">
           <Wallpaper className="-z-10" />
+          {/* The Dock along the bottom, as on the Mac desktop in the app tour. */}
+          <Image
+            src="/app/dock.png"
+            alt=""
+            width={476.5}
+            height={62}
+            unoptimized
+            className="absolute bottom-2 left-1/2 h-auto w-[min(476.5px,calc(100%-24px))] -translate-x-1/2"
+          />
           {/* A screenshot of the real window, shadow included, taken at 2x: 560 x 588 pt plus the shadow. */}
           <Image
             src="/app/dashboard-dark.webp"
@@ -25,7 +34,7 @@ export function Stats() {
             height={634}
             unoptimized
             className="h-auto w-full max-w-[606px]"
-            alt="The talkflow Dashboard window: 56,607 total words dictated, 968 words today, 145 wpm, a 62-day streak and 17 hours 4 minutes saved, above a grid of daily activity for the last 26 weeks."
+            alt="The talkflow Dashboard window: 155,284 total words dictated, 968 words today, 145 wpm, a 62-day streak and 1 day 22 hours saved, above a grid of daily activity for the last 26 weeks."
           />
         </div>
       </figure>
