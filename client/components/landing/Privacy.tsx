@@ -1,5 +1,4 @@
 import { CloudOff, Cpu, Mic, TextCursorInput } from "lucide-react";
-import { cn } from "@/lib/cn";
 import { ForOs } from "./visitor";
 
 const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
@@ -15,7 +14,6 @@ const STEPS: { icon: typeof Mic; label: React.ReactNode }[] = [
   { icon: Mic, label: "Your voice" },
   { icon: Cpu, label: <>Speech engine on your {YOUR_COMPUTER}</> },
   { icon: TextCursorInput, label: "Text at your cursor" },
-  { icon: CloudOff, label: "No cloud" },
 ];
 
 export function Privacy() {
@@ -26,30 +24,41 @@ export function Privacy() {
           Your voice never leaves your {YOUR_COMPUTER}.
         </h2>
 
-        {/* Where your audio goes, across the section: four equal columns, an icon tile over a short label, joined by lines. */}
-        <div className="mt-[clamp(32px,4vw,56px)] grid grid-cols-2 gap-y-10 rounded-[clamp(20px,2.5vw,32px)] border border-paper/15 px-4 py-10 [--tile:76px] md:grid-cols-4 md:py-12 lg:[--tile:96px]">
-          {STEPS.map(({ icon: Icon, label }, i) => {
-            const cloud = i === STEPS.length - 1;
-            return (
+        {/* Where your audio goes: voice, engine and cursor boxed together, and a broken line out to the cloud it never reaches. */}
+        <div className="mt-[clamp(32px,4vw,56px)] flex flex-col items-center [--pad:32px] [--tile:64px] md:flex-row md:items-start md:[--pad:48px] md:[--tile:76px] lg:[--tile:96px]">
+          <div className="grid w-full grid-cols-3 gap-x-2 rounded-[clamp(20px,2.5vw,32px)] border border-paper/15 px-3 py-(--pad) md:flex-1 md:px-4">
+            {STEPS.map(({ icon: Icon, label }, i) => (
               <div key={i} className="relative flex flex-col items-center gap-4 text-center">
-                {i > 0 && !cloud && (
+                {i > 0 && (
                   <span
                     aria-hidden="true"
                     className="absolute top-[calc(var(--tile)/2)] right-[calc(50%+var(--tile)/2+20px)] left-[calc(-50%+var(--tile)/2+20px)] hidden h-px bg-paper/25 md:block"
                   />
                 )}
-                <span
-                  className={cn(
-                    "grid size-(--tile) place-items-center rounded-[28%]",
-                    cloud ? "border border-dashed border-paper/25 text-fog" : "bg-paper/8 ring-1 ring-paper/10",
-                  )}
-                >
+                <span className="grid size-(--tile) place-items-center rounded-[28%] bg-paper/8 ring-1 ring-paper/10">
                   <Icon className="size-[42%]" strokeWidth={1.25} aria-hidden="true" />
                 </span>
-                <span className={cn("max-w-[18ch] text-[14px] leading-snug lg:max-w-none lg:whitespace-nowrap", cloud ? "text-fog" : "text-paper/85")}>{label}</span>
+                <span className="max-w-[18ch] text-[13px] leading-snug text-paper/85 md:text-[14px] lg:max-w-none lg:whitespace-nowrap">
+                  {label}
+                </span>
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          <span
+            aria-hidden="true"
+            className="flex h-16 flex-col items-center justify-center gap-3 md:mt-[calc(var(--pad)+1px+var(--tile)/2)] md:h-px md:w-[clamp(80px,9vw,140px)] md:flex-row md:px-4"
+          >
+            <span className="w-0 flex-1 border-l border-dashed border-paper/35 md:h-0 md:w-auto md:border-t md:border-l-0" />
+            <span className="w-0 flex-1 border-l border-dashed border-paper/35 md:h-0 md:w-auto md:border-t md:border-l-0" />
+          </span>
+
+          <div className="flex flex-col items-center gap-4 text-center text-fog md:pt-[calc(var(--pad)+1px)]">
+            <span className="grid size-(--tile) place-items-center rounded-[28%] border border-dashed border-paper/25">
+              <CloudOff className="size-[42%]" strokeWidth={1.25} aria-hidden="true" />
+            </span>
+            <span className="text-[13px] leading-snug md:text-[14px]">No cloud</span>
+          </div>
         </div>
 
         <div className="mt-[clamp(32px,4vw,56px)] grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
