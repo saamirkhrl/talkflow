@@ -498,8 +498,8 @@ enum EngineSetup {
     /// How a failed Homebrew install's message starts (setup then shows the
     /// Terminal command).
     static let homebrewFailed = "Homebrew could not install it."
-    /// The model's size, for "x of y MB" (487,614,201 bytes).
-    static let modelMegabytes = 488.0
+    /// The model's size, for "x of y MB" (190,098,681 bytes).
+    static let modelMegabytes = 190.0
     /// How many times a dropped connection is picked up again by itself
     /// before setup asks the user to press Try again.
     static let attempts = 3
@@ -1038,7 +1038,7 @@ final class OnboardingModel: ObservableObject {
     var engineNeeds: String {
         var parts: [String] = []
         if SpeechEngine.serverBinary() == nil { parts.append("the Whisper program") }
-        if !SpeechEngine.modelIsComplete { parts.append("the English speech model (about 490 MB)") }
+        if !SpeechEngine.modelIsComplete { parts.append("the English speech model (about 190 MB)") }
         if parts.isEmpty { return "The speech engine is installed but not running." }
         return "Still needed: " + parts.joined(separator: " and ") + "."
     }
@@ -1630,7 +1630,7 @@ private struct OnboardingView: View {
             case .microphone: return ("Microphone", "To hear you")
             case .accessibility: return ("Accessibility", "To notice \(shortcut) and type for you")
             case .inputMonitoring: return ("Input Monitoring", "To notice when you hold \(shortcut)")
-            case .engine: return ("Speech engine", "About 490 MB, one-time download")
+            case .engine: return ("Speech engine", "About 190 MB, one-time download")
             case .welcome, .ready: return ("Try it", "Right here, before you go")
             }
         }()
@@ -1760,7 +1760,7 @@ private struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             stepEyebrow()
             title("Speech engine")
-            paragraph("talkflow turns speech into text with Whisper, right on your Mac. The model is a one-time download of about 490 MB.")
+            paragraph("talkflow turns speech into text with Whisper, right on your Mac. The model is a one-time download of about 190 MB.")
             panel {
                 switch model.engine {
                 case .checking:
