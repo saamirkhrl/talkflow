@@ -44,7 +44,8 @@ export function DownloadChooser() {
   }, []);
 
   return (
-    <main className="px-gutter pt-32 pb-20 sm:pt-40 sm:pb-28">
+    // At least a screen tall, so the footer's big wordmark waits below the fold instead of peeking up under the choices.
+    <main className="min-h-svh px-gutter pt-32 pb-20 sm:pt-40 sm:pb-28">
       <div className="mx-auto max-w-[760px]">
         <h1 className="font-serif text-[clamp(40px,6vw,64px)] leading-[1.02] font-normal tracking-[-0.02em]">
           Download talkflow for Mac
