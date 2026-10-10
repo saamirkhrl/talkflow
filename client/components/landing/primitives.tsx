@@ -7,6 +7,13 @@ export const buttonClass = {
     "inline-flex items-center justify-center gap-2 rounded-full border border-line font-medium text-ink transition-colors hover:bg-ink/5 active:bg-ink/10",
 };
 
+// The macOS Tahoe desktop picture the app mockups sit on.
+export const wallpaperStyle = {
+  backgroundImage: 'url("/wallpaper/tahoe.jpg")',
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+} as const;
+
 // The red "listening" dot, the same red the menu bar icon turns while recording.
 export function RecDot({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn("inline-block size-2 flex-none animate-rec rounded-full bg-rec", className)} />;

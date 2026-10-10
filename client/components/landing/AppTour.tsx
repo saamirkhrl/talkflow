@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentType, type RefObject } from "react";
-import { useLenis } from "lenis/react";
+import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { GmailMock, MessagesMock, NotionMock, SlackMock, WhatsAppMock, type MockProps } from "./AppMocks";
@@ -9,8 +8,8 @@ import { APP_LOGOS } from "./brand-logos.generated";
 import { BrandLogo } from "./BrandLogo";
 import { ClaudeCodeMock } from "./ClaudeCodeMock";
 import { DICTATIONS } from "./content";
-import { useDictation } from "./dictation";
-import { RecDot, Waveform } from "./primitives";
+import { useDictation, type Phase } from "./dictation";
+import { RecDot, Waveform, wallpaperStyle } from "./primitives";
 import { useReducedMotion } from "./visitor";
 
 type Scene = {
@@ -33,41 +32,11 @@ const SCENES: Scene[] = [
 
 const LOGOS = SCENES.map((s) => APP_LOGOS.find((logo) => logo.name === s.logo)!);
 
-// How much page scroll each app gets, in viewport heights.
-const STEP_SVH = 70;
-
-// Which scene the page is scrolled to: the track's scroll range is split
-// evenly between the scenes while its sticky stage is pinned.
-function useActiveScene(track: RefObject<HTMLDivElement | null>): number {
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      const el = track.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const range = rect.height - innerHeight;
-      const progress = range > 0 ? Math.min(Math.max(-rect.top / range, 0), 0.9999) : 0;
-      setActive(Math.floor(progress * SCENES.length));
-    };
-    const frame = requestAnimationFrame(update);
-    addEventListener("scroll", update, { passive: true });
-    addEventListener("resize", update);
-    return () => {
-      cancelAnimationFrame(frame);
-      removeEventListener("scroll", update);
-      removeEventListener("resize", update);
-    };
-  }, [track]);
-
-  return active;
-}
-
 // The overlay talkflow shows at the bottom of the screen: a red dot and input
 // levels while fn is held.
 function Pill({ listening }: { listening: boolean }) {
   return (
-    <div className="absolute bottom-0 left-1/2 flex h-11 min-w-[172px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)] ring-1 ring-white/20">
+    <div className="absolute bottom-[68px] left-1/2 flex h-11 min-w-[172px] -translate-x-1/2 items-center justify-center gap-3 rounded-full bg-ink px-5 text-[14px] whitespace-nowrap text-paper shadow-[0_16px_32px_-12px_rgba(31,30,34,0.5)] ring-1 ring-white/20">
       {listening ? (
         <>
           <RecDot />
@@ -83,104 +52,105 @@ function Pill({ listening }: { listening: boolean }) {
   );
 }
 
-// Where a scene sits relative to the one on show: the next ones wait just
-// below, the ones already passed sink back behind it.
-type Place = "before" | "active" | "after";
+const DOCK_ICON = "grid size-10 flex-none place-items-center rounded-[11px] bg-white/90 p-[7px] shadow-[0_1px_3px_rgba(0,0,0,0.25)] sm:size-11";
 
-const PLACE = {
-  // On top, turns opaque fast so the window underneath never shows through.
-  active:
-    "z-10 opacity-100 [transition:opacity_180ms_ease-out,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
-  before:
-    "pointer-events-none -translate-y-3 scale-[0.95] opacity-0 [transition:opacity_380ms_ease-in_140ms,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
-  after:
-    "pointer-events-none translate-y-10 opacity-0 [transition:opacity_380ms_ease-in_140ms,translate_700ms_cubic-bezier(.2,.8,.2,1),scale_700ms_cubic-bezier(.2,.8,.2,1)]",
-};
-
-function SceneView({ scene, place, reduced }: { scene: Scene; place: Place; reduced: boolean }) {
-  const d = useDictation(scene.text, place === "active", reduced, scene.sends);
+// One app's window. It waits a little smaller, and zooms in when talkflow starts listening.
+function SceneView({
+  scene,
+  active,
+  reduced,
+  onPhase,
+  onEnd,
+}: {
+  scene: Scene;
+  active: boolean;
+  reduced: boolean;
+  onPhase: (phase: Phase) => void;
+  onEnd: () => void;
+}) {
+  const d = useDictation(scene.text, active, reduced, scene.sends, onEnd);
   const { Mock } = scene;
+  const zoomed = d.phase !== "idle";
+
+  useEffect(() => {
+    if (active) onPhase(d.phase);
+  }, [active, d.phase, onPhase]);
 
   return (
-    <div className={cn("absolute inset-0", PLACE[place])}>
-      <div className="absolute inset-x-0 top-0 bottom-9 overflow-hidden rounded-xl border border-black/12 shadow-[0_30px_60px_-30px_rgba(31,30,34,0.5)]">
+    <div
+      className={cn(
+        "absolute inset-x-0 top-0 bottom-[116px] origin-[50%_60%] [transition:opacity_300ms_ease-out,scale_1100ms_cubic-bezier(.2,.8,.2,1)]",
+        active ? "z-10 opacity-100" : "pointer-events-none opacity-0",
+        zoomed ? "scale-100" : "scale-[0.9]",
+      )}
+    >
+      <div className="absolute inset-0 overflow-hidden rounded-xl border border-black/15 shadow-[0_40px_80px_-24px_rgba(0,10,40,0.6)]">
         <Mock text={scene.text} d={d} />
       </div>
-      <Pill listening={d.phase === "listening"} />
     </div>
   );
 }
 
-// The right-hand column of "Say the whole thought": a tall scroll track with a
-// pinned stage. Scrolling through the track walks the stage from Claude Code
-// through the apps listed in "Speak, and it appears in", each with something
-// being dictated into it.
+// "Say the whole thought": a looping demo, like a screen recording. talkflow's pill and a
+// dock of apps sit on the Mac desktop; the pill wakes up, the app in front zooms in a
+// little and the dictated words arrive. Then the next app takes over. Pauses off screen.
 export function AppTour() {
-  const track = useRef<HTMLDivElement>(null);
-  const active = useActiveScene(track);
+  const stage = useRef<HTMLElement>(null);
+  const [active, setActive] = useState(0);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [visible, setVisible] = useState(false);
   const reduced = useReducedMotion();
 
-  const lenis = useLenis();
-
-  // Scrolls to the middle of a scene's share of the track.
-  const show = (i: number) => {
-    const el = track.current;
+  useEffect(() => {
+    const el = stage.current;
     if (!el) return;
-    const top = el.getBoundingClientRect().top + scrollY;
-    const range = el.offsetHeight - innerHeight;
-    const target = top + (range * (i + 0.5)) / SCENES.length;
-    if (lenis) lenis.scrollTo(target, { duration: 1.1 });
-    else scrollTo({ top: target, behavior: reduced ? "auto" : "smooth" });
-  };
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), { threshold: 0.35 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const next = useCallback(() => setActive((i) => (i + 1) % SCENES.length), []);
 
   return (
-    <div ref={track} className="relative" style={{ height: `calc(100svh + ${(SCENES.length - 1) * STEP_SVH}svh)` }}>
-      <div className="sticky top-0 flex h-svh flex-col justify-center pt-16 pb-4">
-        <div className="mb-5 flex justify-center">
-          <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-1">
-            {SCENES.map((s, i) => (
-              <button
-                key={s.name}
-                type="button"
-                onClick={() => show(i)}
-                aria-label={`Show ${s.name}`}
-                aria-current={i === active ? "true" : undefined}
-                className={cn(
-                  "flex h-9 items-center rounded-full px-2.5 text-[14px] transition-[background-color,box-shadow,color] duration-300",
-                  i === active ? "bg-white text-ink shadow-[0_1px_3px_rgba(31,30,34,0.14)]" : "text-graphite hover:bg-ink/5",
-                )}
-              >
-                <BrandLogo logo={LOGOS[i]} className="size-[18px]" />
-                <span
-                  className={cn(
-                    "grid transition-[grid-template-columns] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
-                    i === active ? "grid-cols-[1fr]" : "grid-cols-[0fr]",
-                  )}
-                >
-                  <span className="overflow-hidden pl-2 whitespace-nowrap">{s.name}</span>
-                </span>
-              </button>
-            ))}
-          </div>
+    <div className="flex flex-col justify-center">
+      <figure
+        ref={stage}
+        className="relative mx-auto h-[min(500px,calc(100svh-120px))] w-full max-w-[1200px] overflow-hidden rounded-3xl sm:h-[560px]"
+        style={wallpaperStyle}
+      >
+        <figcaption className="sr-only">
+          talkflow typing a dictated message into {SCENES[active].name}. The demo cycles through other apps.
+        </figcaption>
+        <div aria-hidden="true" className="absolute inset-3 sm:inset-8">
+          {SCENES.map((s, i) => (
+            <SceneView key={s.name} scene={s} active={i === active && visible} reduced={reduced} onPhase={setPhase} onEnd={next} />
+          ))}
+          <Pill listening={phase === "listening"} />
         </div>
-
-        <figure className="relative h-[min(470px,calc(100svh-185px))] sm:h-[min(530px,calc(100svh-185px))]">
-          <figcaption className="sr-only">
-            talkflow typing a dictated message into {SCENES[active].name}. Scroll to see it in other apps.
-          </figcaption>
-          <div aria-hidden="true">
-            {SCENES.map((s, i) => (
-              <SceneView key={s.name} scene={s} place={i < active ? "before" : i > active ? "after" : "active"} reduced={reduced} />
-            ))}
-          </div>
-        </figure>
-        <p className="mt-4 text-center text-[12.5px] text-graphite/80">
-          talkflow isn&apos;t affiliated with these apps.{" "}
-          <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
-            Trademarks
-          </Link>
-        </p>
-      </div>
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2 rounded-[22px] border border-white/30 bg-white/25 p-1.5 shadow-[0_10px_30px_rgba(0,10,40,0.35)] backdrop-blur-xl">
+          {SCENES.map((s, i) => (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-label={`Show ${s.name}`}
+              aria-current={i === active ? "true" : undefined}
+              className="relative flex flex-col items-center"
+            >
+              <span className={cn(DOCK_ICON, "transition-transform duration-300", i === active && "-translate-y-1.5 scale-110")}>
+                <BrandLogo logo={LOGOS[i]} className="size-full" />
+              </span>
+              <span className={cn("absolute -bottom-1 size-1 rounded-full bg-white/90 transition-opacity", i === active ? "opacity-100" : "opacity-0")} />
+            </button>
+          ))}
+        </div>
+      </figure>
+      <p className="mt-4 text-center text-[12.5px] text-graphite/80">
+        talkflow isn&apos;t affiliated with these apps.{" "}
+        <Link href="/terms#other-companies" className="underline decoration-line underline-offset-2 hover:text-ink">
+          Trademarks
+        </Link>
+      </p>
     </div>
   );
 }
