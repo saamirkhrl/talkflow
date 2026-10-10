@@ -63,9 +63,6 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 
 **Requirements:** macOS 13 or later, or Windows 10 (1809) or later. The speech model needs about 500 MB of disk space.
 
-> [!NOTE]
-> The app is not notarized yet, so macOS asks you to confirm the first time you open a downloaded copy.
-
 ### Build from source
 
 You need the Swift toolchain (`xcode-select --install`) and `cmake` to build the speech engine ([cmake.org](https://cmake.org/download/), `brew install cmake` or `pip3 install cmake`).
