@@ -30,6 +30,12 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// The on-demand final-pass server, timed against the real engine. Run from
+// the installed app; stops its final-pass server, which the next hold restarts.
+if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {
+    FinalPassSelfTest.run(wav: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
 // Read-only: what the focused element says it accepts, without writing to it.
 if CommandLine.arguments.contains("--focusprobe") {
     WriteSelfTest.probe()
