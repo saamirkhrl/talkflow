@@ -303,11 +303,18 @@ final class Dictation {
             Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, completion: completion)
             return
         }
-        Transcriber.transcribe(wav: wav, serverURL: FinalPassEngine.inferenceURL, timeout: 8, prompt: prompt) { result in
+        let startedAt = Date()
+        Transcriber.transcribe(wav: wav, serverURL: FinalPassEngine.inferenceURL, timeout: FinalPassSpeed.timeout, prompt: prompt) { result in
+            let audioSeconds = FinalPassSpeed.seconds(ofWav: wav)
             if let result {
                 print("talkflowd: final pass via large-v3-turbo")
+                FinalPassSpeed.record(elapsed: result.elapsed, audioSeconds: audioSeconds)
                 completion(result)
                 return
+            }
+            // Ran out of time, as opposed to being refused or failing at once.
+            if Date().timeIntervalSince(startedAt) >= FinalPassSpeed.timeout - 0.5 {
+                FinalPassSpeed.record(elapsed: nil, audioSeconds: audioSeconds)
             }
             print("talkflowd: final-pass model did not answer, falling back to small.en")
             Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, completion: completion)

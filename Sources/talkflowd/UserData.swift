@@ -26,7 +26,7 @@ enum UserData {
     /// The preference keys that are the user's choices. Setup state and
     /// API keys (kept in the Keychain) are deliberately not here.
     static let settingKeys = [
-        "typeWhileSpeaking", "accurateFinalPass", "aiPolish", "learnedWords", "writingStyle",
+        "typeWhileSpeaking", "accurateFinalPass", "finalPassTooSlow", "aiPolish", "learnedWords", "writingStyle",
         "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart", "macHotkey",
     ]
 

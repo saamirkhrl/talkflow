@@ -487,6 +487,60 @@ enum FinalPassEngine {
     }
 }
 
+/// Watches how long the large model takes at release. On a slow Mac it can be
+/// several times slower than small.en, or not answer inside `timeout` at all
+/// (then every dictation waits the full limit before small.en takes over), so
+/// three slow passes in a row turn the accurate final pass off for good and
+/// unload the model. Three rather than two, so a short spell of heavy load on a
+/// fast Mac does not cost it the large model. The Settings toggle follows and
+/// can turn it back on; after that talkflow leaves the choice alone (see
+/// `Preferences.finalPassTooSlow`). Fast Macs never get near the limit: 46s of
+/// speech takes about 2.6s on an M4.
+enum FinalPassSpeed {
+    /// How long the large model gets before small.en takes over.
+    static let timeout: TimeInterval = 8
+    static let slowPassesToTurnOff = 3
+
+    /// A pass is slow past 2s plus a quarter of the audio's length. One that ran
+    /// out of time (`elapsed` nil) is slow only when that limit is inside the
+    /// timeout: a very long dictation timing out says nothing either way, so it
+    /// is nil and leaves the count alone.
+    static func isSlow(elapsed: TimeInterval?, audioSeconds: TimeInterval) -> Bool? {
+        let limit = 2 + 0.25 * audioSeconds
+        guard let elapsed else { return limit < timeout ? true : nil }
+        return elapsed > limit
+    }
+
+    /// 16 kHz, 16-bit mono PCM behind a 44-byte header.
+    static func seconds(ofWav wav: Data) -> TimeInterval {
+        Double(max(0, wav.count - 44)) / 32000
+    }
+
+    /// Consecutive slow passes; any quick one resets it.
+    private static var slowStreak = 0
+
+    /// `elapsed` is nil for a pass that ran out of time. Called from the
+    /// transcription completion, which is not on the main thread.
+    static func record(elapsed: TimeInterval?, audioSeconds: TimeInterval) {
+        DispatchQueue.main.async { count(elapsed: elapsed, audioSeconds: audioSeconds) }
+    }
+
+    private static func count(elapsed: TimeInterval?, audioSeconds: TimeInterval) {
+        guard !Preferences.finalPassTooSlow, let slow = isSlow(elapsed: elapsed, audioSeconds: audioSeconds) else { return }
+        guard slow else { slowStreak = 0; return }
+        slowStreak += 1
+        let took = elapsed.map { String(format: "%.1fs", $0) } ?? "no answer in \(Int(timeout))s"
+        print("talkflowd: large-model pass was slow (\(took) for \(String(format: "%.1f", audioSeconds))s of speech), \(slowStreak) in a row")
+        guard slowStreak >= slowPassesToTurnOff else { return }
+        slowStreak = 0
+        Preferences.finalPassTooSlow = true
+        Preferences.accurateFinalPass = false
+        FinalPassEngine.stop()
+        NotificationCenter.default.post(name: .accurateFinalPassChanged, object: nil)
+        print("talkflowd: accurate final pass turned off, this Mac is too slow for it")
+    }
+}
+
 struct EngineError: LocalizedError {
     let message: String
     init(_ message: String) { self.message = message }
