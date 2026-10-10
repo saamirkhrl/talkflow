@@ -30,6 +30,12 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// The on-demand final-pass server, timed against the real engine. Run from
+// the installed app; stops its final-pass server, which the next hold restarts.
+if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {
+    FinalPassSelfTest.run(wav: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
 // Read-only: what the focused element says it accepts, without writing to it.
 if CommandLine.arguments.contains("--focusprobe") {
     WriteSelfTest.probe()
@@ -112,6 +118,23 @@ if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     exit(0)
 }
 
+// Shows only the menu bar icon, with its check for a notch app's island, for
+// the given seconds, logging where it sits. Best run as the bare built binary,
+// whose settings are separate from the installed app's.
+// Usage: --statusbartest [seconds]
+if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 20
+    NSApplication.shared.setActivationPolicy(.accessory)
+    let bar = StatusBar()
+    let started = Date()
+    Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        let frame = bar.iconFrame.map { "x \(Int($0.minX))-\(Int($0.maxX))" } ?? "no frame"
+        print("statusbartest: \(Int(Date().timeIntervalSince(started)))s icon \(frame)")
+        if Date().timeIntervalSince(started) >= seconds { exit(0) }
+    }
+    NSApplication.shared.run()
+}
+
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by
 // step, and where the kept data folder is. Changes nothing.
 if CommandLine.arguments.contains("--uninstallplan") {
@@ -136,6 +159,7 @@ if CommandLine.arguments.contains("--enginecheck") {
     launch agent program: \((agent?["ProgramArguments"] as? [String])?.first ?? "none")
     launch agent plan: \(plan)
     model complete: \(SpeechEngine.modelIsComplete) (\(SpeechEngine.modelPath.path))
+    old f16 model complete: \(SpeechEngine.legacyModelIsComplete), agent loads it: \(SpeechEngine.agentLoadsLegacyModel())
     launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
     server responding on :\(SpeechEngine.port): \(alive)
     isInstalled: \(SpeechEngine.isInstalled)
@@ -149,7 +173,7 @@ if CommandLine.arguments.contains("--enginecheck") {
 }
 
 // Exercises the real model downloader against a small file and a temp
-// destination, so the download path can be checked without fetching 490 MB.
+// destination, so the download path can be checked without fetching 190 MB.
 // Usage: --downloadtest <url> <destination> <minimum bytes>
 if let index = CommandLine.arguments.firstIndex(of: "--downloadtest") {
     let rest = Array(CommandLine.arguments.dropFirst(index + 1))

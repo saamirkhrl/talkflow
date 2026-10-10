@@ -183,7 +183,7 @@ export function MessagesMock({ text, d }: MockProps) {
   const sent = d.phase === "sent";
   return (
     <div className="relative flex h-full bg-white text-[13px] text-black">
-      <aside className="m-2 mr-0 hidden w-[196px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-black/6 bg-[#f1f1f3] shadow-[0_2px_10px_rgba(0,0,0,0.06)] sm:flex">
+      <aside className="m-2 mr-0 hidden w-[196px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-black/6 bg-[#f1f1f3] shadow-[0_2px_10px_rgba(0,0,0,0.06)] @min-[520px]:flex">
         <div className="flex h-10 shrink-0 items-center justify-between pr-3 pl-3.5">
           <Lights />
           <ListFilter size={15} strokeWidth={1.75} className="text-black/50" />
@@ -225,7 +225,7 @@ export function MessagesMock({ text, d }: MockProps) {
       <section className="relative flex min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-start justify-between px-3 pt-2.5">
           <span className="flex items-center gap-3">
-            <Lights className="sm:hidden" />
+            <Lights className="@min-[520px]:hidden" />
             <Glass className="size-[30px]">
               <SquarePen size={14} strokeWidth={1.75} />
             </Glass>
@@ -324,105 +324,107 @@ export function GmailMock({ text, d }: MockProps) {
         <Initials name="Alex Kim" className="size-[22px] rounded-full bg-[#5b8def] text-[9px]" />
       </div>
 
-      {/* Gmail */}
-      <div className="flex h-[54px] shrink-0 items-center gap-2 pr-3 pl-4">
-        <Menu size={18} strokeWidth={1.75} className="mr-2 shrink-0 text-black/60" />
-        <BrandLogo logo={GMAIL_LOGO} className="h-[20px] w-[26px] shrink-0" />
-        <span className="mr-5 text-[19px] tracking-[-0.01em] text-[#444746]">Gmail</span>
-        <div className="hidden h-10 min-w-0 flex-1 items-center gap-3 rounded-full bg-[#e9eef6] px-4 text-[#444746] sm:flex">
-          <Search size={17} strokeWidth={1.75} className="shrink-0" />
-          <span className="flex-1 truncate">Search mail</span>
-          <SlidersHorizontal size={16} strokeWidth={1.75} className="shrink-0" />
-        </div>
-        <span className="ml-auto flex items-center gap-3.5 pl-3 text-[#444746]">
-          <CircleHelp size={17} strokeWidth={1.75} className="hidden md:block" />
-          <Settings size={17} strokeWidth={1.75} className="hidden md:block" />
-          <Sparkles size={17} strokeWidth={1.75} className="text-[#0b57d0]" />
-          <LayoutGrid size={16} strokeWidth={1.75} />
-          <Initials name="Alex Kim" className="size-[28px] rounded-full bg-[#5b8def] text-[11px]" />
-        </span>
-      </div>
-
-      <div className="relative flex min-h-0 flex-1">
-        <nav className="hidden w-[148px] shrink-0 flex-col pr-2 sm:flex">
-          <span className="mb-3 ml-2 flex h-12 w-fit items-center gap-3 rounded-2xl bg-[#c2e7ff] pr-5 pl-4 font-medium text-[#001d35]">
-            <Pencil size={17} strokeWidth={1.75} />
-            Compose
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* Gmail */}
+        <div className="flex h-[54px] shrink-0 items-center gap-2 pr-3 pl-4">
+          <Menu size={18} strokeWidth={1.75} className="mr-2 shrink-0 text-black/60" />
+          <BrandLogo logo={GMAIL_LOGO} className="h-[20px] w-[26px] shrink-0" />
+          <span className="mr-5 text-[19px] tracking-[-0.01em] text-[#444746]">Gmail</span>
+          <div className="hidden h-10 min-w-0 flex-1 items-center gap-3 rounded-full bg-[#e9eef6] px-4 text-[#444746] @min-[520px]:flex">
+            <Search size={17} strokeWidth={1.75} className="shrink-0" />
+            <span className="flex-1 truncate">Search mail</span>
+            <SlidersHorizontal size={16} strokeWidth={1.75} className="shrink-0" />
+          </div>
+          <span className="ml-auto flex items-center gap-3.5 pl-3 text-[#444746]">
+            <CircleHelp size={17} strokeWidth={1.75} className="hidden @min-[640px]:block" />
+            <Settings size={17} strokeWidth={1.75} className="hidden @min-[640px]:block" />
+            <Sparkles size={17} strokeWidth={1.75} className="text-[#0b57d0]" />
+            <LayoutGrid size={16} strokeWidth={1.75} />
+            <Initials name="Alex Kim" className="size-[28px] rounded-full bg-[#5b8def] text-[11px]" />
           </span>
-          {GMAIL_NAV.map(([icon, label, count], i) => (
-            <span
-              key={label}
-              className={cn(
-                "flex h-8 items-center gap-3.5 rounded-r-full pr-3 pl-5 text-[#202124]",
-                i === 0 && "bg-[#d3e3fd] font-bold text-[#001d35]",
-              )}
-            >
-              {icon}
-              <span className="flex-1">{label}</span>
-              {count && <span className="text-[11.5px]">{count}</span>}
-            </span>
-          ))}
-        </nav>
+        </div>
 
-        <div className="mr-0 min-w-0 flex-1 overflow-hidden rounded-t-2xl bg-white sm:mr-3">
-          <div className="flex h-10 items-center gap-4 px-4 text-[#444746]">
-            <span className="flex items-center gap-0.5">
-              <Square size={15} strokeWidth={1.75} />
-              <ChevronDown size={11} strokeWidth={2} />
+        <div className="relative flex min-h-0 flex-1">
+          <nav className="hidden w-[148px] shrink-0 flex-col pr-2 @min-[520px]:flex">
+            <span className="mb-3 ml-2 flex h-12 w-fit items-center gap-3 rounded-2xl bg-[#c2e7ff] pr-5 pl-4 font-medium text-[#001d35]">
+              <Pencil size={17} strokeWidth={1.75} />
+              Compose
             </span>
-            <RotateCw size={14} strokeWidth={1.75} />
-            <EllipsisVertical size={15} strokeWidth={1.75} />
-            <span className="ml-auto hidden items-center gap-3 text-[11.5px] md:flex">
-              1-50 of 2,316
-              <ChevronLeft size={15} strokeWidth={1.75} className="text-black/30" />
-              <ChevronRight size={15} strokeWidth={1.75} />
-            </span>
-          </div>
-          <div className="flex h-11 border-b border-black/8 text-[13px] text-[#444746]">
-            <span className="relative flex flex-1 items-center gap-3 px-4 font-medium text-[#0b57d0]">
-              <Inbox size={17} strokeWidth={1.75} />
-              Primary
-              <span className="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-[#0b57d0]" />
-            </span>
-            <span className="flex flex-1 items-center gap-3 px-4">
-              <Tag size={16} strokeWidth={1.75} />
-              Promotions
-            </span>
-            <span className="hidden flex-1 items-center gap-3 px-4 md:flex">
-              <Users size={16} strokeWidth={1.75} />
-              Social
-            </span>
-          </div>
-          <ul>
-            {INBOX.map((m) => (
-              <li
-                key={m.subject}
+            {GMAIL_NAV.map(([icon, label, count], i) => (
+              <span
+                key={label}
                 className={cn(
-                  "flex h-10 items-center gap-3 border-b border-black/6 px-4 text-[12.5px]",
-                  m.unread ? "bg-white" : "bg-[#f2f6fc]",
+                  "flex h-8 items-center gap-3.5 rounded-r-full pr-3 pl-5 text-[#202124]",
+                  i === 0 && "bg-[#d3e3fd] font-bold text-[#001d35]",
                 )}
               >
-                <Square size={14} strokeWidth={1.75} className="shrink-0 text-black/35" />
-                <Star size={14} strokeWidth={1.75} className="shrink-0 text-black/35" />
-                <span className={cn("w-[92px] shrink-0 truncate", m.unread && "font-bold")}>{m.from}</span>
-                <span className="min-w-0 flex-1 truncate">
-                  <span className={cn(m.unread && "font-bold")}>{m.subject}</span>
-                  <span className="text-[#5f6368]"> - {m.snippet}</span>
-                </span>
-                <span className={cn("shrink-0 text-[11.5px]", m.unread ? "font-bold" : "text-[#5f6368]")}>{m.time}</span>
-              </li>
+                {icon}
+                <span className="flex-1">{label}</span>
+                {count && <span className="text-[11.5px]">{count}</span>}
+              </span>
             ))}
-          </ul>
+          </nav>
+
+          <div className="mr-0 min-w-0 flex-1 overflow-hidden rounded-t-2xl bg-white @min-[520px]:mr-3">
+            <div className="flex h-10 items-center gap-4 px-4 text-[#444746]">
+              <span className="flex items-center gap-0.5">
+                <Square size={15} strokeWidth={1.75} />
+                <ChevronDown size={11} strokeWidth={2} />
+              </span>
+              <RotateCw size={14} strokeWidth={1.75} />
+              <EllipsisVertical size={15} strokeWidth={1.75} />
+              <span className="ml-auto hidden items-center gap-3 text-[11.5px] @min-[640px]:flex">
+                1-50 of 2,316
+                <ChevronLeft size={15} strokeWidth={1.75} className="text-black/30" />
+                <ChevronRight size={15} strokeWidth={1.75} />
+              </span>
+            </div>
+            <div className="flex h-11 border-b border-black/8 text-[13px] text-[#444746]">
+              <span className="relative flex flex-1 items-center gap-3 px-4 font-medium text-[#0b57d0]">
+                <Inbox size={17} strokeWidth={1.75} />
+                Primary
+                <span className="absolute inset-x-3 bottom-0 h-[3px] rounded-t-full bg-[#0b57d0]" />
+              </span>
+              <span className="flex flex-1 items-center gap-3 px-4">
+                <Tag size={16} strokeWidth={1.75} />
+                Promotions
+              </span>
+              <span className="hidden flex-1 items-center gap-3 px-4 @min-[640px]:flex">
+                <Users size={16} strokeWidth={1.75} />
+                Social
+              </span>
+            </div>
+            <ul>
+              {INBOX.map((m) => (
+                <li
+                  key={m.subject}
+                  className={cn(
+                    "flex h-10 items-center gap-3 border-b border-black/6 px-4 text-[12.5px]",
+                    m.unread ? "bg-white" : "bg-[#f2f6fc]",
+                  )}
+                >
+                  <Square size={14} strokeWidth={1.75} className="shrink-0 text-black/35" />
+                  <Star size={14} strokeWidth={1.75} className="shrink-0 text-black/35" />
+                  <span className={cn("w-[92px] shrink-0 truncate", m.unread && "font-bold")}>{m.from}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className={cn(m.unread && "font-bold")}>{m.subject}</span>
+                    <span className="text-[#5f6368]"> - {m.snippet}</span>
+                  </span>
+                  <span className={cn("shrink-0 text-[11.5px]", m.unread ? "font-bold" : "text-[#5f6368]")}>{m.time}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
-        <div className="absolute inset-x-2 top-2 bottom-0 flex flex-col overflow-hidden rounded-t-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.22),0_0_0_1px_rgba(0,0,0,0.04)] sm:inset-x-auto sm:right-5 sm:left-auto sm:w-[min(360px,68%)]">
-          <div className="flex h-10 shrink-0 items-center gap-3.5 bg-[#f2f6fc] pr-3 pl-4 font-medium text-[#041e49]">
+        <div className="absolute inset-x-2 top-2 bottom-0 flex flex-col overflow-hidden rounded-t-xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.22),0_0_0_1px_rgba(0,0,0,0.04)] @min-[520px]:inset-x-auto @min-[520px]:right-4 @min-[520px]:left-auto @min-[520px]:w-[min(430px,70%)]">
+          <div className="flex h-9 shrink-0 items-center gap-3.5 bg-[#f2f6fc] pr-3 pl-4 font-medium text-[#041e49]">
             <span className="flex-1">New Message</span>
             <Minus size={15} strokeWidth={2} className="text-[#444746]" />
             <Maximize2 size={13} strokeWidth={2} className="text-[#444746]" />
             <X size={15} strokeWidth={2} className="text-[#444746]" />
           </div>
-          <div className="mx-4 flex h-9 shrink-0 items-center gap-2 border-b border-black/10">
+          <div className="mx-4 flex h-8 shrink-0 items-center gap-2 border-b border-black/10">
             <span className="text-[#444746]">To</span>
             <span className="flex h-6 items-center gap-1.5 rounded-full border border-black/15 pr-2 pl-0.5 text-[12.5px]">
               <Initials name="Daniel Okafor" className="size-5 rounded-full bg-[#e8710a] text-[9px]" />
@@ -431,11 +433,11 @@ export function GmailMock({ text, d }: MockProps) {
             </span>
             <span className="ml-auto text-[12px] text-[#444746]">Cc Bcc</span>
           </div>
-          <div className="mx-4 flex h-9 shrink-0 items-center border-b border-black/10">Re: Following up from Tuesday</div>
-          <div className="min-h-0 flex-1 overflow-hidden px-4 pt-3 leading-[1.5] whitespace-pre-wrap">
+          <div className="mx-4 flex h-8 shrink-0 items-center border-b border-black/10">Re: Following up from Tuesday</div>
+          <div className="min-h-0 flex-1 overflow-hidden px-4 pt-2 leading-[1.4] whitespace-pre-wrap">
             <FieldText typed={body} placeholder="" caret="bg-black" />
           </div>
-          <div className="flex h-14 shrink-0 items-center gap-3.5 px-4 text-[#444746]">
+          <div className="flex h-12 shrink-0 items-center gap-3.5 px-4 text-[#444746]">
             <span className="flex h-9 items-center rounded-full bg-[#0b57d0] font-medium text-white">
               <span className="pr-3 pl-5">Send</span>
               <span className="flex h-full items-center border-l border-white/30 pr-2.5 pl-2">
@@ -444,10 +446,10 @@ export function GmailMock({ text, d }: MockProps) {
             </span>
             <Type size={16} strokeWidth={1.75} />
             <Paperclip size={16} strokeWidth={1.75} />
-            <Link size={16} strokeWidth={1.75} className="hidden sm:block" />
-            <Smile size={16} strokeWidth={1.75} className="hidden sm:block" />
-            <ImageIcon size={16} strokeWidth={1.75} className="hidden sm:block" />
-            <PenLine size={16} strokeWidth={1.75} className="hidden md:block" />
+            <Link size={16} strokeWidth={1.75} className="hidden @min-[520px]:block" />
+            <Smile size={16} strokeWidth={1.75} className="hidden @min-[520px]:block" />
+            <ImageIcon size={16} strokeWidth={1.75} className="hidden @min-[520px]:block" />
+            <PenLine size={16} strokeWidth={1.75} className="hidden @min-[640px]:block" />
             <EllipsisVertical size={16} strokeWidth={1.75} />
             <Trash2 size={16} strokeWidth={1.75} className="ml-auto" />
           </div>
@@ -522,7 +524,7 @@ export function WhatsAppMock({ text, d }: MockProps) {
   return (
     <div className="flex h-full bg-[#f4f4f4] text-[13px] text-[#111b21]">
       {/* Floating sidebar, collapsed to icons at this window width. */}
-      <aside className="m-1.5 mr-0 hidden w-[62px] shrink-0 flex-col items-center rounded-2xl border border-black/5 bg-white/85 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] sm:flex">
+      <aside className="m-1.5 mr-0 hidden w-[62px] shrink-0 flex-col items-center rounded-2xl border border-black/5 bg-white/85 py-3 shadow-[0_2px_10px_rgba(0,0,0,0.06)] @min-[520px]:flex">
         <Lights className="mb-4 scale-[0.85]" />
         {WA_NAV.map(([Icon, label], i) => (
           <span
@@ -536,7 +538,7 @@ export function WhatsAppMock({ text, d }: MockProps) {
         <Initials name="You" className="mt-auto size-7 rounded-full bg-[#25d366] text-[10px]" />
       </aside>
 
-      <div className="hidden w-[212px] shrink-0 flex-col bg-white sm:flex">
+      <div className="hidden w-[212px] shrink-0 flex-col bg-white @min-[520px]:flex">
         <div className="flex h-12 shrink-0 items-center justify-between px-3">
           <span className="grid size-7 place-items-center rounded-full bg-black/5 text-[#54656f]">
             <Ellipsis size={15} strokeWidth={2} />
@@ -582,7 +584,7 @@ export function WhatsAppMock({ text, d }: MockProps) {
 
       <section className="relative flex min-w-0 flex-1 flex-col bg-[#efeae2]" style={{ backgroundImage: WA_DOODLES }}>
         <header className="flex shrink-0 items-center gap-2.5 px-3 pt-2.5 pb-1.5">
-          <Lights className="mr-1 sm:hidden" />
+          <Lights className="mr-1 @min-[520px]:hidden" />
           <Initials name="Family" className="size-8 rounded-full bg-[#25d366] text-[12px]" />
           <div className="min-w-0 flex-1 leading-[1.25]">
             <div className="font-semibold">Family</div>
@@ -693,7 +695,7 @@ export function SlackMock({ text, d }: MockProps) {
     <div className="flex h-full flex-col bg-linear-to-b from-[#481a4b] to-[#3a0d3c] text-[13.5px] text-[#1d1c1d]">
       <div className="flex h-[38px] shrink-0 items-center gap-3 px-3.5 text-white/75">
         <Lights />
-        <span className="ml-4 hidden items-center gap-3 sm:flex">
+        <span className="ml-4 hidden items-center gap-3 @min-[520px]:flex">
           <ArrowLeft size={15} strokeWidth={2} />
           <ArrowRight size={15} strokeWidth={2} className="text-white/35" />
           <Clock size={14} strokeWidth={2} />
@@ -706,7 +708,7 @@ export function SlackMock({ text, d }: MockProps) {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="hidden w-[60px] shrink-0 flex-col items-center gap-2.5 pt-1 pb-3 text-white sm:flex">
+        <nav className="hidden w-[60px] shrink-0 flex-col items-center gap-2.5 pt-1 pb-3 text-white @min-[520px]:flex">
           <span className="relative mb-1 grid size-9 place-items-center rounded-lg bg-[#dcbfe0] text-[15px] font-black text-[#4a154b]">
             A
           </span>
@@ -727,7 +729,7 @@ export function SlackMock({ text, d }: MockProps) {
           <Initials name="Alex Kim" className="size-8 rounded-lg bg-[#5b8def] text-[11px]" />
         </nav>
 
-        <aside className="hidden w-[184px] shrink-0 flex-col rounded-tl-lg bg-[#5b2b5d]/55 pt-2 text-[#f4ecf5]/80 sm:flex">
+        <aside className="hidden w-[184px] shrink-0 flex-col rounded-tl-lg bg-[#5b2b5d]/55 pt-2 text-[#f4ecf5]/80 @min-[520px]:flex">
           <div className="flex h-9 items-center gap-1 px-3.5 text-[15.5px] font-black text-white">
             Acme <ChevronDown size={14} strokeWidth={2.5} />
             <SquarePen size={15} strokeWidth={2} className="ml-auto text-white/80" />
@@ -777,13 +779,13 @@ export function SlackMock({ text, d }: MockProps) {
           ))}
         </aside>
 
-        <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white sm:rounded-tl-lg">
+        <section className="flex min-w-0 flex-1 flex-col overflow-hidden bg-white @min-[520px]:rounded-tl-lg">
           <header className="flex h-11 shrink-0 items-center gap-1 px-4 text-[16px] font-black">
             <Hash size={16} strokeWidth={2.5} />
             launch
             <ChevronDown size={14} strokeWidth={2.5} className="text-black/50" />
             <span className="ml-auto flex items-center gap-2 text-[12px] font-normal text-[#1d1c1d]">
-              <span className="hidden h-7 items-center gap-1 rounded-md border border-black/15 px-1.5 md:flex">
+              <span className="hidden h-7 items-center gap-1 rounded-md border border-black/15 px-1.5 @min-[640px]:flex">
                 <Headphones size={14} strokeWidth={2} />
                 <ChevronDown size={11} strokeWidth={2} />
               </span>
@@ -834,9 +836,9 @@ export function SlackMock({ text, d }: MockProps) {
               <Italic size={14} strokeWidth={2} />
               <Strikethrough size={14} strokeWidth={2} />
               <Link size={14} strokeWidth={2} />
-              <ListOrdered size={14} strokeWidth={2} className="hidden sm:block" />
-              <List size={14} strokeWidth={2} className="hidden sm:block" />
-              <Code size={14} strokeWidth={2} className="hidden sm:block" />
+              <ListOrdered size={14} strokeWidth={2} className="hidden @min-[520px]:block" />
+              <List size={14} strokeWidth={2} className="hidden @min-[520px]:block" />
+              <Code size={14} strokeWidth={2} className="hidden @min-[520px]:block" />
             </div>
             <div className="min-h-9 px-3 py-2 leading-[1.46] break-words">
               <FieldText typed={typed} placeholder="Message #launch" caret="bg-black" />
@@ -848,8 +850,8 @@ export function SlackMock({ text, d }: MockProps) {
               <ALargeSmall size={16} strokeWidth={1.75} />
               <Smile size={16} strokeWidth={1.75} />
               <AtSign size={16} strokeWidth={1.75} />
-              <Video size={16} strokeWidth={1.75} className="hidden sm:block" />
-              <Mic size={16} strokeWidth={1.75} className="hidden sm:block" />
+              <Video size={16} strokeWidth={1.75} className="hidden @min-[520px]:block" />
+              <Mic size={16} strokeWidth={1.75} className="hidden @min-[520px]:block" />
               <span
                 className={cn(
                   "ml-auto flex h-7 items-center rounded-md transition-colors",
@@ -887,7 +889,7 @@ export function NotionMock({ text, d }: MockProps) {
 
   return (
     <div className="flex h-full bg-white text-[13.5px] text-[#37352f]">
-      <aside className="hidden w-[184px] shrink-0 flex-col border-r border-black/5 bg-[#f8f8f7] text-[12.5px] text-[#5f5e5b] sm:flex">
+      <aside className="hidden w-[184px] shrink-0 flex-col border-r border-black/5 bg-[#f8f8f7] text-[12.5px] text-[#5f5e5b] @min-[520px]:flex">
         <div className="flex h-[38px] shrink-0 items-center gap-3 px-3.5 text-black/40">
           <Lights />
           <ChevronLeft size={15} strokeWidth={2} className="ml-auto" />
@@ -941,47 +943,50 @@ export function NotionMock({ text, d }: MockProps) {
 
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[38px] shrink-0 items-center gap-1.5 px-3.5 text-[12.5px]">
-          <Lights className="mr-2 sm:hidden" />
+          <Lights className="mr-2 @min-[520px]:hidden" />
           <span className="truncate text-black/50">📝 Meeting notes</span>
           <span className="text-black/30">/</span>
           <span className="truncate">🚀 Launch retro</span>
           <span className="ml-auto flex items-center gap-3.5 pl-2 text-black/50">
-            <span className="hidden text-[#37352f] sm:inline">Share</span>
+            <span className="hidden text-[#37352f] @min-[520px]:inline">Share</span>
             <MessageSquare size={15} strokeWidth={1.75} />
             <Star size={15} strokeWidth={1.75} />
             <Ellipsis size={16} strokeWidth={1.75} />
           </span>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-hidden px-[clamp(20px,8%,56px)] pt-6 leading-[1.55]">
-          <div className="text-[38px] leading-none">🚀</div>
-          <h3 className="mt-3 text-[28px] leading-[1.2] font-bold tracking-[-0.01em]">Launch retro</h3>
-          <div className="mt-3 flex items-center gap-2 text-[12.5px]">
-            <span className="flex w-[84px] items-center gap-1.5 text-black/45">
-              <Calendar size={13} strokeWidth={1.75} />
-              Date
-            </span>
-            <span>October 2, 2026</span>
-          </div>
-          <div className="mt-1 flex items-center gap-2 text-[12.5px]">
-            <span className="flex w-[84px] items-center gap-1.5 text-black/45">
-              <Users size={13} strokeWidth={1.75} />
-              Team
-            </span>
-            <span className="rounded bg-[#d3e5ef] px-1.5 text-[#183347]">Growth</span>
-          </div>
-          <div className="mt-4 h-px bg-black/8" />
+        {/* Top-aligned while the page fits, then pinned to the bottom, the way Notion scrolls to keep the caret in view. */}
+        <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden">
+          <div className="shrink-0 grow px-[clamp(20px,8%,56px)] pt-6 pb-5 leading-[1.55]">
+            <div className="text-[38px] leading-none">🚀</div>
+            <h3 className="mt-3 text-[28px] leading-[1.2] font-bold tracking-[-0.01em]">Launch retro</h3>
+            <div className="mt-3 flex items-center gap-2 text-[12.5px]">
+              <span className="flex w-[84px] items-center gap-1.5 text-black/45">
+                <Calendar size={13} strokeWidth={1.75} />
+                Date
+              </span>
+              <span>October 2, 2026</span>
+            </div>
+            <div className="mt-1 flex items-center gap-2 text-[12.5px]">
+              <span className="flex w-[84px] items-center gap-1.5 text-black/45">
+                <Users size={13} strokeWidth={1.75} />
+                Team
+              </span>
+              <span className="rounded bg-[#d3e5ef] px-1.5 text-[#183347]">Growth</span>
+            </div>
+            <div className="mt-4 h-px bg-black/8" />
 
-          <h4 className="mt-4 text-[18px] font-semibold">What went well</h4>
-          <ul className="mt-1 list-disc pl-5 marker:text-[#37352f]">
-            <li>Front page of Hacker News for most of the day.</li>
-            <li>About 2,400 waitlist signups, and the site stayed up.</li>
-          </ul>
+            <h4 className="mt-4 text-[18px] font-semibold">What went well</h4>
+            <ul className="mt-1 list-disc pl-5 marker:text-[#37352f]">
+              <li>Front page of Hacker News for most of the day.</li>
+              <li>About 2,400 waitlist signups, and the site stayed up.</li>
+            </ul>
 
-          <h4 className="mt-4 text-[18px] font-semibold">Next sprint</h4>
-          <p className="mt-1 break-words">
-            <FieldText typed={typed} placeholder="Write, press 'space' for AI, '/' for commands…" caret="bg-[#37352f]" />
-          </p>
+            <h4 className="mt-4 text-[18px] font-semibold">Next sprint</h4>
+            <p className="mt-1 break-words">
+              <FieldText typed={typed} placeholder="Write, press 'space' for AI, '/' for commands…" caret="bg-[#37352f]" />
+            </p>
+          </div>
         </div>
       </section>
     </div>

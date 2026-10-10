@@ -1,7 +1,7 @@
-import { AppIcon } from "@/components/brand/Logo";
-import { DASHBOARD } from "./content";
+import Image from "next/image";
 import { SectionTitle } from "./primitives";
 import { ForOs } from "./visitor";
+import { Wallpaper } from "./Wallpaper";
 
 export function Stats() {
   return (
@@ -16,34 +16,27 @@ export function Stats() {
       </div>
 
       <figure className="mt-14">
-        <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-[0_30px_60px_-34px_rgba(31,30,34,0.35)]">
-          <div className="flex h-11 items-center gap-3 border-b border-line px-4">
-            <div className="flex gap-[7px]">
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="size-[11px] rounded-full bg-ink/12" />
-              ))}
-            </div>
-            <span className="flex flex-1 items-center justify-center gap-2 text-[13px] text-graphite">
-              <AppIcon className="size-4" />
-              Your dictation stats
-            </span>
-            <span className="w-[47px]" />
-          </div>
-          <dl className="grid grid-cols-2 md:grid-cols-3">
-            {DASHBOARD.map((s) => (
-              <div key={s.label} className="-mr-px -mb-px border-r border-b border-line px-6 py-7 sm:px-8">
-                <dt className="text-[14px] text-graphite">{s.label}</dt>
-                <dd className="mt-2 flex items-baseline gap-1.5">
-                  <span className="font-serif text-[clamp(40px,5vw,60px)] leading-none tracking-[-0.02em] tabular-nums">{s.value}</span>
-                  {s.unit && <span className="text-[15px] text-graphite">{s.unit}</span>}
-                </dd>
-              </div>
-            ))}
-          </dl>
+        <div className="relative isolate grid place-items-center overflow-hidden rounded-3xl px-3 pt-8 pb-[clamp(64px,9vw,96px)] sm:pt-12">
+          <Wallpaper className="-z-10" />
+          {/* The Dock along the bottom, as on the Mac desktop in the app tour. */}
+          <Image
+            src="/app/dock.png"
+            alt=""
+            width={476.5}
+            height={62}
+            unoptimized
+            className="absolute bottom-2 left-1/2 h-auto w-[min(476.5px,calc(100%-24px))] -translate-x-1/2"
+          />
+          {/* A screenshot of the real window, shadow included, taken at 2x: 560 x 588 pt plus the shadow. */}
+          <Image
+            src="/app/dashboard-dark.webp"
+            width={606}
+            height={634}
+            unoptimized
+            className="h-auto w-full max-w-[606px]"
+            alt="The talkflow Dashboard window: 155,284 total words dictated, 968 words today, 145 wpm, a 62-day streak and 1 day 22 hours saved, above a grid of daily activity for the last 26 weeks."
+          />
         </div>
-        <figcaption className="mt-4 text-[13px] text-graphite">
-          Time saved compares your speaking time with typing the same words at 40 wpm.
-        </figcaption>
       </figure>
     </section>
   );

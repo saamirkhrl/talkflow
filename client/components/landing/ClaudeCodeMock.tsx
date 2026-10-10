@@ -19,6 +19,33 @@ function Gap() {
   return <div className="h-(--lh)" />;
 }
 
+// Claude Code's mascot, the block-character crab it prints in its header,
+// drawn as the quadrant pixels those characters cover so it lines up in any
+// monospace font. Each cell is 1ch x 1 row, split into 2 x 2.
+const MASCOT = ["  ▐▛███▜▌ ", " ▝▜█████▛▘", "   ▘▘ ▝▝  "];
+const QUADRANTS: Record<string, string> = { "▐": "0101", "▛": "1110", "█": "1111", "▜": "1101", "▌": "1010", "▝": "0100", "▘": "1000" };
+
+function Mascot() {
+  const cols = MASCOT[0].length;
+  const rects = MASCOT.flatMap((row, y) =>
+    [...row].flatMap((ch, x) =>
+      [...(QUADRANTS[ch] ?? "0000")].flatMap((on, q) =>
+        on === "1" ? [<rect key={`${x}-${y}-${q}`} x={x * 2 + (q % 2)} y={y * 2 + (q >> 1)} width={1.02} height={1.02} />] : [],
+      ),
+    ),
+  );
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox={`0 0 ${cols * 2} ${MASCOT.length * 2}`}
+      preserveAspectRatio="none"
+      className={cn("absolute top-0 left-0 h-[calc(3*var(--lh))] w-[10ch] fill-current", CLAUDE)}
+    >
+      {rects}
+    </svg>
+  );
+}
+
 // "⏺ " with a hanging indent, the way Claude Code prints replies and tool calls.
 function Bullet({ dot, children }: { dot?: string; children: ReactNode }) {
   return (
@@ -42,10 +69,6 @@ function Tool({ name, arg, children }: { name: string; arg: string; children: Re
       </div>
     </div>
   );
-}
-
-function Expand() {
-  return <span className={DIM}> (ctrl+o to expand)</span>;
 }
 
 function DiffRow({ n, sign, children }: { n: number; sign?: "+" | "-"; children: ReactNode }) {
@@ -93,101 +116,89 @@ function BlockCaret() {
   return <span aria-hidden="true" className="inline-block h-(--lh) w-[1ch] animate-blink bg-[#e8e6e3] align-top" />;
 }
 
-// The tail of a real Claude Code session in a Mac terminal: an earlier bug
-// hunt in the scrollback, then a new prompt being dictated into the input.
-// The scrollback is pinned to the bottom like a terminal's, so as the prompt
-// grows the older rows scroll off the top.
+// Claude Code running in macOS Terminal (the Basic profile, dark): the shell
+// prompt that started it, its header, an earlier bug fix in the scrollback,
+// then a new prompt being dictated into the input. The scrollback is pinned to
+// the bottom like a terminal's, so as the prompt grows the oldest rows scroll
+// off the top.
 export function ClaudeCodeMock({ text, d }: { text: string; d: Dictation }) {
   const typed = typedText(text, d);
   const sent = d.phase === "sent";
 
   return (
-    <div className="flex h-full flex-col bg-[#1a1a1a] font-mono text-[11.5px] text-[#e8e6e3] [--lh:16px] sm:text-[12.5px] sm:[--lh:18px]">
-      <div className="flex h-[34px] shrink-0 items-center border-b border-black/50 bg-[#2a2a2a] px-3.5 font-sans">
+    <div className="flex h-full flex-col bg-[#1e1e1e] font-mono text-[12px] text-[#e8e6e3] [--lh:16px]">
+      {/* Terminal's title bar: the title Claude Code sets, the process and the window size in rows and columns. */}
+      <div className="relative flex h-7 shrink-0 items-center border-b border-black bg-[#2c2c2c] px-[9px] font-sans">
         <Lights />
-        <span className="flex-1 truncate px-3 text-center text-[12.5px] text-[#a8a8a8]">✳ Waitlist signups fix</span>
-        <span className="w-[52px]" />
+        <span className="absolute inset-x-[76px] truncate text-center text-[13px] font-semibold text-white/80">
+          ✳ Waitlist signups fix — claude — <span className="@min-[520px]:hidden">50×24</span>
+          <span className="hidden @min-[520px]:inline">88×25</span>
+        </span>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-3 pt-2 pb-2.5 leading-(--lh) *:shrink-0 sm:px-3.5">
-        <UserMessage>signups from the landing page stopped showing up in the dashboard, can you look?</UserMessage>
-        <Gap />
-        <Tool name="Search" arg='pattern: "waitlist", path: "src"'>
-          Found <span className="font-bold">4</span> files
-          <Expand />
-        </Tool>
-        <Gap />
-        <Tool name="Read" arg="src/app/api/waitlist/route.ts">
-          Read <span className="font-bold">38</span> lines
-          <Expand />
-        </Tool>
-        <Gap />
-        <Bullet>
-          The route responds before the insert finishes, and the function is frozen as soon as it responds, so most
-          writes never land. I&apos;ll await the insert.
-        </Bullet>
-        <Gap />
-        <Tool name="Update" arg="src/app/api/waitlist/route.ts">
-          <div>
-            Updated <span className="font-bold">src/app/api/waitlist/route.ts</span> with{" "}
-            <span className="font-bold">1</span> addition and <span className="font-bold">1</span> removal
+      {/* Whole rows only: a terminal scrolls a row at a time, so the top row is never cut in half. */}
+      <div className="min-h-0 flex-1 px-[7px] pt-1">
+        <div className="flex h-[round(down,100%,var(--lh))] flex-col justify-end overflow-hidden leading-(--lh) *:shrink-0">
+          <div className="truncate">alex@MacBook-Pro waitlist % claude</div>
+          <Gap />
+          <div className="relative pl-[11ch]">
+            <Mascot />
+            <div className="truncate">
+              <span className="font-bold">Claude Code</span> <span className={DIM}>v2.1.4</span>
+            </div>
+            <div className={cn("truncate", DIM)}>Opus 5.5 · Claude Max</div>
+            <div className={cn("truncate", DIM)}>~/code/waitlist</div>
           </div>
-          <DiffRow n={14}>{"  const { email } = await req.json();"}</DiffRow>
-          <DiffRow n={15} sign="-">
-            {"  db.insert(waitlist).values({ email });"}
-          </DiffRow>
-          <DiffRow n={15} sign="+">
-            {"  "}
-            <span className={ADDED_WORD}>await </span>
-            {"db.insert(waitlist).values({ email });"}
-          </DiffRow>
-          <DiffRow n={16}>{"  return Response.json({ ok: true });"}</DiffRow>
-        </Tool>
-        <Gap />
-        <Tool name="Bash" arg="npm test -- waitlist">
-          <div>
-            <span className="bg-[#4eba65] px-[1ch] font-bold text-[#1a1a1a]">PASS</span> src/app/api/waitlist/route.test.ts
-          </div>
-          <div className="whitespace-pre">
-            {"  "}
-            <span className={GREEN}>✓</span> saves the email before responding <span className={DIM}>(14 ms)</span>
-          </div>
-          <div className="whitespace-pre">
-            {"  "}
-            <span className={GREEN}>✓</span> rejects a malformed email <span className={DIM}>(3 ms)</span>
-          </div>
-          <div className={DIM}>… +4 lines (ctrl+o to expand)</div>
-        </Tool>
-        <Gap />
-        <Bullet>
-          Fixed. The insert is awaited now, so every signup is saved before the response goes out. All 6 waitlist tests
-          pass.
-        </Bullet>
-        <Gap />
-        <div className={DIM}>✻ Worked for 1m 12s</div>
-        <Gap />
+          <Gap />
+          <UserMessage>signups from the landing page stopped showing up in the dashboard, can you look?</UserMessage>
+          <Gap />
+          <Bullet>
+            The route responds before the insert finishes, and the function is frozen as soon as it responds, so most
+            writes never land. I&apos;ll await the insert.
+          </Bullet>
+          <Gap />
+          <Tool name="Update" arg="src/app/api/waitlist/route.ts">
+            <div>
+              Updated <span className="font-bold">route.ts</span> with <span className="font-bold">1</span> addition and{" "}
+              <span className="font-bold">1</span> removal
+            </div>
+            <DiffRow n={14}>{"  const { email } = await req.json();"}</DiffRow>
+            <DiffRow n={15} sign="-">
+              {"  db.insert(waitlist).values({ email });"}
+            </DiffRow>
+            <DiffRow n={15} sign="+">
+              {"  "}
+              <span className={ADDED_WORD}>await </span>
+              {"db.insert(waitlist).values({ email });"}
+            </DiffRow>
+            <DiffRow n={16}>{"  return Response.json({ ok: true });"}</DiffRow>
+          </Tool>
+          <Gap />
+          <Bullet>Fixed. Every signup is saved before the response goes out, and all 6 waitlist tests pass.</Bullet>
+          <Gap />
 
-        {sent && (
-          <>
-            <UserMessage>{text}</UserMessage>
-            <Gap />
-            <Spinner />
-            <Gap />
-          </>
-        )}
+          {sent && (
+            <>
+              <UserMessage>{text}</UserMessage>
+              <Gap />
+              <Spinner />
+              <Gap />
+            </>
+          )}
 
-        <Rule />
-        <div aria-live="off" className="flex">
-          <span className="w-[2ch] shrink-0">&gt;</span>
-          <div className="min-w-0 flex-1 break-words">
-            {typed}
-            <BlockCaret />
+          <Rule />
+          <div aria-live="off" className="flex">
+            <span className="w-[2ch] shrink-0">&gt;</span>
+            <div className="min-w-0 flex-1 break-words">
+              {typed}
+              <BlockCaret />
+            </div>
           </div>
-        </div>
-        <Rule />
-        <div className="truncate pl-[2ch]">
-          <span className="text-[#af87ff]">⏵⏵ accept edits on</span>
-          <span className={DIM}> (shift+tab to cycle)</span>
+          <Rule />
+          <div className="truncate pl-[2ch]">
+            <span className="text-[#af87ff]">⏵⏵ accept edits on</span>
+            <span className={DIM}> (shift+tab to cycle)</span>
+          </div>
         </div>
       </div>
     </div>
