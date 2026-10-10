@@ -36,7 +36,7 @@ sealed class OnboardingWindow : Window
     readonly Button _micButton, _retry, _done;
     readonly ProgressBar _progress = Ui.Progress();
     readonly TextBox _tryIt;
-    readonly TextBlock _tryPrompt, _placeholder, _successText;
+    readonly TextBlock _tryPrompt, _placeholder, _successText, _changeShortcut;
     readonly FrameworkElement _success;
 
     Facts? _facts;
@@ -128,6 +128,9 @@ sealed class OnboardingWindow : Window
         successRow.Children.Add(_successText);
         _success = successRow;
         tryBody.Children.Add(successRow);
+        _changeShortcut = Ui.Text(SetupFlow.ChangeShortcutNote, 11, Ui.Graphite);
+        _changeShortcut.Margin = new Thickness(0, 10, 0, 0);
+        tryBody.Children.Add(_changeShortcut);
         _tryIt.TextChanged += (_, _) => OnTryText();
 
         var body = new StackPanel { Margin = new Thickness(32, 28, 32, 8) };
@@ -142,7 +145,7 @@ sealed class OnboardingWindow : Window
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
         };
 
-        // Footer, always in view: start with Windows, and Done.
+        // Footer, always in view: start with Windows, and Done (no button while the engine gets ready).
         var startup = Ui.Switch(StartupEntry.IsEnabled || !_app.HasRunBefore, StartupEntry.Set);
         AutomationProperties.SetName(startup, "Start talkflow when I sign in to Windows");
         if (startup.IsChecked == true) StartupEntry.Set(true);
@@ -335,8 +338,10 @@ sealed class OnboardingWindow : Window
             Dim(card, current || done[index] ? 1 : 0.55);
         }
 
-        var (label, primary) = SetupFlow.Footer(stage, _tried);
-        _done.Content = label;
+        var (label, primary) = SetupFlow.Footer(stage, _phase, _tried);
+        // Hidden, not collapsed, so the footer keeps its height.
+        _done.Visibility = label is null ? Visibility.Hidden : Visibility.Visible;
+        if (label is not null) _done.Content = label;
         Ui.SetPrimary(_done, primary);
 
         // A server that was never asked to start (not failed, not starting): start it, once, after this pass.

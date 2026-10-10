@@ -12,7 +12,10 @@ namespace Talkflow.Core;
 /// </summary>
 public sealed class SettingsStore
 {
-    /// <summary>Every key the Mac app writes. Windows-only choices live in windows.json instead.</summary>
+    /// <summary>
+    /// Every shared key the Mac app writes. Windows-only choices live in windows.json instead; the Mac's
+    /// own shortcut ("macHotkey", Mac keycodes) is kept in the file as it is, like any key Windows does not use.
+    /// </summary>
     public static readonly string[] SettingKeys =
     {
         "typeWhileSpeaking", "accurateFinalPass", "aiPolish", "learnedWords", "writingStyle",
