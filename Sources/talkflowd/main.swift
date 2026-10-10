@@ -112,6 +112,23 @@ if let index = CommandLine.arguments.firstIndex(of: "--formattest") {
     exit(0)
 }
 
+// Shows only the menu bar icon, with its check for a notch app's island, for
+// the given seconds, logging where it sits. Best run as the bare built binary,
+// whose settings are separate from the installed app's.
+// Usage: --statusbartest [seconds]
+if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 20
+    NSApplication.shared.setActivationPolicy(.accessory)
+    let bar = StatusBar()
+    let started = Date()
+    Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        let frame = bar.iconFrame.map { "x \(Int($0.minX))-\(Int($0.maxX))" } ?? "no frame"
+        print("statusbartest: \(Int(Date().timeIntervalSince(started)))s icon \(frame)")
+        if Date().timeIntervalSince(started) >= seconds { exit(0) }
+    }
+    NSApplication.shared.run()
+}
+
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by
 // step, and where the kept data folder is. Changes nothing.
 if CommandLine.arguments.contains("--uninstallplan") {
