@@ -50,8 +50,8 @@ const PILL_BOTTOM = 80;
 const PILL_HEIGHT = 40;
 const WINDOW_BOTTOM = PILL_BOTTOM + PILL_HEIGHT + 12;
 const MARGIN = 12;
-// dock.png is 893 x 123 at 2x.
-const DOCK = { w: 446.5, h: 61.5 };
+// dock.png is 953 x 124 at 2x.
+const DOCK = { w: 476.5, h: 62 };
 
 // Which scene the page is scrolled to: the track's scroll range is split
 // evenly between the scenes while its sticky stage is pinned.
@@ -264,14 +264,16 @@ export function AppTour() {
                 />
               ))}
               <Pill listening={phase === "listening"} />
-              {/* The real Tahoe Dock: its glass, captured, with the apps' own icons. The glass blurs what is behind it. */}
-              <div
-                className="absolute bottom-[3px] left-1/2 -translate-x-1/2"
-                style={{ width: `min(${DOCK.w}px, 100% - 16px)`, aspectRatio: `${DOCK.w} / ${DOCK.h}` }}
-              >
-                <span className="absolute inset-x-[0.5%] top-[5%] bottom-[2.5%] rounded-[30%/50%] backdrop-blur-xl backdrop-saturate-150" />
-                <Image src="/app/dock.png" alt="" fill unoptimized className="relative" />
-              </div>
+              {/* The Tahoe Dock in light mode: clear glass with the apps' own icons. */}
+              <Image
+                src="/app/dock.png"
+                alt=""
+                width={DOCK.w}
+                height={DOCK.h}
+                unoptimized
+                className="absolute bottom-[6px] left-1/2 h-auto -translate-x-1/2"
+                style={{ width: `min(${DOCK.w}px, 100% - 16px)` }}
+              />
             </div>
           )}
         </figure>
