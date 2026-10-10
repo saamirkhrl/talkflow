@@ -528,7 +528,6 @@ final class SettingsModel: ObservableObject {
     @Published var aiPolish = Preferences.aiPolish {
         didSet { Preferences.aiPolish = aiPolish }
     }
-    @Published var learned = Preferences.learnedWords
     let polishAvailable = Polish.isAvailable
 
     @Published var writingStyle = Preferences.writingStyle {
@@ -580,7 +579,6 @@ final class SettingsModel: ObservableObject {
     }
 
     func refresh() {
-        learned = Preferences.learnedWords
         writingStyle = Preferences.writingStyle
         hotkey = Preferences.hotkey
     }
@@ -652,21 +650,15 @@ final class SettingsModel: ObservableObject {
         else { hasAnthropicKey = false; useClaude = false }
     }
 
-    func forget(_ word: String) {
-        Vocabulary.forget(word)
-        refresh()
-    }
-
     func uninstall() {
         Uninstaller.confirmAndRun { [weak self] step in self?.uninstallStep = step }
     }
 }
 
-/// The Settings page: how dictation is written, and the words it has learned.
-/// Every setting takes effect from the next hold. Each row is a title and its
-/// control; what a setting does is in its tooltip, and a line under the title
-/// only for what the user must know before switching it (a download, a
-/// missing requirement).
+/// The Settings page: how dictation is written. Every setting takes effect
+/// from the next hold. Each switch is a title and its control, with a line
+/// under the title saying what it does, then another for anything the user
+/// must know before switching it (a download, a missing requirement).
 private struct SettingsView: View {
     @ObservedObject var model: SettingsModel
     /// Off only for `--dashboardshot`: ImageRenderer draws a ScrollView's
@@ -703,7 +695,6 @@ private struct SettingsView: View {
                        note: model.polishAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
-                learnedWords
                 advanced
                 footer
             }
@@ -770,6 +761,7 @@ private struct SettingsView: View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 title(text)
+                self.note(help)
                 if let note { self.note(note) }
             }
             Spacer()
@@ -778,31 +770,6 @@ private struct SettingsView: View {
                 .labelsHidden()
         }
         .help(help)
-    }
-
-    private var learnedWords: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            title("Learned words")
-            if model.learned.isEmpty {
-                note("Fix a misheard word after dictating and talkflow learns it.")
-            }
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6, alignment: .leading)], alignment: .leading, spacing: 6) {
-                ForEach(model.learned, id: \.self) { word in
-                    Button {
-                        model.forget(word)
-                    } label: {
-                        Text(word + "  x")
-                            .font(.system(size: 12))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .foregroundColor(.ink)
-                            .overlay(Capsule().stroke(Color.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Remove \"\(word)\"")
-                }
-            }
-        }
     }
 
     // MARK: - Advanced: the models in use and the user's own API keys
