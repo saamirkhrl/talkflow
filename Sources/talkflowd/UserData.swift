@@ -27,7 +27,7 @@ enum UserData {
     /// API keys (kept in the Keychain) are deliberately not here.
     static let settingKeys = [
         "typeWhileSpeaking", "accurateFinalPass", "aiPolish", "learnedWords", "writingStyle",
-        "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart",
+        "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart", "macHotkey",
     ]
 
     private static var observer: NSObjectProtocol?

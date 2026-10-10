@@ -531,6 +531,12 @@ final class SettingsModel: ObservableObject {
     @Published var claudeModel = Preferences.claudeModel {
         didSet { Preferences.claudeModel = claudeModel }
     }
+    /// The keys held to dictate. Takes effect from the next hold.
+    @Published var hotkey = Preferences.hotkey {
+        didSet { if Preferences.hotkey != hotkey { Preferences.hotkey = hotkey } }
+    }
+    /// Waiting for the user to press the keys for a new shortcut.
+    @Published var recordingHotkey = false
     @Published var hasOpenAIKey = APIKeys.hasKey(.openAI)
     @Published var hasAnthropicKey = APIKeys.hasKey(.anthropic)
     @Published var openAIDraft = ""
@@ -555,6 +561,29 @@ final class SettingsModel: ObservableObject {
     func refresh() {
         learned = Preferences.learnedWords
         writingStyle = Preferences.writingStyle
+        hotkey = Preferences.hotkey
+    }
+
+    /// The presets, plus the current shortcut when it was recorded.
+    var hotkeyChoices: [HotkeySpec] {
+        HotkeySpec.presets.contains(hotkey) ? HotkeySpec.presets : HotkeySpec.presets + [hotkey]
+    }
+
+    /// Recording needs the key listener, which runs once setup has the permissions.
+    var canRecordHotkey: Bool { HotkeyMonitor.shared.isRunning }
+
+    func recordHotkey() {
+        recordingHotkey = true
+        HotkeyMonitor.shared.record { [weak self] spec in
+            guard let self else { return }
+            self.recordingHotkey = false
+            if let spec { self.hotkey = spec }
+        }
+    }
+
+    func cancelHotkeyRecording() {
+        guard recordingHotkey else { return }
+        HotkeyMonitor.shared.cancelRecording()
     }
 
     /// The models this Mac will actually use for the next dictation, given
@@ -625,6 +654,7 @@ private struct SettingsView: View {
 
     private var content: some View {
             VStack(alignment: .leading, spacing: 18) {
+                shortcutChoice
                 styleChoice
                 modelsInUse
                 toggle("Type while speaking",
@@ -647,6 +677,41 @@ private struct SettingsView: View {
                 uninstall
             }
             .padding(.vertical, 4)
+            .onDisappear { model.cancelHotkeyRecording() }
+    }
+
+    private var shortcutChoice: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Shortcut").font(.system(size: 14, weight: .medium)).foregroundColor(.ink)
+                Text(model.recordingHotkey
+                     ? "Hold the keys you want (Fn, Control, Option, Shift or Command), then let go. Esc cancels."
+                     : model.canRecordHotkey
+                         ? "Hold \(model.hotkey.name), speak, let go."
+                         : "Hold \(model.hotkey.name), speak, let go. Recording a new one needs setup finished first.")
+                    .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+                if model.hotkey.usesFn && !model.recordingHotkey && Permissions.fnKeyHasSystemAction {
+                    Text("If the emoji picker or system dictation opens, set \"Press the globe key to\" to \"Do Nothing\".")
+                        .font(.system(size: 12)).foregroundColor(.graphite).fixedSize(horizontal: false, vertical: true)
+                    Button("Open Keyboard settings") { Permissions.openKeyboardSettings() }
+                        .buttonStyle(.link)
+                        .font(.system(size: 12))
+                }
+            }
+            Spacer()
+            if model.recordingHotkey {
+                Button("Cancel") { model.cancelHotkeyRecording() }
+            } else {
+                Picker("", selection: $model.hotkey) {
+                    ForEach(model.hotkeyChoices, id: \.self) { Text($0.name).tag($0) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .fixedSize()
+                Button("Record...") { model.recordHotkey() }
+                    .disabled(!model.canRecordHotkey)
+            }
+        }
     }
 
     private var yourData: some View {

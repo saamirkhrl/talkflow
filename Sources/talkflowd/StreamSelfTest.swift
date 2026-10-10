@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 /// `talkflowd --streamtest` - replays realistic whisper revision sequences
 /// through the live path and proves the property the whole design rests on: a
@@ -118,6 +119,7 @@ enum StreamSelfTest {
         runInsertOnceCases()
         runWritingStyleCases()
         runUpdaterCases()
+        runHotkeyCases()
         runInstallCounterCases()
         runEngineCases()
         runOnboardingStepCases()
@@ -1524,6 +1526,85 @@ enum StreamSelfTest {
                 reduceMotion: { self.reduceMotion },
                 appName: "talkflow")
         }
+    }
+
+    /// The shortcut: names, recording, storage, and the listener's decisions
+    /// fed flagsChanged/keyDown by hand (no event tap is created).
+    private static func runHotkeyCases() {
+        typealias Key = HotkeySpec.Key
+        let controlOption = HotkeySpec(groups: [Key.leftControl.family, Key.leftOption.family])
+        check(HotkeySpec.fn.name == "Fn" && HotkeySpec.fn.phrase == "the Fn key", "hotkey: Fn is named Fn")
+        check(controlOption.name == "Control + Option", "hotkey: a two-key shortcut names both families", controlOption.name)
+        check(HotkeySpec(groups: [[.rightOption]]).name == "Right Option", "hotkey: a one-sided key keeps its side")
+        check(HotkeySpec.fromRecorded([.rightOption]) == HotkeySpec(groups: [[.rightOption]]), "hotkey: Right Option alone stays right-only")
+        check(HotkeySpec.fromRecorded([.leftCommand]) == HotkeySpec(groups: [Key.leftCommand.family]), "hotkey: Left Command alone means either Command")
+        check(HotkeySpec.fromRecorded([.leftOption, .rightControl]) == controlOption, "hotkey: a recorded pair is ordered Control, Option")
+        check(HotkeySpec.fromRecorded([]) == nil, "hotkey: nothing recorded is no shortcut")
+        check(HotkeySpec(stored: controlOption.stored) == controlOption, "hotkey: stored keycodes round-trip")
+        check(HotkeySpec(stored: [[58, 999]]) == nil && HotkeySpec(stored: []) == nil, "hotkey: unknown keycodes are rejected")
+        check(controlOption.isSatisfied(by: [.rightControl, .leftOption]), "hotkey: either side satisfies a family")
+        check(!controlOption.isSatisfied(by: [.leftControl, .leftOption, .leftCommand]), "hotkey: an extra modifier is someone else's shortcut")
+
+        func flags(_ keys: Key...) -> CGEventFlags {
+            var raw: UInt64 = 0
+            for key in keys {
+                raw |= key.familyMask.rawValue
+                raw |= key.deviceMask ?? 0
+            }
+            return CGEventFlags(rawValue: raw)
+        }
+        var events: [String] = []
+        let monitor = HotkeyMonitor(spec: HotkeySpec(groups: [[.rightOption]]), followsPreferences: false)
+        monitor.onStart = { events.append("start") }
+        monitor.onStop = { events.append("stop") }
+        monitor.onInterrupt = { events.append("interrupt") }
+
+        monitor.flagsChanged(keycode: 58, flags: flags(.leftOption))
+        monitor.flagsChanged(keycode: 58, flags: flags())
+        check(events.isEmpty, "hotkey: the other Option does not start Right Option", "\(events)")
+        monitor.flagsChanged(keycode: 61, flags: flags(.rightOption))
+        monitor.flagsChanged(keycode: 61, flags: flags())
+        check(events == ["start", "stop"], "hotkey: Right Option down and up starts and stops", "\(events)")
+
+        events = []
+        monitor.flagsChanged(keycode: 61, flags: flags(.rightOption))
+        monitor.keyDown(keycode: 0, isRepeat: false)
+        monitor.flagsChanged(keycode: 61, flags: flags())
+        check(events == ["start", "interrupt"], "hotkey: another key while held interrupts, and the release is quiet", "\(events)")
+
+        events = []
+        monitor.flagsChanged(keycode: 55, flags: flags(.leftCommand))
+        monitor.flagsChanged(keycode: 61, flags: flags(.leftCommand, .rightOption))
+        monitor.flagsChanged(keycode: 61, flags: flags(.leftCommand))
+        monitor.flagsChanged(keycode: 55, flags: flags())
+        check(events.isEmpty, "hotkey: Command then Right Option is not a dictation", "\(events)")
+
+        events = []
+        monitor.flagsChanged(keycode: 61, flags: flags(.rightOption))
+        monitor.flagsChanged(keycode: 56, flags: flags(.rightOption, .leftShift))
+        check(events == ["start", "interrupt"], "hotkey: another modifier while held interrupts", "\(events)")
+        monitor.flagsChanged(keycode: 56, flags: flags(.rightOption))
+        monitor.flagsChanged(keycode: 61, flags: flags())
+
+        events = []
+        var recorded: HotkeySpec??
+        monitor.record { recorded = .some($0) }
+        monitor.flagsChanged(keycode: 59, flags: flags(.leftControl))
+        monitor.flagsChanged(keycode: 58, flags: flags(.leftControl, .leftOption))
+        monitor.flagsChanged(keycode: 59, flags: flags(.leftOption))
+        check(recorded == nil, "hotkey: recording waits until every key is up")
+        monitor.flagsChanged(keycode: 58, flags: flags())
+        check(recorded == .some(controlOption) && events.isEmpty, "hotkey: recording Control + Option, without dictating", "\(String(describing: recorded)) \(events)")
+        recorded = nil
+        monitor.record { recorded = .some($0) }
+        monitor.keyDown(keycode: HotkeyMonitor.escapeKeycode, isRepeat: false)
+        check(recorded == .some(nil) && !monitor.isRecording, "hotkey: Esc cancels recording")
+
+        monitor.spec = .fn
+        events = []
+        monitor.flagsChanged(keycode: 63, flags: .maskSecondaryFn)
+        monitor.flagsChanged(keycode: 63, flags: [])
+        check(events == ["start", "stop"], "hotkey: Fn still works as before", "\(events)")
     }
 
     /// GitHub release parsing and version order, for the update check.

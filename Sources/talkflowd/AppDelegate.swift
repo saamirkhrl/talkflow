@@ -2,7 +2,9 @@ import AppKit
 import Foundation
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let hotkey = HotkeyMonitor()
+    /// Computed, so the listener is made after `UserData.start()` has
+    /// restored a reinstall's shortcut, not when this delegate is.
+    private var hotkey: HotkeyMonitor { HotkeyMonitor.shared }
     private let overlay = OverlayController()
     private let dashboard = DashboardController()
     private var statusBar: StatusBar!
@@ -26,13 +28,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         dictation = Dictation(overlay: overlay, statusBar: statusBar)
 
-        // Setup's Try it page shows when Fn is held (only if setup exists).
+        // Setup's Try it page shows when the shortcut is held (only if setup exists).
         hotkey.onStart = { [weak self] in
             self?.dictation.begin()
             self?.onboardingController?.model.fnChanged(down: true)
         }
         hotkey.onStop = { [weak self] in
             self?.dictation.finish()
+            self?.onboardingController?.model.fnChanged(down: false)
+        }
+        // Another key while the shortcut is held: an app shortcut, not a dictation.
+        hotkey.onInterrupt = { [weak self] in
+            self?.dictation.abandon()
             self?.onboardingController?.model.fnChanged(down: false)
         }
 
@@ -42,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // When setup is needed the hotkey is started by the setup window, once
         // it has explained why Accessibility is wanted (which also lets the
-        // event tap see Fn). Creating the event tap first would make macOS
+        // event tap see the shortcut). Creating the event tap first would make macOS
         // raise its own permission prompt with no context.
         // A first-run setup that macOS interrupted with a relaunch (after a
         // grant) opens again too, on the step it had reached.
@@ -58,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         FinalPassEngine.start()
         startUpdateChecks()
         stopOnSIGTERM()
-        print("talkflowd: ready. Hold Fn to dictate.")
+        print("talkflowd: ready. Hold \(Preferences.hotkey.name) to dictate.")
     }
 
     /// Shortly after launch when online, then every few hours. A newer version
