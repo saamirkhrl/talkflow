@@ -564,8 +564,14 @@ final class SettingsModel: ObservableObject {
     @Published var showAdvanced = APIKeys.hasKey(.openAI) || APIKeys.hasKey(.anthropic)
 
     private var styleObserver: NSObjectProtocol?
+    private var finalPassObserver: NSObjectProtocol?
 
     init() {
+        // Turned off by talkflow itself when the large model proves too slow.
+        finalPassObserver = NotificationCenter.default.addObserver(forName: .accurateFinalPassChanged, object: nil, queue: .main) { [weak self] _ in
+            guard let self, self.accurateFinalPass != Preferences.accurateFinalPass else { return }
+            self.accurateFinalPass = Preferences.accurateFinalPass
+        }
         // The menu bar menu can change the style while this page is open.
         styleObserver = NotificationCenter.default.addObserver(forName: .writingStyleChanged, object: nil, queue: .main) { [weak self] _ in
             guard let self, self.writingStyle != Preferences.writingStyle else { return }
