@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="overflow-hidden border-t border-line">
+    <footer className="overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-gutter pt-10">
         <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 text-[15px] text-graphite">
           <p>Free and open source, under the MIT License.</p>
