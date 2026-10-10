@@ -34,6 +34,9 @@ cd talkflow
 2. Let go of **fn**.
 3. Your words are typed into the focused text field, once, when you release.
 
+fn is the default. Settings > Shortcut switches it to another modifier key or
+combination (Right Option, Right Command, Control + Option, or any you record).
+
 Nothing is typed while you speak, so nothing is ever deleted and retyped. This
 is what makes it feel smooth. English only.
 
@@ -138,7 +141,7 @@ Source layout (`Sources/talkflowd/`):
 | `FieldWriter.swift` | Accessibility write, verified before it is believed |
 | `LiveType.swift` | paced keystroke write |
 | `TextCommands.swift`, `Cleanup.swift` | spoken punctuation, lists, filler removal |
-| `Hotkey.swift` | fn key via CGEventTap |
+| `Hotkey.swift` | the shortcut (fn by default) via CGEventTap |
 | `Onboarding.swift`, `Permissions.swift` | first-run setup and permissions |
 | `SpeechEngine.swift` | finds the bundled whisper-server, fetches the model, keeps its LaunchAgent pointed at it |
 | `Preferences.swift`, `Vocabulary.swift` | settings and learned words |

@@ -37,10 +37,18 @@ public class SetupTests
     [Fact]
     public void DoneIsPrimaryOnlyAfterTryingIt()
     {
-        Assert.Equal(("Finish later", false), SetupFlow.Footer(SetupStage.Microphone, false));
-        Assert.Equal(("Finish later", false), SetupFlow.Footer(SetupStage.Speech, true));
-        Assert.Equal(("Done", false), SetupFlow.Footer(SetupStage.TryIt, false));
-        Assert.Equal(("Done", true), SetupFlow.Footer(SetupStage.TryIt, true));
+        Assert.Equal(("Finish later", false), SetupFlow.Footer(SetupStage.Microphone, SpeechPhase.Downloading, false));
+        Assert.Equal(("Finish later", false), SetupFlow.Footer(SetupStage.Speech, SpeechPhase.DownloadFailed, true));
+        Assert.Equal(("Finish later", false), SetupFlow.Footer(SetupStage.Speech, SpeechPhase.EngineFailed, false));
+        Assert.Equal(("Done", false), SetupFlow.Footer(SetupStage.TryIt, SpeechPhase.Ready, false));
+        Assert.Equal(("Done", true), SetupFlow.Footer(SetupStage.TryIt, SpeechPhase.Ready, true));
+    }
+
+    [Fact]
+    public void NoWayOutIsOfferedWhileTheEngineGetsReady()
+    {
+        foreach (var phase in new[] { SpeechPhase.Preparing, SpeechPhase.Downloading, SpeechPhase.Starting })
+            Assert.Equal(((string?)null, false), SetupFlow.Footer(SetupStage.Speech, phase, false));
     }
 
     [Fact]

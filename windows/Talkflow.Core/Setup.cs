@@ -38,11 +38,23 @@ public static class SetupFlow
         return engineFailed ? SpeechPhase.EngineFailed : SpeechPhase.Starting;
     }
 
-    /// <summary>The footer button: "Finish later" until everything works, then "Done", which is the primary action once the user has tried it.</summary>
-    public static (string Label, bool Primary) Footer(SetupStage stage, bool tried) =>
-        stage == SetupStage.TryIt ? ("Done", tried) : ("Finish later", false);
+    /// <summary>
+    /// The footer button: "Finish later" until everything works, then "Done",
+    /// which is the primary action once the user has tried it. Null (no
+    /// button) while the speech engine is downloading or starting: setup does
+    /// not invite leaving part way through the download.
+    /// </summary>
+    public static (string? Label, bool Primary) Footer(SetupStage stage, SpeechPhase speech, bool tried) => stage switch
+    {
+        SetupStage.TryIt => ("Done", tried),
+        SetupStage.Speech when speech is SpeechPhase.Preparing or SpeechPhase.Downloading or SpeechPhase.Starting => (null, false),
+        _ => ("Finish later", false),
+    };
 
     public static string TryPrompt(string shortcut) => $"Hold {shortcut} and say something";
+
+    /// <summary>Under Try it. Setup only names the shortcut; the Settings page changes it.</summary>
+    public const string ChangeShortcutNote = "You can change the shortcut later in Settings.";
 
     public static string TrySuccess(string shortcut) => $"That's it. Hold {shortcut} anywhere.";
 }

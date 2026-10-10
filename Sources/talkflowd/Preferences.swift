@@ -66,10 +66,23 @@ enum Preferences {
         get { ClaudePolish.Model(rawValue: defaults.string(forKey: "claudeModel") ?? "") ?? .opus }
         set { defaults.set(newValue.rawValue, forKey: "claudeModel") }
     }
+
+    /// The keys held to dictate, from the Settings page. Fn by default.
+    /// "macHotkey" because the keycodes are the Mac's own; the Windows app
+    /// keeps its shortcut in windows.json and leaves this key alone.
+    static var hotkey: HotkeySpec {
+        get { (defaults.array(forKey: "macHotkey") as? [[Int]]).flatMap(HotkeySpec.init(stored:)) ?? .fn }
+        set {
+            defaults.set(newValue.stored, forKey: "macHotkey")
+            NotificationCenter.default.post(name: .hotkeyChanged, object: nil)
+        }
+    }
 }
 
 extension Notification.Name {
     /// Posted when the writing style changes, so the menu and the Settings
     /// page stay in step whichever one changed it.
     static let writingStyleChanged = Notification.Name("talkflowWritingStyleChanged")
+    /// Posted when the shortcut changes, so the key listener follows it.
+    static let hotkeyChanged = Notification.Name("talkflowHotkeyChanged")
 }

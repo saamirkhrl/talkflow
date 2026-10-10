@@ -412,6 +412,8 @@ struct OnboardingEnvironment {
     var reduceMotion: () -> Bool
     /// The name System Settings lists this copy under.
     var appName: String
+    /// The shortcut held to dictate. Setup only names it; Settings changes it.
+    var shortcut: () -> HotkeySpec = { .fn }
 
     static let live = OnboardingEnvironment(
         microphone: { Permissions.microphone },
@@ -448,7 +450,8 @@ struct OnboardingEnvironment {
             let name = (info?["CFBundleDisplayName"] as? String) ?? (info?["CFBundleName"] as? String) ?? ""
             // A bare `.build` binary has no bundle name worth showing.
             return name.isEmpty || name == "talkflowd" ? "talkflow" : name
-        }()
+        }(),
+        shortcut: { Preferences.hotkey }
     )
 }
 
@@ -675,6 +678,7 @@ final class OnboardingModel: ObservableObject {
     var fnKeyHasSystemAction: Bool { environment.fnKeyHasSystemAction() }
     var reduceMotion: Bool { environment.reduceMotion() }
     var appName: String { environment.appName }
+    var shortcut: HotkeySpec { environment.shortcut() }
 
     /// Someone who has been through setup before (or granted talkflow
     /// anything): no welcome page for them.
@@ -1500,6 +1504,9 @@ private struct OnboardingView: View {
 
     // MARK: Steps
 
+    /// "Fn", "Right Option": the shortcut as it is now. Setup never changes it.
+    private var shortcut: String { model.shortcut.name }
+
     @ViewBuilder
     private var content: some View {
         switch model.step {
@@ -1507,21 +1514,21 @@ private struct OnboardingView: View {
         case .microphone:
             permission(
                 .microphone, title: "Microphone",
-                why: "So talkflow can hear you while you hold Fn. Your voice is turned into text on this Mac and is never saved.",
+                why: "So talkflow can hear you while you hold \(shortcut). Your voice is turned into text on this Mac and is never saved.",
                 ask: "macOS asks once. Choose Allow.",
                 allowed: "talkflow can hear you.")
         case .accessibility:
             permission(
                 .accessibility, title: "Accessibility",
-                why: "So talkflow can notice the Fn key and type your words into the app you are using.",
+                why: "So talkflow can notice \(model.shortcut.phrase) and type your words into the app you are using.",
                 ask: "macOS asks first, then takes you to the right place in System Settings.",
-                allowed: "talkflow can hear Fn and type for you.")
+                allowed: "talkflow can hear \(shortcut) and type for you.")
         case .inputMonitoring:
             permission(
                 .inputMonitoring, title: "Input Monitoring",
-                why: "So talkflow can tell when you hold the Fn key. It only listens for keys like Fn, never for what you type.",
+                why: "So talkflow can tell when you hold \(model.shortcut.phrase). It watches for your shortcut and never records what you type.",
                 ask: "macOS asks first, then takes you to the right place in System Settings.",
-                allowed: "talkflow can tell when you hold Fn.")
+                allowed: "talkflow can tell when you hold \(shortcut).")
         case .engine: engine
         case .ready: ready
         }
@@ -1605,7 +1612,7 @@ private struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             eyebrow("Welcome")
             title("Dictate anywhere on your Mac.")
-            paragraph("Hold Fn, speak, and let go. Your words appear wherever you are typing. It all runs on your Mac, with no account.")
+            paragraph("Hold \(shortcut), speak, and let go. Your words appear wherever you are typing. It all runs on your Mac, with no account.")
             VStack(spacing: 0) {
                 ForEach(Array(Self.tracked.enumerated()), id: \.element.step) { index, item in
                     if index > 0 { hairline }
@@ -1621,9 +1628,9 @@ private struct OnboardingView: View {
         let (name, detail): (String, String) = {
             switch step {
             case .microphone: return ("Microphone", "To hear you")
-            case .accessibility: return ("Accessibility", "To notice Fn and type for you")
-            case .inputMonitoring: return ("Input Monitoring", "To notice when you hold Fn")
-            case .engine: return ("Speech engine", "About 490 MB, downloads while you set up")
+            case .accessibility: return ("Accessibility", "To notice \(shortcut) and type for you")
+            case .inputMonitoring: return ("Input Monitoring", "To notice when you hold \(shortcut)")
+            case .engine: return ("Speech engine", "About 490 MB, one-time download")
             case .welcome, .ready: return ("Try it", "Right here, before you go")
             }
         }()
@@ -1816,12 +1823,13 @@ private struct OnboardingView: View {
             let phase = model.tryItPhase(at: context.date)
             VStack(alignment: .leading, spacing: 14) {
                 stepEyebrow()
-                title(phase == .success ? "That's it." : "Hold Fn and say something.")
+                title(phase == .success ? "That's it." : "Hold \(shortcut) and say something.")
                 paragraph(phase == .success
-                          ? "Hold Fn in any app, speak, and let go. talkflow waits in your menu bar."
-                          : "Hold the Fn key, speak, then let go. Try it right here.")
+                          ? "Hold \(shortcut) in any app, speak, and let go. talkflow waits in your menu bar."
+                          : "Hold \(model.shortcut.phrase), speak, then let go. Try it right here.")
                 practiceField(phase)
                 tryItStatus(phase)
+                small("You can change the shortcut later in Settings.")
             }
             .animation(motion, value: phase)
         }
@@ -1833,10 +1841,10 @@ private struct OnboardingView: View {
         case .restart:
             panel {
                 statusLine(.warn, "macOS needs talkflow to restart")
-                small("macOS applies the new permission when talkflow starts again. Press Restart talkflow, then hold Fn in any text field.")
+                small("macOS applies the new permission when talkflow starts again. Press Restart talkflow, then hold \(shortcut) in any text field.")
             }
         case .starting:
-            statusLine(.waiting, "Getting the Fn key ready...")
+            statusLine(.waiting, "Getting \(model.shortcut.phrase) ready...")
         case .waiting:
             statusLine(.idle, "Ready when you are")
         case .listening:
@@ -1849,9 +1857,11 @@ private struct OnboardingView: View {
             panel {
                 statusLine(.idle, phase == .hint ? "Nothing yet?" : "Nothing arrived")
                 small(phase == .hint
-                      ? "Hold the Fn key, bottom left on most keyboards, and keep holding it while you speak."
-                      : "Hold Fn for the whole sentence and speak up a little, then let go.")
-                if model.fnKeyHasSystemAction {
+                      ? (model.shortcut == .fn
+                         ? "Hold the Fn key, bottom left on most keyboards, and keep holding it while you speak."
+                         : "Hold \(shortcut) and keep holding it while you speak.")
+                      : "Hold \(shortcut) for the whole sentence and speak up a little, then let go.")
+                if model.shortcut.usesFn && model.fnKeyHasSystemAction {
                     small("If the emoji picker or system dictation opens, set \"Press the globe key to\" to \"Do Nothing\".")
                     Button("Open Keyboard settings") { Permissions.openKeyboardSettings() }
                         .buttonStyle(LinkButtonStyle())
