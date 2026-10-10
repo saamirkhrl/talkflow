@@ -21,6 +21,9 @@
 
   --animate-rec: rec-pulse 1.6s ease-out infinite;
   --animate-blink: caret-blink 1.05s steps(1) infinite;
+  --animate-drift: drift 48s ease-in-out infinite alternate;
+  --animate-drift-alt: drift-alt 62s ease-in-out infinite alternate;
+  --animate-dot-pulse: dot-pulse 0.6s ease-in-out infinite alternate;
 }
 
 /* Voice is set in the serif, typed text in the system sans. */
@@ -48,6 +51,21 @@
 @keyframes strike {
   from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
+}
+/* The wallpaper's slow flow (Wallpaper.tsx). */
+@keyframes drift {
+  from { transform: translate3d(-4%, -3%, 0) scale(1.02) rotate(-1deg); }
+  to { transform: translate3d(4%, 3%, 0) scale(1.12) rotate(1.5deg); }
+}
+@keyframes drift-alt {
+  from { transform: translate3d(5%, 2%, 0) scale(1.15) scaleX(-1) rotate(2deg); opacity: 0; }
+  50% { opacity: 0.4; }
+  to { transform: translate3d(-3%, -4%, 0) scale(1.05) scaleX(-1) rotate(-1deg); opacity: 0.1; }
+}
+/* The overlay's recording dot (Overlay.swift: opacity 1 to 0.35, 0.6 s, autoreverse). */
+@keyframes dot-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.35; }
 }
 @keyframes appear {
   from { opacity: 0; transform: scale(0.8); }
