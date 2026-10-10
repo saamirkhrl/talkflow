@@ -522,7 +522,7 @@ final class SettingsModel: ObservableObject {
     @Published var accurateFinalPass = Preferences.accurateFinalPass {
         didSet {
             Preferences.accurateFinalPass = accurateFinalPass
-            if accurateFinalPass { FinalPassEngine.start() } else { FinalPassEngine.stop() }
+            if accurateFinalPass { FinalPassEngine.prepare() } else { FinalPassEngine.stop() }
         }
     }
     @Published var aiPolish = Preferences.aiPolish {
@@ -608,9 +608,10 @@ final class SettingsModel: ObservableObject {
     }
 
     /// The models this Mac will actually use for the next dictation, given
-    /// the settings and what is installed and answering.
+    /// the settings and what is installed. The large model is loaded only
+    /// while dictating, so it counts once it is downloaded.
     var modelsInUse: [(role: String, model: String)] {
-        let local = FinalPassEngine.isReady && accurateFinalPass ? "Whisper large-v3-turbo, on this Mac" : "Whisper small.en, on this Mac"
+        let local = FinalPassEngine.modelIsComplete && accurateFinalPass ? "Whisper large-v3-turbo, on this Mac" : "Whisper small.en, on this Mac"
         let final = useOpenAI && hasOpenAIKey ? "OpenAI \(CloudTranscriber.model), your key" : local
         let punctuation: String
         if useClaude && hasAnthropicKey { punctuation = "\(claudeModel.title), your key" }

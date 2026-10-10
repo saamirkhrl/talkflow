@@ -16,8 +16,9 @@ enum Preferences {
     }
 
     /// Transcribe the final pass with the large model when it is installed.
-    /// On by default, except on a Mac with 8 GB of memory or less, where holding
-    /// both models (about 1.4 GB) crowds out everything else. The small model
+    /// On by default, except on a Mac with 8 GB of memory or less, where loading
+    /// the large model (about 745 MB while dictating, see `FinalPassEngine`) on
+    /// top of the small one crowds out everything else. The small model
     /// still drives the live caption. A choice made in Settings always wins.
     static var accurateFinalPass: Bool {
         get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? !hasLittleMemory }

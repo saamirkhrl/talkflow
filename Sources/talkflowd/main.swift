@@ -30,6 +30,12 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// The on-demand final-pass server, timed against the real engine. Run from
+// the installed app; stops its final-pass server, which the next hold restarts.
+if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {
+    FinalPassSelfTest.run(wav: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
 // Read-only: what the focused element says it accepts, without writing to it.
 if CommandLine.arguments.contains("--focusprobe") {
     WriteSelfTest.probe()
@@ -153,6 +159,7 @@ if CommandLine.arguments.contains("--enginecheck") {
     launch agent program: \((agent?["ProgramArguments"] as? [String])?.first ?? "none")
     launch agent plan: \(plan)
     model complete: \(SpeechEngine.modelIsComplete) (\(SpeechEngine.modelPath.path))
+    old f16 model complete: \(SpeechEngine.legacyModelIsComplete), agent loads it: \(SpeechEngine.agentLoadsLegacyModel())
     launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
     server responding on :\(SpeechEngine.port): \(alive)
     isInstalled: \(SpeechEngine.isInstalled)
@@ -166,7 +173,7 @@ if CommandLine.arguments.contains("--enginecheck") {
 }
 
 // Exercises the real model downloader against a small file and a temp
-// destination, so the download path can be checked without fetching 490 MB.
+// destination, so the download path can be checked without fetching 190 MB.
 // Usage: --downloadtest <url> <destination> <minimum bytes>
 if let index = CommandLine.arguments.firstIndex(of: "--downloadtest") {
     let rest = Array(CommandLine.arguments.dropFirst(index + 1))

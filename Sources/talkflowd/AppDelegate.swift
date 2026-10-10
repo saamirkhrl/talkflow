@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         DispatchQueue.global(qos: .utility).async { SpeechEngine.prepareOnLaunch() }
-        FinalPassEngine.start()
+        FinalPassEngine.prepare()
         startUpdateChecks()
         stopOnSIGTERM()
         print("talkflowd: ready. Hold \(Preferences.hotkey.name) to dictate.")

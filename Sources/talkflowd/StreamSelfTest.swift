@@ -995,6 +995,27 @@ enum StreamSelfTest {
         check(SpeechEngine.repointed(["Label": "x"], to: bundled)["ProgramArguments"] as? [String] == arguments,
               "migrate: no arguments -> the standard ones")
 
+        // Moving from the full-precision model to the quantized one.
+        let oldModel = SpeechEngine.legacyModelPath.path
+        check(SpeechEngine.modelFileName == "ggml-small.en-q5_1.bin" && SpeechEngine.legacyModelFileName == "ggml-small.en.bin",
+              "model: the live engine is small.en q5_1, replacing the f16 file")
+        check(SpeechEngine.modelDownloadURL.lastPathComponent == SpeechEngine.modelFileName,
+              "model: the download is the file it is saved as")
+        check(SpeechEngine.legacyModelPath.deletingLastPathComponent() == SpeechEngine.modelPath.deletingLastPathComponent(),
+              "model: the old file sits next to the new one")
+        let onLegacy = SpeechEngine.agentArguments(binary: bundled, model: oldModel)
+        check(SpeechEngine.remodeled(onLegacy, from: oldModel, to: model) == arguments,
+              "model: an agent on the old model moves to the new one, nothing else changes",
+              "\(SpeechEngine.remodeled(onLegacy, from: oldModel, to: model) ?? [])")
+        check(SpeechEngine.remodeled(arguments, from: oldModel, to: model) == nil,
+              "model: an agent already on the new model is left alone")
+        check(SpeechEngine.remodeled([bundled, "-m", "/custom/model.bin", "-nt"], from: oldModel, to: model) == nil,
+              "model: a model someone chose is left alone")
+        check(SpeechEngine.remodeled([bundled, "--model", oldModel], from: oldModel, to: model) == [bundled, "--model", model],
+              "model: --model is recognized too")
+        check(SpeechEngine.remodeled([bundled, "-m"], from: oldModel, to: model) == nil,
+              "model: a -m with nothing after it is left alone")
+
         // Through a real plist file, as the app reads and writes it.
         let file = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-agent-\(UUID().uuidString).plist")
         defer { try? FileManager.default.removeItem(at: file) }
