@@ -93,6 +93,18 @@ export const DICTATIONS = {
 // through next to the hero download button. Re-check before changing copy.
 export const WISPR_FLOW_PRICE = "$15/mo";
 
+// The guide pages (components/guides/ContentPage.tsx), in the order the
+// footer lists them. The sitemap lists them too.
+export const GUIDES: { path: string; label: string }[] = [
+  { path: "/how-it-works", label: "How talkflow works" },
+  { path: "/offline-dictation-mac", label: "Offline dictation for Mac" },
+  { path: "/dictation-for-windows", label: "Dictation for Windows" },
+  { path: "/use-cases/coding", label: "Dictation for coding" },
+  { path: "/use-cases/email-and-chat", label: "Dictation for email and chat" },
+  { path: "/use-cases/writing", label: "Dictation for writing" },
+  { path: "/alternatives/wispr-flow", label: "talkflow vs Wispr Flow*" },
+];
+
 export const FAQ: [question: string, answer: string][] = [
   [
     "How is it different from Wispr Flow?",

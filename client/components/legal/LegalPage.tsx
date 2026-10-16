@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-// Long-form text styles, scoped to the article so the legal pages need no
-// typography plugin. Headings are sans; only the page title is serif.
-const PROSE = [
+// Long-form text styles, scoped to the article so the legal and guide pages
+// need no typography plugin. Headings are sans; only the page title is serif.
+export const PROSE = [
   "[&_h2]:mt-14 [&_h2]:text-[22px] [&_h2]:font-semibold [&_h2]:leading-[1.3] [&_h2]:tracking-[-0.01em]",
   "[&_h3]:mt-9 [&_h3]:text-[18px] [&_h3]:font-semibold [&_h3]:leading-[1.35]",
   "[&_p]:mt-4 [&_ul]:mt-4 [&_ol]:mt-4",
