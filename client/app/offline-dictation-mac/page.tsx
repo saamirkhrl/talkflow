@@ -60,8 +60,10 @@ export default function OfflineDictationMacPage() {
         <li>
           <strong>Accessibility</strong>, which you switch on in System Settings. talkflow uses it to
           type the text into the app you&apos;re using, to notice when you hold and release the
-          shortcut, and to read the character just before your cursor so it can add a space when
-          one is needed. It never reads whole documents, and it never uses your clipboard.
+          shortcut, and to read a little of the text around your cursor so it can add a space when
+          one is needed. It never reads password fields, and it types with keystrokes rather than
+          through your clipboard (unless a dictation can&apos;t be typed, for example because you
+          switched apps, in which case it&apos;s put on the clipboard so it isn&apos;t lost).
         </li>
       </ul>
       <p>

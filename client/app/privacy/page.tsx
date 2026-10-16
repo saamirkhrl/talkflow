@@ -9,18 +9,18 @@ const COUNTED_FROM = "0.1.6";
 export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy",
   description:
-    "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac.",
+    "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac or PC.",
   path: "/privacy",
 });
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 8, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="October 16, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
-          <strong>The app works on your Mac.</strong> Your speech is turned into text on your own
-          computer, by a speech engine running on your Mac. Apart from that, the app asks GitHub
+          <strong>The app works on your computer.</strong> Your speech is turned into text on your
+          own Mac or PC, by a speech engine running on it. Apart from that, the app asks GitHub
           whether a newer version exists (see{" "}<a href="#app-updates">Update checks</a>), tells us
           once that it was installed (see <a href="#app-receive">What we receive from the app</a>),
           and contacts OpenAI or Anthropic only if you add your own API key. We don&apos;t receive
@@ -66,7 +66,8 @@ export default function PrivacyPage() {
       <ul>
         <li>this website;</li>
         <li>
-          official releases of the talkflow app downloaded from this website or from{" "}
+          official releases of the talkflow app for Mac and Windows, downloaded from this website or
+          from{" "}
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a>;
         </li>
         <li>emails you send us.</li>
@@ -192,18 +193,27 @@ export default function PrivacyPage() {
 
       <h2 id="app">Part 2: The app</h2>
 
+      <p>
+        talkflow has a Mac app and a Windows app. They handle your information the same way; where
+        they differ, this part says so.
+      </p>
+
       <h3 id="app-how">How dictation works</h3>
-      <p>When you hold the talkflow hotkey (the fn key), the app:</p>
+      <p>
+        When you hold the talkflow shortcut (fn on a Mac and Ctrl + Win on Windows, unless you
+        change it), the app:
+      </p>
       <ol>
         <li>records sound from your microphone and keeps it in your computer&apos;s memory;</li>
         <li>
-          sends that audio to a speech engine (whisper.cpp) running as a separate program on your
-          own Mac, at the address 127.0.0.1 (also called &quot;localhost&quot;), which always means
+          sends that audio to a speech engine (whisper.cpp), which is included with talkflow and
+          runs as a separate program on your own computer, at the address 127.0.0.1 (also called &quot;localhost&quot;), which always means
           your own computer;
         </li>
         <li>
-          turns the speech into text using the Whisper speech model (the English-only
-          &quot;small.en&quot; version), running on your Mac;
+          turns the speech into text using OpenAI&apos;s Whisper speech model, running on your
+          computer: the English-only &quot;small.en&quot; version and, on computers fast enough
+          for it, the larger &quot;large-v3-turbo&quot; version for the final text;
         </li>
         <li>types the text into the app you&apos;re using.</li>
       </ol>
@@ -250,7 +260,7 @@ export default function PrivacyPage() {
       <p>
         Apart from that, the app doesn&apos;t send your audio, your text, your stats or any other
         information to us. There are no accounts, no usage analytics and no crash reports sent to
-        us. Besides the speech engine on your own Mac and this one-time request, the app connects
+        us. Besides the speech engine on your own computer and this one-time request, the app connects
         only to GitHub to check for updates (below), and to OpenAI or Anthropic if you add your own
         API key in Settings.
       </p>
@@ -273,72 +283,99 @@ export default function PrivacyPage() {
       </p>
       <p>
         Apart from the one-time install count, which can&apos;t be linked to you, we don&apos;t
-        receive anything from the app, so we can&apos;t see, recover or delete anything on your Mac
-        for you. You are in control of it.
+        receive anything from the app, so we can&apos;t see, recover or delete anything on your
+        computer for you. You are in control of it.
       </p>
 
       <h3 id="app-setup">Setting up the app</h3>
       <p>
-        When you set talkflow up, you download other software. Those services see your IP address
-        when you download, and handle it under their own privacy policies:
+        The whisper.cpp speech engine comes inside the talkflow download, so nothing else needs to
+        be installed. The Whisper speech models are downloaded from Hugging Face: small.en (English
+        only) during setup, and large-v3-turbo in the background on computers that use it. Hugging
+        Face sees your IP address when you download them and handles it under the{" "}
+        <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>.
       </p>
-      <ul>
-        <li>
-          The Whisper model (small.en, English only) is downloaded from Hugging Face. See the{" "}
-          <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>.
-        </li>
-        <li>
-          The whisper.cpp speech engine is typically installed with Homebrew. See{" "}
-          <a href="https://docs.brew.sh/Analytics">Homebrew&apos;s analytics documentation</a>.
-        </li>
-      </ul>
 
-      <h3 id="app-local">What stays on your Mac</h3>
-      <p>The app keeps a small amount of information on your own computer:</p>
+      <h3 id="app-local">What stays on your computer</h3>
+      <p>
+        The app keeps a small amount of information on your own computer. On a Mac, your data is in{" "}
+        <code>~/Library/Application Support/talkflow/</code>. On Windows, it is in{" "}
+        <code>%APPDATA%\talkflow\</code>, and the models and logs are in{" "}
+        <code>%LOCALAPPDATA%\talkflow\</code>.
+      </p>
       <ul>
         <li>
-          <strong>Usage stats.</strong> Totals of words dictated, number of dictations and speaking
-          time, and words per day. These power the stats you see in the app. They contain no text
-          and no audio. They are stored in a file at{" "}
-          <code>~/Library/Application Support/talkflow/stats.json</code>.
+          <strong>Usage stats</strong> (<code>stats.json</code>). Totals of words dictated, number
+          of dictations and speaking time, and words per day. These power the stats you see in the
+          app. They contain no text and no audio.
         </li>
         <li>
-          <strong>A technical log.</strong> The app writes a log at{" "}
-          <code>~/Library/Logs/talkflow/talkflow.log</code>. It grows until you delete it. For each
-          dictation it records technical details, such as its length and timing and the name of the
-          app you dictated into. It does not record your words.
+          <strong>Settings and learned words</strong> (<code>settings.json</code>). Your settings,
+          and the words talkflow has learned from corrections you made by hand (see{" "}
+          <a href="#app-reads">What the app reads while you dictate</a>).
         </li>
         <li>
-          <strong>Whether this copy has been counted.</strong> A yes/no flag in the app&apos;s
-          preferences, so the install count described above is sent only once.
+          <strong>A technical log.</strong> On a Mac, at{" "}
+          <code>~/Library/Logs/talkflow/talkflow.log</code>, which grows until you delete it. On
+          Windows, at <code>%LOCALAPPDATA%\talkflow\logs\talkflow.log</code>, which starts over at
+          2 MB. For each dictation it records technical details, such as its length and timing and
+          the name of the app you dictated into. It does not record your words.
         </li>
         <li>
-          <strong>The speech engine&apos;s own log.</strong> Depending on how the speech engine is
-          set up on your Mac, it may keep its own log. Check the speech engine&apos;s settings if you
-          want to turn that off or delete it.
+          <strong>Whether this copy has been counted.</strong> A yes/no flag (in the app&apos;s
+          preferences on a Mac, and in <code>windows.json</code> on Windows), so the install count
+          described above is sent only once.
+        </li>
+        <li>
+          <strong>On Windows, speed measurements.</strong> How fast your PC runs each speech model,
+          so talkflow can choose the right settings (<code>device.json</code>).
+        </li>
+        <li>
+          <strong>Your own API keys</strong>, if you add any: in the macOS Keychain on a Mac, and in
+          Windows Credential Manager on Windows, never in a plain file.
+        </li>
+        <li>
+          <strong>The speech engine&apos;s own log.</strong> The speech engine may keep its own log
+          next to talkflow&apos;s. Delete it with the others if you want it gone.
         </li>
       </ul>
       <p>
-        These files are not encrypted by talkflow. They are protected by your macOS user account,
-        and by FileVault disk encryption if you have it turned on.
+        talkflow doesn&apos;t encrypt these files itself. They are protected by your user account,
+        and by disk encryption (FileVault on a Mac, BitLocker or device encryption on Windows) if
+        you have it turned on.
       </p>
       <p>
-        <strong>Deleting them.</strong> You can delete these files at any time. Deleting the
-        talkflow app may not delete them, so remove the files above if you want them gone.
+        <strong>Deleting them.</strong> You can delete these files at any time. On a Mac, deleting
+        the talkflow app may not delete them. On Windows, uninstalling removes the models and logs
+        but keeps your data folder, so remove <code>%APPDATA%\talkflow\</code> too if you want it
+        gone.
       </p>
 
       <h3 id="app-reads">What the app reads while you dictate</h3>
       <p>
-        Through macOS Accessibility, talkflow reads the one character before your cursor, so it can
-        add a space when needed, and the text it typed itself. It never reads whole documents. This
-        happens in memory, and that text isn&apos;t saved or sent anywhere. talkflow never uses the
-        clipboard.
+        When you start a dictation, talkflow reads what is around your cursor, through macOS
+        Accessibility on a Mac or UI Automation on Windows: up to 300 characters before the cursor,
+        up to the last 4,000 characters of the text field, and names visible on screen, such as an
+        email&apos;s recipients. It uses this to get spacing and capitals right, to spell names
+        correctly and, a little later, to notice when you corrected a word it got wrong, so it can
+        learn that word. It never reads password fields, and it never reads whole documents beyond
+        those limits. This happens in memory. It isn&apos;t logged or sent anywhere, and it is kept
+        only for that dictation, except a corrected word, which is saved to your learned words.
+      </p>
+      <p>
+        <strong>The clipboard.</strong> On a Mac, talkflow types with keystrokes and doesn&apos;t
+        use the clipboard, with one exception: if the text can&apos;t be typed (for example, because
+        you switched to another app while speaking), it is put on the clipboard so your words
+        aren&apos;t lost. On Windows, longer dictations are pasted: talkflow saves what is on your
+        clipboard, puts the dictation there, pastes it, and then puts your clipboard back. That
+        paste is kept out of Windows clipboard history and the cloud clipboard.
       </p>
 
       <h3 id="app-permissions">Permissions the app asks for</h3>
       <p>
-        You can turn any of these off at any time in <strong>System Settings &gt; Privacy &amp;
-        Security</strong>, but talkflow won&apos;t work without them.
+        <strong>On a Mac.</strong> You can turn either of these off at any time in{" "}
+        <strong>System Settings &gt; Privacy &amp; Security</strong>, but talkflow won&apos;t work
+        without them.
       </p>
       <ul>
         <li>
@@ -346,31 +383,48 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>Accessibility.</strong> You grant this yourself in System Settings. talkflow uses
-          it to type the text into the app you&apos;re using, and for the reading described above.
+          it to type the text into the app you&apos;re using, to notice when you press and release
+          the shortcut, and for the reading described above. While you hold the shortcut, it also
+          notices whether another key is pressed (then you&apos;re using an app shortcut, such as
+          Command + C, not dictating), without looking at which key it was. It doesn&apos;t record,
+          store or send what you type. Because Accessibility covers this, talkflow doesn&apos;t ask
+          for Input Monitoring.
+        </li>
+      </ul>
+      <p>
+        <strong>On Windows.</strong> Windows doesn&apos;t ask desktop apps for permissions. Instead:
+      </p>
+      <ul>
+        <li>
+          <strong>Microphone.</strong> The switches in Settings &gt; Privacy &amp; security &gt;
+          Microphone must allow desktop apps to use it. talkflow checks them and, if one is off,
+          tells you which.
         </li>
         <li>
-          <strong>Input Monitoring.</strong> You grant this yourself in System Settings. talkflow
-          uses it listen-only, to notice when you press and release the fn key. It sees only
-          modifier keys, never the characters you type.
+          <strong>The shortcut.</strong> To notice when you hold the shortcut, talkflow watches key
+          presses, as Windows lets any desktop app do. It keeps track only of which keys are held
+          down at that moment, to tell whether the shortcut is held. It doesn&apos;t record, store
+          or send what you type.
         </li>
       </ul>
 
       <h3 id="app-outside">Things outside talkflow&apos;s control</h3>
       <p>
-        Some things that happen on your Mac are up to you, your organization or other companies, not
-        us:
+        Some things that happen on your computer are up to you, your organization or other
+        companies, not us:
       </p>
       <ul>
         <li>
-          <strong>Backups and sync.</strong> Tools like Time Machine, or other backup and sync
-          software you use, may copy the files listed above. Those copies are governed by the tool
-          you use.
+          <strong>Backups and sync.</strong> Tools like Time Machine, OneDrive, or other backup and
+          sync software you use, may copy the files listed above. Those copies are governed by the
+          tool you use.
         </li>
         <li>
-          <strong>Your operating system.</strong> macOS may make its own network connections, for
-          example when it checks a newly downloaded app before first opening it. If you have chosen
-          to share Mac analytics with Apple, macOS may also send Apple crash reports that involve
-          talkflow. Apple&apos;s privacy policy covers those.
+          <strong>Your operating system.</strong> macOS and Windows may make their own network
+          connections, for example to check a newly downloaded app or installer before it first
+          opens. If you have chosen to share analytics or diagnostic data with Apple or Microsoft,
+          your operating system may also send them crash reports that involve talkflow.
+          Apple&apos;s and Microsoft&apos;s privacy policies cover those.
         </li>
         <li>
           <strong>Work computers.</strong> If you use talkflow on a computer managed by your
@@ -382,7 +436,7 @@ export default function PrivacyPage() {
       <p>
         This part describes the app as of the &quot;Last updated&quot; date above. The one-time
         install count starts with version {COUNTED_FROM}. If we ever add a feature that sends any
-        other information off your Mac, such as crash reports, we will update this policy before
+        other information off your computer, such as crash reports, we will update this policy before
         releasing that version and describe the change in the release notes.
       </p>
 
@@ -464,9 +518,8 @@ export default function PrivacyPage() {
       <ul>
         <li>The website is served over encrypted HTTPS connections.</li>
         <li>
-          The app talks to its speech engine at 127.0.0.1, your own computer. When the speech engine
-          is set up as described in the README, it listens only on your own computer, not on your
-          network.
+          The app talks to its speech engine at 127.0.0.1, your own computer. talkflow starts the
+          speech engine so that it listens only on your own computer, not on your network.
         </li>
         <li>
           The app&apos;s other connections (update checks, the one-time install count, and OpenAI or
