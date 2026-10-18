@@ -257,8 +257,9 @@ export default function TermsPage() {
       <p>
         <strong>Governing law.</strong> These terms, and any dispute about them or the site, are
         governed by the laws of the State of Texas, United States, without regard to its
-        conflict-of-law rules. Any dispute that goes to court will be decided by the state or federal
-        courts located in Texas, except that either of us may bring an individual claim in a small
+        conflict-of-law rules. Any dispute that goes to court will be decided by the state courts
+        located in Fort Bend County, Texas, or the federal courts for the Southern District of Texas,
+        except that either of us may bring an individual claim in a small
         claims court where it qualifies, and either of us may ask any court with jurisdiction to
         protect intellectual property rights.
       </p>
