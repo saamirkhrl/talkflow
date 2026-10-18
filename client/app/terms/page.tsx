@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" lastUpdated="October 16, 2026">
+    <LegalPage title="Terms of Use" lastUpdated="October 18, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -32,6 +32,9 @@ export default function TermsPage() {
           of them.
         </li>
         <li>
+          Texas law governs these terms, but you keep any rights your own local law gives you.
+        </li>
+        <li>
           Questions? Email <EmailLink />.
         </li>
       </ul>
@@ -44,7 +47,8 @@ export default function TermsPage() {
       </p>
       <p>
         By using the site, you agree to these terms. If you don&apos;t agree, please don&apos;t use
-        the site.
+        the site. In these terms, &quot;including&quot; means &quot;including without
+        limitation&quot;.
       </p>
 
       <h2 id="app-license">2. The app has its own license</h2>
@@ -87,6 +91,14 @@ export default function TermsPage() {
         <li>pretend to be us, or suggest that you speak for the talkflow project when you don&apos;t.</li>
       </ul>
       <p>We may block access for anyone who does these things.</p>
+
+      <h3 id="feedback">Feedback and contributions</h3>
+      <p>
+        If you send us ideas or suggestions about talkflow, for example by email or in a GitHub
+        issue, you allow us to use them freely, without paying you or crediting you. Please
+        don&apos;t send anything you consider confidential. Code you contribute to the repository is
+        covered by the repository&apos;s license, not by this paragraph.
+      </p>
 
       <h2 id="name-and-logo">5. The talkflow name and logo</h2>
       <p>
@@ -188,8 +200,9 @@ export default function TermsPage() {
           inability to use, the site or the app; and
         </li>
         <li>
-          our total liability to you for all claims about the site and the app is limited to the
-          amount you paid us to use the site or the app. Both are free, so that amount is zero.
+          our total liability to you for all claims about the site and the app, taken together, is
+          limited to the greater of US $50 and the amount you paid us to use them in the six months
+          before the claim arose. Both are free, so the limit is US $50.
         </li>
       </ul>
       <p>For the app, the limitation of liability in the MIT License also applies.</p>
@@ -203,6 +216,14 @@ export default function TermsPage() {
         <li>harm we cause on purpose or through gross negligence;</li>
         <li>anything else that the law doesn&apos;t allow us to exclude or limit.</li>
       </ul>
+
+      <p>
+        <strong>If you misuse the site.</strong> As far as the law allows, if someone makes a claim
+        against us because you broke these terms or the law while using the site, you agree to cover
+        our reasonable costs of that claim, including reasonable legal fees. This doesn&apos;t apply
+        to claims caused by our own fault, or to the extent your local consumer law doesn&apos;t
+        allow it.
+      </p>
 
       <h2 id="consumer-law">10. Your rights under consumer law</h2>
       <p>
@@ -223,6 +244,10 @@ export default function TermsPage() {
         Changes apply from that date. They don&apos;t apply to anything that happened before it. If
         you keep using the site after a change takes effect, the updated terms apply to you.
       </p>
+      <p>
+        If we block your access under section 4, or these terms otherwise end, the sections that by
+        their nature should continue (such as sections 5, 8, 9, 12 and 15) still apply.
+      </p>
 
       <h2 id="disputes">12. Disputes</h2>
       <p>
@@ -230,8 +255,18 @@ export default function TermsPage() {
         out that way.
       </p>
       <p>
+        <strong>Governing law.</strong> These terms, and any dispute about them or the site, are
+        governed by the laws of the State of Texas, United States, without regard to its
+        conflict-of-law rules. Any dispute that goes to court will be decided by the state or federal
+        courts located in Texas, except that either of us may bring an individual claim in a small
+        claims court where it qualifies, and either of us may ask any court with jurisdiction to
+        protect intellectual property rights.
+      </p>
+      <p>
         Nothing in these terms limits any rights that the law of the country where you live gives
-        you.
+        you. If you are a consumer in the UK, the EU or another country whose law lets you bring a
+        claim in your own courts, or makes its consumer protections apply whatever law the contract
+        chooses, you keep those rights.
       </p>
 
       <h2 id="children">13. Children</h2>
@@ -241,12 +276,29 @@ export default function TermsPage() {
         guardian.
       </p>
 
-      <h2 id="other-terms">14. Other legal terms</h2>
+      <h2 id="state-notices">14. Notices for US states</h2>
+      <p>
+        <strong>California.</strong> Under California Civil Code Section 1789.3, California users are
+        entitled to this notice: the site is provided by Samir Kharel, who can be reached at{" "}
+        <EmailLink /> to file a complaint about the site or to get more information about using it.
+        You may also contact the Complaint Assistance Unit of the Division of Consumer Services of
+        the California Department of Consumer Affairs in writing at 1625 North Market Blvd., Suite
+        N 112, Sacramento, CA 95834, or by phone at (800) 952-5210.
+      </p>
+      <p>
+        <strong>Privacy rights in your state.</strong> If you live in California, Texas, Colorado,
+        Connecticut, Virginia, Nevada or another US state with a privacy law, you may have rights over
+        your personal information, such as to access, correct or delete it, or to opt out of its
+        sale. We don&apos;t sell personal information or use it for targeted advertising. See our{" "}
+        <Link href="/privacy#rights">Privacy Policy</Link> for how to make a request.
+      </p>
+
+      <h2 id="other-terms">15. Other legal terms</h2>
       <ul>
         <li>
           <strong>If part of these terms can&apos;t be enforced.</strong> If a court decides that
-          part of these terms is invalid or can&apos;t be enforced, the rest of the terms still
-          apply.
+          part of these terms is invalid or can&apos;t be enforced, that part is changed only as much
+          as needed to make it enforceable, and the rest of the terms still apply.
         </li>
         <li>
           <strong>If we don&apos;t act straight away.</strong> If we don&apos;t enforce part of these
@@ -260,13 +312,32 @@ export default function TermsPage() {
         <li>
           <strong>Transfer.</strong> If someone else takes over the talkflow project, such as a new
           maintainer or organization, we may transfer these terms to them. This won&apos;t reduce
-          your rights under these terms.
+          your rights under these terms. You may not transfer these terms to someone else without our
+          written permission.
+        </li>
+        <li>
+          <strong>Emails and notices.</strong> You agree that we can communicate with you
+          electronically, by email or by posting notices on the site, and that this meets any legal
+          requirement for written notice.
+        </li>
+        <li>
+          <strong>Export laws.</strong> You agree to follow US and other export control laws that
+          apply to you when you download or share talkflow.
+        </li>
+        <li>
+          <strong>Accessibility.</strong> We aim for the site to meet the Web Content Accessibility
+          Guidelines (WCAG) 2.1, Level AA. If something on the site is hard to use, email{" "}
+          <EmailLink /> and we&apos;ll try to fix it.
         </li>
       </ul>
 
-      <h2 id="contact">15. Contact</h2>
+      <h2 id="contact">16. Contact</h2>
       <p>
         Questions about these terms? Email <EmailLink />.
+      </p>
+      <p>
+        Parts of these terms are adapted from free templates by General Legal, PC, released under
+        CC0. General Legal hasn&apos;t reviewed this page, and it isn&apos;t legal advice.
       </p>
     </LegalPage>
   );

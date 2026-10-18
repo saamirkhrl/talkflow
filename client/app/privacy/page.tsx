@@ -15,7 +15,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 16, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="October 18, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -25,6 +25,13 @@ export default function PrivacyPage() {
           once that it was installed (see <a href="#app-receive">What we receive from the app</a>),
           and contacts OpenAI or Anthropic only if you add your own API key. We don&apos;t receive
           your audio, your text or your usage stats.
+        </li>
+        <li>
+          <strong>Optional cloud features send your words to the company you pick.</strong> If you
+          add your own OpenAI key and turn on OpenAI transcription, your recorded audio goes to
+          OpenAI. If you add your own Anthropic key and turn on Claude punctuation, the text of your
+          dictation goes to Anthropic. Both are off unless you turn them on (see{" "}
+          <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
         </li>
         <li>
           <strong>The app has no accounts and doesn&apos;t track how you use it.</strong> The first
@@ -223,7 +230,13 @@ export default function PrivacyPage() {
       </p>
       <p>
         The speech engine is a program on your computer. It is not a cloud server, and your audio
-        doesn&apos;t travel over the internet.
+        doesn&apos;t travel over the internet, unless you turn on OpenAI transcription with your own
+        key (see <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
+      </p>
+      <p>
+        <strong>No voiceprints.</strong> talkflow uses your voice only to turn it into text. It
+        doesn&apos;t create a voiceprint or any other biometric identifier, and it doesn&apos;t try
+        to recognize who is speaking.
       </p>
 
       <h3 id="app-receive">What we receive from the app</h3>
@@ -285,6 +298,44 @@ export default function PrivacyPage() {
         Apart from the one-time install count, which can&apos;t be linked to you, we don&apos;t
         receive anything from the app, so we can&apos;t see, recover or delete anything on your
         computer for you. You are in control of it.
+      </p>
+
+      <h3 id="app-keys">Your own OpenAI or Anthropic key</h3>
+      <p>
+        In Settings you can add your own API key for OpenAI or Anthropic and turn on a feature that
+        uses it. These features are off by default. When one is on, talkflow sends data directly from
+        your computer to that company, using your key. It doesn&apos;t pass through us, and we
+        don&apos;t receive it.
+      </p>
+      <ul>
+        <li>
+          <strong>OpenAI transcription.</strong> For each dictation, talkflow sends the recorded audio
+          to OpenAI to be turned into text. To help spell words correctly, it also sends a short
+          hint: the first name on your computer&apos;s user account, and up to 25 words talkflow has
+          learned from your corrections and, on a Mac, names visible on your screen (such as an
+          email&apos;s recipients). The live preview while you speak still runs on your computer.
+        </li>
+        <li>
+          <strong>Claude punctuation.</strong> For each dictation, talkflow sends the text of your
+          dictation to Anthropic, which adds punctuation and capitals. talkflow keeps your original
+          words and only takes the punctuation from the reply.
+        </li>
+      </ul>
+      <p>
+        Each request carries your key and the technical details any web request has, such
+        as your IP address. When you save a key, talkflow checks it by asking the company for its list
+        of models, which sends no dictation.
+      </p>
+      <p>
+        What OpenAI or Anthropic does with that data is governed by your own agreement with them,
+        under the account your key belongs to, and by their policies, including how long they keep
+        it. See the{" "}
+        <a href="https://openai.com/policies/privacy-policy/">OpenAI privacy policy</a> and the{" "}
+        <a href="https://www.anthropic.com/legal/privacy">Anthropic privacy policy</a>. We don&apos;t
+        control them, and we aren&apos;t responsible for how they handle it. Don&apos;t turn these
+        features on for dictation you aren&apos;t allowed to share with them, for example
+        confidential work or health information. If a request fails, talkflow transcribes or
+        punctuates on your computer instead.
       </p>
 
       <h3 id="app-setup">Setting up the app</h3>
@@ -462,6 +513,29 @@ export default function PrivacyPage() {
         past 12 months.
       </p>
 
+      <h2 id="retention">How long we keep information</h2>
+      <p>
+        We keep personal information only as long as we need it for the purposes described in this
+        policy, including to meet legal obligations, resolve disputes and protect the site. To decide
+        how long that is, we consider how much information there is, how sensitive it is, the risk of
+        harm from misuse, and whether we can achieve our purpose another way. When we no longer need
+        it, we delete it or make it anonymous. The specific periods for website logs and emails are
+        described above.
+      </p>
+
+      <h2 id="sensitive">Sensitive information</h2>
+      <p>
+        Please don&apos;t send us sensitive personal information by email, such as health, financial
+        or government ID details, or information about your race, religion, political views or sex
+        life. We don&apos;t need it to answer you.
+      </p>
+
+      <h2 id="automated-decisions">No automated decisions or profiling</h2>
+      <p>
+        We don&apos;t make decisions about you by automated means, and we don&apos;t profile you, in
+        ways that have legal or similarly significant effects on you.
+      </p>
+
       <h2 id="children">Children</h2>
       <p>
         The site and the app are not aimed at children under 13, and we don&apos;t knowingly collect
@@ -488,7 +562,11 @@ export default function PrivacyPage() {
       </p>
       <p>
         <strong>How to make a request.</strong> Email <EmailLink />. We&apos;ll reply within one
-        month. If we need to confirm who you are, we&apos;ll ask only for what we need.
+        month. If we need to confirm who you are, we&apos;ll ask only for what we need. Where the law
+        allows, someone you authorize can make a request for you; we may ask for proof that you
+        authorized them. If we turn down a request, we&apos;ll tell you why. Where the law gives you
+        the right to appeal that decision, reply to our answer and say you want to appeal, and
+        we&apos;ll review it again.
       </p>
       <p>
         <strong>Complaints.</strong> If you have a concern about how we handle your information,
@@ -509,9 +587,10 @@ export default function PrivacyPage() {
         </li>
       </ul>
       <p>
-        <strong>If you live in California or another US state with a privacy law</strong>, you can
-        make the same requests by email. We&apos;ll handle them in the same way, whether or not that
-        law applies to us.
+        <strong>If you live in California, Texas or another US state with a privacy law</strong>,
+        you can make the same requests by email, including an appeal. We&apos;ll handle them in the
+        same way, whether or not that law applies to us. If we deny your appeal, you may contact your
+        state&apos;s attorney general.
       </p>
 
       <h2 id="security">Keeping information safe</h2>
@@ -527,15 +606,19 @@ export default function PrivacyPage() {
         </li>
       </ul>
       <p>
-        No system is perfectly secure, but we keep the information we hold to a minimum, which is
-        itself a protection.
+        No system is perfectly secure, and we can&apos;t guarantee the security of information sent
+        over the internet. We keep the information we hold to a minimum, which is itself a protection.
       </p>
 
       <h2 id="transfers">International transfers</h2>
       <p>
         Vercel is based in the United States and serves the site from data centers around the world,
         so website request information may be processed outside your country, including in the
-        United States. Vercel handles this under its own policies.
+        United States. Vercel says it is certified under the EU-U.S. Data Privacy Framework (and
+        its UK and Swiss extensions) and also uses standard contractual clauses approved by the
+        European Commission. Emails you send us are handled by Google, which also processes data in
+        the United States and other countries. You can ask us for more information about these
+        safeguards at <EmailLink />.
       </p>
 
       <h2 id="changes">Changes to this policy</h2>
