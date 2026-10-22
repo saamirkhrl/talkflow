@@ -611,6 +611,15 @@ final class OnboardingModel: ObservableObject {
     @Published var inputMonitoring: Bool
     @Published var engine: EngineState = .checking
     @Published var hotkeyRunning = false
+    /// The same setting as in Settings. Any language but English starts the
+    /// multilingual model's download right away (`LiveModel`).
+    @Published var language = Preferences.language {
+        didSet {
+            guard Preferences.language != language else { return }
+            Preferences.language = language
+            LiveModel.prepare()
+        }
+    }
     @Published var needsRestart = false
     @Published var launchAtLogin = true
     @Published var practice = "" {
@@ -1621,7 +1630,28 @@ private struct OnboardingView: View {
             }
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
             .padding(.top, 6)
+            languageChoice
         }
+    }
+
+    private var languageChoice: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                Text("Language you speak").font(.system(size: 13, weight: .medium))
+                Spacer()
+                Picker("", selection: $model.language) {
+                    ForEach(DictationLanguage.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            small(model.language.needsMultilingualModel
+                  ? "\(model.language.detail) Adds a 190 MB download. \(DictationLanguage.moreComing)"
+                  : DictationLanguage.moreComing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
     }
 
     private func overviewRow(_ number: Int, _ step: OnboardingStep) -> some View {

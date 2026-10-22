@@ -598,6 +598,8 @@ final class SettingsModel: ObservableObject {
     func refresh() {
         writingStyle = Preferences.writingStyle
         hotkey = Preferences.hotkey
+        // Setup can change it too.
+        language = Preferences.language
     }
 
     /// The presets, plus the current shortcut when it was recorded.
@@ -779,6 +781,7 @@ private struct SettingsView: View {
                         note("Downloads 190 MB once.")
                     }
                 }
+                note(DictationLanguage.moreComing)
             }
             Spacer()
             Picker("", selection: $model.language) {

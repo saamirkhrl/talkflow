@@ -33,10 +33,13 @@ enum DictationLanguage: String, CaseIterable {
     var detail: String {
         switch self {
         case .english: return "Speak English."
-        case .german: return "Speak German. English speech is written in German too."
+        case .german: return "Speak German."
         case .automatic: return "Detects the language of each dictation."
         }
     }
+
+    /// Shown under the language choice in Settings and setup.
+    static let moreComing = "More languages are coming."
 
     /// The `language` field whisper-server takes.
     var whisperCode: String { rawValue }
