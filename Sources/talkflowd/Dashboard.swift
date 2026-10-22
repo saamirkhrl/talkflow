@@ -631,7 +631,7 @@ final class SettingsModel: ObservableObject {
         let final = useOpenAI && hasOpenAIKey ? "OpenAI \(CloudTranscriber.model), your key" : local
         let punctuation: String
         if useClaude && hasAnthropicKey { punctuation = "\(claudeModel.title), your key" }
-        else if aiPolish && polishAvailable { punctuation = "Apple on-device model" }
+        else if aiPolish && polishAvailable { punctuation = "Apple Intelligence, on this Mac" }
         else { punctuation = "Built-in rules only" }
         return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation)]
     }
@@ -710,7 +710,7 @@ private struct SettingsView: View {
                        note: FinalPassEngine.modelIsComplete ? nil : "Downloads 574 MB once.",
                        isOn: $model.accurateFinalPass)
                 toggle("AI punctuation",
-                       help: "Fixes punctuation on this Mac. Never changes your words.",
+                       help: "Apple Intelligence fixes punctuation on this Mac. Never changes your words.",
                        note: model.polishAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
