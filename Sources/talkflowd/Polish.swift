@@ -51,8 +51,8 @@ enum Polish {
 
     /// Calls `completion` on the main queue with the polished text, or with
     /// `text` unchanged if the model is unavailable, fails, wanders off, or
-    /// misses the budget.
-    static func run(_ text: String, names: [String], completion: @escaping (String) -> Void) {
+    /// misses the budget. `keepCapitals`: see `merge`.
+    static func run(_ text: String, names: [String], keepCapitals: Bool = false, completion: @escaping (String) -> Void) {
         #if canImport(FoundationModels)
         if #available(macOS 26.0, *), isAvailable {
             let lock = NSLock()
@@ -68,7 +68,7 @@ enum Polish {
                 do {
                     let session = LanguageModelSession(instructions: instructions)
                     let response = try await session.respond(to: text, options: GenerationOptions(temperature: 0))
-                    let merged = merge(original: text, suggestion: response.content, names: names)
+                    let merged = merge(original: text, suggestion: response.content, names: names, keepCapitals: keepCapitals)
                     let safe = SelfCorrection.isDeletionOnly(original: text, result: merged) ? merged : text
                     print("talkflowd: AI punctuation \(safe == text ? "changed nothing" : "applied") in \(String(format: "%.2f", Date().timeIntervalSince(startedAt)))s")
                     finish(safe)
@@ -93,8 +93,10 @@ enum Polish {
     /// line breaks wherever the two agree on the word. Pure, for `--streamtest`.
     ///
     /// Capitals the model takes away are kept for names and "I" - a model that
-    /// lowercases "Samir" has not improved anything.
-    static func merge(original: String, suggestion: String, names: [String] = []) -> String {
+    /// lowercases "Samir" has not improved anything. With `keepCapitals` (a
+    /// dictation not in English) every capital is kept: German capitalises
+    /// every noun, and the name check here only knows English.
+    static func merge(original: String, suggestion: String, names: [String] = [], keepCapitals: Bool = false) -> String {
         let old = SelfCorrection.tokenize(original), new = SelfCorrection.tokenize(suggestion)
         guard !old.isEmpty, !new.isEmpty else { return original }
         let a = old.map(\.norm), b = new.map(\.norm)
@@ -124,7 +126,7 @@ enum Polish {
             var word = suggested.word
             if let first = token.word.first(where: \.isLetter), first.isUppercase,
                let theirs = word.first(where: \.isLetter), theirs.isLowercase,
-               keepsCapital(token.norm, names: names) {
+               keepCapitals || keepsCapital(token.norm, names: names) {
                 word = token.word.prefix(while: { !$0.isLetter }) + String(first) + String(word.drop(while: { !$0.isLetter }).dropFirst())
             }
             // Spacing is the original's, except a line break the model added

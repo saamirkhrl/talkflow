@@ -34,7 +34,7 @@ enum ClaudePolish {
 
     /// Calls `completion` on the main queue with the polished text, or with
     /// `text` unchanged and an error message for the pill.
-    static func run(_ text: String, names: [String], completion: @escaping (String, String?) -> Void) {
+    static func run(_ text: String, names: [String], keepCapitals: Bool = false, completion: @escaping (String, String?) -> Void) {
         guard let key = APIKeys.key(for: .anthropic) else {
             DispatchQueue.main.async { completion(text, "Claude: no API key saved") }
             return
@@ -87,7 +87,7 @@ enum ClaudePolish {
                 .filter { $0["type"] as? String == "text" }
                 .compactMap { $0["text"] as? String }
                 .joined()
-            let merged = Polish.merge(original: text, suggestion: reply, names: names)
+            let merged = Polish.merge(original: text, suggestion: reply, names: names, keepCapitals: keepCapitals)
             let safe = SelfCorrection.isDeletionOnly(original: text, result: merged) ? merged : text
             print("talkflowd: Claude punctuation (\(model.rawValue)) \(safe == text ? "changed nothing" : "applied") in \(String(format: "%.2f", Date().timeIntervalSince(startedAt)))s")
             result = (safe, nil)

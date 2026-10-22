@@ -37,6 +37,15 @@ enum SpeechEngine {
     /// The real file is 487,614,201 bytes.
     static let legacyMinimumModelBytes: Int64 = 480_000_000
 
+    /// small, the multilingual model of the same size, also 5-bit: the live
+    /// engine for any language but English (see `DictationLanguage`). Measured
+    /// on this M4 with a German and an English clip: both came back word for
+    /// word in their own language, in 0.15-0.5s, the same as small.en.
+    static let multilingualModelFileName = "ggml-small-q5_1.bin"
+    static let multilingualModelDownloadURL = URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin")!
+    /// The real file is 190,085,487 bytes.
+    static let multilingualMinimumModelBytes: Int64 = 185_000_000
+
     private static var home: URL { FileManager.default.homeDirectoryForCurrentUser }
 
     static var modelPath: URL {
@@ -44,6 +53,9 @@ enum SpeechEngine {
     }
     static var legacyModelPath: URL {
         modelPath.deletingLastPathComponent().appendingPathComponent(legacyModelFileName)
+    }
+    static var multilingualModelPath: URL {
+        modelPath.deletingLastPathComponent().appendingPathComponent(multilingualModelFileName)
     }
     static var logDirectory: URL { home.appendingPathComponent("Library/Logs/TalkFlow") }
     static var agentPlistURL: URL {
@@ -101,6 +113,13 @@ enum SpeechEngine {
 
     static var modelIsComplete: Bool { fileSize(modelPath) >= minimumModelBytes }
     static var legacyModelIsComplete: Bool { fileSize(legacyModelPath) >= legacyMinimumModelBytes }
+    static var multilingualModelIsComplete: Bool { fileSize(multilingualModelPath) >= multilingualMinimumModelBytes }
+
+    /// The model the live engine should load for the chosen language: the
+    /// multilingual one once it is downloaded, small.en otherwise.
+    static var liveModelPath: URL {
+        Preferences.language.needsMultilingualModel && multilingualModelIsComplete ? multilingualModelPath : modelPath
+    }
 
     private static func fileSize(_ url: URL) -> Int64 {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
@@ -233,7 +252,7 @@ enum SpeechEngine {
         let log = logDirectory.appendingPathComponent("whisper-server.log").path
         return [
             "Label": agentLabel,
-            "ProgramArguments": agentArguments(binary: binary),
+            "ProgramArguments": agentArguments(binary: binary, model: liveModelPath.path),
             "RunAtLoad": true,
             "KeepAlive": true,
             "StandardOutPath": log,
@@ -296,6 +315,17 @@ enum SpeechEngine {
         return arguments
     }
 
+    /// The same arguments moved onto `wanted` from whichever of `ours` (the
+    /// small models talkflow itself downloads) they load now. Nil when they
+    /// already load `wanted`, or load a model that is not one of ours, which
+    /// someone chose on purpose. Pure, for `--streamtest`.
+    static func relanguaged(_ arguments: [String], ours: [String], wanted: String) -> [String]? {
+        for model in ours where model != wanted {
+            if let moved = remodeled(arguments, from: model, to: wanted) { return moved }
+        }
+        return nil
+    }
+
     /// Whether the agent plist still loads the old full-precision model.
     static func agentLoadsLegacyModel() -> Bool {
         guard let arguments = readAgent()?["ProgramArguments"] as? [String] else { return false }
@@ -313,7 +343,9 @@ enum SpeechEngine {
 
     /// Run once at launch, off the main thread: makes sure the bundled engine
     /// can be started by launchd, moves an agent set up with Homebrew's
-    /// engine onto it, and moves a Mac on the old model to the new one.
+    /// engine onto it, and moves a Mac on the old model to the new one. The
+    /// live model for the dictation language is `LiveModel`'s, which runs
+    /// `migrateAgentIfNeeded` again once it has what it needs.
     static func prepareOnLaunch() {
         clearBundledQuarantine()
         migrateAgentIfNeeded()
@@ -400,6 +432,13 @@ enum SpeechEngine {
             plist["ProgramArguments"] = updated
             changes.append("now loads \(modelFileName) (was \(legacyModelFileName))")
         }
+        // The live model follows the dictation language (`LiveModel`).
+        let wanted = liveModelPath
+        if wanted == multilingualModelPath || modelIsComplete, let arguments = plist["ProgramArguments"] as? [String],
+           let updated = relanguaged(arguments, ours: [legacyModelPath.path, modelPath.path, multilingualModelPath.path], wanted: wanted.path) {
+            plist["ProgramArguments"] = updated
+            changes.append("now loads \(wanted.lastPathComponent), for dictating in \(Preferences.language.title)")
+        }
         guard !changes.isEmpty else { return false }
         do {
             try writeAgent(plist)
@@ -480,6 +519,66 @@ enum SpeechEngine {
         do { try process.run() } catch { return -1 }
         process.waitUntilExit()
         return process.terminationStatus
+    }
+}
+
+/// Keeps the live engine on the model the dictation language needs: small.en
+/// for English, the multilingual small model for anything else (see
+/// `DictationLanguage`). The multilingual one is downloaded the first time a
+/// language needs it, and kept when the user goes back to English, so
+/// switching again costs nothing but a reload of the engine (a few seconds).
+/// Until it is there the engine stays on small.en, and the final pass, which
+/// is sent the language too, is what writes the language right.
+///
+/// All state is read and written on the main thread.
+enum LiveModel {
+    /// 0...1 while the multilingual model downloads, nil otherwise.
+    private(set) static var progress: Double?
+    /// Why the last download failed, until the next one starts.
+    private(set) static var failure: String?
+    private static var downloader: FileDownloader?
+
+    /// At launch and whenever the language changes: downloads the model the
+    /// language needs if it is missing, then points the engine at it.
+    static func prepare() {
+        guard Preferences.language.needsMultilingualModel, !SpeechEngine.multilingualModelIsComplete else {
+            DispatchQueue.global(qos: .utility).async { SpeechEngine.migrateAgentIfNeeded() }
+            return
+        }
+        guard downloader == nil else { return }
+        print("talkflowd: downloading the multilingual speech model in the background")
+        failure = nil
+        progress = 0
+        changed()
+        let download = FileDownloader(
+            destination: SpeechEngine.multilingualModelPath, minimumBytes: SpeechEngine.multilingualMinimumModelBytes,
+            onProgress: { fraction in
+                DispatchQueue.main.async {
+                    guard downloader != nil else { return }
+                    progress = fraction
+                    changed()
+                }
+            }
+        ) { error in
+            DispatchQueue.main.async {
+                downloader = nil
+                progress = nil
+                if let error {
+                    failure = error.localizedDescription
+                    print("talkflowd: multilingual speech model download failed: \(error.localizedDescription)")
+                }
+                changed()
+                // The user may have gone back to English meanwhile; this
+                // reads the language again either way.
+                if error == nil { prepare() }
+            }
+        }
+        downloader = download
+        download.start(url: SpeechEngine.multilingualModelDownloadURL)
+    }
+
+    private static func changed() {
+        NotificationCenter.default.post(name: .liveModelChanged, object: nil)
     }
 }
 

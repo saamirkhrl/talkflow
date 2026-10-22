@@ -36,7 +36,7 @@ enum CloudTranscriber {
         }
     }
 
-    static func transcribe(wav: Data, prompt: String, timeout: TimeInterval = 12,
+    static func transcribe(wav: Data, prompt: String, language: DictationLanguage = .english, timeout: TimeInterval = 12,
                            completion: @escaping (Swift.Result<Transcriber.Result, Failure>) -> Void) {
         guard let key = APIKeys.key(for: .openAI) else { completion(.failure(.noKey)); return }
         let boundary = "talkflow-\(UUID().uuidString)"
@@ -51,6 +51,7 @@ enum CloudTranscriber {
         field("model", model)
         field("response_format", "text")
         if !prompt.isEmpty { field("prompt", prompt) }
+        if let code = language.openAICode { field("language", code) }
         append("--\(boundary)--\r\n")
 
         var request = URLRequest(url: endpoint)

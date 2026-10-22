@@ -128,19 +128,32 @@ enum Transcriber {
     /// unchanged. It is the first name of this Mac's account, not a fixed one:
     /// a fixed name would push every other user's dictation towards it.
     static let vocabularyPrompt = prompt(forFullName: NSFullUserName())
+    /// The same sentence in German. An English prompt pulls whisper towards
+    /// English (it imitates the prompt), so German dictation gets its own.
+    static let germanVocabularyPrompt = prompt(forFullName: NSFullUserName(), language: .german)
 
-    /// "Samir Kharel" -> "I'm Samir, and I use talkflow, a dictation app."
-    /// An account with no usable name gets the sentence without one. Pure, for
-    /// `--streamtest`.
-    static func prompt(forFullName fullName: String) -> String {
-        let first = fullName.split(separator: " ").first.map(String.init) ?? ""
-        guard let initial = first.first, initial.isLetter, first.allSatisfy({ $0.isLetter || "'-".contains($0) }) else {
-            return "I use talkflow, a dictation app."
-        }
-        return "I'm \(initial.uppercased() + first.dropFirst()), and I use talkflow, a dictation app."
+    /// The fixed sentence for dictating in `language`.
+    static func promptSentence(for language: DictationLanguage) -> String {
+        language.promptLanguage == .german ? germanVocabularyPrompt : vocabularyPrompt
     }
 
-    static func multipartBody(wav: Data, boundary: String, prompt: String) -> Data {
+    /// "Samir Kharel" -> "I'm Samir, and I use talkflow, a dictation app."
+    /// (German: "Ich bin Samir und nutze talkflow, eine Diktier-App.")
+    /// An account with no usable name gets the sentence without one. Pure, for
+    /// `--streamtest`.
+    static func prompt(forFullName fullName: String, language: DictationLanguage = .english) -> String {
+        let german = language.promptLanguage == .german
+        let first = fullName.split(separator: " ").first.map(String.init) ?? ""
+        guard let initial = first.first, initial.isLetter, first.allSatisfy({ $0.isLetter || "'-".contains($0) }) else {
+            return german ? "Ich nutze talkflow, eine Diktier-App." : "I use talkflow, a dictation app."
+        }
+        let name = initial.uppercased() + first.dropFirst()
+        return german ? "Ich bin \(name) und nutze talkflow, eine Diktier-App." : "I'm \(name), and I use talkflow, a dictation app."
+    }
+
+    /// `language` is whisper's code ("en", "de", "auto"); without it the
+    /// server assumes English, and translates anything else into it.
+    static func multipartBody(wav: Data, boundary: String, prompt: String, language: String? = nil) -> Data {
         var body = Data()
         func append(_ string: String) { body.append(contentsOf: Array(string.utf8)) }
 
@@ -154,6 +167,10 @@ enum Transcriber {
             append("--\(boundary)\r\n")
             append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n\(prompt)\r\n")
         }
+        if let language {
+            append("--\(boundary)\r\n")
+            append("Content-Disposition: form-data; name=\"language\"\r\n\r\n\(language)\r\n")
+        }
         append("--\(boundary)--\r\n")
         return body
     }
@@ -163,10 +180,11 @@ enum Transcriber {
         serverURL: URL,
         timeout: TimeInterval = 20,
         prompt: String = vocabularyPrompt,
+        language: DictationLanguage = .english,
         completion: @escaping (Result?) -> Void
     ) {
         let boundary = "talkflow-\(UUID().uuidString)"
-        let body = multipartBody(wav: wav, boundary: boundary, prompt: prompt)
+        let body = multipartBody(wav: wav, boundary: boundary, prompt: prompt, language: language.whisperCode)
 
         var request = URLRequest(url: serverURL)
         request.httpMethod = "POST"

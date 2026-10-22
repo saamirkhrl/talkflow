@@ -26,17 +26,26 @@ enum Cleanup {
     /// model, and every model tried here rewrote the sentence instead.
     private static let fillers = ["um", "umm", "ummm", "uh", "uhh", "uhhh", "erm", "hmm", "mmm"]
 
-    private static let fillerPattern: NSRegularExpression = {
+    /// For a dictation in another language. "um" is a German word ("um drei
+    /// Uhr", "um zu"), so it is out, and German's own hesitation sounds are in.
+    private static let otherFillers = ["äh", "ähm", "öhm", "uh", "uhh", "uhhh", "erm", "hmm", "mmm"]
+
+    private static let fillerPattern = pattern(for: fillers)
+    private static let otherFillerPattern = pattern(for: otherFillers)
+
+    private static func pattern(for fillers: [String]) -> NSRegularExpression {
         let alternation = fillers
             .sorted { $0.count > $1.count }
             .map { NSRegularExpression.escapedPattern(for: $0) }
             .joined(separator: "|")
         return try! NSRegularExpression(pattern: "\\b(?:\(alternation))\\b[,]?\\s*", options: [.caseInsensitive])
-    }()
+    }
 
-    static func tidy(_ raw: String) -> String {
+    /// `english` is off for a dictation in another language (see
+    /// `DictationLanguage.usesEnglishRules`).
+    static func tidy(_ raw: String, english: Bool = true) -> String {
         let ns = raw as NSString
-        var text = fillerPattern.stringByReplacingMatches(
+        var text = (english ? fillerPattern : otherFillerPattern).stringByReplacingMatches(
             in: raw,
             range: NSRange(location: 0, length: ns.length),
             withTemplate: ""

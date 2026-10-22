@@ -119,6 +119,7 @@ enum StreamSelfTest {
         runSelfCorrectionCases()
         runInsertOnceCases()
         runWritingStyleCases()
+        runLanguageCases()
         runUpdaterCases()
         runHotkeyCases()
         runInstallCounterCases()
@@ -899,6 +900,72 @@ enum StreamSelfTest {
             check(SelfCorrection.tokenize(styled).map(\.norm) == SelfCorrection.tokenize(raw).map(\.norm),
                   "\(style.rawValue) keeps every word")
         }
+    }
+
+    /// Settings: English / Deutsch / Automatic. whisper-server is told the
+    /// language (it translates into English otherwise), German gets its own
+    /// prompt, the live engine moves to the multilingual model, and rules
+    /// written for English stay off German text.
+    private static func runLanguageCases() {
+        report("case: the dictation language")
+        check(DictationLanguage(rawValue: "de") == .german && DictationLanguage.german.whisperCode == "de"
+              && DictationLanguage.automatic.whisperCode == "auto" && DictationLanguage.english.whisperCode == "en",
+              "language: whisper's codes")
+        check(!DictationLanguage.english.needsMultilingualModel && DictationLanguage.german.needsMultilingualModel
+              && DictationLanguage.automatic.needsMultilingualModel, "language: only English keeps small.en")
+        check(DictationLanguage.german.openAICode == "de" && DictationLanguage.english.openAICode == nil
+              && DictationLanguage.automatic.openAICode == nil, "language: OpenAI is told German, detects the rest")
+
+        // The request: the language is its own form field.
+        let body = Transcriber.multipartBody(wav: Data(), boundary: "b", prompt: "p", language: "de")
+        check(body.range(of: Data("name=\"language\"\r\n\r\nde\r\n".utf8)) != nil, "language: sent as its own form field")
+        check(Transcriber.multipartBody(wav: Data(), boundary: "b", prompt: "p").range(of: Data("name=\"language\"".utf8)) == nil,
+              "language: no field when none is given")
+
+        // The prompt, in German for German.
+        check(Transcriber.prompt(forFullName: "Samir Kharel", language: .german) == "Ich bin Samir und nutze talkflow, eine Diktier-App.",
+              "language: the German prompt names the user")
+        check(Transcriber.prompt(forFullName: "", language: .german) == "Ich nutze talkflow, eine Diktier-App.",
+              "language: the German prompt without a name")
+        check(Transcriber.promptSentence(for: .english) == Transcriber.vocabularyPrompt, "language: English keeps its prompt")
+        let german = ScreenContext.prompt(names: ["Markus"], learned: [], language: .german)
+        check(german == Transcriber.germanVocabularyPrompt + " Namen und Wörter hier: Markus.", "language: names in the German prompt", german)
+
+        // Rules: "um" is German, "ähm" is not a word; English keeps its list.
+        let raw = "Wir treffen uns ähm um drei Uhr im Büro."
+        let rendered = Dictation.render(raw, leadingSpace: "", structure: true, english: false)
+        check(rendered == "Wir treffen uns um drei Uhr im Büro.", "language: German keeps um, drops ähm", rendered.debugDescription)
+        check(Dictation.render("I think um we should go.", leadingSpace: "", structure: true) == "I think we should go.",
+              "language: English still drops um")
+        let doubled = "Das ist die Frau, die die Tür aufgemacht hat."
+        check(Dictation.render(doubled, leadingSpace: "", structure: true, english: false) == doubled,
+              "language: no English self-corrections on German (die die)")
+        check(DictationLanguage.english.usesEnglishRules(for: raw) && !DictationLanguage.german.usesEnglishRules(for: "I think so."),
+              "language: a fixed language decides the rules")
+        check(!DictationLanguage.automatic.usesEnglishRules(for: "Kannst du mir bitte bis Freitag die Unterlagen schicken?")
+              && DictationLanguage.automatic.usesEnglishRules(for: "Can you send me the files by Friday?"),
+              "language: Automatic decides from the text")
+
+        // AI punctuation may not lowercase German nouns.
+        let merged = Polish.merge(original: "Die Unterlagen sind fertig", suggestion: "die unterlagen sind fertig.", keepCapitals: true)
+        check(merged == "Die Unterlagen sind fertig.", "language: punctuation keeps German capitals", merged.debugDescription)
+
+        // The live engine's model.
+        check(SpeechEngine.multilingualModelDownloadURL.lastPathComponent == SpeechEngine.multilingualModelFileName,
+              "language: the multilingual download is the file it is saved as")
+        check(SpeechEngine.multilingualModelPath.deletingLastPathComponent() == SpeechEngine.modelPath.deletingLastPathComponent(),
+              "language: the multilingual model sits next to small.en")
+        let bundled = "/Applications/talkflow.app/Contents/Helpers/whisper-server"
+        let english = SpeechEngine.modelPath.path, multi = SpeechEngine.multilingualModelPath.path, legacy = SpeechEngine.legacyModelPath.path
+        let ours = [legacy, english, multi]
+        check(SpeechEngine.relanguaged(SpeechEngine.agentArguments(binary: bundled, model: english), ours: ours, wanted: multi)
+              == SpeechEngine.agentArguments(binary: bundled, model: multi), "language: the engine moves to the multilingual model")
+        check(SpeechEngine.relanguaged(SpeechEngine.agentArguments(binary: bundled, model: multi), ours: ours, wanted: english)
+              == SpeechEngine.agentArguments(binary: bundled, model: english), "language: and back to small.en")
+        check(SpeechEngine.relanguaged(SpeechEngine.agentArguments(binary: bundled, model: multi), ours: ours, wanted: multi) == nil,
+              "language: an engine already on the right model is left alone")
+        check(SpeechEngine.relanguaged([bundled, "-m", "/custom/model.bin"], ours: ours, wanted: multi) == nil,
+              "language: a model someone chose is left alone")
     }
 
     /// Which whisper-server runs, and what happens to a LaunchAgent set up

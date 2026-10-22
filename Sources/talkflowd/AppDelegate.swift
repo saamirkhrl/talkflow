@@ -61,7 +61,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hotkey.start()
         }
 
-        DispatchQueue.global(qos: .utility).async { SpeechEngine.prepareOnLaunch() }
+        DispatchQueue.global(qos: .utility).async {
+            SpeechEngine.prepareOnLaunch()
+            DispatchQueue.main.async { LiveModel.prepare() }
+        }
         FinalPassEngine.prepare()
         startUpdateChecks()
         stopOnSIGTERM()

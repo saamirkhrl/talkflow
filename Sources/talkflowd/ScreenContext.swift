@@ -78,14 +78,16 @@ enum ScreenContext {
     /// what is on screen and what the user has taught it. Kept a normal,
     /// punctuated sentence - whisper imitates the prompt's style (see
     /// `Transcriber.vocabularyPrompt`). Pure, for `--streamtest`.
-    static func prompt(names: [String], learned: [String]) -> String {
+    static func prompt(names: [String], learned: [String], language: DictationLanguage = .english) -> String {
         var words: [String] = []
         for word in names + learned where !words.contains(where: { $0.caseInsensitiveCompare(word) == .orderedSame }) {
             words.append(word)
         }
         let kept = Array(words.prefix(25))
-        guard !kept.isEmpty else { return Transcriber.vocabularyPrompt }
-        return Transcriber.vocabularyPrompt + " Names and words here: " + kept.joined(separator: ", ") + "."
+        let sentence = Transcriber.promptSentence(for: language)
+        guard !kept.isEmpty else { return sentence }
+        let lead = language.promptLanguage == .german ? " Namen und Wörter hier: " : " Names and words here: "
+        return sentence + lead + kept.joined(separator: ", ") + "."
     }
 
     /// Whether the dictation lands mid-sentence: something is before the caret

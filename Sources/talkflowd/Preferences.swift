@@ -65,6 +65,14 @@ enum Preferences {
         }
     }
 
+    /// The language dictated in. English by default, which is how talkflow
+    /// behaved before there was a choice. Changing it may download the
+    /// multilingual live model (`LiveModel`).
+    static var language: DictationLanguage {
+        get { DictationLanguage(rawValue: defaults.string(forKey: "dictationLanguage") ?? "") ?? .english }
+        set { defaults.set(newValue.rawValue, forKey: "dictationLanguage") }
+    }
+
     /// Transcribe the final text with OpenAI, using the user's own key. The
     /// live caption stays on the local model either way.
     static var useOpenAITranscription: Bool {
@@ -104,6 +112,9 @@ extension Notification.Name {
     /// Posted when talkflow turns the accurate final pass off by itself (see
     /// `FinalPassSpeed`), so the Settings toggle follows.
     static let accurateFinalPassChanged = Notification.Name("talkflowAccurateFinalPassChanged")
+    /// Posted while the multilingual live model downloads and when it is
+    /// done, so the Settings page can show it (see `LiveModel`).
+    static let liveModelChanged = Notification.Name("talkflowLiveModelChanged")
     /// Posted when the shortcut changes, so the key listener follows it.
     static let hotkeyChanged = Notification.Name("talkflowHotkeyChanged")
 }

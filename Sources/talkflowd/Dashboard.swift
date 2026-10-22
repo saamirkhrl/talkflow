@@ -533,6 +533,18 @@ final class SettingsModel: ObservableObject {
     @Published var writingStyle = Preferences.writingStyle {
         didSet { if Preferences.writingStyle != writingStyle { Preferences.writingStyle = writingStyle } }
     }
+    /// Takes effect from the next hold; the live model follows once it is
+    /// downloaded (`LiveModel`).
+    @Published var language = Preferences.language {
+        didSet {
+            guard Preferences.language != language else { return }
+            Preferences.language = language
+            LiveModel.prepare()
+        }
+    }
+    /// The multilingual model's download, as `LiveModel` reports it.
+    @Published var liveModelProgress = LiveModel.progress
+    @Published var liveModelFailure = LiveModel.failure
     @Published var useOpenAI = Preferences.useOpenAITranscription {
         didSet { Preferences.useOpenAITranscription = useOpenAI }
     }
@@ -564,6 +576,7 @@ final class SettingsModel: ObservableObject {
 
     private var styleObserver: NSObjectProtocol?
     private var finalPassObserver: NSObjectProtocol?
+    private var liveModelObserver: NSObjectProtocol?
 
     init() {
         // Turned off by talkflow itself when the large model proves too slow.
@@ -575,6 +588,10 @@ final class SettingsModel: ObservableObject {
         styleObserver = NotificationCenter.default.addObserver(forName: .writingStyleChanged, object: nil, queue: .main) { [weak self] _ in
             guard let self, self.writingStyle != Preferences.writingStyle else { return }
             self.writingStyle = Preferences.writingStyle
+        }
+        liveModelObserver = NotificationCenter.default.addObserver(forName: .liveModelChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.liveModelProgress = LiveModel.progress
+            self?.liveModelFailure = LiveModel.failure
         }
     }
 
@@ -609,13 +626,14 @@ final class SettingsModel: ObservableObject {
     /// the settings and what is installed. The large model is loaded only
     /// while dictating, so it counts once it is downloaded.
     var modelsInUse: [(role: String, model: String)] {
-        let local = FinalPassEngine.modelIsComplete && accurateFinalPass ? "Whisper large-v3-turbo, on this Mac" : "Whisper small.en, on this Mac"
+        let live = SpeechEngine.liveModelPath == SpeechEngine.multilingualModelPath ? "Whisper small (multilingual), on this Mac" : "Whisper small.en, on this Mac"
+        let local = FinalPassEngine.modelIsComplete && accurateFinalPass ? "Whisper large-v3-turbo, on this Mac" : live
         let final = useOpenAI && hasOpenAIKey ? "OpenAI \(CloudTranscriber.model), your key" : local
         let punctuation: String
         if useClaude && hasAnthropicKey { punctuation = "\(claudeModel.title), your key" }
         else if aiPolish && polishAvailable { punctuation = "Apple on-device model" }
         else { punctuation = "Built-in rules only" }
-        return [("Live caption", "Whisper small.en, on this Mac"), ("Final text", final), ("Punctuation", punctuation)]
+        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation)]
     }
 
     /// Checks the key with the provider, and keeps it only if it works.
@@ -682,6 +700,7 @@ private struct SettingsView: View {
     private var content: some View {
             VStack(alignment: .leading, spacing: 16) {
                 shortcutChoice
+                languageChoice
                 styleChoice
                 toggle("Type while speaking",
                        help: "Type words as you speak instead of when you let go.",
@@ -740,6 +759,35 @@ private struct SettingsView: View {
                           ? "Hold any keys (Fn, Control, Option, Shift or Command) to use them instead."
                           : "Finish setup first.")
             }
+        }
+    }
+
+    private var languageChoice: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                title("Language")
+                note(model.language.detail)
+                if let progress = model.liveModelProgress {
+                    note("Downloading the speech model for this language, \(Int(progress * 100))%.")
+                } else if model.language.needsMultilingualModel, !SpeechEngine.multilingualModelIsComplete {
+                    if let failure = model.liveModelFailure {
+                        note("Download failed: \(failure)")
+                        Button("Try again") { LiveModel.prepare() }
+                            .buttonStyle(.link)
+                            .font(.system(size: 12))
+                    } else {
+                        note("Downloads 190 MB once.")
+                    }
+                }
+            }
+            Spacer()
+            Picker("", selection: $model.language) {
+                ForEach(DictationLanguage.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help(model.language.detail)
         }
     }
 

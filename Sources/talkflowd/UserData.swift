@@ -28,6 +28,7 @@ enum UserData {
     static let settingKeys = [
         "typeWhileSpeaking", "accurateFinalPass", "finalPassTooSlow", "aiPolish", "learnedWords", "writingStyle",
         "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart", "macHotkey",
+        "dictationLanguage",
     ]
 
     private static var observer: NSObjectProtocol?

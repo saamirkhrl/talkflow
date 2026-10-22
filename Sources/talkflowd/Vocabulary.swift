@@ -56,10 +56,16 @@ enum Vocabulary {
     }
 
     /// Whether the macOS English dictionary (including words the user taught
-    /// it) accepts `word`. Main thread only, as NSSpellChecker is.
+    /// it) accepts `word`, or the German one when the user dictates German:
+    /// against English alone every German word looks like a misspelling, and
+    /// any word the user changed would be learned. Main thread only, as
+    /// NSSpellChecker is.
     static func isKnownWord(_ word: String) -> Bool {
-        NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false,
-                                            inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
+        let languages = Preferences.language.promptLanguage == .german ? ["en", "de"] : ["en"]
+        return languages.contains { language in
+            NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: language, wrap: false,
+                                                inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
+        }
     }
 
     /// Levenshtein distance.
