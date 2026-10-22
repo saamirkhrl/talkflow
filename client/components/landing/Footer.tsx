@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FEATURED_ON, GUIDES } from "./content";
+import { GUIDES } from "./content";
 
 export function Footer() {
   return (
@@ -15,20 +15,6 @@ export function Footer() {
                 <Link href={guide.path} className="hover:text-ink">
                   {guide.label}
                 </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <nav aria-labelledby="footer-featured" className="mb-10 border-b border-line pb-10">
-          <h2 id="footer-featured" className="text-[13px] tracking-[0.01em] text-graphite">
-            Featured on
-          </h2>
-          <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] text-graphite">
-            {FEATURED_ON.map((site) => (
-              <li key={site.url}>
-                <a href={site.url} target="_blank" rel="noopener" className="hover:text-ink">
-                  {site.name}
-                </a>
               </li>
             ))}
           </ul>

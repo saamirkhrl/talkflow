@@ -31,9 +31,15 @@ export const metadata: Metadata = {
 };
 
 
-// The real star count, refreshed hourly. While the repo is private (or GitHub
-// is unreachable) there is no count, and the nav shows a plain GitHub link.
+// The real star count, refreshed hourly. GitHub's API allows 60 unauthenticated
+// requests an hour per IP, and Vercel's build and render IPs are shared, so it
+// is often refused there; shields.io (which the README badges use) is the
+// fallback. If both fail, the nav shows a plain GitHub link.
 async function getStars(): Promise<number | null> {
+  return (await starsFromGithub()) ?? (await starsFromShields());
+}
+
+async function starsFromGithub(): Promise<number | null> {
   try {
     const res = await fetch("https://api.github.com/repos/saamirkhrl/talkflow", {
       headers: { Accept: "application/vnd.github+json" },
@@ -42,6 +48,20 @@ async function getStars(): Promise<number | null> {
     if (!res.ok) return null;
     const repo: { stargazers_count?: unknown } = await res.json();
     return typeof repo.stargazers_count === "number" ? repo.stargazers_count : null;
+  } catch {
+    return null;
+  }
+}
+
+// shields.io abbreviates large counts ("1.2k"); only an exact number is used.
+async function starsFromShields(): Promise<number | null> {
+  try {
+    const res = await fetch("https://img.shields.io/github/stars/saamirkhrl/talkflow.json", {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const badge: { value?: unknown } = await res.json();
+    return typeof badge.value === "string" && /^\d+$/.test(badge.value) ? Number(badge.value) : null;
   } catch {
     return null;
   }
