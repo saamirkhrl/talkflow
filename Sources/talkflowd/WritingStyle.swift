@@ -28,17 +28,25 @@ enum WritingStyle: String, CaseIterable {
 
     /// Pure, for `--streamtest`. Only letter case and the closing full stop
     /// change; the words are always the same words.
-    func apply(_ text: String) -> String {
+    ///
+    /// `english` is off for a dictation in another language (see
+    /// `DictationLanguage.usesEnglishRules`). Casual then keeps every capital:
+    /// a German noun written lowercase is a spelling mistake, not a casual
+    /// tone. "all lowercase" still lowercases, as it says.
+    func apply(_ text: String, english: Bool = true) -> String {
         switch self {
         case .formal:
             return text
         case .lowercase:
             return text.lowercased()
         case .casual:
-            var out = text.lowercased()
-            // "I", "I'm", "I'll": a lowercase "i" alone reads as a typo.
-            out = out.replacingOccurrences(of: #"(?<![\p{L}\p{N}])i(?=$|[^\p{L}\p{N}]|'[a-z])"#,
-                                           with: "I", options: .regularExpression)
+            var out = text
+            if english {
+                out = out.lowercased()
+                // "I", "I'm", "I'll": a lowercase "i" alone reads as a typo.
+                out = out.replacingOccurrences(of: #"(?<![\p{L}\p{N}])i(?=$|[^\p{L}\p{N}]|'[a-z])"#,
+                                               with: "I", options: .regularExpression)
+            }
             // The closing full stop, unless it ends an ellipsis.
             let trimmed = out.reversed().prefix(while: \.isWhitespace).count
             let body = out.dropLast(trimmed)

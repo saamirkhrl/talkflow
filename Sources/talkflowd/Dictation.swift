@@ -193,11 +193,11 @@ final class Dictation {
                 if !self.liveTyping, Self.claudePolishes {
                     ClaudePolish.run(final, names: names, keepCapitals: !english) { polished, error in
                         if let error { self.overlay.showError(error) }
-                        self.deliver(style.apply(polished), verbatim: verbatim, duration: duration)
+                        self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
                     }
                 } else if !self.liveTyping, Preferences.aiPolish {
                     Polish.run(final, names: names, keepCapitals: !english) { polished in
-                        self.deliver(style.apply(polished), verbatim: verbatim, duration: duration)
+                        self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
                     }
                 } else {
                     self.deliver(final, verbatim: verbatim, duration: duration)
@@ -406,7 +406,7 @@ final class Dictation {
         // string. Run earlier and the body after "Dear Sarah,\n\n" keeps whatever
         // case whisper gave it - which is how "can you please" and "best Samir"
         // ended up lowercase at the start of their paragraphs.
-        let cased = style.apply(TextCommands.capitalizeAfterSentenceEnds(structured))
+        let cased = style.apply(TextCommands.capitalizeAfterSentenceEnds(structured), english: english)
         return cased.isEmpty ? "" : leadingSpace + cased
     }
 
