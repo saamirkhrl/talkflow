@@ -844,14 +844,16 @@ private struct SettingsView: View {
             .foregroundColor(.ink)
             if model.showAdvanced {
                 modelsInUse
+                job("Transcription", detail: "Turns your voice into words.")
                 keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
                 toggle("Use my OpenAI key for transcription",
-                       help: "\(CloudTranscriber.model) writes the final text. Billed to your account.",
+                       help: "\(CloudTranscriber.model) writes the final text instead of Whisper on this Mac. Billed to your account.",
                        isOn: $model.useOpenAI)
                     .disabled(!model.hasOpenAIKey)
+                job("Punctuation", detail: "Adds commas, periods and capitals. Never changes your words.")
                 keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
                 toggle("Use my Anthropic key for punctuation",
-                       help: "Claude fixes punctuation. Never changes your words. Billed to your account.",
+                       help: "Claude does this in place of AI punctuation. Billed to your account.",
                        isOn: $model.useClaude)
                     .disabled(!model.hasAnthropicKey)
                 if model.useClaude && model.hasAnthropicKey {
@@ -868,6 +870,17 @@ private struct SettingsView: View {
                 }
             }
         }
+    }
+
+    /// Heads the key and switch for one job, so it is clear each key does a
+    /// different one: OpenAI's turns speech into words, Anthropic's only
+    /// punctuates them.
+    private func job(_ name: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(name).font(.system(size: 12, weight: .semibold)).foregroundColor(.ink)
+            note(detail)
+        }
+        .padding(.top, 6)
     }
 
     private var modelsInUse: some View {
