@@ -21,3 +21,5 @@
 *.log
 *.mp4
 *.mov
+# The site's public launch reel is the one recording that ships
+!client/public/video/launch.mp4

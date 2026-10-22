@@ -5,6 +5,7 @@ import { Faq } from "@/components/landing/Faq";
 import { FinalCta } from "@/components/landing/FinalCta";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LaunchVideo } from "@/components/landing/LaunchVideo";
 import { Privacy } from "@/components/landing/Privacy";
 import { Prompting } from "@/components/landing/Prompting";
 import { Stats } from "@/components/landing/Stats";
@@ -47,6 +48,7 @@ export default function Home() {
       <JsonLd data={APP_JSON_LD} />
       <JsonLd data={FAQ_JSON_LD} />
       <Hero />
+      <LaunchVideo />
       <Apps />
       <HowItWorks />
       <Prompting />
