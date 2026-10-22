@@ -105,60 +105,6 @@ export const GUIDES: { path: string; label: string }[] = [
   { path: "/alternatives/wispr-flow", label: "talkflow vs Wispr Flow*" },
 ];
 
-// Directories and launch sites that list talkflow, linked from the footer.
-// Many of them only list a free product that links back to them, so these
-// stay plain links (no rel="nofollow"). Product Hunt has its own badge in the
-// hero and is not repeated here.
-export const FEATURED_ON: { name: string; url: string }[] = [
-  { name: "AlternativeTo", url: "https://alternativeto.net" },
-  { name: "SaaSHub", url: "https://www.saashub.com" },
-  { name: "Indie Hackers", url: "https://www.indiehackers.com" },
-  { name: "Peerlist", url: "https://peerlist.io" },
-  { name: "Fazier", url: "https://fazier.com" },
-  { name: "Twelve Tools", url: "https://twelve.tools" },
-  { name: "Findly Tools", url: "https://findly.tools" },
-  { name: "Uneed", url: "https://www.uneed.best" },
-  { name: "TinyLaunch", url: "https://www.tinylaunch.com" },
-  { name: "PeerPush", url: "https://peerpush.com" },
-  { name: "SideProjectors", url: "https://www.sideprojectors.com" },
-  { name: "Product Watch", url: "https://productwatch.io" },
-  { name: "Neeed", url: "https://neeed.directory" },
-  { name: "FoundrList", url: "https://www.foundrlist.com" },
-  { name: "Tech Directory", url: "https://www.techdirectory.io" },
-  { name: "Startup Ranking", url: "https://www.startupranking.com" },
-  { name: "Startup Fast", url: "https://www.startupfa.st" },
-  { name: "PitchWall", url: "https://pitchwall.co" },
-  { name: "SaaS Browser", url: "https://saasbrowser.com" },
-  { name: "What Launched Today", url: "https://whatlaunched.today" },
-  { name: "Hot100.ai", url: "https://www.hot100.ai" },
-  { name: "DailyPings", url: "https://dailypings.com" },
-  { name: "Launch Vault", url: "https://www.launchvault.dev" },
-  { name: "ramen.tools", url: "https://ramen.tools" },
-  { name: "IndieHunt", url: "https://indiehunt.io" },
-  { name: "LaunchitX", url: "https://launchitx.com" },
-  { name: "BestofAI", url: "https://bestofai.com" },
-  { name: "Promote Project", url: "https://www.promoteproject.com" },
-  { name: "ufind.best", url: "https://ufind.best" },
-  { name: "Scout Forge", url: "https://scoutforge.net" },
-  { name: "EarlyHunt", url: "https://earlyhunt.com" },
-  { name: "Startup Tracker", url: "https://startuptracker.io" },
-  { name: "CoderLegion", url: "https://coderlegion.com" },
-  { name: "BuiltByMe", url: "https://builtbyme.io" },
-  { name: "VibeRank", url: "https://viberank.dev" },
-  { name: "StartupFound", url: "https://startupfound.com" },
-  { name: "CurateClick", url: "https://curateclick.com" },
-  { name: "ShipYardHQ", url: "https://shipyardhq.com" },
-  { name: "Find Your SaaS", url: "https://findyoursaas.com" },
-  { name: "MicroSaaS Directory", url: "https://microsaasdirectory.com" },
-  { name: "IndieHacker Stacks", url: "https://indiehackerstacks.com" },
-  { name: "Launch", url: "https://trylaunch.ai" },
-  { name: "ProofStories", url: "https://proofstories.io" },
-  { name: "TechTrending", url: "https://techtrending.com" },
-  { name: "DevHub", url: "https://devhub.best" },
-  { name: "NAVS", url: "https://navs.site" },
-  { name: "VentureRadar", url: "https://www.ventureradar.com" },
-];
-
 export const FAQ: [question: string, answer: string][] = [
   [
     "How is it different from Wispr Flow?",
