@@ -104,6 +104,7 @@ open "$APP"
 cat <<MSG
 
 talkflow is installed at $APP and setup is open.
-Follow the window: it asks for three permissions and sets up the speech engine.
+Follow the window: allow the microphone and Accessibility; the speech engine
+gets ready by itself.
 Afterwards, look for the bars icon in your menu bar. Hold Fn and speak.
 MSG

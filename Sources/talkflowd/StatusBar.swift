@@ -2,7 +2,8 @@ import AppKit
 
 /// Minimal menu bar indicator: a bars glyph (matching the app icon) tinted by
 /// state, plus a menu with Dashboard, the writing style, and Quit (and
-/// "Update to X.Y.Z..." while a newer version is available).
+/// "Update to X.Y.Z..." while a newer version is available, "Finish setup..."
+/// while something setup gives talkflow is missing).
 final class StatusBar: NSObject, NSMenuDelegate {
     enum State {
         case idle
@@ -22,11 +23,16 @@ final class StatusBar: NSObject, NSMenuDelegate {
     private var state: State = .idle
     var onDashboardClicked: (() -> Void)?
     var onSetupClicked: (() -> Void)?
+    /// Whether setup has anything left to do. Asked each time the menu
+    /// opens, so a finished setup never shows in it, and one an update
+    /// undid (a permission macOS no longer applies) does.
+    var setupNeeded: () -> Bool = { false }
     /// Opens the dashboard, where the Update button is.
     var onUpdateClicked: (() -> Void)?
     private var styleItems: [NSMenuItem] = []
     private let updateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let updateSeparator = NSMenuItem.separator()
+    private let setupItem = NSMenuItem(title: "Finish setup...", action: nil, keyEquivalent: "")
 
     override init() {
         Self.keepEarlierPlace()
@@ -42,8 +48,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
         menu.addItem(updateSeparator)
         menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
-        menu.addItem(withTitle: "Setup...", action: #selector(setupClicked), keyEquivalent: "")
-            .target = self
+        setupItem.action = #selector(setupClicked)
+        setupItem.target = self
+        setupItem.isHidden = true
+        menu.addItem(setupItem)
         menu.addItem(.separator())
         // The same setting as on the Settings page, one click away.
         let header = NSMenuItem(title: "Writing style", action: nil, keyEquivalent: "")
@@ -223,8 +231,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
     }
 
     /// Ticks the current style each time the menu opens, so a change made on
-    /// the Settings page shows here too.
+    /// the Settings page shows here too, and shows "Finish setup..." only
+    /// while it is needed.
     func menuNeedsUpdate(_ menu: NSMenu) {
+        setupItem.isHidden = !setupNeeded()
         let current = Preferences.writingStyle.rawValue
         for item in styleItems { item.state = item.representedObject as? String == current ? .on : .off }
     }
