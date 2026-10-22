@@ -892,6 +892,12 @@ enum StreamSelfTest {
         check(WritingStyle.casual.apply("Is it in the inbox? Yes. ") == "is it in the inbox? yes ",
               "casual keeps trailing whitespace", WritingStyle.casual.apply("Is it in the inbox? Yes. ").debugDescription)
         check(WritingStyle.casual.apply("ice is nice") == "ice is nice", "casual does not touch i inside words")
+        let german = "Hallo Markus, kannst du mir bis Freitag die Unterlagen schicken? Wir treffen uns im Büro."
+        check(WritingStyle.casual.apply(german, english: false) == String(german.dropLast()),
+              "casual keeps German capitals, drops the closing full stop", WritingStyle.casual.apply(german, english: false).debugDescription)
+        check(WritingStyle.lowercase.apply(german, english: false) == german.lowercased(), "all lowercase still lowercases German")
+        let germanRendered = Dictation.render("Wir treffen uns im Büro.", leadingSpace: "", structure: true, style: .casual, english: false)
+        check(germanRendered == "Wir treffen uns im Büro", "render keeps German capitals in casual", germanRendered.debugDescription)
         let rendered = Dictation.render("can you check the deck period thanks", leadingSpace: " ", structure: true, style: .lowercase)
         check(rendered == " can you check the deck. thanks", "render applies the style after casing", rendered.debugDescription)
         for style in WritingStyle.allCases {
