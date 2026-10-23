@@ -921,6 +921,12 @@ enum StreamSelfTest {
               && DictationLanguage.automatic.needsMultilingualModel, "language: only English keeps small.en")
         check(DictationLanguage.german.openAICode == "de" && DictationLanguage.english.openAICode == nil
               && DictationLanguage.automatic.openAICode == nil, "language: OpenAI is told German, detects the rest")
+        check(DictationLanguage.speaking([.english]) == .english && DictationLanguage.speaking([.german]) == .german,
+              "language: one ticked language is that language")
+        check(DictationLanguage.speaking([.english, .german]) == .automatic, "language: both ticked detects which one")
+        check(DictationLanguage.speaking([]) == .english, "language: none ticked falls back to English")
+        check(DictationLanguage.automatic.spoken == [.english, .german] && DictationLanguage.english.spoken == [.english],
+              "language: Automatic shows every language ticked, English only English")
 
         // The request: the language is its own form field.
         let body = Transcriber.multipartBody(wav: Data(), boundary: "b", prompt: "p", language: "de")
@@ -1148,12 +1154,10 @@ enum StreamSelfTest {
         check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micAX, now: mic) == .accessibility,
               "flow: a lost grant does not move the step")
 
-        check(OnboardingFlow.initialStep(completed: false, saved: nil, grants: none, engineInstalled: false) == .microphone,
-              "flow: a first run opens on the first thing to allow, with no welcome page")
-        check(OnboardingFlow.initialStep(completed: false, saved: .welcome, grants: mic, engineInstalled: false) == .accessibility,
-              "flow: a first run saved on the old welcome page opens on what is missing")
-        check(OnboardingFlow.initialStep(completed: false, saved: nil, grants: all, engineInstalled: true) == .ready,
-              "flow: a first run with everything done opens on Try it")
+        check(OnboardingFlow.initialStep(completed: false, saved: nil, grants: none, engineInstalled: false) == .welcome,
+              "flow: a first run opens on the welcome page, where the languages are")
+        check(OnboardingFlow.initialStep(completed: false, saved: .welcome, grants: mic, engineInstalled: false) == .welcome,
+              "flow: a first run saved on the welcome page opens there again")
         check(OnboardingFlow.initialStep(completed: false, saved: .accessibility, grants: mic, engineInstalled: false) == .accessibility,
               "flow: an interrupted first run resumes on its step")
         check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: all, engineInstalled: false) == .engine,
@@ -1171,8 +1175,12 @@ enum StreamSelfTest {
         var raised = 0
         model.bringToFront = { raised += 1 }
         model.begin()
-        check(model.step == .microphone, "model: a first run opens on the microphone, no welcome page", "\(model.step)")
+        check(model.step == .welcome, "model: a first run opens on the welcome page", "\(model.step)")
         check(model.firstRun, "model: a first run says so")
+        check(model.previousStep == nil, "model: nothing before the welcome page")
+        model.goNext()
+        check(model.step == .microphone, "model: Get started goes to the microphone", "\(model.step)")
+        check(model.previousStep == .welcome, "model: Back from the microphone goes to the welcome page")
         fake.mic = .granted
         model.refresh(announce: true)
         check(model.step == .accessibility, "model: the microphone grant moves on by itself", "\(model.step)")
@@ -1329,9 +1337,9 @@ enum StreamSelfTest {
         check(micModel.status(.microphone) == .stale(.appChanged), "microphone: denied after an update is stale")
     }
 
-    /// The redesigned setup's progress bar and live "waiting" state.
+    /// The setup step dots and live "waiting" state.
     private static func runOnboardingProgressCases() {
-        report("case: the setup progress bar shows each step's live state")
+        report("case: the setup step dots show each step's live state")
         typealias F = OnboardingFlow
         check(F.mark(.accessibility, current: .microphone, status: .stale(.appChanged), engineDone: false) == .attention,
               "progress: a stale permission asks for attention even when not on screen")
@@ -1379,13 +1387,19 @@ enum StreamSelfTest {
         check(!F.startsEngineByItself(responding: false, programPresent: false), "engine: no program: waits for a click (installing needs consent)")
         check(F.nextNeeded(after: .accessibility, grants: all, engineReady: true) == .ready, "skip: a ready engine's step is skipped")
         check(F.nextNeeded(after: .accessibility, grants: all, engineReady: false) == .engine, "skip: an engine still getting ready is shown")
-        check(F.nextNeeded(after: .welcome, grants: mic) == .accessibility, "skip: from the start, a microphone already allowed is skipped")
-        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .ready, "skip: with everything done, the start goes straight to Try it")
+        check(F.nextNeeded(after: .welcome, grants: mic) == .accessibility, "skip: Get started skips a microphone already allowed")
+        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .ready, "skip: with everything done, Get started goes straight to Try it")
         check(F.stepAfterRefresh(current: .accessibility, before: mic, now: all, engineReady: true) == .ready,
               "skip: the last grant goes straight to Try it when the engine is ready")
         check(F.stepAfterEngine(current: .engine, ready: true, grants: all) == .ready, "engine: ready on its own step moves on by itself")
         check(F.stepAfterEngine(current: .accessibility, ready: true, grants: mic) == .accessibility, "engine: ready during a permission step leaves the step alone")
         check(F.stepAfterEngine(current: .engine, ready: false, grants: all) == .engine, "engine: a failure stays on its step")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: true) == nil, "back: nothing to go back to for a returning user")
+        check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: false) == .welcome, "back: a first run goes back to the welcome page")
+        check(F.previousShown(before: .ready, grants: all, engineReady: false, returning: true) == .engine, "back: from Try it to an engine still getting ready")
+        check(F.previousShown(before: .ready, grants: mic, engineReady: true, returning: true) == .accessibility, "back: skips done steps to the one still needed")
+        check(F.previousShown(before: .microphone, grants: none, engineReady: false, returning: false) == .welcome, "back: the first step goes to the welcome page")
+        check(F.previousShown(before: .welcome, grants: none, engineReady: false, returning: false) == nil, "back: none on the welcome page")
 
         check(OnboardingMotion.duration(reduceMotion: true) == 0, "motion: none with Reduce Motion on")
         check(OnboardingMotion.animation(reduceMotion: true) == nil, "motion: no animation with Reduce Motion on")
@@ -1457,7 +1471,7 @@ enum StreamSelfTest {
         let fake = FakeSystem()
         let model = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: EphemeralDefaults()))
         model.begin()
-        check(model.step == .microphone, "background: setup still opens on the microphone", "\(model.step)")
+        check(model.step == .welcome, "background: setup still opens on the welcome page", "\(model.step)")
         check(fake.engineSetups.count == 1, "background: the engine setup starts as setup opens", "\(fake.engineSetups.count)")
         check(model.engineBusy, "background: and is under way")
         model.begin()
@@ -1520,6 +1534,7 @@ enum StreamSelfTest {
         ready.begin()
         check(ready.engine == .ready && alive.engineSetups.isEmpty, "alive: a running engine is not set up again")
         check(ready.step == .ready, "alive: a Mac with everything done opens straight on Try it, no welcome page", "\(ready.step)")
+        check(ready.previousStep == nil, "alive: and has nothing to go back to")
         ready.stop()
 
         // No program (a build without one): waits for the button.
@@ -1540,6 +1555,7 @@ enum StreamSelfTest {
         returning.begin()
         check(returning.step == .microphone, "returning: opens on what is missing", "\(returning.step)")
         check(!returning.firstRun, "returning: not shown as a first run")
+        check(returning.previousStep == nil, "returning: no Back to the welcome page")
         returning.stop()
 
         // Try it: success only when dictated words arrive.

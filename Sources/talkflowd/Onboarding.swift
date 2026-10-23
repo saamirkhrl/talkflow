@@ -2,15 +2,17 @@ import AppKit
 import ServiceManagement
 import SwiftUI
 
-/// First-run setup: one page with a short checklist (two macOS permissions
-/// and the local speech engine), then a place to try it. Shown automatically
-/// whenever something talkflow needs is missing (so it also reappears if a
-/// permission is later revoked or an update leaves one behind), and from the
-/// menu bar only while that is so: a finished setup is never offered again.
+/// First-run setup, a page at a time: a welcome page with the languages,
+/// one page per macOS permission (each a card with its own Allow button),
+/// then a place to try it. Shown automatically whenever something talkflow
+/// needs is missing (so it also reappears if a permission is later revoked
+/// or an update leaves one behind), and from the menu bar only while that is
+/// so: a finished setup is never offered again.
 ///
 /// The speech engine gets ready in the background from the moment setup
-/// opens, so the model download usually finishes while the user is busy
-/// with the permissions and its item is ticked like a granted one.
+/// opens, with its progress in the footer, so the model download usually
+/// finishes while the user is busy with the permissions and its page is
+/// skipped like a granted one.
 final class OnboardingController: NSWindowController, NSWindowDelegate {
     let model: OnboardingModel
 
@@ -130,7 +132,7 @@ enum Onboarding {
             let list = service == .accessibility ? "Accessibility" : "Input Monitoring"
             byHand = "Or by hand: in System Settings > Privacy & Security > \(list), select talkflow, remove it with the - button, add it again with + and switch it on."
         }
-        return (why, "Reset and allow again removes talkflow's old entry so macOS asks again. " + byHand)
+        return (why, "Reset and allow removes talkflow's old entry so macOS asks again. " + byHand)
     }
 
     /// Exactly where the switch is and what to do with it, for the few
@@ -156,13 +158,11 @@ enum Onboarding {
 
 // MARK: - Model
 
-/// The item of the checklist being worked on, then Try it. `welcome` is no
-/// longer shown (the checklist page explains itself); it stays so a saved
-/// first-run progress keeps its meaning.
 enum OnboardingStep: Int, CaseIterable {
     case welcome, microphone, accessibility, inputMonitoring, engine, ready
 
     var next: OnboardingStep? { OnboardingStep(rawValue: rawValue + 1) }
+    var previous: OnboardingStep? { OnboardingStep(rawValue: rawValue - 1) }
 }
 
 /// The three permissions as plain values, so the step logic below can be
@@ -209,23 +209,40 @@ enum OnboardingFlow {
         return candidate
     }
 
-    /// Where setup opens when it was not already open: whatever is missing,
-    /// or the last page (with the practice field) when nothing is. There is
-    /// no welcome page to click through. A first run that was interrupted
-    /// (`saved`) resumes where it was, moved past a permission that has
-    /// since been granted and back to an earlier one that has since been
-    /// lost.
+    /// Where Back goes: the closest earlier step that still has something to
+    /// do, or the welcome page on a first run. Nil hides Back. Input
+    /// Monitoring is only ever a step after Accessibility is granted (that
+    /// grant usually covers it), so Back never lands on it before then.
+    static func previousShown(before step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, returning: Bool) -> OnboardingStep? {
+        var candidate = step.previous
+        while let shown = candidate {
+            if shown == .welcome { return returning ? nil : .welcome }
+            let skipped = isDone(shown, grants: grants, engineReady: engineReady)
+                || (shown == .inputMonitoring && !grants.accessibility)
+            if !skipped { return shown }
+            candidate = shown.previous
+        }
+        return nil
+    }
+
+    /// Where setup opens when it was not already open. A finished setup goes
+    /// to whatever is missing, or to the last page (with the practice field)
+    /// when nothing is, never through the whole flow again. A first run
+    /// starts on the welcome page (where the languages are chosen), or, when
+    /// it was interrupted (`saved`), where it was, moved past a permission
+    /// that has since been granted and back to an earlier one that has since
+    /// been lost.
     static func initialStep(completed: Bool, saved: OnboardingStep?, grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep {
         let missing = firstMissing(grants, engineInstalled: engineInstalled)
         if completed { return missing ?? .ready }
-        guard let saved, saved != .welcome else { return missing ?? .ready }
+        guard let saved, saved != .welcome else { return .welcome }
         var resumed = saved
         if grants.isGranted(saved) == true { resumed = nextNeeded(after: saved, grants: grants) }
         if let missing, missing.rawValue < resumed.rawValue { return missing }
         return resumed
     }
 
-    /// How a step shows in the progress bar.
+    /// How a step shows in the step dots.
     enum Mark: Equatable {
         case done, current, attention, pending
     }
@@ -597,8 +614,9 @@ final class OnboardingModel: ObservableObject {
     @Published var inputMonitoring: Bool
     @Published var engine: EngineState = .checking
     @Published var hotkeyRunning = false
-    /// The same setting as in Settings. Any language but English starts the
-    /// multilingual model's download right away (`LiveModel`).
+    /// The same setting as in Settings, ticked as a list on the welcome page
+    /// (`toggleSpoken`). Any language but English starts the multilingual
+    /// model's download right away (`LiveModel`).
     @Published var language = Preferences.language {
         didSet {
             guard Preferences.language != language else { return }
@@ -622,7 +640,7 @@ final class OnboardingModel: ObservableObject {
     /// The permission whose reset failed, to say so.
     @Published var resetFailed: Permissions.Service?
     /// The permission whose by-hand fix is open. Folded away otherwise:
-    /// Reset and allow again is the one click most people need.
+    /// Reset and allow is the one click most people need.
     @Published var manualFixShown: Permissions.Service?
 
     // The Try it page.
@@ -635,8 +653,9 @@ final class OnboardingModel: ObservableObject {
     /// Dictated words arrived. Stays true for the visit.
     @Published private(set) var tryItSucceeded = false
 
-    /// Setup has never been finished on this Mac. Read when setup opens, so
-    /// it does not change under the user as grants land.
+    /// Setup has never been finished on this Mac: the welcome page and the
+    /// step dots show. Read when setup opens, so it does not change under
+    /// the user as grants land.
     @Published private(set) var firstRun: Bool
 
     var bringToFront: () -> Void = {}
@@ -684,7 +703,7 @@ final class OnboardingModel: ObservableObject {
     var shortcut: HotkeySpec { environment.shortcut() }
 
     /// Someone who has been through setup before (or granted talkflow
-    /// anything): setup only shows them what is missing.
+    /// anything): no welcome page for them, only what is missing.
     var isReturning: Bool {
         environment.defaults.bool(forKey: Onboarding.completedKey) || !history.isEmpty
     }
@@ -695,7 +714,7 @@ final class OnboardingModel: ObservableObject {
         settingsVisits.contains(service) && !trusted(service)
     }
 
-    /// How a step shows in the progress bar.
+    /// How a step shows in the step dots.
     func mark(_ shown: OnboardingStep) -> OnboardingFlow.Mark {
         let service: Permissions.Service?
         switch shown {
@@ -861,6 +880,31 @@ final class OnboardingModel: ObservableObject {
         move(to: OnboardingFlow.nextNeeded(after: step, grants: grants, engineReady: engine == .ready))
     }
 
+    /// Where Back goes; nil when there is nowhere useful to go.
+    var previousStep: OnboardingStep? {
+        OnboardingFlow.previousShown(before: step, grants: grants, engineReady: engine == .ready, returning: isReturning)
+    }
+
+    func goBack() {
+        guard let previousStep else { return }
+        step = previousStep
+    }
+
+    // MARK: Languages
+
+    /// Ticks or unticks a language on the welcome page. The last ticked one
+    /// stays ticked: talkflow has to listen for something.
+    func toggleSpoken(_ spoken: DictationLanguage) {
+        var ticked = language.spoken
+        if ticked.contains(spoken) {
+            guard ticked.count > 1 else { return }
+            ticked.remove(spoken)
+        } else {
+            ticked.insert(spoken)
+        }
+        language = DictationLanguage.speaking(ticked)
+    }
+
     func finish() {
         environment.defaults.set(true, forKey: Onboarding.completedKey)
         environment.defaults.removeObject(forKey: Onboarding.progressKey)
@@ -883,7 +927,7 @@ final class OnboardingModel: ObservableObject {
 
     // MARK: Permissions
 
-    /// The step's main button. macOS shows its own prompt only the first
+    /// The card's Allow button. macOS shows its own prompt only the first
     /// time it is asked; after that the same click opens the System
     /// Settings pane, so pressing Allow always does something visible.
     func allow(_ service: Permissions.Service) {
@@ -1258,13 +1302,23 @@ private struct OnboardingView: View {
     var snapshot = false
 
     static let width: CGFloat = 540
-    static let height: CGFloat = 680
+    static let height: CGFloat = 560
     private let gutter: CGFloat = 36
 
     private var motion: Animation? { OnboardingMotion.animation(reduceMotion: model.reduceMotion) }
 
-    /// Two pages: the checklist, then Try it.
-    private var tryingIt: Bool { model.step == .ready }
+    /// The step dots: one per page of a first run. Input Monitoring counts
+    /// with Accessibility, and the engine page (only shown when the engine
+    /// is still not ready by then) with Try it.
+    private static let pages: [OnboardingStep] = [.welcome, .microphone, .accessibility, .ready]
+
+    private static func page(of step: OnboardingStep) -> OnboardingStep {
+        switch step {
+        case .inputMonitoring: return .accessibility
+        case .engine: return .ready
+        default: return step
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1272,18 +1326,16 @@ private struct OnboardingView: View {
                 .padding(.horizontal, gutter)
                 .padding(.top, 34)
             ZStack(alignment: .topLeading) {
-                Group {
-                    if tryingIt { ready } else { checklist }
-                }
-                .id(tryingIt)
-                .transition(.asymmetric(
-                    insertion: .opacity.combined(with: .offset(x: 10)),
-                    removal: .opacity))
+                content
+                    .id(model.step)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(x: 10)),
+                        removal: .opacity))
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(.horizontal, gutter)
-            .padding(.top, 26)
-            .animation(motion, value: tryingIt)
+            .padding(.top, 30)
+            .animation(motion, value: model.step)
             Spacer(minLength: 12)
             hairline
             footer
@@ -1309,12 +1361,32 @@ private struct OnboardingView: View {
             Text("talkflow")
                 .font(.system(size: 21, weight: .regular, design: .serif))
             Spacer()
+            // Only on a first run: a returning user sees a page or two of
+            // what is missing, not the whole flow.
+            if model.firstRun { dots.animation(motion, value: model.step) }
+        }
+    }
+
+    private var dots: some View {
+        HStack(spacing: 6) {
+            ForEach(Self.pages, id: \.self) { page in
+                let current = Self.page(of: model.step) == page
+                let mark = model.mark(page)
+                Capsule()
+                    .fill(current ? Color.ink
+                          : mark == .attention ? Color.warn
+                          : mark == .done ? Color.ink.opacity(0.45) : Color.ink.opacity(0.15))
+                    .frame(width: current ? 18 : 6, height: 6)
+            }
         }
     }
 
     private var footer: some View {
         HStack(spacing: 16) {
-            if tryingIt {
+            switch model.step {
+            case .welcome:
+                EmptyView()
+            case .ready:
                 if model.loginItemAvailable {
                     Button {
                         model.launchAtLogin.toggle()
@@ -1333,37 +1405,62 @@ private struct OnboardingView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.graphite)
                 }
-            } else {
-                Text("Runs on your Mac. No account.")
-                    .font(.system(size: 12))
-                    .foregroundColor(.graphite)
+            default:
+                if model.previousStep != nil {
+                    Button("Back") { model.goBack() }
+                        .buttonStyle(LinkButtonStyle(color: .graphite))
+                }
             }
             Spacer()
-            primaryButton
+            if model.step != .engine && model.step != .ready { engineProgress }
+            footerButton
         }
         .frame(height: 36)
     }
 
-    /// The one button on the page: whatever the checklist needs next.
+    /// The download, from any page, while it runs: the slow part of setup
+    /// happens while the user deals with the permissions.
     @ViewBuilder
-    private var primaryButton: some View {
+    private var engineProgress: some View {
+        switch model.engine {
+        case .working(_, let fraction):
+            HStack(spacing: 8) {
+                if let fraction {
+                    bar(fraction, height: 3).frame(width: 48)
+                    Text("Speech engine \(Int(fraction * 100))%").monospacedDigit()
+                } else {
+                    Spinner(size: 11)
+                    Text("Speech engine")
+                }
+            }
+            .font(.system(size: 11))
+            .foregroundColor(.graphite)
+            .fixedSize()
+        case .ready:
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.circle.fill").foregroundColor(.good)
+                Text("Speech engine ready")
+            }
+            .font(.system(size: 11))
+            .foregroundColor(.graphite)
+            .fixedSize()
+        case .checking, .needsSetup, .needsHomebrew, .failed:
+            EmptyView()
+        }
+    }
+
+    /// The footer button moves between pages. A permission's own Allow
+    /// button is on its card, where it is seen; Continue only shows once
+    /// there is nothing left to do on the page (after Back, say, as a grant
+    /// moves on by itself).
+    @ViewBuilder
+    private var footerButton: some View {
         switch model.step {
-        case .welcome, .microphone:
-            permissionButton(.microphone, allowTitle: "Allow microphone")
-        case .accessibility:
-            permissionButton(.accessibility, allowTitle: "Allow accessibility")
-        case .inputMonitoring:
-            permissionButton(.inputMonitoring, allowTitle: "Allow input monitoring")
-        case .engine:
-            switch model.engine {
-            case .needsSetup:
-                Button(model.engineOnlyStopped ? "Start speech engine" : "Set up speech engine") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
-            case .needsHomebrew, .failed:
-                Button("Try again") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
-            case .checking, .working, .ready:
-                Button(model.canContinue ? "Continue" : "Getting ready...") { model.goNext() }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(!model.canContinue)
+        case .welcome:
+            Button("Get started") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
+        case .microphone, .accessibility, .inputMonitoring, .engine:
+            if model.canContinue {
+                Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
             }
         case .ready:
             if model.needsRestart {
@@ -1371,24 +1468,6 @@ private struct OnboardingView: View {
             } else {
                 Button("Done") { model.finish() }.buttonStyle(PrimaryButtonStyle())
             }
-        }
-    }
-
-    @ViewBuilder
-    private func permissionButton(_ service: Permissions.Service, allowTitle: String) -> some View {
-        switch model.status(service) {
-        case .granted:
-            Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
-        case .stale:
-            Button(model.resetting == service ? "Resetting..." : "Reset and allow again") { model.resetAndAskAgain(service) }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(model.resetting != nil)
-        case .missing:
-            // After the first click macOS's prompt is used up, so the same
-            // button opens the pane; it says so.
-            let opensSettings = model.isWaiting(service) || (service == .microphone && model.microphone == .denied)
-            Button(opensSettings ? "Open System Settings" : allowTitle) { model.allow(service) }
-                .buttonStyle(PrimaryButtonStyle())
         }
     }
 
@@ -1434,21 +1513,24 @@ private struct OnboardingView: View {
 
     private func statusLine(_ tone: Tone, _ text: String) -> some View {
         HStack(spacing: 8) {
-            Group {
-                switch tone {
-                case .good:
-                    Image(systemName: "checkmark.circle.fill").foregroundColor(.good)
-                case .waiting:
-                    Spinner()
-                case .idle:
-                    Circle().stroke(Color.ink.opacity(0.35), lineWidth: 1.4).frame(width: 13, height: 13)
-                case .warn:
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.warn)
-                case .live:
-                    PulseDot(still: model.reduceMotion || snapshot, size: 9)
+            // Idle has no mark: an empty circle reads as a checkbox to click.
+            if tone != .idle {
+                Group {
+                    switch tone {
+                    case .good:
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.good)
+                    case .waiting:
+                        Spinner()
+                    case .warn:
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.warn)
+                    case .live:
+                        PulseDot(still: model.reduceMotion || snapshot, size: 9)
+                    case .idle:
+                        EmptyView()
+                    }
                 }
+                .frame(width: 16, height: 16)
             }
-            .frame(width: 16, height: 16)
             Text(text)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(tone == .warn ? .warn : (tone == .good ? .good : .ink))
@@ -1456,123 +1538,78 @@ private struct OnboardingView: View {
         .font(.system(size: 13))
     }
 
-    // MARK: Checklist
-
-    /// Everything setup does, on one page. The item being worked on opens
-    /// up in place; the rest are a line each. Input Monitoring is only an
-    /// item in the unlikely case the Accessibility grant did not cover the
-    /// shortcut (Permissions.inputMonitoring).
-    private var items: [OnboardingStep] {
-        var items: [OnboardingStep] = [.microphone, .accessibility]
-        if model.step == .inputMonitoring || (model.accessibility && !model.inputMonitoring) {
-            items.append(.inputMonitoring)
-        }
-        items.append(.engine)
-        return items
-    }
-
-    private var checklist: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if model.firstRun {
-                title("Hold \(shortcut), talk, let go.")
-                paragraph("Your words appear wherever you are typing. Allow two things and you are ready.")
-            } else {
-                title("Almost ready again.")
-                paragraph("talkflow needs one thing from you before you can dictate again.")
-            }
-            VStack(spacing: 0) {
-                ForEach(Array(items.enumerated()), id: \.element) { index, step in
-                    if index > 0 { hairline }
-                    row(step)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
-            .padding(.top, 6)
-            .animation(motion, value: model.step)
-            .animation(motion, value: model.engine)
-            // Not with the rare extra Input Monitoring item, which needs the room.
-            if model.firstRun && model.step != .inputMonitoring { languageChoice.padding(.top, 4) }
-        }
-    }
-
-    private func row(_ step: OnboardingStep) -> some View {
-        let mark = model.mark(step)
-        let current = step == model.step
-        let (name, detail): (String, String) = {
-            switch step {
-            case .microphone: return ("Microphone", "So talkflow can hear you")
-            case .accessibility: return ("Accessibility", "So talkflow can notice \(shortcut) and type for you")
-            case .inputMonitoring: return ("Input Monitoring", "So talkflow can tell when you hold \(shortcut)")
-            case .engine: return ("Speech engine", "One-time download, about 190 MB")
-            case .welcome, .ready: return ("", "")
-            }
-        }()
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                if step == .engine && model.engineBusy && mark != .done {
-                    Spinner(size: 15).frame(width: 18, height: 18)
-                } else {
-                    node(mark)
-                }
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(name).font(.system(size: 13, weight: .medium))
-                    Text(detail).font(.system(size: 12)).foregroundColor(.graphite)
-                }
-                Spacer(minLength: 8)
-                stateLabel(step, mark)
-            }
-            if current {
-                rowDetail(step).padding(.leading, 30)
-            } else if step == .engine, let fraction = model.engineFraction {
-                bar(fraction, height: 3).padding(.leading, 30)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(current ? Color.wash : Color.clear)
-    }
-
-    /// The circle before each item: a check when done, a dot for the item
-    /// being worked on, "!" for a stale permission.
-    private func node(_ mark: OnboardingFlow.Mark) -> some View {
-        ZStack {
-            switch mark {
-            case .done:
-                Circle().fill(Color.good)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 8, weight: .heavy))
-                    .foregroundColor(.paper)
-            case .current:
-                Circle().stroke(Color.ink, lineWidth: 1.5)
-                Circle().fill(Color.ink).frame(width: 6, height: 6)
-            case .attention:
-                Circle().fill(Color.warn)
-                Text("!")
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(.paper)
-            case .pending:
-                Circle().stroke(Color.ink.opacity(0.22), lineWidth: 1.2)
-            }
-        }
-        .frame(width: 18, height: 18)
-    }
+    // MARK: Pages
 
     @ViewBuilder
-    private func stateLabel(_ step: OnboardingStep, _ mark: OnboardingFlow.Mark) -> some View {
-        let label: (String, Color)? = {
-            if mark == .attention { return ("Needs a reset", .warn) }
-            if mark == .done { return (step == .engine ? "Ready" : "Allowed", .good) }
-            if step == .engine, let fraction = model.engineFraction { return ("\(Int(fraction * 100))%", .graphite) }
-            return nil
-        }()
-        if let label {
-            Text(label.0)
-                .font(.system(size: 12, weight: .medium))
-                .monospacedDigit()
-                .foregroundColor(label.1)
+    private var content: some View {
+        switch model.step {
+        case .welcome:
+            welcome
+        case .microphone:
+            page("Let talkflow hear you.",
+                 "Your voice is turned into text on this Mac and is never saved.") {
+                permissionCard(.microphone, icon: "mic.fill", name: "Microphone",
+                               detail: "So talkflow can hear you while you hold \(shortcut)",
+                               ask: "macOS asks once. Choose Allow.")
+            }
+        case .accessibility:
+            page("Let talkflow type for you.",
+                 "So talkflow can notice \(model.shortcut.phrase) and type your words into the app you are using.") {
+                permissionCard(.accessibility, icon: "accessibility", name: "Accessibility",
+                               detail: "Notices \(shortcut) and types for you",
+                               ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
+            }
+        case .inputMonitoring:
+            page("One more switch.",
+                 "So talkflow can tell when you hold \(model.shortcut.phrase). It watches for your shortcut and never records what you type.") {
+                permissionCard(.inputMonitoring, icon: "keyboard", name: "Input Monitoring",
+                               detail: "Hears when you hold \(shortcut)",
+                               ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
+            }
+        case .engine:
+            page("Getting the speech engine ready.",
+                 "It runs on this Mac, so your voice never leaves it. This page moves on by itself when it is ready.") {
+                engineCard
+            }
+        case .ready:
+            ready
         }
+    }
+
+    private func page<Content: View>(_ heading: String, _ text: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            title(heading)
+            paragraph(text)
+            content().padding(.top, 10)
+        }
+    }
+
+    /// One thing to do, as a card: what it is, and its own button.
+    private func card<Action: View, Detail: View>(
+        icon: String, name: String, detail: String, done: Bool,
+        @ViewBuilder action: () -> Action, @ViewBuilder more: () -> Detail
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(done ? .good : .ink)
+                    .frame(width: 38, height: 38)
+                    .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.good.opacity(0.14) : Color.ink.opacity(0.07)))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name).font(.system(size: 14, weight: .medium))
+                    Text(detail).font(.system(size: 12)).foregroundColor(.graphite)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                action()
+            }
+            more()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 12).fill(Color.wash))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(done ? Color.good.opacity(0.45) : Color.line, lineWidth: 1))
     }
 
     private func bar(_ fraction: Double, height: CGFloat) -> some View {
@@ -1585,20 +1622,130 @@ private struct OnboardingView: View {
         .frame(height: height)
     }
 
-    @ViewBuilder
-    private func rowDetail(_ step: OnboardingStep) -> some View {
-        switch step {
-        case .microphone:
-            permissionDetail(.microphone, ask: "macOS asks once. Choose Allow.")
-        case .accessibility:
-            permissionDetail(.accessibility, ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
-        case .inputMonitoring:
-            permissionDetail(.inputMonitoring, ask: "macOS opens System Settings. Switch on \(model.appName) there and come back. It never records what you type.")
-        case .engine:
-            engineDetail
-        case .welcome, .ready:
-            EmptyView()
+    /// Said, not a button: nothing more to do here.
+    private func doneLabel(_ text: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.circle.fill")
+            Text(text)
         }
+        .font(.system(size: 13, weight: .medium))
+        .foregroundColor(.good)
+    }
+
+    private func permissionCard(_ service: Permissions.Service, icon: String, name: String, detail: String, ask: String) -> some View {
+        let status = model.status(service)
+        return card(icon: icon, name: name, detail: detail, done: status == .granted) {
+            switch status {
+            case .granted:
+                doneLabel("Allowed")
+            case .stale:
+                Button(model.resetting == service ? "Resetting..." : "Reset and allow") { model.resetAndAskAgain(service) }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(model.resetting != nil)
+            case .missing:
+                // After the first click macOS's prompt is used up, so the
+                // same button opens the pane; it says so.
+                let opensSettings = model.isWaiting(service) || (service == .microphone && model.microphone == .denied)
+                Button(opensSettings ? "Open Settings" : "Allow") { model.allow(service) }
+                    .buttonStyle(PrimaryButtonStyle())
+            }
+        } more: {
+            if status != .granted { permissionDetail(service, ask: ask) }
+        }
+    }
+
+    private var engineCard: some View {
+        card(icon: "waveform", name: "Speech engine", detail: "One-time download, about 190 MB", done: model.engine == .ready) {
+            switch model.engine {
+            case .ready:
+                doneLabel("Ready")
+            case .needsSetup:
+                Button(model.engineOnlyStopped ? "Start" : "Set up") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
+            case .needsHomebrew, .failed:
+                Button("Try again") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
+            case .checking, .working:
+                Spinner(size: 15)
+            }
+        } more: {
+            if model.engine != .ready { engineDetail }
+        }
+    }
+
+    // MARK: Welcome
+
+    private var welcome: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            title("Hold \(shortcut), talk, let go.")
+            paragraph("Your words appear wherever you are typing. It all runs on your Mac, with no account. Pick your languages, allow two things, and you are ready.")
+            languages.padding(.top, 14)
+        }
+    }
+
+    private static let languageRow: CGFloat = 44
+
+    /// The languages, as a list to tick. It scrolls once there are more than
+    /// fit; drawn without a ScrollView for `--onboardingshot`, which cannot
+    /// draw one.
+    private var languages: some View {
+        let rows = VStack(spacing: 0) {
+            ForEach(Array(DictationLanguage.speakable.enumerated()), id: \.element) { index, language in
+                if index > 0 { hairline }
+                languageRow(language)
+            }
+        }
+        let height = Self.languageRow * min(CGFloat(DictationLanguage.speakable.count), 4.5)
+            + CGFloat(DictationLanguage.speakable.count - 1)
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Languages").font(.system(size: 13, weight: .medium))
+            Group {
+                if snapshot { rows } else { ScrollView { rows } }
+            }
+            .frame(height: height, alignment: .top)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.wash))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
+            small(languageNote)
+        }
+    }
+
+    private var languageNote: String {
+        var note = ""
+        if model.language == .automatic { note += "talkflow tells which one you are speaking each time. " }
+        if model.language.needsMultilingualModel && !SpeechEngine.multilingualModelIsComplete || snapshot && model.language.needsMultilingualModel {
+            note += "Deutsch adds a one-time 190 MB download. "
+        }
+        return note + DictationLanguage.moreComing
+    }
+
+    private func languageRow(_ language: DictationLanguage) -> some View {
+        let ticked = model.language.spoken.contains(language)
+        return Button {
+            model.toggleSpoken(language)
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(ticked ? Color.ink : Color.clear)
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(ticked ? Color.ink : Color.ink.opacity(0.35), lineWidth: 1.2)
+                    if ticked {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .heavy))
+                            .foregroundColor(.paper)
+                    }
+                }
+                .frame(width: 16, height: 16)
+                Text(language.title).font(.system(size: 13))
+                Spacer()
+                if language.needsMultilingualModel {
+                    Text("190 MB").font(.system(size: 11)).foregroundColor(.graphite)
+                }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: Self.languageRow)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func permissionDetail(_ service: Permissions.Service, ask: String) -> some View {
@@ -1652,7 +1799,7 @@ private struct OnboardingView: View {
     }
 
     /// The permission is on in System Settings for an older copy of
-    /// talkflow: say so and how to fix it. Reset is the footer button.
+    /// talkflow: say so and how to fix it. Reset is the card's button.
     @ViewBuilder
     private func staleFix(_ service: Permissions.Service, _ reason: StaleReason) -> some View {
         let help = Onboarding.staleHelp(service, reason)
@@ -1724,40 +1871,6 @@ private struct OnboardingView: View {
                 }
             }
         }
-    }
-
-    /// The language, as one row of choices. Drawn rather than a segmented
-    /// Picker so it matches the palette and renders in `--onboardingshot`.
-    private var languageChoice: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                Text("I speak").font(.system(size: 13, weight: .medium))
-                Spacer()
-                HStack(spacing: 2) {
-                    ForEach(DictationLanguage.allCases, id: \.self) { language in
-                        let chosen = language == model.language
-                        Button {
-                            model.language = language
-                        } label: {
-                            Text(language.title)
-                                .font(.system(size: 12, weight: chosen ? .medium : .regular))
-                                .foregroundColor(chosen ? .paper : .ink)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(chosen ? Color.ink : Color.clear))
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(2)
-                .overlay(Capsule().stroke(Color.line, lineWidth: 1))
-            }
-            if model.language.needsMultilingualModel {
-                small("\(model.language.detail) Adds a 190 MB download.")
-            }
-        }
-        .padding(.horizontal, 2)
     }
 
     // MARK: Try it
@@ -1933,8 +2046,8 @@ extension OnboardingController {
             return (name, model)
         }
         return [
-            make("first-run", snapshotModel(mic: .notDetermined, ax: false, im: false, engineInstalled: false)) {
-                $0.step = .microphone
+            make("welcome", snapshotModel(mic: .notDetermined, ax: false, im: false, engineInstalled: false)) {
+                $0.step = .welcome
                 downloading($0, 0.06)
             },
             make("after-update", snapshotModel(ax: false, im: false, olderGrants: true)) { $0.step = .accessibility },
