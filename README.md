@@ -118,11 +118,11 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete `~
 
 | Symptom | Fix |
 |---|---|
-| Holding fn does nothing | Open **Setup...** from the menu bar; each step should show a green check. If Accessibility was just granted, press **Restart talkflow**. |
+| Holding fn does nothing | Open **Finish setup...** from the menu bar (it shows while something is missing) and do what it asks. If Accessibility was just granted, press **Restart talkflow**. |
 | The emoji picker or dictation opens when you press fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
 | Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. Restart it with `launchctl kickstart -k gui/$(id -u)/com.samir.talkflow.whisperserver`. |
 | Setup says the speech engine is missing | The app is damaged or incomplete. Download talkflow again and replace the copy in Applications. |
-| A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Open **Setup...** and press **Reset and allow again** on that step, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
+| A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Open **Finish setup...** from the menu bar and press **Reset and allow again**, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
 
 Still stuck? [Open an issue](https://github.com/saamirkhrl/talkflow/issues/new) with your macOS version and what you tried.
 

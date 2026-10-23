@@ -41,6 +41,20 @@ enum DictationLanguage: String, CaseIterable {
     /// Shown under the language choice in Settings and setup.
     static let moreComing = "More languages are coming."
 
+    /// The languages setup lists to tick, in order.
+    static let speakable: [DictationLanguage] = [.english, .german]
+
+    /// The ticked languages this setting stands for: Automatic is all of them.
+    var spoken: Set<DictationLanguage> { self == .automatic ? Set(Self.speakable) : [self] }
+
+    /// The setting for a set of ticked languages: one is that language, more
+    /// than one is Automatic, none is English. Pure, for `--streamtest`.
+    static func speaking(_ languages: Set<DictationLanguage>) -> DictationLanguage {
+        let picked = languages.subtracting([.automatic])
+        if picked.count == 1, let only = picked.first { return only }
+        return picked.isEmpty ? .english : .automatic
+    }
+
     /// The `language` field whisper-server takes.
     var whisperCode: String { rawValue }
 

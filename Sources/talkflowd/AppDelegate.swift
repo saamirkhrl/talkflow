@@ -26,6 +26,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBar = StatusBar()
         statusBar.onDashboardClicked = { [weak self] in self?.dashboard.show() }
         statusBar.onSetupClicked = { [weak self] in self?.onboarding.show() }
+        // Setup is done once. The menu only offers it again when something
+        // is missing (most often a permission an update left behind) or the
+        // shortcut cannot be heard, or while setup is still open.
+        statusBar.setupNeeded = { [weak self] in
+            Onboarding.needsSetup() || !(self?.hotkey.isRunning ?? true)
+                || self?.onboardingController?.model.isActive == true
+        }
 
         dictation = Dictation(overlay: overlay, statusBar: statusBar)
 
