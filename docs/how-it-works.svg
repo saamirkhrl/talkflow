@@ -58,7 +58,7 @@
 <line x1="340" y1="556" x2="340" y2="586" class="arr" marker-end="url(#arrow)"/>
 <g class="gray"><rect x="190" y="590" width="300" height="56" rx="4"/><text class="th" x="340" y="613" text-anchor="middle">Your words appear</text><text class="ts" x="340" y="632" text-anchor="middle">Slack, Notes, Cursor, Terminal</text></g>
 
-<g class="purple"><rect x="60" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="80" y="682">AI model (Whisper)</text>
-<g class="teal"><rect x="240" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="260" y="682">Simple rules, no AI</text>
-<g class="gray"><rect x="420" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="440" y="682">You and your Mac</text>
+<g class="purple"><rect x="100" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="120" y="682">AI model (Whisper)</text>
+<g class="teal"><rect x="280" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="300" y="682">Simple rules, no AI</text>
+<g class="gray"><rect x="460" y="672" width="12" height="12" rx="2"/></g><text class="ts label" x="480" y="682">You and your Mac</text>
 </svg>

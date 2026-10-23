@@ -29,7 +29,9 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 
 <br>
 
-![How talkflow works: hold fn, Whisper transcribes on your Mac, simple rules tidy the text, the words are typed into your app](docs/how-it-works.svg)
+<p align="center">
+<img src="docs/how-it-works.svg" alt="How talkflow works: hold fn, Whisper transcribes on your Mac, simple rules tidy the text, the words are typed into your app">
+</p>
 
 ## Contents
 
