@@ -12,14 +12,20 @@ const ALIASES: Record<string, BuildId> = {
 type GithubRelease = { draft: boolean; prerelease: boolean; assets: { name: string; browser_download_url: string }[] };
 
 // The newest published release that has this file attached. A release's
-// Windows installer is attached by CI some minutes after the Mac files, and
-// in that gap GitHub's releases/latest/download/<name> is a 404 page. Asked
-// at most every 5 minutes; if GitHub cannot be asked, the latest-release URL.
+// Windows installer is attached by CI some minutes after the Mac files (or
+// not at all, when that build fails), and until then GitHub's
+// releases/latest/download/<name> is a 404 page. Asked fresh on every request:
+// it used to be cached for 5 minutes, and Next serves an expired cache entry
+// to the next request while it refreshes in the background, so the first
+// download after a quiet spell got whatever release was newest when the cache
+// last filled (0.1.10, the day 0.1.12 shipped). If GitHub cannot be asked
+// (it allows 60 unauthenticated calls an hour per address), the latest-release
+// URL.
 async function newestAsset(asset: string): Promise<string | null> {
   try {
     const response = await fetch(`https://api.github.com/repos/${REPO_URL.replace("https://github.com/", "")}/releases?per_page=10`, {
       headers: { Accept: "application/vnd.github+json" },
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
     if (!response.ok) return null;
     const releases = (await response.json()) as GithubRelease[];
@@ -42,5 +48,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bui
   if (!(build in BUILDS)) redirect("/download/mac");
   const id = build as BuildId;
   if (!BUILDS[id].available) redirect("/#download");
+  // The Mac files are attached when the release is created, so GitHub's
+  // latest-release URL is always the newest one, worked out by GitHub when the
+  // browser asks. No lookup, nothing that can go stale.
+  if (BUILDS[id].os === "mac") redirect(buildUrl(id));
   redirect((await newestAsset(BUILDS[id].asset)) ?? buildUrl(id));
 }
