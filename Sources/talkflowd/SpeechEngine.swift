@@ -592,14 +592,21 @@ enum LiveModel {
 /// 1.49s for 46s. Earlier large-v3-turbo was rejected for being 2-4x slower,
 /// but that was as the live engine, where it ran every tick.
 ///
-/// Loaded only while dictating. It costs about 745 MB while loaded, which is
-/// more than everything else in talkflow together, so it is started when the
-/// key goes down (`warmUp`) and stopped `idleTimeout` after the last hold
-/// (`scheduleIdleStop`). Measured on this M4 with the model in the file cache:
-/// it answers 0.4s after launch, so it is ready long before a normal hold
-/// ends. A hold that ends sooner waits for it up to `releaseWait`, then goes
-/// to small.en. After a reboot the first load reads the file from disk and
-/// can take a little longer.
+/// Loaded only while it is needed. Its footprint (what Activity Monitor calls
+/// Memory) is about 750 MB loaded and 800 MB after a few passes, twice the
+/// live engine's and more than everything else in talkflow together, so it is
+/// started when the key goes down (`warmUp`) and stopped `unloadDelay` after
+/// it has nothing left to do: the hold is over (`holdEnded`) and no final pass
+/// is waiting on it (`passStarted` / `passEnded`). Measured on this M4 with
+/// the model in the file cache: it answers 0.42s after launch, for 0.27s of
+/// CPU, so it is ready long before a normal hold ends. A hold that ends sooner
+/// waits for it up to `releaseWait`, then goes to small.en. After a reboot the
+/// first load reads the file from disk and can take a little longer.
+///
+/// It used to stay loaded for 15s after every hold. For someone who dictates
+/// every minute or so that kept talkflow at about 1.3 GB most of the time
+/// instead of about 480 MB, to save a reload that is hidden behind the next
+/// hold's speech anyway.
 ///
 /// Owned by this process rather than a LaunchAgent: it is optional, it is
 /// fetched in the background on first use, and when it is missing or does not
@@ -617,11 +624,11 @@ enum FinalPassEngine {
     /// The real file is 574,041,195 bytes.
     static let minimumModelBytes: Int64 = 570_000_000
 
-    /// How long the server stays loaded after the last hold. Short, because
-    /// every second loaded is about 745 MB on top of everything else; a reload
-    /// costs about 0.6s and happens while the next hold is still speaking.
-    /// Long enough that dictating sentence after sentence keeps it loaded.
-    static let idleTimeout: TimeInterval = 15
+    /// How long the server stays loaded once nothing needs it. Short, because
+    /// every second loaded is about 800 MB on top of everything else; a reload
+    /// costs 0.42s and happens while the next hold is still speaking. Long
+    /// enough that a hold started right after the text lands keeps it.
+    static let unloadDelay: TimeInterval = 2
     /// How long a release waits for a server that is still loading.
     static let releaseWait: TimeInterval = 1.5
 
@@ -635,7 +642,13 @@ enum FinalPassEngine {
     private static var isLaunching = false
     private static var process: Process?
     private static var downloader: FileDownloader?
-    private static var idleStop: DispatchWorkItem?
+    private static var pendingUnload: DispatchWorkItem?
+    /// From `warmUp` to `holdEnded`: a hold is in progress and will want the
+    /// server at release.
+    private(set) static var holding = false
+    /// Final passes sent to the server that have not answered yet. Unloading
+    /// under one would fail it and count it as slow (`FinalPassSpeed`).
+    private(set) static var passesInFlight = 0
     /// Bumped by `stop`, so a launch that finishes after it does not come back.
     private static var generation = 0
     private static var waiters: [(id: UUID, done: (Bool) -> Void)] = []
@@ -663,31 +676,62 @@ enum FinalPassEngine {
     }
 
     /// The key went down: start loading, so the server is ready by release.
-    /// Does nothing when the setting is off, the model is not downloaded, or
-    /// it is already loaded or loading.
+    /// Loads nothing when the setting is off, the model is not downloaded, or
+    /// it is already loaded or loading. Every call must be followed by
+    /// `holdEnded`, or the server is never unloaded.
     static func warmUp() {
-        idleStop?.cancel()
-        idleStop = nil
+        holding = true
+        cancelUnload()
         guard Preferences.accurateFinalPass, modelIsComplete, !isReady, !isLaunching else { return }
         isLaunching = true
         let launchGeneration = generation
         DispatchQueue.global(qos: .userInitiated).async { launch(generation: launchGeneration) }
     }
 
-    /// The hold is over: unload once no other hold has started for
-    /// `idleTimeout`.
-    static func scheduleIdleStop() {
-        idleStop?.cancel()
-        guard isReady || isLaunching || process != nil else { return }
+    /// The hold is over, however it ended. A final pass that goes to this
+    /// server calls `passStarted` before `unloadDelay` is up: at once when the
+    /// server is ready, or from `whenReady` the moment a load finishes, while
+    /// a pending unload only waits for a load in progress.
+    static func holdEnded() {
+        holding = false
+        scheduleUnload()
+    }
+
+    /// A final pass was sent to the server: keep it loaded until `passEnded`.
+    static func passStarted() {
+        passesInFlight += 1
+        cancelUnload()
+    }
+
+    /// The final pass answered, failed or ran out of time. Callable from any
+    /// thread, since transcriptions finish on a background one.
+    static func passEnded() {
+        DispatchQueue.main.async {
+            passesInFlight = max(0, passesInFlight - 1)
+            scheduleUnload()
+        }
+    }
+
+    /// Unloads `unloadDelay` from now, unless a hold or a final pass wants the
+    /// server before then.
+    private static func scheduleUnload() {
+        cancelUnload()
+        guard !holding, passesInFlight == 0, isReady || isLaunching || process != nil else { return }
         let work = DispatchWorkItem {
             // A slow first load (a new engine binary is checked by macOS on
             // its first run) is let finish, or it would start over every hold.
-            if isLaunching { scheduleIdleStop(); return }
-            print("talkflowd: final-pass model unloaded after \(Int(idleTimeout))s idle")
+            if isLaunching { scheduleUnload(); return }
+            guard !holding, passesInFlight == 0 else { return }
+            print("talkflowd: final-pass model unloaded, \(Int(unloadDelay))s after its last use")
             stop()
         }
-        idleStop = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + idleTimeout, execute: work)
+        pendingUnload = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + unloadDelay, execute: work)
+    }
+
+    private static func cancelUnload() {
+        pendingUnload?.cancel()
+        pendingUnload = nil
     }
 
     /// Calls back on the main thread with whether the server is ready,
@@ -715,8 +759,7 @@ enum FinalPassEngine {
     /// its exact model path and port so nothing else is touched.
     static func stop() {
         generation += 1
-        idleStop?.cancel()
-        idleStop = nil
+        cancelUnload()
         process?.terminate()
         process = nil
         settle(ready: false)

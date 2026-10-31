@@ -3,8 +3,9 @@ import Foundation
 /// `talkflowd --finalpasstest [clip.wav]` - drives the on-demand final-pass
 /// server (`FinalPassEngine`) the way holds do, against the real server and
 /// model, and times it: the shortest hold, a release too early to wait for,
-/// a stop while loading, a server that dies, and the idle unload. With a WAV,
-/// it is also transcribed by the loaded server.
+/// a stop while loading, a server that dies, and unloading once no hold or
+/// final pass needs it. With a WAV, it is also transcribed by the loaded
+/// server.
 ///
 /// Run it from the installed app (the bundled engine and the app's settings).
 /// It stops any final-pass server that is running, including the app's own;
@@ -134,17 +135,78 @@ enum FinalPassSelfTest {
         let again = waitReady(timeout: 5)
         check(again.ready, "...and the next hold loads it again", seconds(again.seconds))
 
-        // The idle unload, after the last hold.
-        onMain { FinalPassEngine.scheduleIdleStop() }
-        Thread.sleep(forTimeInterval: FinalPassEngine.idleTimeout - 3)
-        check(serverAnswers, "still loaded \(Int(FinalPassEngine.idleTimeout - 3))s after the last hold")
+        // Unloading once nothing needs it: no hold in progress and no final
+        // pass waiting on it, for unloadDelay.
+        let delay = FinalPassEngine.unloadDelay
+        let gone = { !serverAnswers && !serverProcessExists && !onMain { FinalPassEngine.isReady } }
+
+        // A hold that ends with no final pass (a discarded tap).
+        onMain { FinalPassEngine.holdEnded() }
+        Thread.sleep(forTimeInterval: delay - 1)
+        check(serverAnswers, "still loaded \(Int(delay - 1))s after a hold with no final pass")
+        Thread.sleep(forTimeInterval: 2)
+        check(gone(), "...and unloaded \(Int(delay))s after it")
+
+        // The release path: the hold ends, the final pass goes to the server.
+        // It is not cut off however long it runs, and the server is unloaded
+        // unloadDelay after it ends.
         onMain { FinalPassEngine.warmUp() }
-        onMain { FinalPassEngine.scheduleIdleStop() }
-        Thread.sleep(forTimeInterval: FinalPassEngine.idleTimeout - 3)
-        check(serverAnswers, "a new hold restarts the idle clock")
-        Thread.sleep(forTimeInterval: 5)
-        check(!serverAnswers && !serverProcessExists && !onMain { FinalPassEngine.isReady },
-              "unloaded \(Int(FinalPassEngine.idleTimeout))s after the last hold")
+        check(waitReady(timeout: 5).ready, "a hold after an unload loads it again")
+        onMain { FinalPassEngine.holdEnded(); FinalPassEngine.passStarted() }
+        if let wav, let data = FileManager.default.contents(atPath: wav) {
+            let semaphore = DispatchSemaphore(value: 0)
+            var result: Transcriber.Result?
+            Transcriber.transcribe(wav: data, serverURL: FinalPassEngine.inferenceURL, timeout: 8) { result = $0; semaphore.signal() }
+            semaphore.wait()
+            check(!(result?.text.isEmpty ?? true), "...and its final pass is answered", result.map { seconds($0.elapsed) } ?? "no answer")
+        }
+        Thread.sleep(forTimeInterval: delay + 1.5)
+        check(serverAnswers, "a final pass still running \(Int(delay + 1.5))s after release keeps it loaded")
+        FinalPassEngine.passEnded()
+        Thread.sleep(forTimeInterval: delay - 1)
+        check(serverAnswers, "...for \(Int(delay - 1))s after the pass ends")
+        Thread.sleep(forTimeInterval: 2)
+        check(gone(), "...then unloaded \(Int(delay))s after it")
+
+        // A tap (a hold that starts and ends) while a long final pass is still
+        // running schedules an unload, which must not cut the pass off.
+        onMain { FinalPassEngine.warmUp() }
+        _ = waitReady(timeout: 5)
+        onMain { FinalPassEngine.holdEnded(); FinalPassEngine.passStarted() }
+        onMain { FinalPassEngine.warmUp(); FinalPassEngine.holdEnded() }
+        Thread.sleep(forTimeInterval: delay + 1.5)
+        check(serverAnswers, "a tap while a final pass runs does not unload it under the pass")
+        FinalPassEngine.passEnded()
+        Thread.sleep(forTimeInterval: delay + 1)
+        check(gone(), "...it goes \(Int(delay))s after the pass")
+
+        // The next hold starts while the last one's final pass is running:
+        // the pass ending must not unload the server under the new hold.
+        onMain { FinalPassEngine.warmUp() }
+        _ = waitReady(timeout: 5)
+        onMain { FinalPassEngine.holdEnded(); FinalPassEngine.passStarted() }
+        onMain { FinalPassEngine.warmUp() }
+        FinalPassEngine.passEnded()
+        Thread.sleep(forTimeInterval: delay + 1.5)
+        check(serverAnswers, "a pass that ends during the next hold leaves it loaded")
+        onMain { FinalPassEngine.holdEnded() }
+        Thread.sleep(forTimeInterval: delay + 1)
+        check(gone(), "...until \(Int(delay))s after that hold")
+
+        // A hold started inside unloadDelay keeps the loaded server: no reload.
+        onMain { FinalPassEngine.warmUp() }
+        _ = waitReady(timeout: 5)
+        onMain { FinalPassEngine.holdEnded() }
+        Thread.sleep(forTimeInterval: delay - 1)
+        onMain { FinalPassEngine.warmUp() }
+        let kept = waitReady(timeout: FinalPassEngine.releaseWait)
+        Thread.sleep(forTimeInterval: 2)
+        check(kept.ready && kept.seconds < 0.05 && serverAnswers, "a hold started \(Int(delay - 1))s after the last keeps it, ready at once",
+              seconds(kept.seconds))
+        onMain { FinalPassEngine.holdEnded() }
+        Thread.sleep(forTimeInterval: delay + 1)
+        check(gone(), "...and it goes \(Int(delay))s after that hold")
+        check(onMain { !FinalPassEngine.holding && FinalPassEngine.passesInFlight == 0 }, "nothing is left holding it")
         return failures
     }
 }
