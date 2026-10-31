@@ -110,8 +110,9 @@ final class Dictation {
         statusBar.setState(.recording)
         overlay.show()
 
-        // Loads while the user speaks; unloaded again once they stop
-        // dictating for a while (FinalPassEngine).
+        // Loads while the user speaks; unloaded again shortly after this
+        // hold's final pass (FinalPassEngine). Every path out of the hold
+        // calls holdEnded.
         if !Preferences.useOpenAITranscription { FinalPassEngine.warmUp() }
 
         do {
@@ -127,6 +128,9 @@ final class Dictation {
             }
         } catch {
             print("talkflowd: could not start recording: \(error.localizedDescription)")
+            // No release will come for this hold, and the large model it just
+            // started loading would stay loaded until the next one.
+            FinalPassEngine.holdEnded()
             isRecording = false
             statusBar.setState(.idle)
             overlay.hide()
@@ -142,7 +146,7 @@ final class Dictation {
         let duration = startedAt.map { Date().timeIntervalSince($0) } ?? 0
         startedAt = nil
         let wav = recorder.stop()
-        FinalPassEngine.scheduleIdleStop()
+        FinalPassEngine.holdEnded()
 
         guard duration >= minDuration else {
             print("talkflowd: hold was \(String(format: "%.2f", duration))s, discarding as an accidental tap")
@@ -312,6 +316,12 @@ final class Dictation {
     }
 
     private func transcribeLocally(wav: Data, prompt: String, language: DictationLanguage, completion: @escaping (Transcriber.Result?) -> Void) {
+        // FinalPassEngine lives on the main thread, and an OpenAI failure
+        // lands here from a URLSession queue.
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { self.transcribeLocally(wav: wav, prompt: prompt, language: language, completion: completion) }
+            return
+        }
         let small = transcribeURL
         guard Preferences.accurateFinalPass else {
             Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, language: language, completion: completion)
@@ -322,10 +332,14 @@ final class Dictation {
                 Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, language: language, completion: completion)
                 return
             }
+            // Keeps the server loaded until this pass is done; it is unloaded
+            // shortly after (FinalPassEngine.unloadDelay).
+            FinalPassEngine.passStarted()
             // Timed from here, so waiting for the model to load never counts
             // as a slow pass (FinalPassSpeed).
             let startedAt = Date()
             Transcriber.transcribe(wav: wav, serverURL: FinalPassEngine.inferenceURL, timeout: FinalPassSpeed.timeout, prompt: prompt, language: language) { result in
+                FinalPassEngine.passEnded()
                 let audioSeconds = FinalPassSpeed.seconds(ofWav: wav)
                 if let result {
                     print("talkflowd: final pass via large-v3-turbo")
@@ -367,7 +381,7 @@ final class Dictation {
         isRecording = false
         stopPreviewLoop()
         _ = recorder.stop()
-        FinalPassEngine.scheduleIdleStop()
+        FinalPassEngine.holdEnded()
         dismiss()
     }
 
