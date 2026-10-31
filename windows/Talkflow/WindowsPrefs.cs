@@ -10,11 +10,12 @@ namespace Talkflow;
 
 /// <summary>
 /// Choices that only exist on Windows, in windows.json next to settings.json:
-/// the hold-to-dictate shortcut, which update was last announced, and whether this install has been counted
-/// (InstallCounter). Kept out of settings.json so that file stays exactly the Mac's schema and never carries the
-/// counted flag to another PC, and kept in the data folder so it survives a reinstall.
+/// the hold-to-dictate shortcut, which update was last announced, whether this install has been counted
+/// (InstallCounter), and whether the accurate final pass has been moved to its opt-in default (FinalPassDefault).
+/// Kept out of settings.json so that file stays exactly the Mac's schema and never carries the counted flag to
+/// another PC, and kept in the data folder so it survives a reinstall.
 /// </summary>
-sealed class WindowsPrefs : IInstallFlag
+sealed class WindowsPrefs : IInstallFlag, IFinalPassDefaultFlag
 {
     sealed class Data
     {
@@ -24,6 +25,8 @@ sealed class WindowsPrefs : IInstallFlag
         [JsonPropertyName("notifiedVersion")] public string? NotifiedVersion { get; set; }
         /// <summary>Set once the install counter got a 2xx answer (docs/telemetry.md).</summary>
         [JsonPropertyName("installCounted")] public bool InstallCounted { get; set; }
+        /// <summary>Set once FinalPassDefault has turned the accurate final pass off for this install.</summary>
+        [JsonPropertyName("finalPassOptInApplied")] public bool FinalPassOptInApplied { get; set; }
     }
 
     Data _data = new();
@@ -69,6 +72,16 @@ sealed class WindowsPrefs : IInstallFlag
         set
         {
             _data.InstallCounted = value;
+            Save();
+        }
+    }
+
+    public bool FinalPassOptInApplied
+    {
+        get => _data.FinalPassOptInApplied;
+        set
+        {
+            _data.FinalPassOptInApplied = value;
             Save();
         }
     }

@@ -91,8 +91,8 @@ export default function WisprFlowAlternativePage() {
       </p>
       <p>
         The trade-off is that a cloud service can run larger models than a laptop. talkflow uses
-        Whisper&apos;s small.en model, plus the larger large-v3-turbo for the final text on
-        computers that can run it quickly. See <Link href="/how-it-works">how talkflow works</Link>.
+        Whisper&apos;s small.en model, and you can turn on the larger large-v3-turbo for the final
+        text on computers that can run it quickly. See <Link href="/how-it-works">how talkflow works</Link>.
       </p>
 
       <h2 id="open-source">Open source and accounts</h2>

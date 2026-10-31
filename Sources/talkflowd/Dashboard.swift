@@ -708,7 +708,7 @@ private struct SettingsView: View {
                        help: "Type words as you speak instead of when you let go.",
                        isOn: $model.typeWhileSpeaking)
                 toggle("Accurate final pass",
-                       help: "More accurate, a little slower.",
+                       help: "More accurate, a little slower. Uses about 800 MB more memory while you dictate.",
                        note: FinalPassEngine.modelIsComplete ? nil : "Downloads 574 MB once.",
                        isOn: $model.accurateFinalPass)
                 toggle("AI punctuation",
