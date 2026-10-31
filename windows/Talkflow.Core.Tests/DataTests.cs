@@ -134,7 +134,7 @@ public class DataTests : IDisposable
             """);
         var settings = new SettingsStore(path);
         Assert.True(settings.TypeWhileSpeaking);
-        Assert.True(settings.AccurateFinalPass); // default
+        Assert.False(settings.AccurateFinalPass); // default: an opt-in since 0.1.12
         Assert.Equal(Text.WritingStyle.Casual, settings.WritingStyle);
         Assert.Equal(new[] { "Siobhan", "Kubernetes" }, settings.LearnedWords);
 
@@ -145,6 +145,50 @@ public class DataTests : IDisposable
         Assert.True((bool)json["aiPolish"]!); // a Mac-only setting survives untouched
         Assert.Equal("claude-haiku-4-5", (string)json["claudeModel"]!);
         Assert.Equal("Grid", (string)json["dashboardChart"]!);
+    }
+
+    sealed class Flag : IFinalPassDefaultFlag
+    {
+        public bool FinalPassOptInApplied { get; set; }
+    }
+
+    [Fact]
+    public void BackUpWritesTheAccurateFinalPassOff()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        new SettingsStore(path).BackUp();
+        Assert.False((bool)JsonNode.Parse(File.ReadAllText(path))!["accurateFinalPass"]!);
+    }
+
+    [Fact]
+    public void AnInstallFromBeforeTheOptInIsTurnedOffOnce()
+    {
+        // What BackUp() left behind in every earlier version, chosen or not.
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """{ "accurateFinalPass" : true, "typeWhileSpeaking" : false }""");
+        var flag = new Flag();
+        var settings = new SettingsStore(path);
+        Assert.True(FinalPassDefault.ApplyOnce(settings, flag));
+        Assert.False(settings.AccurateFinalPass);
+        Assert.True(flag.FinalPassOptInApplied);
+        Assert.False((bool)JsonNode.Parse(File.ReadAllText(path))!["accurateFinalPass"]!); // saved, not just in memory
+
+        // Turned back on in Settings afterwards: that choice stands on every later launch.
+        settings.AccurateFinalPass = true;
+        Assert.False(FinalPassDefault.ApplyOnce(new SettingsStore(path), flag));
+        Assert.True(new SettingsStore(path).AccurateFinalPass);
+    }
+
+    [Fact]
+    public void ANewInstallStaysOffAndIsMarkedDone()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        var settings = new SettingsStore(path);
+        settings.BackUp();
+        var flag = new Flag();
+        Assert.False(FinalPassDefault.ApplyOnce(settings, flag));
+        Assert.False(settings.AccurateFinalPass);
+        Assert.True(flag.FinalPassOptInApplied);
     }
 
     [Fact]

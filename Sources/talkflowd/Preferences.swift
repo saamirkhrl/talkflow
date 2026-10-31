@@ -16,19 +16,19 @@ enum Preferences {
     }
 
     /// Transcribe the final pass with the large model when it is installed.
-    /// On by default, except on a Mac with 8 GB of memory or less, where loading
-    /// the large model (about 745 MB while dictating, see `FinalPassEngine`) on
-    /// top of the small one crowds out everything else. The small model
-    /// still drives the live caption. A choice made in Settings always wins.
+    /// Off by default, an opt-in in Settings: it loads about 800 MB on top of
+    /// the small model's 430 MB for every dictation (see `FinalPassEngine`),
+    /// which took talkflow from about 460 MB to about 1.2 GB while dictating,
+    /// and it is slower at release (1.1-1.3s against 0.3-0.6s). On the
+    /// benchmark clips it made 2.6% word errors against small.en's 2.7%. The
+    /// small model drives the live caption either way. Until 0.1.12 it was on
+    /// by default on Macs with more than 8 GB. Nothing stores the old default
+    /// (only the Settings toggle and `FinalPassSpeed` write this key, and the
+    /// settings backup copies only stored keys), so a Mac that never touched
+    /// it follows the new one.
     static var accurateFinalPass: Bool {
-        get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? !hasLittleMemory }
+        get { defaults.object(forKey: "accurateFinalPass") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "accurateFinalPass") }
-    }
-
-    /// 8 GB or less. A Mac reports its memory exactly (an 8 GB one says
-    /// 8,589,934,592 bytes), so this takes in every 8 GB Mac.
-    static var hasLittleMemory: Bool {
-        ProcessInfo.processInfo.physicalMemory <= 8 << 30
     }
 
     /// Set once talkflow has found the large model too slow on this Mac and

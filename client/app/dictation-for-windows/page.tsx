@@ -62,8 +62,9 @@ export default function DictationForWindowsPage() {
       <p>
         talkflow measures how fast your PC is and tunes itself to match. It can use your graphics
         card through Vulkan when the driver supports it, and falls back to the processor. On a fast
-        enough PC it also uses a larger model, large-v3-turbo, for the final text; on a slower PC it
-        skips that model and turns off the live caption so the final text isn&apos;t delayed. More
+        enough PC you can turn on a larger model, large-v3-turbo, for the final text (Accurate final
+        pass in Settings); on a slower PC it skips that model and turns off the live caption so the
+        final text isn&apos;t delayed. More
         detail is in <Link href="/how-it-works">how talkflow works</Link>.
       </p>
 

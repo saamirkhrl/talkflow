@@ -63,7 +63,7 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 | macOS (Intel) | [Download](https://talkflow.live/download/mac-intel) |
 | Windows (x64, runs on Arm too) | [Download](https://talkflow.live/download/windows-x64) |
 
-**Requirements:** macOS 13 or later, or Windows 10 (1809) or later. The speech model needs about 200 MB of disk space, plus about 575 MB for the more accurate final-pass model, which downloads in the background on Macs with more than 8 GB of memory.
+**Requirements:** macOS 13 or later, or Windows 10 (1809) or later. The speech model needs about 200 MB of disk space, plus about 575 MB for the optional, more accurate final-pass model, which downloads only if you turn on Accurate final pass in Settings.
 
 ### Build from source
 

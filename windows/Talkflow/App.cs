@@ -168,6 +168,8 @@ sealed class App : Application
         Stats = new StatsStore(Paths.StatsFile);
         _store = new DeviceStore(Paths.DeviceFile);
         Prefs = new WindowsPrefs();
+        if (FinalPassDefault.ApplyOnce(Settings, Prefs))
+            Log.Write("accurate final pass: now off by default, turned off once for this install (Settings turns it back on)");
         ScreenText.IsName = word =>
             !CommonWords.Contains(Chars.Lower(word)) && SpellCheck.IsKnown(Chars.Lower(word)) != true;
         StartupEntry.Refresh();
@@ -454,7 +456,7 @@ sealed class App : Application
 
     public string FinalPassStatus => Settings.AccurateFinalPass
         ? FinalPassText.Describe(FinalPassPlan, SmallSeconds, _largeSeconds, FinalPassUsable, SpeechEngine.Large.ModelIsComplete)
-        : "Downloads 574 MB once, if this PC can use it.";
+        : "Uses about 800 MB more memory. Downloads 574 MB once, if this PC can use it.";
 
     /// <summary>
     /// large-v3-turbo for the final pass: downloaded in the background on

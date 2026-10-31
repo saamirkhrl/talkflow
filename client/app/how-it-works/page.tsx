@@ -61,9 +61,10 @@ export default function HowItWorksPage() {
         </li>
         <li>
           <strong>large-v3-turbo</strong> is optional and used only for the final pass, after you let
-          go, because that is the only transcript that reaches your document. It is about 575 MB
-          and downloads in the background. On a Mac it is on by default when the Mac has more than
-          8 GB of memory, and it is loaded only while you dictate, then unloaded again. On Windows,
+          go, because that is the only transcript that reaches your document. It is off by default:
+          it uses about 800 MB more memory for a small gain in accuracy, so it is an opt-in
+          (Accurate final pass in Settings). Turned on, it downloads about 575 MB in the background.
+          On a Mac it is then loaded only while you dictate and unloaded right after. On Windows,
           talkflow times it on your PC first and skips it if the PC is too slow; it can use your
           graphics card through Vulkan, and falls back to the processor.
         </li>

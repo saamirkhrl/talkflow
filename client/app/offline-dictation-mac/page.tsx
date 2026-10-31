@@ -44,10 +44,10 @@ export default function OfflineDictationMacPage() {
         ever going over the internet. Audio is kept in memory only and is never written to disk.
       </p>
       <p>
-        Setup downloads the English speech model once (small.en, about 190 MB). On Macs with more
-        than 8 GB of memory, a larger, more accurate model for the final text (large-v3-turbo, about
-        575 MB) also downloads in the background; you can turn it off in Settings. After that,
-        nothing more needs to be downloaded to dictate. The full pipeline is described in{" "}
+        Setup downloads the English speech model once (small.en, about 190 MB). A larger, more
+        accurate model for the final text (large-v3-turbo, about 575 MB) is optional: turn on
+        Accurate final pass in Settings and it downloads in the background. Either way, nothing
+        more needs to be downloaded to dictate. The full pipeline is described in{" "}
         <Link href="/how-it-works">how talkflow works</Link>.
       </p>
 

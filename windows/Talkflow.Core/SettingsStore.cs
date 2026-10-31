@@ -74,7 +74,7 @@ public sealed class SettingsStore
         lock (_lock)
         {
             SetDefault("typeWhileSpeaking", false);
-            SetDefault("accurateFinalPass", true);
+            SetDefault("accurateFinalPass", false);
             SetDefault("aiPolish", false);
             if (_values["learnedWords"] is not JsonArray) _values["learnedWords"] = new JsonArray();
             SetDefault("writingStyle", "formal");
@@ -128,8 +128,13 @@ public sealed class SettingsStore
     /// <summary>Type into the field while the key is held. Off by default.</summary>
     public bool TypeWhileSpeaking { get => GetBool("typeWhileSpeaking", false); set => Set("typeWhileSpeaking", value); }
 
-    /// <summary>Transcribe the final pass with large-v3-turbo when it is installed. On by default.</summary>
-    public bool AccurateFinalPass { get => GetBool("accurateFinalPass", true); set => Set("accurateFinalPass", value); }
+    /// <summary>
+    /// Transcribe the final pass with large-v3-turbo when it is installed. Off by default, an opt-in in Settings:
+    /// the large model costs about 800 MB more memory while talkflow runs, for a small gain in accuracy. Until
+    /// 0.1.12 it was on by default; installs that ran an earlier version are moved over once by
+    /// <see cref="FinalPassDefault"/>.
+    /// </summary>
+    public bool AccurateFinalPass { get => GetBool("accurateFinalPass", false); set => Set("accurateFinalPass", value); }
 
     public WritingStyle WritingStyle
     {
