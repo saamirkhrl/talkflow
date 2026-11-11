@@ -242,7 +242,13 @@ final class StatusBar: NSObject, NSMenuDelegate {
     func setState(_ state: State) {
         self.state = state
         item?.button?.contentTintColor = state == .recording ? .systemRed : (state == .processing ? .systemOrange : nil)
-        item?.button?.toolTip = state.description
+        // No toolTip: talkflow is a menu bar (accessory) app, and a tooltip
+        // shown over the icon was left on screen for good when it was
+        // replaced (each dictation changes the state) or the icon was moved
+        // (see `move`). The tint already shows the state; VoiceOver reads it
+        // from the accessibility label instead.
+        item?.button?.toolTip = nil
+        item?.button?.setAccessibilityLabel(state.description)
     }
 
     /// Same 5-bar waveform mark as the app icon, drawn at menu bar size. Always a
