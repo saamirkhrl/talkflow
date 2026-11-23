@@ -235,7 +235,7 @@ struct SettingsPage: View {
                         jobHeader("Transcription", detail: "Turns your voice into words.")
                         keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
                         RowDivider()
-                        toggleRow("Use my OpenAI key for transcription",
+                        toggleRow("Use my OpenAI key for transcription", medium: false,
                                   help: "\(CloudTranscriber.model) writes the final text instead of Whisper on this Mac. Billed to your account.",
                                   isOn: $model.useOpenAI)
                             .disabled(!model.hasOpenAIKey)
@@ -243,7 +243,7 @@ struct SettingsPage: View {
                         jobHeader("Punctuation", detail: "Adds commas, periods and capitals. Never changes your words.")
                         keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
                         RowDivider()
-                        toggleRow("Use my Anthropic key for punctuation",
+                        toggleRow("Use my Anthropic key for punctuation", medium: false,
                                   help: "Claude does this in place of AI punctuation. Billed to your account.",
                                   isOn: $model.useClaude)
                             .disabled(!model.hasAnthropicKey)
@@ -295,7 +295,7 @@ struct SettingsPage: View {
                     .foregroundColor(Palette.ink)
                     .padding(.horizontal, 14)
                     .frame(minHeight: 32)
-                    .overlay(Capsule().stroke(Palette.ink.opacity(0.16), lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.16), lineWidth: 1))
                     .contentShape(Capsule())
                     .accessibilityHint("Scrolls to \(group.title)")
             }
@@ -314,8 +314,10 @@ struct SettingsPage: View {
         .id(group)
     }
 
-    private func title(_ text: String) -> some View {
-        Text(text).font(AppFont.bodyMedium).foregroundColor(Palette.ink)
+    /// `medium: false` gives the regular weight used by the key-switch rows,
+    /// whose titles sit under the heavier key fields.
+    private func title(_ text: String, medium: Bool = true) -> some View {
+        Text(text).font(medium ? AppFont.bodyMedium : AppFont.body).foregroundColor(Palette.ink)
     }
 
     private func note(_ text: String) -> some View {
@@ -323,10 +325,10 @@ struct SettingsPage: View {
     }
 
     /// One row: the title and its lines on the left, the control on the right.
-    private func row<Lines: View, Control: View>(_ text: String, @ViewBuilder lines: () -> Lines, @ViewBuilder control: () -> Control) -> some View {
+    private func row<Lines: View, Control: View>(_ text: String, medium: Bool = true, @ViewBuilder lines: () -> Lines, @ViewBuilder control: () -> Control) -> some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                title(text)
+                title(text, medium: medium)
                 lines()
             }
             Spacer(minLength: 12)
@@ -339,8 +341,8 @@ struct SettingsPage: View {
     /// One switch row: the title, a line saying what the switch does (`help`,
     /// also the tooltip), which already carries any note the user must read
     /// before flipping it (a download, a missing requirement).
-    private func toggleRow(_ text: String, help: String, isOn: Binding<Bool>) -> some View {
-        row(text, lines: { note(help) }, control: {
+    private func toggleRow(_ text: String, medium: Bool = true, help: String, isOn: Binding<Bool>) -> some View {
+        row(text, medium: medium, lines: { note(help) }, control: {
             Toggle(text, isOn: isOn).toggleStyle(AppToggleStyle())
         })
         .help(help)
@@ -452,8 +454,12 @@ struct SettingsPage: View {
             HStack(spacing: 8) {
                 Text(provider.name).font(.system(size: 12, weight: .medium)).foregroundColor(Palette.ink).frame(width: 70, alignment: .leading)
                 SecureField(saved ? "Saved" : placeholder, text: draft)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
                     .font(.system(size: 12))
+                    .padding(.horizontal, 10)
+                    .frame(height: AppMetrics.controlHeight)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
                     .onSubmit { model.saveKey(provider) }
                     .help("Optional. Stored in your Keychain.")
                     .accessibilityLabel("\(provider.name) API key")

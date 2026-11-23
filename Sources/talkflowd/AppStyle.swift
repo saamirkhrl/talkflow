@@ -144,7 +144,7 @@ struct AppPrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: 14, weight: .medium))
             .foregroundColor(isEnabled ? Palette.window : Palette.muted)
             .padding(.horizontal, 16)
             .frame(minHeight: AppMetrics.controlHeight)
@@ -161,9 +161,9 @@ struct AppSecondaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(AppFont.control)
+            .font(AppFont.body)
             .foregroundColor(isEnabled ? Palette.ink : Palette.muted)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .frame(minHeight: AppMetrics.controlHeight)
             .background(RoundedRectangle(cornerRadius: 8).fill(Palette.ink.opacity(configuration.isPressed ? 0.06 : 0)))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isEnabled ? Palette.ink.opacity(0.22) : Palette.line, lineWidth: 1))
@@ -198,7 +198,7 @@ struct AppToggleStyle: ToggleStyle {
         } label: {
             ZStack(alignment: on ? .trailing : .leading) {
                 Capsule().fill(on ? Palette.ink : Color.clear)
-                Capsule().stroke(on ? Color.clear : Palette.ink.opacity(0.40), lineWidth: 1)
+                Capsule().strokeBorder(on ? Color.clear : Palette.ink.opacity(0.40), lineWidth: 1)
                 Circle()
                     .fill(on ? Palette.window : Palette.muted)
                     .frame(width: 22, height: 22)
@@ -231,9 +231,9 @@ struct AppSegmented<Value: Hashable>: View {
                     selection = option
                 } label: {
                     Text(title(option))
-                        .font(.system(size: 13, weight: selected ? .medium : .regular))
+                        .font(.system(size: 14, weight: selected ? .medium : .regular))
                         .foregroundColor(selected ? Palette.window : Palette.ink)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 14)
                         .frame(minHeight: 28)
                         .background(RoundedRectangle(cornerRadius: 7).fill(selected ? Palette.ink : Color.clear))
                         .contentShape(RoundedRectangle(cornerRadius: 7))
@@ -268,7 +268,7 @@ struct AppPill: View {
             .foregroundColor(inverted ? Palette.window.opacity(0.7) : Palette.muted)
             .padding(.horizontal, horizontal)
             .padding(.vertical, vertical)
-            .overlay(Capsule().stroke((inverted ? Palette.window : Palette.ink).opacity(0.22), lineWidth: 1))
+            .overlay(Capsule().strokeBorder((inverted ? Palette.window : Palette.ink).opacity(0.22), lineWidth: 1))
     }
 }
 
@@ -288,5 +288,26 @@ struct UpdateInstallButton: View {
                      ? "Downloads \(release.version), installs it and restarts talkflow. Permissions carry over."
                      : "Downloads \(release.version), installs it and restarts talkflow. macOS will ask for the microphone and Accessibility permissions again.")
                   : "Not available in a preview.")
+    }
+}
+
+/// The talkflow mark drawn from the palette, so it stays visible on the dark
+/// sidebar (the app icon is a dark tile that vanishes there). Geometry from
+/// the app icon's 1024 grid.
+struct AppLogo: View {
+    var size: CGFloat = 26
+    private let bars: [(x: CGFloat, y: CGFloat, h: CGFloat)] = [(159, 348, 328), (312, 231, 562), (466, 77, 870), (620, 231, 562), (773, 348, 328)]
+    var body: some View {
+        let s = size / 1024
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 230 * s).fill(Palette.ink)
+            ForEach(0..<bars.count, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 46 * s).fill(Palette.window)
+                    .frame(width: 92 * s, height: bars[i].h * s)
+                    .offset(x: bars[i].x * s, y: bars[i].y * s)
+            }
+        }
+        .frame(width: size, height: size, alignment: .topLeading)
+        .accessibilityHidden(true)
     }
 }

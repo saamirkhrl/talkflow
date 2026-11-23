@@ -145,10 +145,7 @@ private struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 26, height: 26)
-                    .accessibilityHidden(true)
+                AppLogo()
                 Text("talkflow").font(AppFont.wordmark).foregroundColor(Palette.ink)
             }
             .padding(.horizontal, 8)
@@ -228,7 +225,7 @@ private struct Sidebar: View {
             }
             .foregroundColor(selected ? Palette.window : Palette.ink)
             .padding(.horizontal, 12)
-            .frame(height: 36)
+            .frame(minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Palette.ink : Color.clear))
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }

@@ -184,7 +184,7 @@ struct HomePage: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Total words dictated")
                 .font(.system(size: 13))
                 .foregroundColor(Palette.muted)
@@ -227,7 +227,7 @@ struct HomePage: View {
     }
 
     private func value(_ parts: [(value: String, unit: String)]) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
                 Text(part.value)
                     .font(AppFont.stat)
@@ -284,7 +284,7 @@ struct HomePage: View {
                     .foregroundColor(Palette.ink)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 5)
-                    .overlay(Capsule().stroke(Palette.line, lineWidth: 1))
+                    .overlay(Capsule().strokeBorder(Palette.line, lineWidth: 1))
                     .contentShape(Capsule())
                 }
                 .menuStyle(.borderlessButton)
