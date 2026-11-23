@@ -1,9 +1,14 @@
 # Security
 
-talkflow runs on your Mac and sends nothing to a server. Audio is kept in memory,
-transcribed by a Whisper server listening only on `127.0.0.1`, and never written
-to disk. The only network use is the one-time setup (the speech model
-download from Hugging Face) and, if you ask for it, building from source.
+By default talkflow runs on your Mac and sends your speech and text nowhere. Audio
+is kept in memory, transcribed by a Whisper server listening only on `127.0.0.1`,
+and never written to disk. The network use is the one-time setup (the speech model
+download from Hugging Face), update checks and the one-time install count
+(see the README's Privacy section), and, if you ask for it, building from source.
+If you add your own OpenAI or Anthropic key in Settings, the step that key is for
+is sent to that provider. With an Anthropic key and Claude punctuation on, the
+experimental AI corrections option (off by default; used on Macs without Apple
+Intelligence) sends the dictated text to Anthropic in a second request.
 
 ## Reporting a vulnerability
 
