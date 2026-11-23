@@ -167,7 +167,13 @@ final class SettingsModel: ObservableObject {
         environment.removeKey(provider)
         keyStatus[provider.rawValue] = (false, "Key removed.")
         if provider == .openAI { hasOpenAIKey = false; useOpenAI = false }
-        else { hasAnthropicKey = false; useClaude = false }
+        else {
+            hasAnthropicKey = false; useClaude = false
+            // Without Apple Intelligence, corrections ran only through Claude. Left on, a
+            // key added later (which turns Claude punctuation back on) would quietly start
+            // sending the words to Anthropic for corrections again.
+            if !polishAvailable { aiCorrections = false }
+        }
     }
 
     func uninstall() {
@@ -244,7 +250,7 @@ struct SettingsPage: View {
                         keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
                         RowDivider()
                         toggleRow("Use my OpenAI key for transcription", medium: false,
-                                  help: "\(CloudTranscriber.model) writes the final text instead of Whisper on this Mac. Billed to your account.",
+                                  help: "Audio for the final text goes to OpenAI. Billed to your account.",
                                   isOn: $model.useOpenAI)
                             .disabled(!model.hasOpenAIKey)
                         RowDivider()
@@ -416,11 +422,16 @@ struct SettingsPage: View {
 
     private var styleRow: some View {
         row("Writing style", lines: {
-            note(model.writingStyle.detail)
+            note(styleNote(model.writingStyle))
         }, control: {
             AppSegmented(label: "Writing style", options: WritingStyle.allCases, title: { $0.title }, selection: $model.writingStyle)
-                .help(model.writingStyle.detail)
+                .help(styleNote(model.writingStyle))
         })
+    }
+
+    /// The mockup's "Formal: capitals and full stops." form.
+    private func styleNote(_ style: WritingStyle) -> String {
+        "\(style.title): \(style.detail.prefix(1).lowercased())\(style.detail.dropFirst())"
     }
 
     // MARK: - Models and API keys
