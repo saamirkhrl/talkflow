@@ -852,20 +852,36 @@ enum StreamSelfTest {
             ("text: only the marker dropped", .text, o, "We should host it on our own servers. You know what, the cloud is cheaper for now.", .rejected(.nothingBeforeMarker)),
             ("text: only two markers dropped", .text, "The report is due Thursday, sorry, I mean the draft is due Thursday.",
              "The report is due Thursday, the draft is due Thursday.", .rejected(.nothingBeforeMarker)),
-            ("text: eats the replacement", .text, o, "for now.", .rejected(.tooMuchAfterMarker)),
-            ("text: nothing left after", .text, o4, "Walk.", .rejected(.noReplacementLeft)),
+            ("text: eats the replacement", .text, o, "for now.", .rejected(.deletesAfterMarker)),
+            ("text: the replacement word deleted", .text, o4, "Walk.", .rejected(.deletesAfterMarker)),
             ("text: across a paragraph", .text, o5, "The cloud is cheaper.", .rejected(.crossesParagraph)),
             ("text: inside a paragraph", .text, o5, "Hi Sam,\n\nThe cloud is cheaper.", .applied("Hi Sam,\n\nThe cloud is cheaper.")),
             ("text: mid-sentence false start", .text, o6, "Let me fix the bug.", .applied("Let me fix the bug.")),
             ("text: not the sentence before a mid-sentence marker", .text, o7, "Let me fix the bug.", .rejected(.outsideWindow)),
-            ("text: negation after the marker kept", .text, "Ship it Friday. Actually, do not ship it.", "Ship it.", .rejected(.deletesNegation)),
-            ("text: n't after the marker kept", .text, "Fire everyone. Sorry, don't fire anyone today.", "Fire anyone today.", .rejected(.deletesNegation)),
-            ("text: curly n't kept", .text, "Fire everyone. Sorry, don\u{2019}t fire anyone today.", "Fire anyone today.", .rejected(.deletesNegation)),
-            ("text: never after the marker kept", .text, "Call him today. Actually, never call him, email him.", "Call him, email him.", .rejected(.deletesNegation)),
-            ("text: a no that is not the marker kept", .text, "Invite Sam. Wait, Sam said no, invite Alex.", "Invite Alex.", .rejected(.deletesNegation)),
+            ("text: negation after the marker kept", .text, "Ship it Friday. Actually, do not ship it.", "Ship it.", .rejected(.deletesAfterMarker)),
+            ("text: n't after the marker kept", .text, "Fire everyone. Sorry, don't fire anyone today.", "Fire anyone today.", .rejected(.deletesAfterMarker)),
+            ("text: curly n't kept", .text, "Fire everyone. Sorry, don\u{2019}t fire anyone today.", "Fire anyone today.", .rejected(.deletesAfterMarker)),
+            ("text: never after the marker kept", .text, "Call him today. Actually, never call him, email him.", "Call him, email him.", .rejected(.deletesAfterMarker)),
+            ("text: a no that is not the marker kept", .text, "Invite Sam. Wait, Sam said no, invite Alex.", "Invite Alex.", .rejected(.deletesAfterMarker)),
             ("text: marker no deleted", .text, "Let's take the bus. Wait, no, the train is faster.", "The train is faster.", .applied("The train is faster.")),
             ("text: actually no deleted", .text, "I'll rewrite the parser, actually no, I'll patch it.", "I'll patch it.", .applied("I'll patch it.")),
             ("text: never mind deleted", .text, "Use Rust for the CLI. Actually, never mind, keep it in Swift.", "Keep it in Swift.", .applied("Keep it in Swift.")),
+            ("text: nothing left after the fillers", .text, "Take the bus. Actually, no, um, you know, walk.", "Walk.", .rejected(.noReplacementLeft)),
+            ("text: keeps the retracted verb", .text, "Approve it. Sorry, I meant reject it today.", "Approve it today.", .rejected(.deletesAfterMarker)),
+            ("text: keeps the retracted verb, repeated object", .text, "Call Ana tomorrow. Sorry, I meant email Ana tomorrow.", "Call Ana tomorrow.", .rejected(.deletesAfterMarker)),
+            ("text: a no that starts the clause is kept", .text, "Rewrite the module. Actually no changes are needed here.", "Changes are needed here.", .rejected(.deletesAfterMarker)),
+            ("text: half the marker left", .text, "Approve it. Sorry, I meant reject it today.", "Approve I meant reject it today.", .rejected(.keepsMarker)),
+            ("text: keeps the old half", .text, "Use Postgres. Actually, use SQLite instead.", "Use Postgres.", .rejected(.nothingBeforeMarker)),
+            ("text: new version kept", .text, "Move it to Monday. Sorry, I mean move it to Tuesday.", "Move it to Tuesday.", .applied("Move it to Tuesday.")),
+            ("text: one content word after the marker deleted", .text, o, "Cloud is cheaper for now.", .rejected(.deletesAfterMarker)),
+            ("text: whole post-marker clause deleted", .text, "Let's meet at noon. Actually, I can't make noon, let's do three.", "Let's do three.", .rejected(.deletesAfterMarker)),
+            ("text: hedge after the marker kept", .text, "We could hire a contractor. Actually, I think a full-time hire is better.", "A full-time hire is better.", .rejected(.deletesAfterMarker)),
+            ("text: unpunctuated you know is content", .text, "Use the red one. Actually, you know the answer already.", "The answer already.", .rejected(.deletesAfterMarker)),
+            ("text: wait no running into a clause", .text, "Ship the beta. Wait, no users have signed up yet.", "Users have signed up yet.", .rejected(.deletesAfterMarker)),
+            ("text: fillers after the marker deleted", .text, "Book the hotel. Actually, um, let me see, book the Airbnb.", "Book the Airbnb.", .applied("Book the Airbnb.")),
+            ("text: actually no, comma, deleted", .text, "Add a checkbox. Actually no, a toggle is clearer.", "A toggle is clearer.", .applied("A toggle is clearer.")),
+            ("text: no wait deleted", .text, "Meet at the cafe. No wait, the library is quieter.", "The library is quieter.", .applied("The library is quieter.")),
+            ("text: negation before the marker may go", .text, "Don't ship it. Actually, ship it today.", "Ship it today.", .applied("Ship it today.")),
             ("span: correction applied", .span, o, "We should host it on our own servers. Actually, you know what,", .applied("The cloud is cheaper for now.")),
             ("span: NONE", .span, o, "NONE", .unchanged),
             ("span: none, lowercase", .span, o, "none.", .unchanged),
@@ -885,6 +901,30 @@ enum StreamSelfTest {
         check(CorrectionModel.Outcome.timedOut.logPhrase == "missed its budget", "log phrase: missed its budget")
         check(CorrectionModel.Outcome.verdict(.rejected(.outsideWindow)).logPhrase == "rejected by guard (outsideWindow)", "log phrase: rejected by guard")
         check(CorrectionModel.Outcome.verdict(.rejected(.deletesNegation)).logPhrase == "rejected by guard (deletesNegation)", "correction model: negation reject is logged")
+        check(SelfCorrection.hasMarker(in: "Take the bus. Actually, no, um, you know, walk."), "precondition: marker in nothing left after the fillers")
+        check(SelfCorrection.hasMarker(in: "Approve it. Sorry, I meant reject it today."), "precondition: marker in keeps the retracted verb")
+        check(SelfCorrection.hasMarker(in: "Call Ana tomorrow. Sorry, I meant email Ana tomorrow."), "precondition: marker in keeps the retracted verb, repeated object")
+        check(SelfCorrection.hasMarker(in: "Rewrite the module. Actually no changes are needed here."), "precondition: marker in a no that starts the clause is kept")
+        check(SelfCorrection.hasMarker(in: "Approve it. Sorry, I meant reject it today."), "precondition: marker in half the marker left")
+        check(SelfCorrection.hasMarker(in: "Use Postgres. Actually, use SQLite instead."), "precondition: marker in keeps the old half")
+        check(SelfCorrection.hasMarker(in: "Move it to Monday. Sorry, I mean move it to Tuesday."), "precondition: marker in new version kept")
+        check(SelfCorrection.hasMarker(in: "Let's meet at noon. Actually, I can't make noon, let's do three."), "precondition: marker in whole post-marker clause deleted")
+        check(SelfCorrection.hasMarker(in: "We could hire a contractor. Actually, I think a full-time hire is better."), "precondition: marker in hedge after the marker kept")
+        check(SelfCorrection.hasMarker(in: "Use the red one. Actually, you know the answer already."), "precondition: marker in unpunctuated you know is content")
+        check(SelfCorrection.hasMarker(in: "Ship the beta. Wait, no users have signed up yet."), "precondition: marker in wait no running into a clause")
+        check(SelfCorrection.hasMarker(in: "Book the hotel. Actually, um, let me see, book the Airbnb."), "precondition: marker in fillers after the marker deleted")
+        check(SelfCorrection.hasMarker(in: "Add a checkbox. Actually no, a toggle is clearer."), "precondition: marker in actually no, comma, deleted")
+        check(SelfCorrection.hasMarker(in: "Meet at the cafe. No wait, the library is quieter."), "precondition: marker in no wait deleted")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, ship it today."), "precondition: marker in negation before the marker may go")
+        for word in ["dont", "no", "neither", "nor", "nobody", "none", "nothing", "without", "hardly",
+                     "don't", "don\u{2019}t", "cannot", "never", "not", "isn't", "wasnt"] {
+            check(CorrectionModel.isNegation(SelfCorrection.Token(leading: "", word: word)), "negation: \(word)")
+        }
+        for word in ["know", "now", "note", "on", "nod", "one"] {
+            check(!CorrectionModel.isNegation(SelfCorrection.Token(leading: "", word: word)), "not a negation: \(word)")
+        }
+        check(CorrectionModel.Outcome.verdict(.rejected(.deletesAfterMarker)).logPhrase == "rejected by guard (deletesAfterMarker)",
+              "correction model: structural reject is logged")
     }
 
     /// The default mode: the caption shows the words while speaking, and the

@@ -12,10 +12,10 @@ import FoundationModels
 ///
 /// Like `Polish`, the model never writes the result. Its reply is only used to
 /// decide which whole words of the rules' output to delete: the output is rebuilt
-/// from the original's own tokens, the deleted runs must pass the bounds in
-/// `check` (inside one paragraph, around a marker, close to its sentence, with
-/// the replacement left standing), and the result must pass
-/// `SelfCorrection.isDeletionOnly`. Anything else and the original is used.
+/// from the original's own tokens, the deleted runs must pass the structural guard in
+/// `check` (inside one paragraph, only what was said before a marker plus the marker
+/// itself and fillers; everything said after the marker is kept), and the result
+/// must pass `SelfCorrection.isDeletionOnly`. Anything else and the original is used.
 ///
 /// It is given a hard budget: the on-device model 2.0 s, Claude 4 s. Worst case
 /// at release, one step after the other and only when a marker is left: on-device
@@ -27,7 +27,7 @@ import FoundationModels
 /// Off by default. Measured with `--correctiontest` on an M4 (macOS 27.2), the
 /// on-device model took a non-correction ("I read your proposal. Actually, that
 /// sounds great.") for one, the guard cannot tell the two apart, and it found
-/// only about half of the rephrased corrections (14 of 30).
+/// fewer than half of the rephrased corrections (13 of 30 with the structural guard).
 enum CorrectionModel {
     /// How the model answers. Chosen by measurement (`--correctiontest`): `text`
     /// found more corrections and changed fewer non-corrections than `span`.
@@ -43,8 +43,6 @@ enum CorrectionModel {
     static let claudeBudget: TimeInterval = 4.0
     /// Past this many words the step is skipped: text mode's reply grows with the input.
     static let maxWords = 150
-    /// Tokens a deleted run may hold after its last marker ("Actually, you know what,").
-    static let maxAfterMarker = 3
     /// Words of the marker's sentence that must survive after a deleted run.
     static let minKeptAfter = 2
 
@@ -53,7 +51,7 @@ enum CorrectionModel {
     enum GuardFailure: String {
         case empty, notSubsequence, spanNotFound, spanAmbiguous
         case crossesParagraph, noMarkerInRun, nothingBeforeMarker, outsideWindow
-        case tooMuchAfterMarker, noReplacementLeft, notDeletionOnly, deletesNegation
+        case keepsMarker, deletesAfterMarker, noReplacementLeft, notDeletionOnly, deletesNegation
     }
 
     enum Verdict: Equatable {
@@ -193,55 +191,131 @@ enum CorrectionModel {
         return e
     }
 
-    /// Words that turn a sentence around. Deleting one can reverse what the user
-    /// said ("Actually, do not ship it" -> "ship it"), so no deleted run may hold
-    /// one. Straight or curly apostrophe: "don't", "don\u{2019}t".
+    /// Words that turn a sentence around ("do not ship it" -> "ship it"). Straight or
+    /// curly apostrophe, and the apostrophe-less forms speech engines sometimes write.
     static func isNegation(_ token: Token) -> Bool {
         let word = token.norm.replacingOccurrences(of: "\u{2019}", with: "'")
-        return ["not", "no", "never", "cannot"].contains(word) || word.hasSuffix("n't")
+        return negations.contains(word) || word.hasSuffix("n't")
+    }
+    private static let negations: Set<String> = [
+        "not", "no", "never", "cannot", "nor", "neither", "nobody", "none", "nothing", "nowhere",
+        "without", "hardly", "barely", "scarcely",
+        "dont", "doesnt", "didnt", "wont", "cant", "isnt", "arent", "wasnt", "werent",
+        "shouldnt", "wouldnt", "couldnt", "hasnt", "havent", "hadnt", "mustnt", "neednt", "aint",
+    ]
+
+    /// Phrases that make up a correction marker, longest first. A marker is a chain
+    /// of these ("Wait, no, actually,", "Sorry, I meant").
+    private static let markerPhrases: [[String]] = [
+        ["scratch", "that"], ["strike", "that"], ["ignore", "that"], ["disregard", "that"],
+        ["never", "mind"], ["start", "over"], ["delete", "that"], ["undo", "that"],
+        ["i", "meant"], ["i", "mean"], ["or", "rather"], ["make", "that"],
+        ["nevermind"], ["actually"], ["wait"], ["sorry"], ["oh"], ["correction"], ["rather"], ["no"],
+    ]
+    /// Retract commands, which filler leads may come in front of ("okay, scratch that").
+    private static let commandPhrases: [[String]] = [
+        ["scratch", "that"], ["strike", "that"], ["ignore", "that"], ["disregard", "that"],
+        ["never", "mind"], ["start", "over"], ["delete", "that"], ["undo", "that"], ["nevermind"],
+    ]
+    private static let commandLeads: Set<String> = ["okay", "ok", "um", "uh", "hmm", "so", "well"]
+    /// Marker words a bare "no" may run into and still be part of the marker ("No wait,").
+    private static let chainWords: Set<String> = ["oh", "wait", "actually", "sorry"]
+
+    /// Whether `phrase` is said at `p`, inside one paragraph.
+    static func matches(_ phrase: [String], _ tokens: [Token], at p: Int) -> Bool {
+        guard p + phrase.count <= tokens.count else { return false }
+        let span = tokens[p..<(p + phrase.count)]
+        return zip(phrase, span).allSatisfy { $0 == $1.norm } && !span.dropFirst().contains { $0.leading.contains("\n") }
     }
 
-    /// Marker words, as SelfCorrection chains them ("wait, no", "actually no").
-    private static let markerWords: Set<String> = ["oh", "wait", "no", "actually", "sorry"]
-
-    /// A negation that is part of the correction itself and may go: a "no" chained
-    /// to a marker through marker words only ("Wait, no,", "actually no", "No,
-    /// actually"), or "never" in "never mind".
-    static func isMarkerNegation(_ tokens: [Token], _ i: Int, markers: [Int]) -> Bool {
-        let word = tokens[i].norm
-        if word == "never" { return i + 1 < tokens.count && tokens[i + 1].norm == "mind" }
-        guard word == "no" else { return false }
-        return markers.contains { m in
-            m <= i && i - m <= 2 && (m...i).allSatisfy { markerWords.contains(tokens[$0].norm) }
+    /// Length of one marker phrase starting at `p`, or nil. A "no" is part of the
+    /// marker only when punctuation follows it ("Wait, no," / "Actually no, a
+    /// toggle") or it runs into another marker word ("No wait,"); "Actually no
+    /// changes are needed" is the start of what is meant.
+    static func markerPhraseLength(_ tokens: [Token], at p: Int) -> Int? {
+        var q = p
+        while q < tokens.count, q - p < 3, commandLeads.contains(tokens[q].norm) { q += 1 }
+        if q > p {
+            guard let command = commandPhrases.first(where: { matches($0, tokens, at: q) }) else { return nil }
+            return q - p + command.count
         }
+        for phrase in markerPhrases where matches(phrase, tokens, at: p) {
+            if phrase == ["no"] {
+                let punctuated = tokens[p].trailingPunctuation != nil
+                let chained = p + 1 < tokens.count && chainWords.contains(tokens[p + 1].norm)
+                guard punctuated || chained else { return nil }
+            }
+            return phrase.count
+        }
+        return nil
     }
 
-    /// The bounds guard. Every run must: stay inside one paragraph; hold a marker that
-    /// is not its first token (something said before the marker is what is taken back);
-    /// start no earlier than the marker's sentence, or the sentence before it when the
-    /// marker opens its sentence (and that sentence is not the start of a paragraph);
-    /// hold at most `maxAfterMarker` tokens after its last marker; and leave at least
-    /// `minKeptAfter` tokens of the marker's sentence after it, and delete no negation
-    /// that is not part of the marker (`isNegation`).
+    /// Index just past the marker that starts at `m`: its chain of marker phrases,
+    /// inside one paragraph, at most about five words. Always past `m` itself.
+    static func markerEnd(_ tokens: [Token], from m: Int) -> Int {
+        var p = m
+        while p < tokens.count, p - m < 5, p == m || !tokens[p].leading.contains("\n"),
+              let length = markerPhraseLength(tokens, at: p) {
+            p += length
+        }
+        return max(p, m + 1)
+    }
+
+    /// What may go right after a marker, besides the marker itself: hesitation
+    /// sounds, and asides set off by punctuation that carry no content.
+    private static let fillerSounds: Set<String> = ["um", "umm", "uh", "uhh", "hmm", "er", "erm"]
+    private static let fillerPhrases: [[String]] = [
+        ["you", "know", "what"], ["let", "me", "see"], ["you", "know"], ["i", "mean"], ["i", "meant"],
+        ["let's", "see"], ["okay"], ["ok"], ["well"],
+    ]
+
+    /// Index just past the fillers that directly follow `p`. A filler phrase counts
+    /// only when punctuation ends it ("you know what," but not "you know the
+    /// answer"); a hesitation sound always counts.
+    static func fillerEnd(_ tokens: [Token], from start: Int) -> Int {
+        var p = start
+        outer: while p < tokens.count, !tokens[p].leading.contains("\n") {
+            if fillerSounds.contains(tokens[p].norm) { p += 1; continue }
+            for phrase in fillerPhrases where matches(phrase, tokens, at: p)
+                && tokens[p + phrase.count - 1].trailingPunctuation != nil {
+                p += phrase.count
+                continue outer
+            }
+            break
+        }
+        return p
+    }
+
+    /// The guard, structural: a correction removes what was said BEFORE its marker
+    /// and keeps what was said AFTER it. Every deleted run must:
+    /// - stay inside one paragraph;
+    /// - hold a marker, and start before its first one (something is taken back);
+    /// - start no earlier than that marker's sentence, or the sentence before it
+    ///   when the marker opens its sentence (and not across a paragraph start);
+    /// - delete the whole of its last marker (`markerEnd`), so no "actually" or
+    ///   "I meant" is left standing;
+    /// - after that marker, delete nothing but fillers (`fillerEnd`): every content
+    ///   word said after the marker survives, so the retracted version can never be
+    ///   the one kept;
+    /// - leave at least `minKeptAfter` words of the marker's sentence;
+    /// - delete no negation after the marker (belt and braces: fillers hold none).
+    /// Negations BEFORE the marker may go: "Don't ship it. Actually, ship it." ->
+    /// "Ship it." is the correction, and what the user said last is all kept.
     static func check(runs: [Range<Int>], tokens: [Token], markers: [Int]) -> GuardFailure? {
         for run in runs {
             if run.dropFirst().contains(where: { tokens[$0].leading.contains("\n") }) { return .crossesParagraph }
             let inRun = markers.filter { run.contains($0) }
-            guard !inRun.isEmpty else { return .noMarkerInRun }
-            // The FIRST marker must not open the run: "Thursday, sorry, I mean the
-            // draft" losing only "sorry, I mean" has nothing taken back, even though
-            // "I mean" is a second marker after the run's first token.
-            guard let m = inRun.min(), m > run.lowerBound else { return .nothingBeforeMarker }
+            guard let m = inRun.min() else { return .noMarkerInRun }
+            guard m > run.lowerBound else { return .nothingBeforeMarker }
             let own = sentenceStart(tokens, m)
             let lower = (own == m && m > 0 && !tokens[m].leading.contains("\n")) ? sentenceStart(tokens, m - 1) : own
             guard run.lowerBound >= lower else { return .outsideWindow }
-            let lastMarker = inRun.max()!
-            guard run.upperBound - 1 - lastMarker <= maxAfterMarker else { return .tooMuchAfterMarker }
-            let end = sentenceEnd(tokens, m)
-            guard end - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
-            if run.contains(where: { isNegation(tokens[$0]) && !isMarkerNegation(tokens, $0, markers: markers) }) {
-                return .deletesNegation
-            }
+            let k = inRun.max()!
+            let phraseEnd = markerEnd(tokens, from: k)
+            guard run.upperBound >= phraseEnd else { return .keepsMarker }
+            guard run.upperBound <= fillerEnd(tokens, from: phraseEnd) else { return .deletesAfterMarker }
+            guard sentenceEnd(tokens, k) - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
+            if (phraseEnd..<run.upperBound).contains(where: { isNegation(tokens[$0]) }) { return .deletesNegation }
         }
         return nil
     }
