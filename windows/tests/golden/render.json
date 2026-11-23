@@ -4426,5 +4426,105 @@
  {
   "input": "We go left. Wait no, we go right.",
   "expected": "We go right."
+ },
+ {
+  "input": "Ask Tom. Wait, no, ask him tomorrow.",
+  "expected": "Ask Tom. Wait, no, ask him tomorrow."
+ },
+ {
+  "input": "Move the meeting. Wait, no, move it to Friday.",
+  "expected": "Move the meeting. Wait, no, move it to Friday."
+ },
+ {
+  "input": "Call Sarah. Wait, no, call her after lunch.",
+  "expected": "Call Sarah. Wait, no, call her after lunch."
+ },
+ {
+  "input": "Ping the team. Actually, no, ping them on Slack.",
+  "expected": "Ping the team. Actually, no, ping them on Slack."
+ },
+ {
+  "input": "Send the report to Tom. Wait, no, send it to Sarah.",
+  "expected": "Send the report to Tom. Wait, no, send it to Sarah."
+ },
+ {
+  "input": "Book the flight. Wait, no, book that tomorrow.",
+  "expected": "Book the flight. Wait, no, book that tomorrow."
+ },
+ {
+  "input": "Open the file. Wait, no, open this one.",
+  "expected": "Open the file. Wait, no, open this one."
+ },
+ {
+  "input": "Check the logs. Wait, no, check those first.",
+  "expected": "Check the logs. Wait, no, check those first."
+ },
+ {
+  "input": "Meet at the cafe. Wait, no, meet there at noon.",
+  "expected": "Meet at the cafe. Wait, no, meet there at noon."
+ },
+ {
+  "input": "Ask Tom. Wait, no, ask Sarah to call him.",
+  "expected": "Ask Tom. Wait, no, ask Sarah to call him."
+ },
+ {
+  "input": "Text Anna. Wait, no, text her husband.",
+  "expected": "Text Anna. Wait, no, text her husband."
+ },
+ {
+  "input": "Book a table. Wait, no, book one for six.",
+  "expected": "Book a table. Wait, no, book one for six."
+ },
+ {
+  "input": "Review the PR. Wait, no, review these later.",
+  "expected": "Review the PR. Wait, no, review these later."
+ },
+ {
+  "input": "Ask Tom. Wait, no. Ask him tomorrow.",
+  "expected": "Ask Tom. Wait, no. Ask him tomorrow."
+ },
+ {
+  "input": "Ask Tom to call. Wait, no, ask him to text.",
+  "expected": "Ask Tom to call. Wait, no, ask him to text."
+ },
+ {
+  "input": "Call Tom and Sarah. Wait, no, call both tomorrow.",
+  "expected": "Call Tom and Sarah. Wait, no, call both tomorrow."
+ },
+ {
+  "input": "Ask Tom. Wait, no, ask if he’s free.",
+  "expected": "Ask Tom. Wait, no, ask if he’s free."
+ },
+ {
+  "input": "Ask Tom. Wait, no, ask Sarah.",
+  "expected": "Ask Sarah."
+ },
+ {
+  "input": "Tell Mike. Wait, no, tell Sarah instead.",
+  "expected": "Tell Sarah instead."
+ },
+ {
+  "input": "Call Tom. Actually, no, call Sarah tomorrow.",
+  "expected": "Call Sarah tomorrow."
+ },
+ {
+  "input": "Email the client. Wait, no, email the designer.",
+  "expected": "Email the designer."
+ },
+ {
+  "input": "Move the meeting. Wait, no, move the call to Friday.",
+  "expected": "Move the call to Friday."
+ },
+ {
+  "input": "Meet at the cafe. Wait, no, meet here.",
+  "expected": "Meet here."
+ },
+ {
+  "input": "Ping the team. Actually, no, ping the whole company.",
+  "expected": "Ping the whole company."
+ },
+ {
+  "input": "It works on Mac. Wait, no, it fails on Windows.",
+  "expected": "It fails on Windows."
  }
 ]

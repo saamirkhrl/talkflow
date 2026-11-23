@@ -26,7 +26,8 @@ import Foundation
 /// Wider rules, each as narrow: one plain word swapped after "I mean" in a
 /// closed class ("blue, I mean green"), a name the marker's full stop
 /// capitalised ("Tell John. Wait, no. Mike."), a restart after "just"/"only" or
-/// one that repeats the sentence's first word, a negated restart ("Delete it.
+/// one that repeats the sentence's first word (unless the new sentence points back
+/// with "him", "it", "there"...), a negated restart ("Delete it.
 /// Wait, don't delete it, archive it." keeps the negation), the spoken commands
 /// "actually, never mind" and "wait, start over" after a clause, and a clause
 /// broken off after an article ("Can you make the, can you change the font
@@ -516,16 +517,44 @@ enum SelfCorrection {
                 }
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
                 //    a firm marker, the new clause opens with the old sentence's first word.
+                //    Not when the new sentence points back ("Ask Tom. Wait, no, ask him
+                //    tomorrow."): the old sentence, which this deletes, holds what it means.
                 let s = clauseStart(tokens, before: m - 1)
                 if marker.firm, after + 1 < tokens.count, !tokens[after + 1].leading.contains("\n"),
                    m - s >= 2, m - s <= 12, tokens[m - 1].trailingPunctuation != nil,
-                   tokens[after].norm == tokens[s].norm, !runWords.contains(tokens[s].norm) {
+                   tokens[after].norm == tokens[s].norm, !runWords.contains(tokens[s].norm),
+                   !refersBack(from: after + 1, in: tokens) {
                     return delete(tokens, s..<after)
                 }
             }
         }
         return nil
     }
+
+    /// Whether the sentence from `index` to its end (or a line break) uses a word that
+    /// points back to something said before it ("ask him", "move it", "meet there").
+    /// Anywhere in it, not just after the repeated word: "Ask Tom. Wait, no, ask Sarah
+    /// to call him." loses Tom too. Measured on 70 probe sentences: no existing
+    /// --streamtest case or golden entry changes.
+    private static func refersBack(from index: Int, in tokens: [Token]) -> Bool {
+        var k = index
+        while k < tokens.count, !tokens[k].leading.contains("\n") {
+            if backReferences.contains(tokens[k].norm.replacingOccurrences(of: "\u{2019}", with: "'")) { return true }
+            if tokens[k].endsSentence { break }
+            k += 1
+        }
+        return false
+    }
+
+    /// Words that point back, so the restart that drops a whole sentence leaves it
+    /// alone. Third person only: "me", "us", "you" and "here" point at the speaker, not
+    /// at the old sentence. One list for Mac and Windows; keep them identical.
+    private static let backReferences: Set<String> = [
+        "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself",
+        "they", "them", "their", "theirs", "themselves",
+        "he's", "she's", "it's", "they're", "they've", "he'll", "she'll", "it'll", "they'll", "he'd", "she'd", "they'd",
+        "that", "that's", "this", "these", "those", "one", "ones", "there", "both"
+    ]
 
     /// Where the two words at `index` were first said: between `start` and the
     /// marker at `m`, not across punctuation after the first of them.

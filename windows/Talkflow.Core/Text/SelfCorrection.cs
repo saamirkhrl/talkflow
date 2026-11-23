@@ -517,15 +517,41 @@ public static class SelfCorrection
                     && (IsSentenceStart(tokens, p2) || InstructionSlots.Contains(tokens[p2 - 1].Norm))) return Delete(tokens, p2, after);
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
                 //    a firm marker, the new clause opens with the old sentence's first word.
+                //    Not when the new sentence points back ("Ask Tom. Wait, no, ask him
+                //    tomorrow."): the old sentence, which this deletes, holds what it means.
                 int s = ClauseStart(tokens, m - 1);
                 if (marker.Firm && after + 1 < tokens.Count && !tokens[after + 1].BreaksLine
                     && m - s >= 2 && m - s <= 12 && tokens[m - 1].TrailingPunctuation is not null
-                    && tokens[after].Norm == tokens[s].Norm && !RunWords.Contains(tokens[s].Norm))
+                    && tokens[after].Norm == tokens[s].Norm && !RunWords.Contains(tokens[s].Norm)
+                    && !RefersBack(after + 1, tokens))
                     return Delete(tokens, s, after);
             }
         }
         return null;
     }
+
+    /// <summary>Whether the sentence from index to its end (or a line break) uses a word that
+    /// points back to something said before it ("ask him", "move it", "meet there").
+    /// Anywhere in it: "Ask Tom. Wait, no, ask Sarah to call him." loses Tom too.</summary>
+    static bool RefersBack(int index, List<Token> tokens)
+    {
+        for (int k = index; k < tokens.Count && !tokens[k].BreaksLine; k++)
+        {
+            if (BackReferences.Contains(tokens[k].Norm.Replace('\u2019', '\''))) return true;
+            if (tokens[k].EndsSentence) break;
+        }
+        return false;
+    }
+
+    /// <summary>Words that point back, so the restart that drops a whole sentence leaves it
+    /// alone. Third person only. One list for Mac and Windows; keep them identical.</summary>
+    static readonly HashSet<string> BackReferences = new()
+    {
+        "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself",
+        "they", "them", "their", "theirs", "themselves",
+        "he's", "she's", "it's", "they're", "they've", "he'll", "she'll", "it'll", "they'll", "he'd", "she'd", "they'd",
+        "that", "that's", "this", "these", "those", "one", "ones", "there", "both"
+    };
 
     /// <summary>
     /// Where the two words at <paramref name="index"/> were first said: between
