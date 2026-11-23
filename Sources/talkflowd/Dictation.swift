@@ -82,6 +82,7 @@ final class Dictation {
         let style: WritingStyle
         let claudePolishes: Bool
         let aiPolish: Bool
+        let corrections: Bool
     }
     /// `Preferences.writingStyle`, fixed for the length of a hold, so the live
     /// text and the release pass are written the same way.
@@ -199,7 +200,7 @@ final class Dictation {
                 let hold = Hold(context: self.context,
                                 bundleID: self.context?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
                                 liveTyping: self.liveTyping, style: self.style,
-                                claudePolishes: Self.claudePolishes, aiPolish: Preferences.aiPolish)
+                                claudePolishes: Self.claudePolishes, aiPolish: Preferences.aiPolish, corrections: self.corrections)
                 self.correct(final, verbatim: verbatim, english: english, hold: hold) { corrected in
                     self.complete(corrected, verbatim: verbatim, english: english, duration: duration, hold: hold)
                 }
@@ -260,7 +261,7 @@ final class Dictation {
         }
         let skip: String?
         if hold.liveTyping { skip = "type while speaking" }
-        else if !corrections { skip = "setting off" }
+        else if !hold.corrections { skip = "setting off" }
         else if !CorrectionModel.isAvailable && !hold.claudePolishes { skip = "no model on this Mac" }
         else { skip = nil }
         if let skip {
