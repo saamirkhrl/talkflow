@@ -17,6 +17,8 @@ final class SettingsModel: ObservableObject {
         didSet { Preferences.aiPolish = aiPolish }
     }
     let polishAvailable = Polish.isAvailable
+    @Published var aiCorrections = Preferences.aiCorrections { didSet { Preferences.aiCorrections = aiCorrections } }
+    var correctionsAvailable: Bool { polishAvailable || (useClaude && hasAnthropicKey) }
 
     @Published var writingStyle = Preferences.writingStyle {
         didSet { if Preferences.writingStyle != writingStyle { Preferences.writingStyle = writingStyle } }
@@ -124,7 +126,12 @@ final class SettingsModel: ObservableObject {
         if useClaude && hasAnthropicKey { punctuation = "\(claudeModel.title), your key" }
         else if aiPolish && polishAvailable { punctuation = "Apple Intelligence, on this Mac" }
         else { punctuation = "Built-in rules only" }
-        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation)]
+        let corrections: String
+        if !aiCorrections { corrections = "Built-in rules only" }
+        else if polishAvailable { corrections = "Apple Intelligence, on this Mac" }
+        else if useClaude && hasAnthropicKey { corrections = "\(claudeModel.title), your key" }
+        else { corrections = "Built-in rules only" }
+        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections)]
     }
 
     /// Checks the key with the provider, and keeps it only if it works.
@@ -197,10 +204,16 @@ struct SettingsPage: View {
                         styleRow
                     }
                     group(.dictation) {
-                        // Smart corrections goes here, first in this group (see the
-                        // mockup). Its preference and switch come from the
-                        // self-correction branch and are moved in at integration;
-                        // no preference key is added for it here.
+                        // Experimental and off by default: the binding reads off while
+                        // no model is available, so the switch never looks on when it
+                        // cannot run.
+                        toggleRow("AI corrections (experimental)",
+                                  help: "When you change your mind mid-sentence, tries to remove the words you took back. Never adds or changes a word, but can sometimes remove one you meant."
+                                      + (model.correctionsAvailable ? "" : " Needs Apple Intelligence."),
+                                  isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
+                                                set: { model.aiCorrections = $0 }))
+                            .disabled(!model.correctionsAvailable)
+                        RowDivider()
                         toggleRow("Type while speaking",
                                   help: "Type words as you speak instead of when you let go.",
                                   isOn: $model.typeWhileSpeaking)
