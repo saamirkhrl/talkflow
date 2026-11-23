@@ -108,6 +108,35 @@ struct RowDivider: View {
     var body: some View { Rectangle().fill(Palette.hairline).frame(height: 1) }
 }
 
+/// The pointing hand over anything clickable in the window, as links have
+/// on the web. Pushes and pops in pairs: a view that goes away while the
+/// pointer is over it would otherwise leave the hand on screen.
+private struct PointerCursor: ViewModifier {
+    /// Whether this view has a hand pushed. A class under @StateObject
+    /// rather than @State, which is a macro in this SDK (see Onboarding).
+    private final class Pushed: ObservableObject { var on = false }
+
+    @Environment(\.isEnabled) private var isEnabled
+    @StateObject private var pushed = Pushed()
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { inside in set(inside && isEnabled) }
+            .onChange(of: isEnabled) { enabled in if !enabled { set(false) } }
+            .onDisappear { set(false) }
+    }
+
+    private func set(_ on: Bool) {
+        guard on != pushed.on else { return }
+        pushed.on = on
+        if on { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+    }
+}
+
+extension View {
+    func pointerCursor() -> some View { modifier(PointerCursor()) }
+}
+
 /// The one filled button on a row: ink with paper text, as the old
 /// Update button was.
 struct AppPrimaryButtonStyle: ButtonStyle {
@@ -122,6 +151,7 @@ struct AppPrimaryButtonStyle: ButtonStyle {
             .background(RoundedRectangle(cornerRadius: 8).fill(isEnabled ? Palette.ink.opacity(configuration.isPressed ? 0.75 : 1) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isEnabled ? Color.clear : Palette.line, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 8))
+            .pointerCursor()
     }
 }
 
@@ -138,6 +168,7 @@ struct AppSecondaryButtonStyle: ButtonStyle {
             .background(RoundedRectangle(cornerRadius: 8).fill(Palette.ink.opacity(configuration.isPressed ? 0.06 : 0)))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isEnabled ? Palette.ink.opacity(0.22) : Palette.line, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 8))
+            .pointerCursor()
     }
 }
 
@@ -150,6 +181,7 @@ struct AppLinkButtonStyle: ButtonStyle {
             .foregroundColor(Palette.ink)
             .opacity(configuration.isPressed ? 0.55 : 1)
             .contentShape(Rectangle())
+            .pointerCursor()
     }
 }
 
@@ -207,6 +239,7 @@ struct AppSegmented<Value: Hashable>: View {
                         .contentShape(RoundedRectangle(cornerRadius: 7))
                 }
                 .buttonStyle(.plain)
+                .pointerCursor()
                 .accessibilityLabel(title(option))
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }

@@ -140,6 +140,7 @@ struct DictionaryPage: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .pointerCursor()
             .accessibilityLabel("Remove \(word)")
             .help("Remove \(word)")
         }

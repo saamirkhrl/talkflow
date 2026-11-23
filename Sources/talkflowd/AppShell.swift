@@ -118,7 +118,7 @@ struct AppShellView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Sidebar(model: model)
+            Sidebar(model: model, updater: Updater.shared)
             Rectangle().fill(Palette.edge).frame(width: 1)
             page.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -140,6 +140,7 @@ struct AppShellView: View {
 
 private struct Sidebar: View {
     @ObservedObject var model: AppWindowModel
+    @ObservedObject var updater: Updater
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -155,22 +156,7 @@ private struct Sidebar: View {
                 ForEach(AppSection.allCases, id: \.self) { item($0) }
             }
             Spacer(minLength: 0)
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 4) {
-                    Text("Hold")
-                    Text(model.hotkeyName)
-                        .foregroundColor(Palette.ink)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(Palette.ink.opacity(0.22), lineWidth: 1))
-                    Text("to dictate")
-                }
-                .accessibilityElement(children: .combine)
-                Text("Everything stays on this Mac.")
-            }
-            .font(AppFont.caption)
-            .foregroundColor(Palette.muted)
-            .padding(.horizontal, 8)
+            footer.padding(.horizontal, 8)
         }
         .padding(.top, AppMetrics.titlebar + 22)
         .padding(.horizontal, 14)
@@ -178,6 +164,52 @@ private struct Sidebar: View {
         .frame(width: AppMetrics.sidebarWidth, alignment: .leading)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Palette.sidebar)
+    }
+
+    /// The running version and the one update control, so both are in
+    /// reach from every section. Same states as Settings > About > Updates.
+    @ViewBuilder private var footer: some View {
+        let state = model.updateOverride ?? updater.state
+        let live = model.updatesEnabled && model.updateOverride == nil
+        let preview = "Not available in a preview."
+        VStack(alignment: .leading, spacing: 8) {
+            Group {
+                switch state {
+                case .idle, .checking: Text("Version \(Updater.currentVersion)")
+                case .upToDate: Text("Version \(Updater.currentVersion). Up to date.")
+                case .available(let release): Text("Version \(Updater.currentVersion). \(release.version) is available.")
+                case .downloading: Text("Downloading update...")
+                case .installing: Text("Installing...")
+                case .failed(let message):
+                    Text("Version \(Updater.currentVersion). ").foregroundColor(Palette.muted)
+                        + Text(message).foregroundColor(Palette.warn)
+                }
+            }
+            .font(AppFont.caption)
+            .foregroundColor(Palette.muted)
+            .fixedSize(horizontal: false, vertical: true)
+            switch state {
+            case .idle, .upToDate:
+                Button("Check for updates") { updater.check() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+                    .disabled(!live)
+                    .help(live ? "" : preview)
+            case .checking:
+                Button("Checking...") {}
+                    .buttonStyle(AppSecondaryButtonStyle())
+                    .disabled(true)
+            case .available(let release):
+                UpdateInstallButton(release: release, enabled: live) { updater.install() }
+            case .downloading, .installing:
+                EmptyView()
+            case .failed:
+                Button("Retry") { updater.check() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+                    .disabled(!live)
+                    .help(live ? "" : preview)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func item(_ section: AppSection) -> some View {
@@ -201,6 +233,7 @@ private struct Sidebar: View {
             .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+        .pointerCursor()
         .accessibilityLabel(section == .notes ? "Notes, coming soon" : section.title)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .help("\(section.title) (Command-\(section.keyEquivalent))")

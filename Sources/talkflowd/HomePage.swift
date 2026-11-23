@@ -67,7 +67,6 @@ struct HomePage: View {
                 header
                 totals
                 activity
-                tips
             }
         }
     }
@@ -151,6 +150,7 @@ struct HomePage: View {
                 pill(dot: Palette.warn, text: "Setup isn't finished. Finish setup...")
             }
             .buttonStyle(.plain)
+            .pointerCursor()
             .disabled(window.openSetup == nil)
             .accessibilityLabel("Finish setup")
             .help("Opens setup.")
@@ -322,51 +322,6 @@ struct HomePage: View {
         .font(AppFont.small)
         .foregroundColor(Palette.muted)
         .accessibilityHidden(true)
-    }
-
-    // MARK: - Tips
-
-    private var tips: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Changed your mind mid-sentence?")
-                    .font(AppFont.bodyMedium)
-                    .foregroundColor(Palette.ink)
-                Text("Say \"actually\" or \"scratch that\" and keep going. Only the corrected version is typed.")
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.muted)
-                    // An HStack offers flexible text one line first; let it wrap.
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.line, lineWidth: 1))
-
-            Button {
-                window.go(to: .dictionary)
-            } label: {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Teach it your words")
-                        .font(AppFont.bodyMedium)
-                        .foregroundColor(Palette.ink)
-                    (Text("Names and terms it gets wrong can be added to your ")
-                        + Text("Dictionary").underline().foregroundColor(Palette.ink)
-                        + Text("."))
-                        .font(AppFont.body)
-                        .foregroundColor(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .multilineTextAlignment(.leading)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 16)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.line, lineWidth: 1))
-                .contentShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Teach it your words. Open Dictionary.")
-        }
     }
 
     /// GitHub-style: a column per week, a row per weekday, darker for more
