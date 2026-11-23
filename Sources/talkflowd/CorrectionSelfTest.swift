@@ -1,6 +1,6 @@
 import Foundation
 
-/// `talkflowd --correctiontest [dev|heldout|all|check] [text|span]` - measures the
+/// `talkflowd --correctiontest [dev|heldout|all|check] [text|span] [claude]` - measures the
 /// model step for spoken corrections (`CorrectionModel`) on synthetic sentences.
 ///
 /// Every case is a raw transcript, rendered with the rules first (`Dictation.render`)
@@ -14,6 +14,11 @@ import Foundation
 /// call the on-device model directly, with a 15 s cap rather than the real budget, so
 /// slow answers are still measured; `over_budget` says how many the real budget would
 /// have dropped. The first call of the process is the cold one and is not prewarmed.
+///
+/// `claude` sends each case to Anthropic with the saved key and Claude model (billed;
+/// synthetic sentences only), never runs unless given, and needs the Keychain item
+/// readable (the key is read the way the app reads it, so a build that is not allowed
+/// to read it is refused or prompted by macOS; nothing here prints it).
 ///
 /// Synthetic sentences only, so unlike the app's log this one may hold them. Results
 /// go to `$TMPDIR/talkflow-correctiontest.log` as well as stdout.
@@ -124,13 +129,27 @@ enum CorrectionSelfTest {
         try? FileManager.default.removeItem(at: logURL)
         var set = "dev"
         var mode = CorrectionModel.mode
+        var claude = false
         for argument in arguments {
             if ["dev", "heldout", "all", "check"].contains(argument) { set = argument }
+            else if argument == "claude" { claude = true }
             else if let parsed = CorrectionModel.Mode(rawValue: argument) { mode = parsed }
         }
         CorrectionModel.mode = mode
 
         if set == "check" { check() }
+
+        if claude {
+            guard APIKeys.hasKey(.anthropic) else {
+                report("mode: \(mode.rawValue)   set: \(set)   path: claude   no Anthropic key saved in the Keychain")
+                exit(2)
+            }
+            Task {
+                await measure(set: set, mode: mode, claude: true)
+                exit(0)
+            }
+            dispatchMain()
+        }
 
         #if canImport(FoundationModels)
         guard #available(macOS 26.0, *), CorrectionModel.isAvailable else {
@@ -138,7 +157,7 @@ enum CorrectionSelfTest {
             exit(2)
         }
         Task {
-            await measure(set: set, mode: mode)
+            await measure(set: set, mode: mode, claude: false)
             exit(0)
         }
         dispatchMain()
@@ -169,53 +188,69 @@ enum CorrectionSelfTest {
         exit(0)
     }
 
-    #if canImport(FoundationModels)
     /// One model call with the harness cap. Returns the reply or the failure
     /// category, and the seconds it took.
-    @available(macOS 26.0, *)
-    private static func timedAsk(_ text: String, mode: CorrectionModel.Mode) async -> (reply: String?, failure: String?, elapsed: TimeInterval) {
+    private static func timedAsk(_ text: String, mode: CorrectionModel.Mode, claude: Bool) async -> (reply: String?, failure: String?, elapsed: TimeInterval) {
         let t0 = Date()
-        let outcome: (String?, String?) = await withTaskGroup(of: (String?, String?).self) { group in
-            group.addTask {
-                do { return (try await CorrectionModel.ask(text, mode: mode), nil) }
-                catch { return (nil, CorrectionModel.category(of: error)) }
+        if claude {
+            // The app's Claude request, with the harness cap instead of the 4 s budget.
+            let outcome: (String?, String?) = await withCheckedContinuation { continuation in
+                _ = CorrectionModel.askClaude(text, timeout: cap) { reply, failure in
+                    continuation.resume(returning: (reply, failure))
+                }
             }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: UInt64(cap * 1_000_000_000))
-                return (nil, "timed out after \(Int(cap))s")
-            }
-            let first = await group.next() ?? (nil, "error")
-            group.cancelAll()
-            return first
+            return (outcome.0, outcome.1, Date().timeIntervalSince(t0))
         }
-        return (outcome.0, outcome.1, Date().timeIntervalSince(t0))
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            let outcome: (String?, String?) = await withTaskGroup(of: (String?, String?).self) { group in
+                group.addTask {
+                    do { return (try await CorrectionModel.ask(text, mode: mode), nil) }
+                    catch { return (nil, CorrectionModel.category(of: error)) }
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: UInt64(cap * 1_000_000_000))
+                    return (nil, "timed out after \(Int(cap))s")
+                }
+                let first = await group.next() ?? (nil, "error")
+                group.cancelAll()
+                return first
+            }
+            return (outcome.0, outcome.1, Date().timeIntervalSince(t0))
+        }
+        #endif
+        return (nil, "unavailable", Date().timeIntervalSince(t0))
     }
 
-    @available(macOS 26.0, *)
-    private static func measure(set: String, mode: CorrectionModel.Mode) async {
-        report("--- correctiontest \(set) \(mode.rawValue) ---")
+    private static func measure(set: String, mode: CorrectionModel.Mode, claude: Bool) async {
+        let budget = claude ? CorrectionModel.claudeBudget : CorrectionModel.budget
+        report("--- correctiontest \(set) \(mode.rawValue) \(claude ? "claude" : "model") ---")
         var calls = 0
         var coldElapsed: TimeInterval?
         var warm: [TimeInterval] = []
         var overBudget = 0
         var rejections: [String: Int] = [:]
 
-        var pRun = 0, pHit = 0, pUnchanged = 0, pRejected = 0, pWrong = 0, pTimeout = 0, pFailed = 0, pPre = 0
+        // Group 0 is P01-P30, the original set; group 1 is P31 onward, reported apart.
+        struct Tally { var run = 0, hit = 0, unchanged = 0, rejected = 0, wrong = 0, timeout = 0, failed = 0, pre = 0 }
+        var tallies = [Tally(), Tally()]
         var nRun = 0, nMarker = 0, nChanged = 0, nSaved = 0
 
         /// One model call, with the cold/warm bookkeeping of step 5.
         func call(_ rules: String) async -> (reply: String?, failure: String?, elapsed: TimeInterval, cold: Bool) {
-            let result = await timedAsk(rules, mode: mode)
+            let result = await timedAsk(rules, mode: mode, claude: claude)
             let cold = calls == 0
             calls += 1
             if cold {
                 coldElapsed = result.elapsed
-                CorrectionModel.prewarm()
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if !claude {
+                    CorrectionModel.prewarm()
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                }
             } else {
                 warm.append(result.elapsed)
             }
-            if result.elapsed > CorrectionModel.budget { overBudget += 1 }
+            if result.elapsed > budget { overBudget += 1 }
             return (result.reply, result.failure, result.elapsed, cold)
         }
 
@@ -231,25 +266,26 @@ enum CorrectionSelfTest {
         }
 
         for (index, testCase) in entries(positives) {
+            let g = index < 30 ? 0 : 1
             let rules = render(testCase.raw)
             let expected = testCase.expected ?? ""
             let marker = SelfCorrection.hasMarker(in: rules)
             guard marker, expected != rules, SelfCorrection.isDeletionOnly(original: rules, result: expected) else {
-                pPre += 1
+                tallies[g].pre += 1
                 report("\(testCase.id) PRECONDITION FAIL marker=\(marker ? "y" : "n") rules=\(rules)")
                 continue
             }
-            pRun += 1
+            tallies[g].run += 1
             let answer = await call(rules)
             let prefix = "\(testCase.id) \(label(index)) \(tag(answer.elapsed, answer.cold))"
             guard let reply = answer.reply else {
-                pFailed += 1
+                tallies[g].failed += 1
                 report("\(prefix) FAILED(\(answer.failure ?? "error")) | rules: \(rules)")
                 continue
             }
             let verdict = CorrectionModel.evaluate(original: rules, reply: reply, mode: mode)
             note(verdict)
-            let over = answer.elapsed > CorrectionModel.budget
+            let over = answer.elapsed > budget
             let delivered: String
             if !over, case .applied(let text) = verdict { delivered = text } else { delivered = rules }
             let outcome: String
@@ -260,14 +296,14 @@ enum CorrectionSelfTest {
             }
             let status: String
             if over {
-                pTimeout += 1
+                tallies[g].timeout += 1
                 status = "MISS-TIMEOUT(would be \(outcome))"
             } else {
                 switch verdict {
                 case .applied(let text):
-                    if text == expected { pHit += 1; status = "HIT" } else { pWrong += 1; status = "MISS-WRONG" }
-                case .unchanged: pUnchanged += 1; status = "MISS-UNCHANGED"
-                case .rejected(let reason): pRejected += 1; status = "MISS-REJECTED(\(reason.rawValue))"
+                    if text == expected { tallies[g].hit += 1; status = "HIT" } else { tallies[g].wrong += 1; status = "MISS-WRONG" }
+                case .unchanged: tallies[g].unchanged += 1; status = "MISS-UNCHANGED"
+                case .rejected(let reason): tallies[g].rejected += 1; status = "MISS-REJECTED(\(reason.rawValue))"
                 }
             }
             report("\(prefix) \(status) | rules: \(rules) | reply: \(reply) | got: \(delivered)")
@@ -289,7 +325,7 @@ enum CorrectionSelfTest {
             }
             let verdict = CorrectionModel.evaluate(original: rules, reply: reply, mode: mode)
             note(verdict)
-            let over = answer.elapsed > CorrectionModel.budget
+            let over = answer.elapsed > budget
             let delivered: String
             if !over, case .applied(let text) = verdict { delivered = text } else { delivered = rules }
             let status: String
@@ -312,11 +348,11 @@ enum CorrectionSelfTest {
         let rejectionList = rejections.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
 
         report("")
-        report("mode: \(mode.rawValue)   set: \(set)   model available: yes")
-        report("positives: run=\(pRun) hit=\(pHit) (\(pct(pHit, of: pRun))%) unchanged=\(pUnchanged) rejected=\(pRejected) wrong=\(pWrong) timeout=\(pTimeout) failed=\(pFailed) precondition_fail=\(pPre)")
+        report("mode: \(mode.rawValue)   set: \(set)   path: \(claude ? "claude (\(Preferences.claudeModel.rawValue))" : "on-device")   model available: yes")
+        report("positives P01-P30: run=\(tallies[0].run) hit=\(tallies[0].hit) (\(pct(tallies[0].hit, of: tallies[0].run))%) unchanged=\(tallies[0].unchanged) rejected=\(tallies[0].rejected) wrong=\(tallies[0].wrong) timeout=\(tallies[0].timeout) failed=\(tallies[0].failed) precondition_fail=\(tallies[0].pre)")
+        report("positives P31+: run=\(tallies[1].run) hit=\(tallies[1].hit) (\(pct(tallies[1].hit, of: tallies[1].run))%) unchanged=\(tallies[1].unchanged) rejected=\(tallies[1].rejected) wrong=\(tallies[1].wrong) timeout=\(tallies[1].timeout) failed=\(tallies[1].failed) precondition_fail=\(tallies[1].pre)")
         report("negatives: run=\(nRun) with_marker=\(nMarker) changed=\(nChanged) guard_saved=\(nSaved)")
         report("guard_rejections: \(rejectionTotal) (\(rejectionList))")
-        report("latency: cold=\(coldElapsed.map(seconds) ?? "n/a") warm_median=\(seconds(median)) warm_p95=\(seconds(p95)) warm_max=\(seconds(sorted.last ?? 0)) over_budget=\(overBudget)/\(calls) budget=\(seconds(CorrectionModel.budget))")
+        report("latency: cold=\(coldElapsed.map(seconds) ?? "n/a") warm_median=\(seconds(median)) warm_p95=\(seconds(p95)) warm_max=\(seconds(sorted.last ?? 0)) over_budget=\(overBudget)/\(calls) budget=\(seconds(budget))")
     }
-    #endif
 }

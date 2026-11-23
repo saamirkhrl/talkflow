@@ -336,7 +336,8 @@ enum CorrectionModel {
     /// - after EVERY marker in the run, delete nothing but its closed marker
     ///   phrases and fillers (`fillerEnd`): every content word said after a marker
     ///   survives, so the retracted version can never be the one kept;
-    /// - leave at least `minKeptAfter` words of the marker's sentence;
+    /// - leave at least `minKeptAfter` words of the marker's sentence (or of the next one,
+    ///   after a filler that ends it: "you know what?");
     /// - delete no negation after the marker (belt and braces: fillers hold none).
     /// A negation before the marker may go only when the kept text restates the word
     /// right after it (`Don't ship it. Actually, ship it.`); otherwise it is refused.
@@ -514,7 +515,7 @@ enum CorrectionModel {
     /// The same request as `ClaudePolish.run`, with this step's prompt. Calls
     /// `completion` with the reply, or a failure category (never a response body or
     /// any text). Returns the task so the budget can cancel it.
-    static func askClaude(_ text: String, completion: @escaping (String?, String?) -> Void) -> URLSessionDataTask? {
+    static func askClaude(_ text: String, timeout: TimeInterval = claudeBudget, completion: @escaping (String?, String?) -> Void) -> URLSessionDataTask? {
         guard let key = APIKeys.key(for: .anthropic) else {
             completion(nil, "no API key")
             return nil
@@ -537,7 +538,7 @@ enum CorrectionModel {
             request.setValue("server-side-fallback-2026-07-01", forHTTPHeaderField: "anthropic-beta")
         }
         request.httpMethod = "POST"
-        request.timeoutInterval = claudeBudget
+        request.timeoutInterval = timeout
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         request.setValue(key, forHTTPHeaderField: "x-api-key")
         request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
