@@ -277,6 +277,7 @@ struct SettingsPage: View {
             ForEach(SettingsGroup.allCases, id: \.self) { group in
                 Button(group.title) { scroll(proxy, to: group) }
                     .buttonStyle(.plain)
+                    .pointerCursor()
                     .font(AppFont.control)
                     .foregroundColor(Palette.ink)
                     .padding(.horizontal, 14)
