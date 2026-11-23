@@ -117,6 +117,7 @@ enum StreamSelfTest {
         runReleaseSplitCases()
         runEmailAndListCases()
         runSelfCorrectionCases()
+        runCorrectionModelCases()
         runInsertOnceCases()
         runWritingStyleCases()
         runLanguageCases()
@@ -607,7 +608,114 @@ enum StreamSelfTest {
             // Collapsing would need "three coffees", an insertion; "Order
             // three." would drop a word the user meant. Left alone.
             ("Order two coffees, make that three.", "Order two coffees, make that three."),
-            ("I would like a coffee.", "I would like a coffee.")
+            ("I would like a coffee.", "I would like a coffee."),
+            // Widened rules: plain swaps, sentence-start names, commands, restarts, false starts.
+            ("Make the button blue, I mean green.", "Make the button green."),
+            ("Put the logo on the left, sorry, the right.", "Put the logo on the right."),
+            ("Use a dropdown, actually no, a toggle.", "Use a toggle."),
+            ("Tell John. Wait, no. Mike.", "Tell Mike."),
+            ("I want you to refactor the whole file. Actually, just refactor the render function.", "I want you to just refactor the render function."),
+            ("Can you rewrite this in Rust? Actually, never mind, keep it in Swift.", "Keep it in Swift."),
+            ("First fix the tests. Wait, no, first pull the latest changes.", "First pull the latest changes."),
+            ("Delete the old migration. Wait, don't delete it, just rename it.", "Don't delete it, just rename it."),
+            ("Can you make the, can you change the font size?", "Can you change the font size?"),
+            ("Let's ship today, start over, let's ship tomorrow.", "Let's ship today, start over, let's ship tomorrow."),
+            ("Turn left, I mean right.", "Turn right."),
+            ("Make it bigger, sorry, smaller.", "Make it smaller."),
+            ("I'll have the soup, actually, the salad.", "I'll have the salad."),
+            ("Order the pasta, I meant the pizza.", "Order the pizza."),
+            ("Tell John. Wait, no. Tell Mike.", "Tell Mike."),
+            ("I'll go, wait no, I'll stay.", "I'll stay."),
+            ("Delete it. Actually, don't delete it, archive it.", "Don't delete it, archive it."),
+            ("Can you rewrite this in Rust? Never mind, keep it in Swift.", "Can you rewrite this in Rust? Never mind, keep it in Swift."),
+            ("Make it blue, undo that, make it green.", "Make it blue, undo that, make it green."),
+            ("So, can you make the, can you change the font size?", "So, can you change the font size?"),
+            ("We should go, I mean soon.", "We should go, I mean soon."),
+            ("Great job, I mean that.", "Great job, I mean that."),
+            ("It's not red, I mean blue.", "It's not red, I mean blue."),
+            ("Tell John. Sorry. Mike.", "Tell John. Sorry. Mike."),
+            ("Ask John. Wait, no. Thanks.", "Ask John. Wait, no. Thanks."),
+            ("I'm tired. Actually, I'm going to bed.", "I'm tired. Actually, I'm going to bed."),
+            ("What are you looking at, what are you doing?", "What are you looking at, what are you doing?"),
+            ("Look at the last commit, undo that, and rerun the tests.", "Look at the last commit, undo that, and rerun the tests."),
+            ("If it fails, start over, then check the logs.", "If it fails, start over, then check the logs."),
+            ("Oh, never mind, it's fine.", "Oh, never mind, it's fine."),
+            ("Okay, actually never mind, it's fine.", "Okay, actually never mind, it's fine."),
+            ("I'll call him, never mind.", "I'll call him, never mind."),
+            ("It's raining, never mind, we'll go anyway.", "It's raining, never mind, we'll go anyway."),
+            ("We need to start over from scratch.", "We need to start over from scratch."),
+            ("Please delete that file.", "Please delete that file."),
+            ("Thanks for the gift, sorry, the late reply.", "Thanks for the gift, sorry, the late reply."),
+            ("Let's ship today, wait, start over, let's ship tomorrow.", "Let's ship tomorrow."),
+            ("Delete the branch. Wait, don't delete it yet, we still need it.", "Don't delete it yet, we still need it."),
+            ("Bring the charger. Wait, don't bring the charger, I have one.", "Don't bring the charger, I have one."),
+            ("Review the PR. Actually, only review the tests.", "Only review the tests."),
+            // Fix round 1: ordinary dictation the widened rules must leave alone.
+            ("We have plan A, we have plan B.", "We have plan A, we have plan B."),
+            ("Pick option A, pick option B, or skip both.", "Pick option A, pick option B, or skip both."),
+            ("If it's type A, if it's type B, do nothing.", "If it's type A, if it's type B, do nothing."),
+            ("I got an A, I got a B, and a C in chemistry.", "I got an A, I got a B, and a C in chemistry."),
+            ("You can take route A, you can take route B.", "You can take route A, you can take route B."),
+            ("Use vitamin A, use vitamin C too.", "Use vitamin A, use vitamin C too."),
+            ("Fix bug A, fix bug B, then deploy.", "Fix bug A, fix bug B, then deploy."),
+            ("we have plan a, we have plan b.", "we have plan a, we have plan b."),
+            ("If it fails, start over, if it works, ship it.", "If it fails, start over, if it works, ship it."),
+            ("If you get lost, start over, if you get stuck, call me.", "If you get lost, start over, if you get stuck, call me."),
+            ("When you're done, delete that, when you're not, keep it.", "When you're done, delete that, when you're not, keep it."),
+            ("Select the first row, delete that, select the next row.", "Select the first row, delete that, select the next row."),
+            ("Go to line 5, delete that, go to line 10.", "Go to line 5, delete that, go to line 10."),
+            ("Close the tab, undo that, close the window.", "Close the tab, undo that, close the window."),
+            ("Make it blue, wait, undo that, make it green.", "Make it blue, wait, undo that, make it green."),
+            ("Clear the board, start over, clear the scores.", "Clear the board, start over, clear the scores."),
+            ("Read the intro, wait, start over, read the intro again.", "Read the intro, wait, start over, read the intro again."),
+            ("Come in. Oh, never mind the mess, it's fine.", "Come in. Oh, never mind the mess, it's fine."),
+            ("Thanks for coming. Oh, never mind the dog, he's friendly.", "Thanks for coming. Oh, never mind the dog, he's friendly."),
+            ("We got the deal. So never mind the old plan, we're going ahead.", "We got the deal. So never mind the old plan, we're going ahead."),
+            ("Oh dear, you lost your keys. Never mind, we'll find them.", "Oh dear, you lost your keys. Never mind, we'll find them."),
+            ("You missed the bus? Never mind, there's another one at five.", "You missed the bus? Never mind, there's another one at five."),
+            ("Where's my phone? Never mind, found it.", "Where's my phone? Never mind, found it."),
+            ("If it rains, actually never mind, we'll go anyway.", "If it rains, actually never mind, we'll go anyway."),
+            ("My phone died at Costco. Oh no. Typical.", "My phone died at Costco. Oh no. Typical."),
+            ("He's moving to Berlin. Wait, no. Seriously?", "He's moving to Berlin. Wait, no. Seriously?"),
+            ("I just got an email from Google. Oh no. Unbelievable.", "I just got an email from Google. Oh no. Unbelievable."),
+            ("I bought it on Amazon. Oh, no. Brilliant.", "I bought it on Amazon. Oh, no. Brilliant."),
+            ("Tell Ben. Oh no. Ugh.", "Tell Ben. Oh no. Ugh."),
+            ("Grab lunch with Alex. Oh no. Rain, again.", "Grab lunch with Alex. Oh no. Rain, again."),
+            ("Ask Tom. Wait, no. Honestly, ask anyone.", "Ask Tom. Wait, no. Honestly, ask anyone."),
+            ("Email Sarah. No wait. Instead, call her.", "Email Sarah. No wait. Instead, call her."),
+            ("Ping Dave. Wait, no. Also, ping Lisa.", "Ping Dave. Wait, no. Also, ping Lisa."),
+            ("Thanks John. I mean. Wow.", "Thanks John. I mean. Wow."),
+            ("Meet me at the cafe on Main Street. Wait, no. Starbucks.", "Meet me at the cafe on Main Street. Wait, no. Starbucks."),
+            ("Go ahead and explore. Actually, don't go too far, stay close.", "Go ahead and explore. Actually, don't go too far, stay close."),
+            ("Have fun. Actually, don't have too much fun! See you soon.", "Have fun. Actually, don't have too much fun! See you soon."),
+            ("Take your time. Actually, don't take too long, we need it Friday.", "Take your time. Actually, don't take too long, we need it Friday."),
+            ("Have a drink. Actually, don't have it too strong.", "Have a drink. Actually, don't have it too strong."),
+            ("I fixed the parser. Actually, just the parser tests are left.", "I fixed the parser. Actually, just the parser tests are left."),
+            ("Did you read the book? Actually, the movie.", "Did you read the book? Actually, the movie."),
+            // Fix round 2: positive evidence only.
+            ("Call Priya. Wait, no. Maria.", "Call Maria."),
+            ("Should we email Tom? Actually, never mind, let's call him.", "Let's call him."),
+            ("Please send the report. Actually, never mind, I'll do it.", "I'll do it."),
+            ("Did you run the tests? Sorry, just run the tests and tell me.", "Did you run the tests? Sorry, just run the tests and tell me."),
+            ("Have you checked the logs? Sorry, just checked the logs, all good.", "Have you checked the logs? Sorry, just checked the logs, all good."),
+            ("Hi Tom. Wait no. Phew.", "Hi Tom. Wait no. Phew."),
+            ("I sent it to Jake. Wait no. Meh.", "I sent it to Jake. Wait no. Meh."),
+            ("Thanks Mike. Wait, no. Whoa.", "Thanks Mike. Wait, no. Whoa."),
+            ("Text Sarah. Wait, wait. Nah.", "Text Sarah. Wait, wait. Nah."),
+            ("Thanks, Kevin. Wait, no. Congrats.", "Thanks, Kevin. Wait, no. Congrats."),
+            ("Love you, Mom. Wait, no. Cheers.", "Love you, Mom. Wait, no. Cheers."),
+            ("Good night, Dad. Wait, no. Hmmm.", "Good night, Dad. Wait, no. Hmmm."),
+            ("Bye Anna. No wait. Gotcha", "Bye Anna. No wait. Gotcha"),
+            ("Ping Raj. Wait, no. Lunch.", "Ping Raj. Wait, no. Lunch."),
+            ("Hi Tom. Wait, no. Mike.", "Hi Tom. Wait, no. Mike."),
+            ("Hi team. Actually, never mind, the meeting is cancelled.", "Hi team. Actually, never mind, the meeting is cancelled."),
+            ("Good morning. Wait, never mind, see you at noon.", "Good morning. Wait, never mind, see you at noon."),
+            ("Congrats on the launch. Actually, never mind, call me.", "Congrats on the launch. Actually, never mind, call me."),
+            ("Thanks for the help. Actually, never mind, I figured it out.", "Thanks for the help. Actually, never mind, I figured it out."),
+            ("Thanks for the gift. Sorry, the delay.", "Thanks for the gift. Sorry, the delay."),
+            ("Sorry for the wait. Sorry, the noise.", "Sorry for the wait. Sorry, the noise."),
+            ("Say the word the, say the word an.", "Say the word the, say the word an."),
+            ("Search for the, search for an, search for a.", "Search for the, search for an, search for a.")
         ]
         for (raw, want) in pure {
             let got = SelfCorrection.apply(to: raw)
@@ -632,6 +740,16 @@ enum StreamSelfTest {
               "guard: reordered words are refused")
         check(!SelfCorrection.isDeletionOnly(original: "meet at 2", result: "meet me at 2"),
               "guard: an inserted word is refused")
+        check(SelfCorrection.hasMarker(in: "It was good, I mean really good."),
+              "hasMarker: a marker the rules left standing is seen")
+        check(SelfCorrection.hasMarker(in: "Let's ship today, start over, let's ship tomorrow."),
+              "hasMarker: a spoken command is seen")
+        check(!SelfCorrection.hasMarker(in: "Make the button green."),
+              "hasMarker: plain text has none")
+        check(SelfCorrection.hasMarker(in: "Close the tab, undo that, close the window."),
+              "hasMarker: an undo command is seen for the model step even though the rules leave it")
+        check(!SelfCorrection.hasMarker(in: "Never mind, it's fine."),
+              "hasMarker: a command with nothing before it is not one")
 
         // Through the real pipeline: live steps stay append-only (the live
         // render never applies corrections), the final text is corrected, and
@@ -697,6 +815,150 @@ enum StreamSelfTest {
         let partial = Dictation.render("Let's move the review to Friday, wait no, Thursday, and then we", leadingSpace: "", structure: false)
         let appended = FieldSync.appendOnlyTarget(current: partial, final: longVerbatim) ?? partial
         check(appended == longVerbatim, "long: the append loses no words when the correction is refused", appended.debugDescription)
+    }
+
+    /// The guard around the model step for corrections the rules leave in. Pure:
+    /// every reply here is made up, the model is never called. What matters is
+    /// that a wrong or wandering reply is rejected, and that an accepted one is
+    /// only ever a deletion.
+    private static func runCorrectionModelCases() {
+        report("case: the correction model step only deletes, inside tight bounds")
+
+        let o = "We should host it on our own servers. Actually, you know what, the cloud is cheaper for now."
+        let o2 = "Thanks for the notes. " + o
+        let o4 = "Let's take the bus. Actually, we walk."
+        let o5 = "Hi Sam,\n\nWe should host it on our own servers. Actually, the cloud is cheaper."
+        let o6 = "I was going to write the tests first, actually, let me fix the bug."
+        let o7 = "Thanks for the notes. " + o6
+        let o8 = "Send it to the team. Actually, send it to the team lead."
+
+        let indices = SelfCorrection.markerIndices(in: o)
+        check(indices == [8], "marker index of the sentence-opening Actually", "\(indices)")
+        for (label, text) in [("o", o), ("o2", o2), ("o4", o4), ("o5", o5), ("o6", o6), ("o7", o7), ("o8", o8)] {
+            check(SelfCorrection.hasMarker(in: text), "hasMarker sees the marker in \(label)")
+        }
+
+        typealias V = CorrectionModel.Verdict
+        let cases: [(String, CorrectionModel.Mode, String, String, V)] = [
+            ("text: correction applied", .text, o, "The cloud is cheaper for now.", .applied("The cloud is cheaper for now.")),
+            ("text: model's punctuation ignored", .text, o, "the cloud is cheaper for now", .applied("The cloud is cheaper for now.")),
+            ("text: unchanged reply", .text, o, o, .unchanged),
+            ("text: Reply prefix and quotes stripped", .text, o, "Reply: \"The cloud is cheaper for now.\"", .applied("The cloud is cheaper for now.")),
+            ("text: rewritten word", .text, o, "The cloud is less expensive for now.", .rejected(.notSubsequence)),
+            ("text: junk preamble", .text, o, "Sure! Here is the corrected text: The cloud is cheaper for now.", .rejected(.notSubsequence)),
+            ("text: empty reply", .text, o, "", .rejected(.empty)),
+            ("text: unrelated sentence deleted", .text, o2, o, .rejected(.noMarkerInRun)),
+            ("text: deletes past the sentence before", .text, o2, "The cloud is cheaper for now.", .rejected(.outsideWindow)),
+            ("text: only the marker dropped", .text, o, "We should host it on our own servers. You know what, the cloud is cheaper for now.", .rejected(.nothingBeforeMarker)),
+            ("text: only two markers dropped", .text, "The report is due Thursday, sorry, I mean the draft is due Thursday.",
+             "The report is due Thursday, the draft is due Thursday.", .rejected(.nothingBeforeMarker)),
+            ("text: eats the replacement", .text, o, "for now.", .rejected(.deletesAfterMarker)),
+            ("text: the replacement word deleted", .text, o4, "Walk.", .rejected(.deletesAfterMarker)),
+            ("text: across a paragraph", .text, o5, "The cloud is cheaper.", .rejected(.crossesParagraph)),
+            ("text: inside a paragraph", .text, o5, "Hi Sam,\n\nThe cloud is cheaper.", .applied("Hi Sam,\n\nThe cloud is cheaper.")),
+            ("text: mid-sentence false start", .text, o6, "Let me fix the bug.", .applied("Let me fix the bug.")),
+            ("text: not the sentence before a mid-sentence marker", .text, o7, "Let me fix the bug.", .rejected(.outsideWindow)),
+            ("text: negation after the marker kept", .text, "Ship it Friday. Actually, do not ship it.", "Ship it.", .rejected(.deletesAfterMarker)),
+            ("text: n't after the marker kept", .text, "Fire everyone. Sorry, don't fire anyone today.", "Fire anyone today.", .rejected(.deletesAfterMarker)),
+            ("text: curly n't kept", .text, "Fire everyone. Sorry, don\u{2019}t fire anyone today.", "Fire anyone today.", .rejected(.deletesAfterMarker)),
+            ("text: never after the marker kept", .text, "Call him today. Actually, never call him, email him.", "Call him, email him.", .rejected(.deletesAfterMarker)),
+            ("text: a no that is not the marker kept", .text, "Invite Sam. Wait, Sam said no, invite Alex.", "Invite Alex.", .rejected(.deletesAfterMarker)),
+            ("text: marker no deleted", .text, "Let's take the bus. Wait, no, the train is faster.", "The train is faster.", .applied("The train is faster.")),
+            ("text: actually no deleted", .text, "I'll rewrite the parser, actually no, I'll patch it.", "I'll patch it.", .applied("I'll patch it.")),
+            ("text: never mind deleted", .text, "Use Rust for the CLI. Actually, never mind, keep it in Swift.", "Keep it in Swift.", .applied("Keep it in Swift.")),
+            ("text: nothing left after the fillers", .text, "Take the bus. Actually, no, um, you know, walk.", "Walk.", .rejected(.noReplacementLeft)),
+            ("text: keeps the retracted verb", .text, "Approve it. Sorry, I meant reject it today.", "Approve it today.", .rejected(.deletesAfterMarker)),
+            ("text: keeps the retracted verb, repeated object", .text, "Call Ana tomorrow. Sorry, I meant email Ana tomorrow.", "Call Ana tomorrow.", .rejected(.deletesAfterMarker)),
+            ("text: a no that starts the clause is kept", .text, "Rewrite the module. Actually no changes are needed here.", "Changes are needed here.", .rejected(.deletesAfterMarker)),
+            ("text: half the marker left", .text, "Approve it. Sorry, I meant reject it today.", "Approve I meant reject it today.", .rejected(.keepsMarker)),
+            ("text: keeps the old half", .text, "Use Postgres. Actually, use SQLite instead.", "Use Postgres.", .rejected(.nothingBeforeMarker)),
+            ("text: unpunctuated I mean runs into what is meant", .text, "Move it to Monday. Sorry, I mean move it to Tuesday.", "Move it to Tuesday.", .rejected(.deletesAfterMarker)),
+            ("text: one content word after the marker deleted", .text, o, "Cloud is cheaper for now.", .rejected(.deletesAfterMarker)),
+            ("text: whole post-marker clause deleted", .text, "Let's meet at noon. Actually, I can't make noon, let's do three.", "Let's do three.", .rejected(.deletesAfterMarker)),
+            ("text: hedge after the marker kept", .text, "We could hire a contractor. Actually, I think a full-time hire is better.", "A full-time hire is better.", .rejected(.deletesAfterMarker)),
+            ("text: unpunctuated you know is content", .text, "Use the red one. Actually, you know the answer already.", "The answer already.", .rejected(.deletesAfterMarker)),
+            ("text: wait no running into a clause", .text, "Ship the beta. Wait, no users have signed up yet.", "Users have signed up yet.", .rejected(.deletesAfterMarker)),
+            ("text: fillers after the marker deleted", .text, "Book the hotel. Actually, um, let me see, book the Airbnb.", "Book the Airbnb.", .applied("Book the Airbnb.")),
+            ("text: actually no, comma, deleted", .text, "Add a checkbox. Actually no, a toggle is clearer.", "A toggle is clearer.", .applied("A toggle is clearer.")),
+            ("text: no wait deleted", .text, "Meet at the cafe. No wait, the library is quieter.", "The library is quieter.", .applied("The library is quieter.")),
+            ("text: negation before the marker may go", .text, "Don't ship it. Actually, ship it today.", "Ship it today.", .applied("Ship it today.")),
+            ("text: delete that runs into its object", .text, "Keep the config. Actually, delete that file too.", "File too.", .rejected(.deletesAfterMarker)),
+            ("text: never mind runs into its object", .text, "Ask Sam. Actually, never mind the tests, ship it.", "The tests, ship it.", .rejected(.deletesAfterMarker)),
+            ("text: make that runs into its object", .text, "Use blue. Actually, make that change now.", "Change now.", .rejected(.deletesAfterMarker)),
+            ("text: start over runs into its object", .text, "Fix the build. Actually, start over the migration from scratch.", "The migration from scratch.", .rejected(.deletesAfterMarker)),
+            ("text: wait runs into its object", .text, "Should we merge? Actually, no. Wait for review.", "For review.", .rejected(.deletesAfterMarker)),
+            ("text: I mean it is not an aside", .text, "Rewrite it. Actually, okay, I mean it, rewrite it.", "It, rewrite it.", .rejected(.deletesAfterMarker)),
+            ("text: content between two markers kept", .text, "Let's ship Monday. Actually, let's ship Tuesday. Sorry, I know it's late.", "I know it's late.", .rejected(.deletesAfterMarker)),
+            ("text: standing negation kept", .text, "Don't merge yet. Actually, the tests pass now.", "The tests pass now.", .rejected(.deletesNegation)),
+            ("text: restated negated verb may go", .text, "Don't ship it. Actually, ship it.", "Ship it.", .applied("Ship it.")),
+            ("text: punctuated I mean deleted", .text, "Move it to Monday. Sorry, I mean, move it to Tuesday.", "Move it to Tuesday.", .applied("Move it to Tuesday.")),
+            ("text: make that, um, deleted", .text, "Use blue. Actually, make that, um, dark green.", "Dark green.", .applied("Dark green.")),
+            ("text: wait no actually chain deleted", .text, "Use the checkbox. Wait, no, actually, use the toggle.", "Use the toggle.", .applied("Use the toggle.")),
+            ("text: never restated may go", .text, "Never deploy on Fridays. Actually, deploy after the freeze.", "Deploy after the freeze.", .applied("Deploy after the freeze.")),
+            ("text: negated verb not restated exactly", .text, "Don't ship it. Actually, shipping it is fine.", "Shipping it is fine.", .rejected(.deletesNegation)),
+            ("text: negation with nothing after it", .text, "We should not. Actually, we should ship it.", "We should ship it.", .rejected(.deletesNegation)),
+            ("text: a later correction does not excuse the middle", .text, "Book Friday. Actually, book Saturday. No wait, book Sunday.", "Book Sunday.", .rejected(.deletesAfterMarker)),
+            ("text: you know what plus its object", .text, "Pick the blue one. Actually, you know what you want, pick it.", "What you want, pick it.", .rejected(.deletesAfterMarker)),
+            ("span: correction applied", .span, o, "We should host it on our own servers. Actually, you know what,", .applied("The cloud is cheaper for now.")),
+            ("span: NONE", .span, o, "NONE", .unchanged),
+            ("span: none, lowercase", .span, o, "none.", .unchanged),
+            ("span: not in the text", .span, o, "We should host it in the cloud.", .rejected(.spanNotFound)),
+            ("span: twice in the text", .span, o8, "send it to the team", .rejected(.spanAmbiguous)),
+            ("span: unrelated sentence", .span, o2, "Thanks for the notes.", .rejected(.noMarkerInRun)),
+            ("span: quoted with prefix", .span, o, "Reply: \"We should host it on our own servers. Actually, you know what,\"", .applied("The cloud is cheaper for now."))
+        ]
+        for (label, mode, original, reply, expected) in cases {
+            let got = CorrectionModel.evaluate(original: original, reply: reply, mode: mode)
+            check(got == expected, label, "\(got)")
+            if case .applied(let result) = got {
+                check(SelfCorrection.isDeletionOnly(original: original, result: result), label + ": deletion only")
+            }
+        }
+
+        check(CorrectionModel.Outcome.timedOut.logPhrase == "missed its budget", "log phrase: missed its budget")
+        check(CorrectionModel.Outcome.verdict(.rejected(.outsideWindow)).logPhrase == "rejected by guard (outsideWindow)", "log phrase: rejected by guard")
+        check(CorrectionModel.Outcome.verdict(.rejected(.deletesNegation)).logPhrase == "rejected by guard (deletesNegation)", "correction model: negation reject is logged")
+        check(SelfCorrection.hasMarker(in: "Take the bus. Actually, no, um, you know, walk."), "precondition: marker in nothing left after the fillers")
+        check(SelfCorrection.hasMarker(in: "Approve it. Sorry, I meant reject it today."), "precondition: marker in keeps the retracted verb")
+        check(SelfCorrection.hasMarker(in: "Call Ana tomorrow. Sorry, I meant email Ana tomorrow."), "precondition: marker in keeps the retracted verb, repeated object")
+        check(SelfCorrection.hasMarker(in: "Rewrite the module. Actually no changes are needed here."), "precondition: marker in a no that starts the clause is kept")
+        check(SelfCorrection.hasMarker(in: "Approve it. Sorry, I meant reject it today."), "precondition: marker in half the marker left")
+        check(SelfCorrection.hasMarker(in: "Use Postgres. Actually, use SQLite instead."), "precondition: marker in keeps the old half")
+        check(SelfCorrection.hasMarker(in: "Move it to Monday. Sorry, I mean move it to Tuesday."), "precondition: marker in new version kept")
+        check(SelfCorrection.hasMarker(in: "Let's meet at noon. Actually, I can't make noon, let's do three."), "precondition: marker in whole post-marker clause deleted")
+        check(SelfCorrection.hasMarker(in: "We could hire a contractor. Actually, I think a full-time hire is better."), "precondition: marker in hedge after the marker kept")
+        check(SelfCorrection.hasMarker(in: "Use the red one. Actually, you know the answer already."), "precondition: marker in unpunctuated you know is content")
+        check(SelfCorrection.hasMarker(in: "Ship the beta. Wait, no users have signed up yet."), "precondition: marker in wait no running into a clause")
+        check(SelfCorrection.hasMarker(in: "Book the hotel. Actually, um, let me see, book the Airbnb."), "precondition: marker in fillers after the marker deleted")
+        check(SelfCorrection.hasMarker(in: "Add a checkbox. Actually no, a toggle is clearer."), "precondition: marker in actually no, comma, deleted")
+        check(SelfCorrection.hasMarker(in: "Meet at the cafe. No wait, the library is quieter."), "precondition: marker in no wait deleted")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, ship it today."), "precondition: marker in negation before the marker may go")
+        check(SelfCorrection.hasMarker(in: "Keep the config. Actually, delete that file too."), "precondition: marker in delete that runs into its object")
+        check(SelfCorrection.hasMarker(in: "Ask Sam. Actually, never mind the tests, ship it."), "precondition: marker in never mind runs into its object")
+        check(SelfCorrection.hasMarker(in: "Use blue. Actually, make that change now."), "precondition: marker in make that runs into its object")
+        check(SelfCorrection.hasMarker(in: "Fix the build. Actually, start over the migration from scratch."), "precondition: marker in start over runs into its object")
+        check(SelfCorrection.hasMarker(in: "Should we merge? Actually, no. Wait for review."), "precondition: marker in wait runs into its object")
+        check(SelfCorrection.hasMarker(in: "Rewrite it. Actually, okay, I mean it, rewrite it."), "precondition: marker in I mean it is not an aside")
+        check(SelfCorrection.hasMarker(in: "Let's ship Monday. Actually, let's ship Tuesday. Sorry, I know it's late."), "precondition: marker in content between two markers kept")
+        check(SelfCorrection.hasMarker(in: "Don't merge yet. Actually, the tests pass now."), "precondition: marker in standing negation kept")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, ship it."), "precondition: marker in restated negated verb may go")
+        check(SelfCorrection.hasMarker(in: "Move it to Monday. Sorry, I mean, move it to Tuesday."), "precondition: marker in punctuated I mean deleted")
+        check(SelfCorrection.hasMarker(in: "Use blue. Actually, make that, um, dark green."), "precondition: marker in make that, um, deleted")
+        check(SelfCorrection.hasMarker(in: "Use the checkbox. Wait, no, actually, use the toggle."), "precondition: marker in wait no actually chain deleted")
+        check(SelfCorrection.hasMarker(in: "Never deploy on Fridays. Actually, deploy after the freeze."), "precondition: marker in never restated may go")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, shipping it is fine."), "precondition: marker in negated verb not restated exactly")
+        check(SelfCorrection.hasMarker(in: "We should not. Actually, we should ship it."), "precondition: marker in negation with nothing after it")
+        check(SelfCorrection.hasMarker(in: "Book Friday. Actually, book Saturday. No wait, book Sunday."), "precondition: marker in a later correction does not excuse the middle")
+        check(SelfCorrection.hasMarker(in: "Pick the blue one. Actually, you know what you want, pick it."), "precondition: marker in you know what plus its object")
+        for word in ["dont", "no", "neither", "nor", "nobody", "none", "nothing", "without", "hardly",
+                     "don't", "don\u{2019}t", "cannot", "never", "not", "isn't", "wasnt"] {
+            check(CorrectionModel.isNegation(SelfCorrection.Token(leading: "", word: word)), "negation: \(word)")
+        }
+        for word in ["know", "now", "note", "on", "nod", "one"] {
+            check(!CorrectionModel.isNegation(SelfCorrection.Token(leading: "", word: word)), "not a negation: \(word)")
+        }
+        check(CorrectionModel.Outcome.verdict(.rejected(.deletesAfterMarker)).logPhrase == "rejected by guard (deletesAfterMarker)",
+              "correction model: structural reject is logged")
     }
 
     /// The default mode: the caption shows the words while speaking, and the

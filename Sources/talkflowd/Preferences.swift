@@ -51,6 +51,14 @@ enum Preferences {
         set { defaults.set(newValue, forKey: "aiPolish") }
     }
 
+    /// Let a model remove words the user took back when the rules leave a spoken
+    /// correction in (see `CorrectionModel`). Only ever deletes words. Off by
+    /// default (`CorrectionModel.enabledByDefault`): it did not pass its measurement.
+    static var aiCorrections: Bool {
+        get { defaults.object(forKey: "aiCorrections") as? Bool ?? CorrectionModel.enabledByDefault }
+        set { defaults.set(newValue, forKey: "aiCorrections") }
+    }
+
     /// Words whisper is biased towards, learned from the user's own fixes after
     /// a dictation (see `Vocabulary`). Newest first.
     static var learnedWords: [String] {

@@ -5199,6 +5199,1678 @@
   ]
  },
  {
+  "input": "Make the button blue, I mean green.",
+  "sentences": [
+   "Make the button blue, I mean green."
+  ]
+ },
+ {
+  "input": "Put the logo on the left, sorry, the right.",
+  "sentences": [
+   "Put the logo on the left, sorry, the right."
+  ]
+ },
+ {
+  "input": "Use a dropdown, actually no, a toggle.",
+  "sentences": [
+   "Use a dropdown, actually no, a toggle."
+  ]
+ },
+ {
+  "input": "Tell John. Wait, no. Mike.",
+  "sentences": [
+   "Tell John.",
+   "Wait, no.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "I want you to refactor the whole file. Actually, just refactor the render function.",
+  "sentences": [
+   "I want you to refactor the whole file.",
+   "Actually, just refactor the render function."
+  ]
+ },
+ {
+  "input": "Can you rewrite this in Rust? Actually, never mind, keep it in Swift.",
+  "sentences": [
+   "Can you rewrite this in Rust?",
+   "Actually, never mind, keep it in Swift."
+  ]
+ },
+ {
+  "input": "First fix the tests. Wait, no, first pull the latest changes.",
+  "sentences": [
+   "First fix the tests.",
+   "Wait, no, first pull the latest changes."
+  ]
+ },
+ {
+  "input": "Delete the old migration. Wait, don't delete it, just rename it.",
+  "sentences": [
+   "Delete the old migration.",
+   "Wait, don't delete it, just rename it."
+  ]
+ },
+ {
+  "input": "Can you make the, can you change the font size?",
+  "sentences": [
+   "Can you make the, can you change the font size?"
+  ]
+ },
+ {
+  "input": "Let's ship today, start over, let's ship tomorrow.",
+  "sentences": [
+   "Let's ship today, start over, let's ship tomorrow."
+  ]
+ },
+ {
+  "input": "Turn left, I mean right.",
+  "sentences": [
+   "Turn left, I mean right."
+  ]
+ },
+ {
+  "input": "Make it bigger, sorry, smaller.",
+  "sentences": [
+   "Make it bigger, sorry, smaller."
+  ]
+ },
+ {
+  "input": "I'll have the soup, actually, the salad.",
+  "sentences": [
+   "I'll have the soup, actually, the salad."
+  ]
+ },
+ {
+  "input": "Order the pasta, I meant the pizza.",
+  "sentences": [
+   "Order the pasta, I meant the pizza."
+  ]
+ },
+ {
+  "input": "Tell John. Wait, no. Tell Mike.",
+  "sentences": [
+   "Tell John.",
+   "Wait, no.",
+   "Tell Mike."
+  ]
+ },
+ {
+  "input": "I'll go, wait no, I'll stay.",
+  "sentences": [
+   "I'll go, wait no, I'll stay."
+  ]
+ },
+ {
+  "input": "Delete it. Actually, don't delete it, archive it.",
+  "sentences": [
+   "Delete it.",
+   "Actually, don't delete it, archive it."
+  ]
+ },
+ {
+  "input": "Can you rewrite this in Rust? Never mind, keep it in Swift.",
+  "sentences": [
+   "Can you rewrite this in Rust?",
+   "Never mind, keep it in Swift."
+  ]
+ },
+ {
+  "input": "Make it blue, undo that, make it green.",
+  "sentences": [
+   "Make it blue, undo that, make it green."
+  ]
+ },
+ {
+  "input": "So, can you make the, can you change the font size?",
+  "sentences": [
+   "So, can you make the, can you change the font size?"
+  ]
+ },
+ {
+  "input": "We should go, I mean soon.",
+  "sentences": [
+   "We should go, I mean soon."
+  ]
+ },
+ {
+  "input": "Great job, I mean that.",
+  "sentences": [
+   "Great job, I mean that."
+  ]
+ },
+ {
+  "input": "It's not red, I mean blue.",
+  "sentences": [
+   "It's not red, I mean blue."
+  ]
+ },
+ {
+  "input": "Tell John. Sorry. Mike.",
+  "sentences": [
+   "Tell John.",
+   "Sorry.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "Ask John. Wait, no. Thanks.",
+  "sentences": [
+   "Ask John.",
+   "Wait, no.",
+   "Thanks."
+  ]
+ },
+ {
+  "input": "I'm tired. Actually, I'm going to bed.",
+  "sentences": [
+   "I'm tired.",
+   "Actually, I'm going to bed."
+  ]
+ },
+ {
+  "input": "What are you looking at, what are you doing?",
+  "sentences": [
+   "What are you looking at, what are you doing?"
+  ]
+ },
+ {
+  "input": "Look at the last commit, undo that, and rerun the tests.",
+  "sentences": [
+   "Look at the last commit, undo that, and rerun the tests."
+  ]
+ },
+ {
+  "input": "If it fails, start over, then check the logs.",
+  "sentences": [
+   "If it fails, start over, then check the logs."
+  ]
+ },
+ {
+  "input": "Oh, never mind, it's fine.",
+  "sentences": [
+   "Oh, never mind, it's fine."
+  ]
+ },
+ {
+  "input": "Okay, actually never mind, it's fine.",
+  "sentences": [
+   "Okay, actually never mind, it's fine."
+  ]
+ },
+ {
+  "input": "I'll call him, never mind.",
+  "sentences": [
+   "I'll call him, never mind."
+  ]
+ },
+ {
+  "input": "It's raining, never mind, we'll go anyway.",
+  "sentences": [
+   "It's raining, never mind, we'll go anyway."
+  ]
+ },
+ {
+  "input": "We need to start over from scratch.",
+  "sentences": [
+   "We need to start over from scratch."
+  ]
+ },
+ {
+  "input": "Please delete that file.",
+  "sentences": [
+   "Please delete that file."
+  ]
+ },
+ {
+  "input": "Thanks for the gift, sorry, the late reply.",
+  "sentences": [
+   "Thanks for the gift, sorry, the late reply."
+  ]
+ },
+ {
+  "input": "We have plan A, we have plan B.",
+  "sentences": [
+   "We have plan A, we have plan B."
+  ]
+ },
+ {
+  "input": "Pick option A, pick option B, or skip both.",
+  "sentences": [
+   "Pick option A, pick option B, or skip both."
+  ]
+ },
+ {
+  "input": "If it's type A, if it's type B, do nothing.",
+  "sentences": [
+   "If it's type A, if it's type B, do nothing."
+  ]
+ },
+ {
+  "input": "I got an A, I got a B, and a C in chemistry.",
+  "sentences": [
+   "I got an A, I got a B, and a C in chemistry."
+  ]
+ },
+ {
+  "input": "You can take route A, you can take route B.",
+  "sentences": [
+   "You can take route A, you can take route B."
+  ]
+ },
+ {
+  "input": "Use vitamin A, use vitamin C too.",
+  "sentences": [
+   "Use vitamin A, use vitamin C too."
+  ]
+ },
+ {
+  "input": "Fix bug A, fix bug B, then deploy.",
+  "sentences": [
+   "Fix bug A, fix bug B, then deploy."
+  ]
+ },
+ {
+  "input": "we have plan a, we have plan b.",
+  "sentences": [
+   "we have plan a, we have plan b."
+  ]
+ },
+ {
+  "input": "If it fails, start over, if it works, ship it.",
+  "sentences": [
+   "If it fails, start over, if it works, ship it."
+  ]
+ },
+ {
+  "input": "If you get lost, start over, if you get stuck, call me.",
+  "sentences": [
+   "If you get lost, start over, if you get stuck, call me."
+  ]
+ },
+ {
+  "input": "When you're done, delete that, when you're not, keep it.",
+  "sentences": [
+   "When you're done, delete that, when you're not, keep it."
+  ]
+ },
+ {
+  "input": "Select the first row, delete that, select the next row.",
+  "sentences": [
+   "Select the first row, delete that, select the next row."
+  ]
+ },
+ {
+  "input": "Go to line 5, delete that, go to line 10.",
+  "sentences": [
+   "Go to line 5, delete that, go to line 10."
+  ]
+ },
+ {
+  "input": "Close the tab, undo that, close the window.",
+  "sentences": [
+   "Close the tab, undo that, close the window."
+  ]
+ },
+ {
+  "input": "Make it blue, wait, undo that, make it green.",
+  "sentences": [
+   "Make it blue, wait, undo that, make it green."
+  ]
+ },
+ {
+  "input": "Clear the board, start over, clear the scores.",
+  "sentences": [
+   "Clear the board, start over, clear the scores."
+  ]
+ },
+ {
+  "input": "Read the intro, wait, start over, read the intro again.",
+  "sentences": [
+   "Read the intro, wait, start over, read the intro again."
+  ]
+ },
+ {
+  "input": "Come in. Oh, never mind the mess, it's fine.",
+  "sentences": [
+   "Come in.",
+   "Oh, never mind the mess, it's fine."
+  ]
+ },
+ {
+  "input": "Thanks for coming. Oh, never mind the dog, he's friendly.",
+  "sentences": [
+   "Thanks for coming.",
+   "Oh, never mind the dog, he's friendly."
+  ]
+ },
+ {
+  "input": "We got the deal. So never mind the old plan, we're going ahead.",
+  "sentences": [
+   "We got the deal.",
+   "So never mind the old plan, we're going ahead."
+  ]
+ },
+ {
+  "input": "Oh dear, you lost your keys. Never mind, we'll find them.",
+  "sentences": [
+   "Oh dear, you lost your keys.",
+   "Never mind, we'll find them."
+  ]
+ },
+ {
+  "input": "You missed the bus? Never mind, there's another one at five.",
+  "sentences": [
+   "You missed the bus?",
+   "Never mind, there's another one at five."
+  ]
+ },
+ {
+  "input": "Where's my phone? Never mind, found it.",
+  "sentences": [
+   "Where's my phone?",
+   "Never mind, found it."
+  ]
+ },
+ {
+  "input": "If it rains, actually never mind, we'll go anyway.",
+  "sentences": [
+   "If it rains, actually never mind, we'll go anyway."
+  ]
+ },
+ {
+  "input": "My phone died at Costco. Oh no. Typical.",
+  "sentences": [
+   "My phone died at Costco.",
+   "Oh no.",
+   "Typical."
+  ]
+ },
+ {
+  "input": "He's moving to Berlin. Wait, no. Seriously?",
+  "sentences": [
+   "He's moving to Berlin.",
+   "Wait, no.",
+   "Seriously?"
+  ]
+ },
+ {
+  "input": "I just got an email from Google. Oh no. Unbelievable.",
+  "sentences": [
+   "I just got an email from Google.",
+   "Oh no.",
+   "Unbelievable."
+  ]
+ },
+ {
+  "input": "I bought it on Amazon. Oh, no. Brilliant.",
+  "sentences": [
+   "I bought it on Amazon.",
+   "Oh, no.",
+   "Brilliant."
+  ]
+ },
+ {
+  "input": "Tell Ben. Oh no. Ugh.",
+  "sentences": [
+   "Tell Ben.",
+   "Oh no.",
+   "Ugh."
+  ]
+ },
+ {
+  "input": "Grab lunch with Alex. Oh no. Rain, again.",
+  "sentences": [
+   "Grab lunch with Alex.",
+   "Oh no.",
+   "Rain, again."
+  ]
+ },
+ {
+  "input": "Ask Tom. Wait, no. Honestly, ask anyone.",
+  "sentences": [
+   "Ask Tom.",
+   "Wait, no.",
+   "Honestly, ask anyone."
+  ]
+ },
+ {
+  "input": "Email Sarah. No wait. Instead, call her.",
+  "sentences": [
+   "Email Sarah.",
+   "No wait.",
+   "Instead, call her."
+  ]
+ },
+ {
+  "input": "Ping Dave. Wait, no. Also, ping Lisa.",
+  "sentences": [
+   "Ping Dave.",
+   "Wait, no.",
+   "Also, ping Lisa."
+  ]
+ },
+ {
+  "input": "Thanks John. I mean. Wow.",
+  "sentences": [
+   "Thanks John.",
+   "I mean.",
+   "Wow."
+  ]
+ },
+ {
+  "input": "Meet me at the cafe on Main Street. Wait, no. Starbucks.",
+  "sentences": [
+   "Meet me at the cafe on Main Street.",
+   "Wait, no.",
+   "Starbucks."
+  ]
+ },
+ {
+  "input": "Go ahead and explore. Actually, don't go too far, stay close.",
+  "sentences": [
+   "Go ahead and explore.",
+   "Actually, don't go too far, stay close."
+  ]
+ },
+ {
+  "input": "Have fun. Actually, don't have too much fun! See you soon.",
+  "sentences": [
+   "Have fun.",
+   "Actually, don't have too much fun!",
+   "See you soon."
+  ]
+ },
+ {
+  "input": "Take your time. Actually, don't take too long, we need it Friday.",
+  "sentences": [
+   "Take your time.",
+   "Actually, don't take too long, we need it Friday."
+  ]
+ },
+ {
+  "input": "Have a drink. Actually, don't have it too strong.",
+  "sentences": [
+   "Have a drink.",
+   "Actually, don't have it too strong."
+  ]
+ },
+ {
+  "input": "I fixed the parser. Actually, just the parser tests are left.",
+  "sentences": [
+   "I fixed the parser.",
+   "Actually, just the parser tests are left."
+  ]
+ },
+ {
+  "input": "Did you read the book? Actually, the movie.",
+  "sentences": [
+   "Did you read the book?",
+   "Actually, the movie."
+  ]
+ },
+ {
+  "input": "Let's ship today, wait, start over, let's ship tomorrow.",
+  "sentences": [
+   "Let's ship today, wait, start over, let's ship tomorrow."
+  ]
+ },
+ {
+  "input": "Delete the branch. Wait, don't delete it yet, we still need it.",
+  "sentences": [
+   "Delete the branch.",
+   "Wait, don't delete it yet, we still need it."
+  ]
+ },
+ {
+  "input": "Bring the charger. Wait, don't bring the charger, I have one.",
+  "sentences": [
+   "Bring the charger.",
+   "Wait, don't bring the charger, I have one."
+  ]
+ },
+ {
+  "input": "Review the PR. Actually, only review the tests.",
+  "sentences": [
+   "Review the PR.",
+   "Actually, only review the tests."
+  ]
+ },
+ {
+  "input": "Option A, option B, option C are all fine.",
+  "sentences": [
+   "Option A, option B, option C are all fine."
+  ]
+ },
+ {
+  "input": "Plan a, plan b, whatever works.",
+  "sentences": [
+   "Plan a, plan b, whatever works."
+  ]
+ },
+ {
+  "input": "Grade A, grade B, it doesn't matter.",
+  "sentences": [
+   "Grade A, grade B, it doesn't matter."
+  ]
+ },
+ {
+  "input": "I want the, uh, the blue one.",
+  "sentences": [
+   "I want the, uh, the blue one."
+  ]
+ },
+ {
+  "input": "My, my, what a surprise.",
+  "sentences": [
+   "My, my, what a surprise."
+  ]
+ },
+ {
+  "input": "We need an A, an A plus would be better.",
+  "sentences": [
+   "We need an A, an A plus would be better."
+  ]
+ },
+ {
+  "input": "Section A, section B, and the appendix are done.",
+  "sentences": [
+   "Section A, section B, and the appendix are done."
+  ]
+ },
+ {
+  "input": "Is it yours or mine, mine I think.",
+  "sentences": [
+   "Is it yours or mine, mine I think."
+  ]
+ },
+ {
+  "input": "Vote for candidate A, vote for candidate B, just vote.",
+  "sentences": [
+   "Vote for candidate A, vote for candidate B, just vote."
+  ]
+ },
+ {
+  "input": "Use the, use them wisely.",
+  "sentences": [
+   "Use the, use them wisely."
+  ]
+ },
+ {
+  "input": "Their, um, their car broke down.",
+  "sentences": [
+   "Their, um, their car broke down."
+  ]
+ },
+ {
+  "input": "Call Jake. Oh no. Not again.",
+  "sentences": [
+   "Call Jake.",
+   "Oh no.",
+   "Not again."
+  ]
+ },
+ {
+  "input": "Tell Maria. Wait, no. Really?",
+  "sentences": [
+   "Tell Maria.",
+   "Wait, no.",
+   "Really?"
+  ]
+ },
+ {
+  "input": "Ask Sam. Wait, no. Hmm.",
+  "sentences": [
+   "Ask Sam.",
+   "Wait, no.",
+   "Hmm."
+  ]
+ },
+ {
+  "input": "Invite Tom. Wait, no. Whatever.",
+  "sentences": [
+   "Invite Tom.",
+   "Wait, no.",
+   "Whatever."
+  ]
+ },
+ {
+  "input": "Text Mom. Wait, no. Later.",
+  "sentences": [
+   "Text Mom.",
+   "Wait, no.",
+   "Later."
+  ]
+ },
+ {
+  "input": "Message Priya. Wait, no. Done.",
+  "sentences": [
+   "Message Priya.",
+   "Wait, no.",
+   "Done."
+  ]
+ },
+ {
+  "input": "I'll see Ana. Wait, no. Okay.",
+  "sentences": [
+   "I'll see Ana.",
+   "Wait, no.",
+   "Okay."
+  ]
+ },
+ {
+  "input": "Book Paris. Wait, no. Seriously.",
+  "sentences": [
+   "Book Paris.",
+   "Wait, no.",
+   "Seriously."
+  ]
+ },
+ {
+  "input": "We flew to Denver. Oh no. Snow.",
+  "sentences": [
+   "We flew to Denver.",
+   "Oh no.",
+   "Snow."
+  ]
+ },
+ {
+  "input": "She works at Google. Wait, no. Interesting.",
+  "sentences": [
+   "She works at Google.",
+   "Wait, no.",
+   "Interesting."
+  ]
+ },
+ {
+  "input": "Meet at Union Square. Wait, no. Fine.",
+  "sentences": [
+   "Meet at Union Square.",
+   "Wait, no.",
+   "Fine."
+  ]
+ },
+ {
+  "input": "Ping Sarah. No wait. Actually, ping everyone.",
+  "sentences": [
+   "Ping Sarah.",
+   "No wait.",
+   "Actually, ping everyone."
+  ]
+ },
+ {
+  "input": "Thank Leo. I mean. Wow.",
+  "sentences": [
+   "Thank Leo.",
+   "I mean.",
+   "Wow."
+  ]
+ },
+ {
+  "input": "Visit New York. Wait, no. Boston.",
+  "sentences": [
+   "Visit New York.",
+   "Wait, no.",
+   "Boston."
+  ]
+ },
+ {
+  "input": "I talked to Kim. Wait, no. Absolutely.",
+  "sentences": [
+   "I talked to Kim.",
+   "Wait, no.",
+   "Absolutely."
+  ]
+ },
+ {
+  "input": "Lunch with Raj. Oh wait. Perfect.",
+  "sentences": [
+   "Lunch with Raj.",
+   "Oh wait.",
+   "Perfect."
+  ]
+ },
+ {
+  "input": "He works at Apple. Wait, no. Impossible.",
+  "sentences": [
+   "He works at Apple.",
+   "Wait, no.",
+   "Impossible."
+  ]
+ },
+ {
+  "input": "Did you buy the red one? Actually, the blue one.",
+  "sentences": [
+   "Did you buy the red one?",
+   "Actually, the blue one."
+  ]
+ },
+ {
+  "input": "I painted it blue, I mean it looks blue.",
+  "sentences": [
+   "I painted it blue, I mean it looks blue."
+  ]
+ },
+ {
+  "input": "Turn it up, sorry, I can't hear.",
+  "sentences": [
+   "Turn it up, sorry, I can't hear."
+  ]
+ },
+ {
+  "input": "Go left, actually, left is closed.",
+  "sentences": [
+   "Go left, actually, left is closed."
+  ]
+ },
+ {
+  "input": "Put it in the top drawer, sorry, the bottom one.",
+  "sentences": [
+   "Put it in the top drawer, sorry, the bottom one."
+  ]
+ },
+ {
+  "input": "I'll take the first, actually, the second too.",
+  "sentences": [
+   "I'll take the first, actually, the second too."
+  ]
+ },
+ {
+  "input": "Use the left door, I mean the left one is locked.",
+  "sentences": [
+   "Use the left door, I mean the left one is locked."
+  ]
+ },
+ {
+  "input": "She said the blue, sorry, the blue team won.",
+  "sentences": [
+   "She said the blue, sorry, the blue team won."
+  ]
+ },
+ {
+  "input": "Make the header bold, I mean the footer too.",
+  "sentences": [
+   "Make the header bold, I mean the footer too."
+  ]
+ },
+ {
+  "input": "Make it blue, I mean like a light blue.",
+  "sentences": [
+   "Make it blue, I mean like a light blue."
+  ]
+ },
+ {
+  "input": "Put it on the left, sorry, the left side is full.",
+  "sentences": [
+   "Put it on the left, sorry, the left side is full."
+  ]
+ },
+ {
+  "input": "Pick the first one, actually, the first one works.",
+  "sentences": [
+   "Pick the first one, actually, the first one works."
+  ]
+ },
+ {
+  "input": "Is the meeting at the office? Sorry, at the cafe?",
+  "sentences": [
+   "Is the meeting at the office?",
+   "Sorry, at the cafe?"
+  ]
+ },
+ {
+  "input": "It's not big, I mean small.",
+  "sentences": [
+   "It's not big, I mean small."
+  ]
+ },
+ {
+  "input": "Oh, never mind the weather, let's go.",
+  "sentences": [
+   "Oh, never mind the weather, let's go."
+  ]
+ },
+ {
+  "input": "Never mind me, I'm just tired.",
+  "sentences": [
+   "Never mind me, I'm just tired."
+  ]
+ },
+ {
+  "input": "Sorry, never mind, it's nothing.",
+  "sentences": [
+   "Sorry, never mind, it's nothing."
+  ]
+ },
+ {
+  "input": "Did you call? Okay, never mind, I see it.",
+  "sentences": [
+   "Did you call?",
+   "Okay, never mind, I see it."
+  ]
+ },
+ {
+  "input": "Ask Tom. Actually, never mind him, ask Lisa.",
+  "sentences": [
+   "Ask Tom.",
+   "Actually, never mind him, ask Lisa."
+  ]
+ },
+ {
+  "input": "Well, never mind, see you tomorrow.",
+  "sentences": [
+   "Well, never mind, see you tomorrow."
+  ]
+ },
+ {
+  "input": "So, never mind, what's next?",
+  "sentences": [
+   "So, never mind, what's next?"
+  ]
+ },
+ {
+  "input": "Can you check the logs? Actually, never mind the logs, check the metrics.",
+  "sentences": [
+   "Can you check the logs?",
+   "Actually, never mind the logs, check the metrics."
+  ]
+ },
+ {
+  "input": "When it's done, wait, never mind, I'll check later.",
+  "sentences": [
+   "When it's done, wait, never mind, I'll check later."
+  ]
+ },
+ {
+  "input": "Oh, never mind.",
+  "sentences": [
+   "Oh, never mind."
+  ]
+ },
+ {
+  "input": "Press reset, start over, and wait.",
+  "sentences": [
+   "Press reset, start over, and wait."
+  ]
+ },
+ {
+  "input": "Go back, start over, go back again.",
+  "sentences": [
+   "Go back, start over, go back again."
+  ]
+ },
+ {
+  "input": "Reset the board, start over, reset the timer.",
+  "sentences": [
+   "Reset the board, start over, reset the timer."
+  ]
+ },
+ {
+  "input": "Count to ten, start over, count to twenty.",
+  "sentences": [
+   "Count to ten, start over, count to twenty."
+  ]
+ },
+ {
+  "input": "If you lose, wait, start over, if you win, stop.",
+  "sentences": [
+   "If you lose, wait, start over, if you win, stop."
+  ]
+ },
+ {
+  "input": "Copy the line, delete that, copy the next.",
+  "sentences": [
+   "Copy the line, delete that, copy the next."
+  ]
+ },
+ {
+  "input": "Copy the line, actually delete that, copy the next.",
+  "sentences": [
+   "Copy the line, actually delete that, copy the next."
+  ]
+ },
+ {
+  "input": "Open the file, undo that, open the folder.",
+  "sentences": [
+   "Open the file, undo that, open the folder."
+  ]
+ },
+ {
+  "input": "Type hello, wait, undo that, type hi.",
+  "sentences": [
+   "Type hello, wait, undo that, type hi."
+  ]
+ },
+ {
+  "input": "I fixed the bug. Actually, just the bug in the parser.",
+  "sentences": [
+   "I fixed the bug.",
+   "Actually, just the bug in the parser."
+  ]
+ },
+ {
+  "input": "I'll fix the bug. Actually, just fix the tests are failing.",
+  "sentences": [
+   "I'll fix the bug.",
+   "Actually, just fix the tests are failing."
+  ]
+ },
+ {
+  "input": "We need the logs from prod. Actually, just the logs from staging.",
+  "sentences": [
+   "We need the logs from prod.",
+   "Actually, just the logs from staging."
+  ]
+ },
+ {
+  "input": "I like the movie a lot. Actually, only the movie had problems.",
+  "sentences": [
+   "I like the movie a lot.",
+   "Actually, only the movie had problems."
+  ]
+ },
+ {
+  "input": "Fix the login page and the header. Actually, just the header.",
+  "sentences": [
+   "Fix the login page and the header.",
+   "Actually, just the header."
+  ]
+ },
+ {
+  "input": "Don't merge it. Wait, don't merge it yet.",
+  "sentences": [
+   "Don't merge it.",
+   "Wait, don't merge it yet."
+  ]
+ },
+ {
+  "input": "Go home. Wait, don't go yet.",
+  "sentences": [
+   "Go home.",
+   "Wait, don't go yet."
+  ]
+ },
+ {
+  "input": "Call him. Actually, don't call him, text him.",
+  "sentences": [
+   "Call him.",
+   "Actually, don't call him, text him."
+  ]
+ },
+ {
+  "input": "Eat the cake. Actually, don't eat all of it.",
+  "sentences": [
+   "Eat the cake.",
+   "Actually, don't eat all of it."
+  ]
+ },
+ {
+  "input": "Run the tests. Wait, don't run them all, just the fast ones.",
+  "sentences": [
+   "Run the tests.",
+   "Wait, don't run them all, just the fast ones."
+  ]
+ },
+ {
+  "input": "Sign the form. Actually, don't sign it without reading it.",
+  "sentences": [
+   "Sign the form.",
+   "Actually, don't sign it without reading it."
+  ]
+ },
+ {
+  "input": "Try the new build. Actually, don't try too hard.",
+  "sentences": [
+   "Try the new build.",
+   "Actually, don't try too hard."
+  ]
+ },
+ {
+  "input": "Can you make the, uh, button bigger?",
+  "sentences": [
+   "Can you make the, uh, button bigger?"
+  ]
+ },
+ {
+  "input": "Can you make the, I mean, can you fix it?",
+  "sentences": [
+   "Can you make the, I mean, can you fix it?"
+  ]
+ },
+ {
+  "input": "Leave the, the door open.",
+  "sentences": [
+   "Leave the, the door open."
+  ]
+ },
+ {
+  "input": "I think we should, I think we should wait.",
+  "sentences": [
+   "I think we should, I think we should wait."
+  ]
+ },
+ {
+  "input": "Send the email to the team, actually, the whole company.",
+  "sentences": [
+   "Send the email to the team, actually, the whole company."
+  ]
+ },
+ {
+  "input": "We meet on Monday, sorry, on Mondays and Fridays.",
+  "sentences": [
+   "We meet on Monday, sorry, on Mondays and Fridays."
+  ]
+ },
+ {
+  "input": "Did you run the tests? Sorry, just run the tests and tell me.",
+  "sentences": [
+   "Did you run the tests?",
+   "Sorry, just run the tests and tell me."
+  ]
+ },
+ {
+  "input": "Have you checked the logs? Sorry, just checked the logs, all good.",
+  "sentences": [
+   "Have you checked the logs?",
+   "Sorry, just checked the logs, all good."
+  ]
+ },
+ {
+  "input": "Hi Tom. Wait no. Phew.",
+  "sentences": [
+   "Hi Tom.",
+   "Wait no.",
+   "Phew."
+  ]
+ },
+ {
+  "input": "I sent it to Jake. Wait no. Meh.",
+  "sentences": [
+   "I sent it to Jake.",
+   "Wait no.",
+   "Meh."
+  ]
+ },
+ {
+  "input": "Thanks Mike. Wait, no. Whoa.",
+  "sentences": [
+   "Thanks Mike.",
+   "Wait, no.",
+   "Whoa."
+  ]
+ },
+ {
+  "input": "Text Sarah. Wait, wait. Nah.",
+  "sentences": [
+   "Text Sarah.",
+   "Wait, wait.",
+   "Nah."
+  ]
+ },
+ {
+  "input": "Thanks, Kevin. Wait, no. Congrats.",
+  "sentences": [
+   "Thanks, Kevin.",
+   "Wait, no.",
+   "Congrats."
+  ]
+ },
+ {
+  "input": "Love you, Mom. Wait, no. Cheers.",
+  "sentences": [
+   "Love you, Mom.",
+   "Wait, no.",
+   "Cheers."
+  ]
+ },
+ {
+  "input": "Good night, Dad. Wait, no. Hmmm.",
+  "sentences": [
+   "Good night, Dad.",
+   "Wait, no.",
+   "Hmmm."
+  ]
+ },
+ {
+  "input": "Bye Anna. No wait. Gotcha",
+  "sentences": [
+   "Bye Anna.",
+   "No wait.",
+   "Gotcha"
+  ]
+ },
+ {
+  "input": "Ping Raj. Wait, no. Lunch.",
+  "sentences": [
+   "Ping Raj.",
+   "Wait, no.",
+   "Lunch."
+  ]
+ },
+ {
+  "input": "Hi Tom. Wait, no. Mike.",
+  "sentences": [
+   "Hi Tom.",
+   "Wait, no.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "Hi team. Actually, never mind, the meeting is cancelled.",
+  "sentences": [
+   "Hi team.",
+   "Actually, never mind, the meeting is cancelled."
+  ]
+ },
+ {
+  "input": "Good morning. Wait, never mind, see you at noon.",
+  "sentences": [
+   "Good morning.",
+   "Wait, never mind, see you at noon."
+  ]
+ },
+ {
+  "input": "Congrats on the launch. Actually, never mind, call me.",
+  "sentences": [
+   "Congrats on the launch.",
+   "Actually, never mind, call me."
+  ]
+ },
+ {
+  "input": "Thanks for the help. Actually, never mind, I figured it out.",
+  "sentences": [
+   "Thanks for the help.",
+   "Actually, never mind, I figured it out."
+  ]
+ },
+ {
+  "input": "Thanks for the gift. Sorry, the delay.",
+  "sentences": [
+   "Thanks for the gift.",
+   "Sorry, the delay."
+  ]
+ },
+ {
+  "input": "Sorry for the wait. Sorry, the noise.",
+  "sentences": [
+   "Sorry for the wait.",
+   "Sorry, the noise."
+  ]
+ },
+ {
+  "input": "Say the word the, say the word an.",
+  "sentences": [
+   "Say the word the, say the word an."
+  ]
+ },
+ {
+  "input": "Search for the, search for an, search for a.",
+  "sentences": [
+   "Search for the, search for an, search for a."
+  ]
+ },
+ {
+  "input": "Call Priya. Wait, no. Maria.",
+  "sentences": [
+   "Call Priya.",
+   "Wait, no.",
+   "Maria."
+  ]
+ },
+ {
+  "input": "Should we email Tom? Actually, never mind, let's call him.",
+  "sentences": [
+   "Should we email Tom?",
+   "Actually, never mind, let's call him."
+  ]
+ },
+ {
+  "input": "Please send the report. Actually, never mind, I'll do it.",
+  "sentences": [
+   "Please send the report.",
+   "Actually, never mind, I'll do it."
+  ]
+ },
+ {
+  "input": "Tell Sam. Wait, no. Sophie.",
+  "sentences": [
+   "Tell Sam.",
+   "Wait, no.",
+   "Sophie."
+  ]
+ },
+ {
+  "input": "I called Emma. Wait, no. Lucy picked up.",
+  "sentences": [
+   "I called Emma.",
+   "Wait, no.",
+   "Lucy picked up."
+  ]
+ },
+ {
+  "input": "Ask Kevin. Wait no. Kevin knows.",
+  "sentences": [
+   "Ask Kevin.",
+   "Wait no.",
+   "Kevin knows."
+  ]
+ },
+ {
+  "input": "Meet Lisa at noon. Wait, no. Lisa.",
+  "sentences": [
+   "Meet Lisa at noon.",
+   "Wait, no.",
+   "Lisa."
+  ]
+ },
+ {
+  "input": "Invite Ben. Wait, no. Ben's busy.",
+  "sentences": [
+   "Invite Ben.",
+   "Wait, no.",
+   "Ben's busy."
+  ]
+ },
+ {
+  "input": "Dear Sarah. Wait, no. Sarah?",
+  "sentences": [
+   "Dear Sarah.",
+   "Wait, no.",
+   "Sarah?"
+  ]
+ },
+ {
+  "input": "Morning Tom. Wait, no. Mike.",
+  "sentences": [
+   "Morning Tom.",
+   "Wait, no.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "We saw Jordan. Wait, no. Jordan.",
+  "sentences": [
+   "We saw Jordan.",
+   "Wait, no.",
+   "Jordan."
+  ]
+ },
+ {
+  "input": "I like Paris. Wait, no. Rome.",
+  "sentences": [
+   "I like Paris.",
+   "Wait, no.",
+   "Rome."
+  ]
+ },
+ {
+  "input": "Send it to Mike. Wait, no. Mike, wait.",
+  "sentences": [
+   "Send it to Mike.",
+   "Wait, no.",
+   "Mike, wait."
+  ]
+ },
+ {
+  "input": "Did you email the client? Actually, never mind, I see your reply.",
+  "sentences": [
+   "Did you email the client?",
+   "Actually, never mind, I see your reply."
+  ]
+ },
+ {
+  "input": "Can you grab coffee? Wait, never mind, I already have one.",
+  "sentences": [
+   "Can you grab coffee?",
+   "Wait, never mind, I already have one."
+  ]
+ },
+ {
+  "input": "Is the build green? Actually, never mind, I checked.",
+  "sentences": [
+   "Is the build green?",
+   "Actually, never mind, I checked."
+  ]
+ },
+ {
+  "input": "How was the trip? Actually, never mind, tell me tomorrow.",
+  "sentences": [
+   "How was the trip?",
+   "Actually, never mind, tell me tomorrow."
+  ]
+ },
+ {
+  "input": "Please call me back. Actually, never mind, I'll call you.",
+  "sentences": [
+   "Please call me back.",
+   "Actually, never mind, I'll call you."
+  ]
+ },
+ {
+  "input": "Let's grab lunch. Actually, never mind, I'm swamped.",
+  "sentences": [
+   "Let's grab lunch.",
+   "Actually, never mind, I'm swamped."
+  ]
+ },
+ {
+  "input": "I'll book the room. Actually, never mind, it's booked.",
+  "sentences": [
+   "I'll book the room.",
+   "Actually, never mind, it's booked."
+  ]
+ },
+ {
+  "input": "Who's on call? Actually, never mind me.",
+  "sentences": [
+   "Who's on call?",
+   "Actually, never mind me."
+  ]
+ },
+ {
+  "input": "Are you free? Wait, never mind the time, just come.",
+  "sentences": [
+   "Are you free?",
+   "Wait, never mind the time, just come."
+  ]
+ },
+ {
+  "input": "What do you think? Actually, never mind what I said.",
+  "sentences": [
+   "What do you think?",
+   "Actually, never mind what I said."
+  ]
+ },
+ {
+  "input": "Happy birthday. Actually, never mind, see you later.",
+  "sentences": [
+   "Happy birthday.",
+   "Actually, never mind, see you later."
+  ]
+ },
+ {
+  "input": "Welcome aboard. Wait, never mind, I'll send the docs.",
+  "sentences": [
+   "Welcome aboard.",
+   "Wait, never mind, I'll send the docs."
+  ]
+ },
+ {
+  "input": "I want you to review the code. Actually, just review the tests.",
+  "sentences": [
+   "I want you to review the code.",
+   "Actually, just review the tests."
+  ]
+ },
+ {
+  "input": "I need you to fix the build. Actually, just fix the warning.",
+  "sentences": [
+   "I need you to fix the build.",
+   "Actually, just fix the warning."
+  ]
+ },
+ {
+  "input": "Please send the deck. Actually, just send the summary.",
+  "sentences": [
+   "Please send the deck.",
+   "Actually, just send the summary."
+  ]
+ },
+ {
+  "input": "Let's deploy the app. Actually, just deploy the API.",
+  "sentences": [
+   "Let's deploy the app.",
+   "Actually, just deploy the API."
+  ]
+ },
+ {
+  "input": "We'll paint the house. Actually, just paint the door.",
+  "sentences": [
+   "We'll paint the house.",
+   "Actually, just paint the door."
+  ]
+ },
+ {
+  "input": "You need to update the docs. Actually, just update the README.",
+  "sentences": [
+   "You need to update the docs.",
+   "Actually, just update the README."
+  ]
+ },
+ {
+  "input": "I told him to check the logs. Actually, just check the errors, he said.",
+  "sentences": [
+   "I told him to check the logs.",
+   "Actually, just check the errors, he said."
+  ]
+ },
+ {
+  "input": "We should test the login. Actually, only test the signup.",
+  "sentences": [
+   "We should test the login.",
+   "Actually, only test the signup."
+  ]
+ },
+ {
+  "input": "I'll call the team. Wait, just call the lead.",
+  "sentences": [
+   "I'll call the team.",
+   "Wait, just call the lead."
+  ]
+ },
+ {
+  "input": "Remember to buy milk. Sorry, just buy bread.",
+  "sentences": [
+   "Remember to buy milk.",
+   "Sorry, just buy bread."
+  ]
+ },
+ {
+  "input": "Feel free to edit the doc. Actually, just edit the intro if you want.",
+  "sentences": [
+   "Feel free to edit the doc.",
+   "Actually, just edit the intro if you want."
+  ]
+ },
+ {
+  "input": "Did you want to rerun the job? Actually, just rerun the job tomorrow.",
+  "sentences": [
+   "Did you want to rerun the job?",
+   "Actually, just rerun the job tomorrow."
+  ]
+ },
+ {
+  "input": "Turn on the lights, sorry, the lights in the hall.",
+  "sentences": [
+   "Turn on the lights, sorry, the lights in the hall."
+  ]
+ },
+ {
+  "input": "Use the big box, sorry, the small one.",
+  "sentences": [
+   "Use the big box, sorry, the small one."
+  ]
+ },
+ {
+  "input": "Paint it red, sorry, I mean it's already red.",
+  "sentences": [
+   "Paint it red, sorry, I mean it's already red."
+  ]
+ },
+ {
+  "input": "Thanks for the red roses, sorry, the white ones are lovely too.",
+  "sentences": [
+   "Thanks for the red roses, sorry, the white ones are lovely too."
+  ]
+ },
+ {
+  "input": "Sorry, the left one, sorry, the right one.",
+  "sentences": [
+   "Sorry, the left one, sorry, the right one."
+  ]
+ },
+ {
+  "input": "I'm sorry for the long email, sorry, the short one.",
+  "sentences": [
+   "I'm sorry for the long email, sorry, the short one."
+  ]
+ },
+ {
+  "input": "Is it the first door? Sorry, the second door.",
+  "sentences": [
+   "Is it the first door?",
+   "Sorry, the second door."
+  ]
+ },
+ {
+  "input": "Put it at the top, actually, the bottom of the page.",
+  "sentences": [
+   "Put it at the top, actually, the bottom of the page."
+  ]
+ },
+ {
+  "input": "Use a hammer, actually no, a wrench works too.",
+  "sentences": [
+   "Use a hammer, actually no, a wrench works too."
+  ]
+ },
+ {
+  "input": "I meant the blue one, I mean the blue cup.",
+  "sentences": [
+   "I meant the blue one, I mean the blue cup."
+  ]
+ },
+ {
+  "input": "We'll stay in, wait, start over, we'll go out.",
+  "sentences": [
+   "We'll stay in, wait, start over, we'll go out."
+  ]
+ },
+ {
+  "input": "Let's write tests, actually start over, let's write docs.",
+  "sentences": [
+   "Let's write tests, actually start over, let's write docs."
+  ]
+ },
+ {
+  "input": "Count to ten, wait, start over, count to five.",
+  "sentences": [
+   "Count to ten, wait, start over, count to five."
+  ]
+ },
+ {
+  "input": "If it breaks, actually start over, then call me.",
+  "sentences": [
+   "If it breaks, actually start over, then call me."
+  ]
+ },
+ {
+  "input": "Clean the kitchen, wait, start over, clean the kitchen again.",
+  "sentences": [
+   "Clean the kitchen, wait, start over, clean the kitchen again."
+  ]
+ },
+ {
+  "input": "Can you make the, can you make the font bigger?",
+  "sentences": [
+   "Can you make the, can you make the font bigger?"
+  ]
+ },
+ {
+  "input": "Is it the, is it the right file?",
+  "sentences": [
+   "Is it the, is it the right file?"
+  ]
+ },
+ {
+  "input": "Type the, type an apostrophe.",
+  "sentences": [
+   "Type the, type an apostrophe."
+  ]
+ },
+ {
+  "input": "Add the, add your name here.",
+  "sentences": [
+   "Add the, add your name here."
+  ]
+ },
+ {
+  "input": "I saw the, I saw an owl.",
+  "sentences": [
+   "I saw the, I saw an owl."
+  ]
+ },
+ {
+  "input": "Give me the, give me a minute.",
+  "sentences": [
+   "Give me the, give me a minute."
+  ]
+ },
+ {
+  "input": "Open the window. Wait, don't open it, it's cold.",
+  "sentences": [
+   "Open the window.",
+   "Wait, don't open it, it's cold."
+  ]
+ },
+ {
+  "input": "Send the invoice. Actually, don't send it yet.",
+  "sentences": [
+   "Send the invoice.",
+   "Actually, don't send it yet."
+  ]
+ },
+ {
+  "input": "Call Jake. Wait, don't call him, he's asleep.",
+  "sentences": [
+   "Call Jake.",
+   "Wait, don't call him, he's asleep."
+  ]
+ },
+ {
+  "input": "Close the door. Actually, don't close it all the way.",
+  "sentences": [
+   "Close the door.",
+   "Actually, don't close it all the way."
+  ]
+ },
+ {
+  "input": "Merge the PR. Wait, don't merge it without a review.",
+  "sentences": [
+   "Merge the PR.",
+   "Wait, don't merge it without a review."
+  ]
+ },
+ {
+  "input": "Buy the tickets. Actually, don't buy them now, prices drop later.",
+  "sentences": [
+   "Buy the tickets.",
+   "Actually, don't buy them now, prices drop later."
+  ]
+ },
+ {
+  "input": "Stop the music. Wait, don't stop it, I love this song.",
+  "sentences": [
+   "Stop the music.",
+   "Wait, don't stop it, I love this song."
+  ]
+ },
+ {
+  "input": "First book the flight. Wait, no, first check the dates.",
+  "sentences": [
+   "First book the flight.",
+   "Wait, no, first check the dates."
+  ]
+ },
+ {
+  "input": "We go left. Wait no, we go right.",
+  "sentences": [
+   "We go left.",
+   "Wait no, we go right."
+  ]
+ },
+ {
   "input": "Good morning, Mr. Johnson. I would like it.",
   "sentences": [
    "Good morning, Mr. Johnson.",
