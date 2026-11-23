@@ -141,13 +141,17 @@ extension View {
 /// Update button was.
 struct AppPrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    /// Taller only where it sits beside a taller field (the Dictionary's 36pt one).
+    var height: CGFloat = AppMetrics.controlHeight
+
+    init(height: CGFloat = AppMetrics.controlHeight) { self.height = height }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 14, weight: .medium))
             .foregroundColor(isEnabled ? Palette.window : Palette.muted)
             .padding(.horizontal, 16)
-            .frame(minHeight: AppMetrics.controlHeight)
+            .frame(minHeight: height)
             .background(RoundedRectangle(cornerRadius: 8).fill(isEnabled ? Palette.ink.opacity(configuration.isPressed ? 0.75 : 1) : Color.clear))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(isEnabled ? Color.clear : Palette.line, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 8))

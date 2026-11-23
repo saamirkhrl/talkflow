@@ -91,7 +91,7 @@ struct DictionaryPage: View {
             }
             .frame(maxWidth: .infinity)
             Button("Add") { model.add() }
-                .buttonStyle(AppPrimaryButtonStyle())
+                .buttonStyle(AppPrimaryButtonStyle(height: 36))
                 .disabled(!model.canAdd)
                 .accessibilityHint("Adds the word to your Dictionary")
         }

@@ -287,7 +287,9 @@ struct HomePage: View {
                     .overlay(Capsule().strokeBorder(Palette.line, lineWidth: 1))
                     .contentShape(Capsule())
                 }
-                .menuStyle(.borderlessButton)
+                // The borderless menu style re-lays the label (chevron first, no capsule).
+                .menuStyle(.button)
+                .buttonStyle(.plain)
                 .menuIndicator(.hidden)
                 .fixedSize()
             }
