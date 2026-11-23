@@ -135,6 +135,20 @@ if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
     NSApplication.shared.run()
 }
 
+// Pure logic, like --streamtest: the Dictionary page's add and remove
+// rules. Results in $TMPDIR/talkflow-dictionarytest.log.
+if CommandLine.arguments.contains("--dictionarytest") {
+    DictionarySelfTest.run()
+}
+
+// Opens the real app window from a build, on throwaway settings and sample
+// stats, to click around without installing. Starts no hotkey, recorder,
+// engine, updater or install count, and runs before the single-instance
+// guard. Run it from the repo root so it finds the app icon.
+if CommandLine.arguments.contains("--windowpreview") {
+    WindowPreview.run()
+}
+
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by
 // step, and where the kept data folder is. Changes nothing.
 if CommandLine.arguments.contains("--uninstallplan") {

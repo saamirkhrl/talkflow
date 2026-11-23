@@ -1,9 +1,11 @@
 import AppKit
 
 /// Minimal menu bar indicator: a bars glyph (matching the app icon) tinted by
-/// state, plus a menu with Dashboard, the writing style, and Quit (and
-/// "Update to X.Y.Z..." while a newer version is available, "Finish setup..."
-/// while something setup gives talkflow is missing).
+/// state. A left click opens the talkflow window; a right click or
+/// Control-click shows a short menu with Open talkflow, the writing style,
+/// Settings and Quit (and "Update to X.Y.Z..." while a newer version is
+/// available, "Finish setup..." while something setup gives talkflow is
+/// missing).
 final class StatusBar: NSObject, NSMenuDelegate {
     enum State {
         case idle
@@ -21,17 +23,24 @@ final class StatusBar: NSObject, NSMenuDelegate {
     private var moving = false
     private let menu = NSMenu()
     private var state: State = .idle
+    /// Left click on the icon, and "Open talkflow" in the menu.
     var onDashboardClicked: (() -> Void)?
+    var onSettingsClicked: (() -> Void)?
+    /// Called on every state change; AppDelegate uses `.idle` to apply a
+    /// Dock icon change that waited for the dictation (DockIcon).
+    var onStateChange: ((State) -> Void)?
+    /// Recording, or still writing the text.
+    var isBusy: Bool { state != .idle }
     var onSetupClicked: (() -> Void)?
     /// Whether setup has anything left to do. Asked each time the menu
     /// opens, so a finished setup never shows in it, and one an update
     /// undid (a permission macOS no longer applies) does.
     var setupNeeded: () -> Bool = { false }
-    /// Opens the dashboard, where the Update button is.
+    /// Opens the talkflow window on Settings > About, where the Update button is.
     var onUpdateClicked: (() -> Void)?
     private var styleItems: [NSMenuItem] = []
     private let updateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let updateSeparator = NSMenuItem.separator()
+    private let lowerSeparator = NSMenuItem.separator()
     private let setupItem = NSMenuItem(title: "Finish setup...", action: nil, keyEquivalent: "")
 
     override init() {
@@ -39,34 +48,35 @@ final class StatusBar: NSObject, NSMenuDelegate {
         item = Self.makeItem()
         super.init()
         menu.delegate = self
-        // Only while a newer version is available (see setUpdate).
-        updateItem.action = #selector(updateClicked)
-        updateItem.target = self
-        updateItem.isHidden = true
-        updateSeparator.isHidden = true
-        menu.addItem(updateItem)
-        menu.addItem(updateSeparator)
-        menu.addItem(withTitle: "Dashboard...", action: #selector(dashboardClicked), keyEquivalent: "")
+        menu.addItem(withTitle: "Open talkflow", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
-        setupItem.action = #selector(setupClicked)
-        setupItem.target = self
-        setupItem.isHidden = true
-        menu.addItem(setupItem)
-        menu.addItem(.separator())
         // The same setting as on the Settings page, one click away.
-        let header = NSMenuItem(title: "Writing style", action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
+        let styleMenu = NSMenu(title: "Writing style")
         for style in WritingStyle.allCases {
             let item = NSMenuItem(title: style.title, action: #selector(styleClicked(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = style.rawValue
-            item.indentationLevel = 1
             item.toolTip = style.detail
-            menu.addItem(item)
+            styleMenu.addItem(item)
             styleItems.append(item)
         }
+        let styleItem = NSMenuItem(title: "Writing style", action: nil, keyEquivalent: "")
+        styleItem.submenu = styleMenu
+        menu.addItem(styleItem)
+        menu.addItem(withTitle: "Settings...", action: #selector(settingsClicked), keyEquivalent: "")
+            .target = self
         menu.addItem(.separator())
+        // Only while a newer version is available (see setUpdate).
+        updateItem.action = #selector(updateClicked)
+        updateItem.target = self
+        updateItem.isHidden = true
+        menu.addItem(updateItem)
+        setupItem.action = #selector(setupClicked)
+        setupItem.target = self
+        setupItem.isHidden = true
+        menu.addItem(setupItem)
+        lowerSeparator.isHidden = true
+        menu.addItem(lowerSeparator)
         menu.addItem(NSMenuItem(title: "Quit talkflow", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         configure()
         // Give the system time to lay the menu bar out (measured: icons still
@@ -98,10 +108,37 @@ final class StatusBar: NSObject, NSMenuDelegate {
     }
 
     private func configure() {
-        item?.menu = menu
-        item?.button?.image = Self.barsImage
-        item?.button?.image?.isTemplate = true
+        guard let button = item?.button else { return }
+        // No menu attached: an item with a menu opens it on every click, and
+        // a left click must open the window instead.
+        item?.menu = nil
+        button.image = Self.barsImage
+        button.image?.isTemplate = true
+        button.target = self
+        button.action = #selector(iconClicked(_:))
+        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         setState(state)
+    }
+
+    /// Left click opens the window; right click or Control-click shows the
+    /// short menu.
+    @objc private func iconClicked(_ sender: Any?) {
+        let event = NSApp.currentEvent
+        let wantsMenu = event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true
+        if wantsMenu { showMenu() } else { onDashboardClicked?() }
+    }
+
+    /// Attached only while it is open: performClick shows it and returns
+    /// once it closes.
+    private func showMenu() {
+        guard let item, let button = item.button else { return }
+        item.menu = menu
+        button.performClick(nil)
+        item.menu = nil
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        if menu === self.menu { item?.menu = nil }
     }
 
     /// Notch apps (Dynamic Island style, such as Notchy) put a window over the
@@ -210,6 +247,10 @@ final class StatusBar: NSObject, NSMenuDelegate {
         onDashboardClicked?()
     }
 
+    @objc private func settingsClicked() {
+        onSettingsClicked?()
+    }
+
     @objc private func setupClicked() {
         onSetupClicked?()
     }
@@ -218,11 +259,11 @@ final class StatusBar: NSObject, NSMenuDelegate {
         onUpdateClicked?()
     }
 
-    /// Shows "Update to X.Y.Z..." at the top of the menu, or hides it (nil).
+    /// Shows "Update to X.Y.Z..." in the menu, or hides it (nil). The
+    /// separator under it is decided when the menu opens.
     func setUpdate(version: String?) {
         updateItem.title = version.map { "Update to \($0)..." } ?? ""
         updateItem.isHidden = version == nil
-        updateSeparator.isHidden = version == nil
     }
 
     @objc private func styleClicked(_ sender: NSMenuItem) {
@@ -235,6 +276,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
     /// while it is needed.
     func menuNeedsUpdate(_ menu: NSMenu) {
         setupItem.isHidden = !setupNeeded()
+        lowerSeparator.isHidden = updateItem.isHidden && setupItem.isHidden
         let current = Preferences.writingStyle.rawValue
         for item in styleItems { item.state = item.representedObject as? String == current ? .on : .off }
     }
@@ -249,6 +291,7 @@ final class StatusBar: NSObject, NSMenuDelegate {
         // from the accessibility label instead.
         item?.button?.toolTip = nil
         item?.button?.setAccessibilityLabel(state.description)
+        onStateChange?(state)
     }
 
     /// Same 5-bar waveform mark as the app icon, drawn at menu bar size. Always a

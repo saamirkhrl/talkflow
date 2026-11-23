@@ -29,6 +29,8 @@ enum UserData {
         "typeWhileSpeaking", "accurateFinalPass", "finalPassTooSlow", "aiPolish", "learnedWords", "writingStyle",
         "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart", "macHotkey",
         "dictationLanguage",
+        // Words added by hand on the Dictionary page (see `WordList`).
+        "dictionaryAddedWords",
     ]
 
     private static var observer: NSObjectProtocol?

@@ -6,7 +6,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// restored a reinstall's shortcut, not when this delegate is.
     private var hotkey: HotkeyMonitor { HotkeyMonitor.shared }
     private let overlay = OverlayController()
-    private let dashboard = DashboardController()
+    /// Made on first use, after `UserData.start()` has restored a
+    /// reinstall's settings, so the window reads the restored ones.
+    private lazy var dashboard = DashboardController()
     private var statusBar: StatusBar!
     private var dictation: Dictation!
     /// Made the first time setup is shown, and kept (with its engine
@@ -35,6 +37,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         dictation = Dictation(overlay: overlay, statusBar: statusBar)
+        // The window and the Dock icon never take focus mid-dictation (DockIcon).
+        DockIcon.isDictating = { [weak self] in self?.statusBar.isBusy ?? false }
+        statusBar.onStateChange = { state in if state == .idle { DockIcon.dictationEnded() } }
+        statusBar.onSettingsClicked = { [weak self] in self?.dashboard.show(.settings) }
+        dashboard.setupNeeded = statusBar.setupNeeded
+        dashboard.openSetup = { [weak self] in self?.onboarding.show() }
 
         // Setup's Try it page shows when the shortcut is held (only if setup exists).
         hotkey.onStart = { [weak self] in
@@ -105,8 +113,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// where installing is still a click.
     @MainActor
     private func startUpdateChecks() {
-        statusBar.onUpdateClicked = { [weak self] in self?.dashboard.show() }
-        UpdateNotice.shared.onOpen = { [weak self] in self?.dashboard.show() }
+        statusBar.onUpdateClicked = { [weak self] in self?.dashboard.show(.settings, anchor: .about) }
+        UpdateNotice.shared.onOpen = { [weak self] in self?.dashboard.show(.settings, anchor: .about) }
         UpdateNotice.shared.start()
         Updater.shared.onAvailabilityChange = { [weak self] version in self?.statusBar.setUpdate(version: version) }
         Updater.shared.startBackgroundChecks()

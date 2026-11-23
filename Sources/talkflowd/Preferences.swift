@@ -4,7 +4,10 @@ import Foundation
 /// and fixed for its length, so flipping one mid-dictation never changes how a
 /// half-finished hold is written.
 enum Preferences {
-    private static let defaults = UserDefaults.standard
+    /// UserDefaults.standard. `--windowpreview` and `--dashboardshot` swap in
+    /// a throwaway suite before anything reads a setting (`PreviewSandbox`),
+    /// so a test build never changes the real ones.
+    static var defaults = UserDefaults.standard
 
     /// Type into the field while the key is held (the original behaviour).
     /// Off by default: the words are shown in the overlay instead and inserted
