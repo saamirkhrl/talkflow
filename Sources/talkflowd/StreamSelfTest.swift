@@ -905,7 +905,20 @@ enum StreamSelfTest {
             ("span: not in the text", .span, o, "We should host it in the cloud.", .rejected(.spanNotFound)),
             ("span: twice in the text", .span, o8, "send it to the team", .rejected(.spanAmbiguous)),
             ("span: unrelated sentence", .span, o2, "Thanks for the notes.", .rejected(.noMarkerInRun)),
-            ("span: quoted with prefix", .span, o, "Reply: \"We should host it on our own servers. Actually, you know what,\"", .applied("The cloud is cheaper for now."))
+            ("span: quoted with prefix", .span, o, "Reply: \"We should host it on our own servers. Actually, you know what,\"", .applied("The cloud is cheaper for now.")),
+            // The speech engine punctuates "you know what" as its own sentence; the next sentence is the replacement.
+            ("text: you know what? then the replacement", .text, "Let's put it on the blog. Actually, you know what? The newsletter is better.", "The newsletter is better.", .applied("The newsletter is better.")),
+            ("text: you know what! then the replacement", .text, "Let's put it on the blog. Actually, you know what! The newsletter is better.", "The newsletter is better.", .applied("The newsletter is better.")),
+            ("text: you know what. then the replacement", .text, "Let's put it on the blog. Actually, you know what. The newsletter is better.", "The newsletter is better.", .applied("The newsletter is better.")),
+            ("text: marker sentence then the next stays rejected (question)", .text, "Should we merge? Actually, no. Let's wait for review.", "Let's wait for review.", .rejected(.noReplacementLeft)),
+            ("text: marker sentence then the next stays rejected (greeting)", .text, "Hi everyone. Sorry. I was late.", "I was late.", .rejected(.noReplacementLeft)),
+            ("text: bare actually then the next stays rejected", .text, "We shipped the fix yesterday. Actually. It went out a day early.", "It went out a day early.", .rejected(.noReplacementLeft)),
+            ("text: you know what? then one word stays rejected", .text, "Take the bus. Actually, you know what? Walk.", "Walk.", .rejected(.noReplacementLeft)),
+            ("text: you know what? then a filler in the next sentence stays rejected", .text, "Let's put it on the blog. Actually, you know what? Okay, the newsletter is better.", "The newsletter is better.", .rejected(.noReplacementLeft)),
+            ("text: you know what? negation deleted stays rejected", .text, "Don't merge yet. Actually, you know what? The tests pass now.", "The tests pass now.", .rejected(.deletesNegation)),
+            ("text: you know what? negation restated", .text, "Don't ship it. Actually, you know what? Ship it today.", "Ship it today.", .applied("Ship it today.")),
+            ("text: you know what? later sentence deleted stays rejected", .text, "Send it to Sam. Actually, you know what? I am tired. Go home.", "Go home.", .rejected(.deletesAfterMarker)),
+            ("text: sorry then the next sentence, no crash", .text, "I can't join the call, sorry. I'll catch up from the notes.", "I'll catch up from the notes.", .rejected(.noReplacementLeft))
         ]
         for (label, mode, original, reply, expected) in cases {
             let got = CorrectionModel.evaluate(original: original, reply: reply, mode: mode)

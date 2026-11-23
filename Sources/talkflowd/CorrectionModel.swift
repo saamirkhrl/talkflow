@@ -309,6 +309,22 @@ enum CorrectionModel {
         return p
     }
 
+    /// Whether a chain of fillers (`fillerEnd`'s own rule: sounds, and closed
+    /// phrases that carry punctuation) runs from `start` and ends exactly at `end`.
+    static func fillersEndExactly(_ tokens: [Token], from start: Int, at end: Int) -> Bool {
+        var p = start
+        outer: while p < end {
+            if fillerSounds.contains(tokens[p].norm) { p += 1; continue }
+            for phrase in fillerPhrases where matches(phrase, tokens, at: p)
+                && tokens[p + phrase.count - 1].trailingPunctuation != nil {
+                p += phrase.count
+                continue outer
+            }
+            return false
+        }
+        return p == end
+    }
+
     /// The guard, structural: a correction removes what was said BEFORE its marker
     /// and keeps what was said AFTER it. Every deleted run must:
     /// - stay inside one paragraph;
@@ -341,7 +357,25 @@ enum CorrectionModel {
             for j in inRun {
                 guard run.upperBound <= fillerEnd(tokens, from: markerEnd(tokens, from: j)) else { return .deletesAfterMarker }
             }
-            guard sentenceEnd(tokens, k) - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
+            // The speech engine punctuates "you know what" as a sentence of its own ("Actually,
+            // you know what? The newsletter is better."), so the marker's sentence ends at the
+            // filler and the real replacement is the NEXT sentence. The comma form was already
+            // accepted, so count that next sentence as kept, but only when the fillers after the
+            // marker end exactly at the sentence end, the cut ends exactly there too, and the next
+            // sentence is in the same paragraph. Counting the next sentence whenever only markers
+            // and fillers follow was measured and rejected: it accepted "Should we merge?
+            // Actually, no. Let's wait for review." and "Hi everyone. Sorry. I was late.". The
+            // negation check below must use the same end, or its range runs backwards and crashes.
+            let sEnd = sentenceEnd(tokens, k)
+            var keptEnd = sEnd
+            let next = sEnd + 1
+            let mEnd = markerEnd(tokens, from: k)
+            if next < tokens.count, !tokens[next].leading.contains("\n"),
+               mEnd < next, fillerEnd(tokens, from: mEnd) >= next,
+               fillersEndExactly(tokens, from: mEnd, at: next), run.upperBound == next {
+                keptEnd = sentenceEnd(tokens, next)
+            }
+            guard keptEnd - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
             let phraseEnd = markerEnd(tokens, from: k)
             if (phraseEnd..<run.upperBound).contains(where: { isNegation(tokens[$0]) }) { return .deletesNegation }
             // A negation said before the marker may go only when the kept text restates the
@@ -352,7 +386,7 @@ enum CorrectionModel {
                 while w < m, isNegation(tokens[w]) { w += 1 }
                 guard w < m else { return .deletesNegation }
                 let negated = tokens[w].norm
-                guard (run.upperBound...sentenceEnd(tokens, k)).contains(where: { tokens[$0].norm == negated }) else { return .deletesNegation }
+                guard (run.upperBound...keptEnd).contains(where: { tokens[$0].norm == negated }) else { return .deletesNegation }
             }
         }
         return nil

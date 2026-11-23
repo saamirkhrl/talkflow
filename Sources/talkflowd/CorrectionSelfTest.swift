@@ -50,7 +50,10 @@ enum CorrectionSelfTest {
         Case(id: "P27", raw: "Let's use React for the dashboard. Wait, actually, the team knows Vue better, so let's go with Vue.", expected: "The team knows Vue better, so let's go with Vue."),
         Case(id: "P28", raw: "Ask legal to review the contract today. Sorry, I mean ask them tomorrow, they're out today.", expected: "Ask them tomorrow, they're out today."),
         Case(id: "P29", raw: "We could launch with a big announcement. Actually, I think a quiet beta makes more sense.", expected: "I think a quiet beta makes more sense."),
-        Case(id: "P30", raw: "Can you make the font smaller, no wait, actually the spacing is the problem, not the font.", expected: "The spacing is the problem, not the font.")
+        Case(id: "P30", raw: "Can you make the font smaller, no wait, actually the spacing is the problem, not the font.", expected: "The spacing is the problem, not the font."),
+        Case(id: "P31", raw: "Let's put it on the blog. Actually, you know what? The newsletter is better.", expected: "The newsletter is better."),
+        Case(id: "P32", raw: "Let's put it on the blog. Actually, you know what! The newsletter is better.", expected: "The newsletter is better."),
+        Case(id: "P33", raw: "Let's put it on the blog. Actually, you know what. The newsletter is better.", expected: "The newsletter is better."),
     ]
 
     static let negatives: [Case] = [
