@@ -607,7 +607,44 @@ enum StreamSelfTest {
             // Collapsing would need "three coffees", an insertion; "Order
             // three." would drop a word the user meant. Left alone.
             ("Order two coffees, make that three.", "Order two coffees, make that three."),
-            ("I would like a coffee.", "I would like a coffee.")
+            ("I would like a coffee.", "I would like a coffee."),
+            // Widened rules: plain swaps, sentence-start names, commands, restarts, false starts.
+            ("Make the button blue, I mean green.", "Make the button green."),
+            ("Put the logo on the left, sorry, the right.", "Put the logo on the right."),
+            ("Use a dropdown, actually no, a toggle.", "Use a toggle."),
+            ("Tell John. Wait, no. Mike.", "Tell Mike."),
+            ("I want you to refactor the whole file. Actually, just refactor the render function.", "I want you to just refactor the render function."),
+            ("Can you rewrite this in Rust? Actually, never mind, keep it in Swift.", "Keep it in Swift."),
+            ("First fix the tests. Wait, no, first pull the latest changes.", "First pull the latest changes."),
+            ("Delete the old migration. Wait, don't delete it, just rename it.", "Just rename it."),
+            ("Can you make the, can you change the font size?", "Can you change the font size?"),
+            ("Let's ship today, start over, let's ship tomorrow.", "Let's ship tomorrow."),
+            ("Turn left, I mean right.", "Turn right."),
+            ("Make it bigger, sorry, smaller.", "Make it smaller."),
+            ("I'll have the soup, actually, the salad.", "I'll have the salad."),
+            ("Order the pasta, I meant the pizza.", "Order the pizza."),
+            ("Tell John. Wait, no. Tell Mike.", "Tell Mike."),
+            ("I'll go, wait no, I'll stay.", "I'll stay."),
+            ("Delete it. Actually, don't delete it, archive it.", "Archive it."),
+            ("Can you rewrite this in Rust? Never mind, keep it in Swift.", "Keep it in Swift."),
+            ("Make it blue, undo that, make it green.", "Make it green."),
+            ("So, can you make the, can you change the font size?", "So, can you change the font size?"),
+            ("We should go, I mean soon.", "We should go, I mean soon."),
+            ("Great job, I mean that.", "Great job, I mean that."),
+            ("It's not red, I mean blue.", "It's not red, I mean blue."),
+            ("Tell John. Sorry. Mike.", "Tell John. Sorry. Mike."),
+            ("Ask John. Wait, no. Thanks.", "Ask John. Wait, no. Thanks."),
+            ("I'm tired. Actually, I'm going to bed.", "I'm tired. Actually, I'm going to bed."),
+            ("What are you looking at, what are you doing?", "What are you looking at, what are you doing?"),
+            ("Look at the last commit, undo that, and rerun the tests.", "Look at the last commit, undo that, and rerun the tests."),
+            ("If it fails, start over, then check the logs.", "If it fails, start over, then check the logs."),
+            ("Oh, never mind, it's fine.", "Oh, never mind, it's fine."),
+            ("Okay, actually never mind, it's fine.", "Okay, actually never mind, it's fine."),
+            ("I'll call him, never mind.", "I'll call him, never mind."),
+            ("It's raining, never mind, we'll go anyway.", "It's raining, never mind, we'll go anyway."),
+            ("We need to start over from scratch.", "We need to start over from scratch."),
+            ("Please delete that file.", "Please delete that file."),
+            ("Thanks for the gift, sorry, the late reply.", "Thanks for the gift, sorry, the late reply.")
         ]
         for (raw, want) in pure {
             let got = SelfCorrection.apply(to: raw)
@@ -632,6 +669,14 @@ enum StreamSelfTest {
               "guard: reordered words are refused")
         check(!SelfCorrection.isDeletionOnly(original: "meet at 2", result: "meet me at 2"),
               "guard: an inserted word is refused")
+        check(SelfCorrection.hasMarker(in: "It was good, I mean really good."),
+              "hasMarker: a marker the rules left standing is seen")
+        check(SelfCorrection.hasMarker(in: "Let's ship today, start over, let's ship tomorrow."),
+              "hasMarker: a spoken command is seen")
+        check(!SelfCorrection.hasMarker(in: "Make the button green."),
+              "hasMarker: plain text has none")
+        check(!SelfCorrection.hasMarker(in: "Never mind, it's fine."),
+              "hasMarker: a command with nothing before it is not one")
 
         // Through the real pipeline: live steps stay append-only (the live
         // render never applies corrections), the final text is corrected, and

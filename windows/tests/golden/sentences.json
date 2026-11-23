@@ -5199,6 +5199,237 @@
   ]
  },
  {
+  "input": "Make the button blue, I mean green.",
+  "sentences": [
+   "Make the button blue, I mean green."
+  ]
+ },
+ {
+  "input": "Put the logo on the left, sorry, the right.",
+  "sentences": [
+   "Put the logo on the left, sorry, the right."
+  ]
+ },
+ {
+  "input": "Use a dropdown, actually no, a toggle.",
+  "sentences": [
+   "Use a dropdown, actually no, a toggle."
+  ]
+ },
+ {
+  "input": "Tell John. Wait, no. Mike.",
+  "sentences": [
+   "Tell John.",
+   "Wait, no.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "I want you to refactor the whole file. Actually, just refactor the render function.",
+  "sentences": [
+   "I want you to refactor the whole file.",
+   "Actually, just refactor the render function."
+  ]
+ },
+ {
+  "input": "Can you rewrite this in Rust? Actually, never mind, keep it in Swift.",
+  "sentences": [
+   "Can you rewrite this in Rust?",
+   "Actually, never mind, keep it in Swift."
+  ]
+ },
+ {
+  "input": "First fix the tests. Wait, no, first pull the latest changes.",
+  "sentences": [
+   "First fix the tests.",
+   "Wait, no, first pull the latest changes."
+  ]
+ },
+ {
+  "input": "Delete the old migration. Wait, don't delete it, just rename it.",
+  "sentences": [
+   "Delete the old migration.",
+   "Wait, don't delete it, just rename it."
+  ]
+ },
+ {
+  "input": "Can you make the, can you change the font size?",
+  "sentences": [
+   "Can you make the, can you change the font size?"
+  ]
+ },
+ {
+  "input": "Let's ship today, start over, let's ship tomorrow.",
+  "sentences": [
+   "Let's ship today, start over, let's ship tomorrow."
+  ]
+ },
+ {
+  "input": "Turn left, I mean right.",
+  "sentences": [
+   "Turn left, I mean right."
+  ]
+ },
+ {
+  "input": "Make it bigger, sorry, smaller.",
+  "sentences": [
+   "Make it bigger, sorry, smaller."
+  ]
+ },
+ {
+  "input": "I'll have the soup, actually, the salad.",
+  "sentences": [
+   "I'll have the soup, actually, the salad."
+  ]
+ },
+ {
+  "input": "Order the pasta, I meant the pizza.",
+  "sentences": [
+   "Order the pasta, I meant the pizza."
+  ]
+ },
+ {
+  "input": "Tell John. Wait, no. Tell Mike.",
+  "sentences": [
+   "Tell John.",
+   "Wait, no.",
+   "Tell Mike."
+  ]
+ },
+ {
+  "input": "I'll go, wait no, I'll stay.",
+  "sentences": [
+   "I'll go, wait no, I'll stay."
+  ]
+ },
+ {
+  "input": "Delete it. Actually, don't delete it, archive it.",
+  "sentences": [
+   "Delete it.",
+   "Actually, don't delete it, archive it."
+  ]
+ },
+ {
+  "input": "Can you rewrite this in Rust? Never mind, keep it in Swift.",
+  "sentences": [
+   "Can you rewrite this in Rust?",
+   "Never mind, keep it in Swift."
+  ]
+ },
+ {
+  "input": "Make it blue, undo that, make it green.",
+  "sentences": [
+   "Make it blue, undo that, make it green."
+  ]
+ },
+ {
+  "input": "So, can you make the, can you change the font size?",
+  "sentences": [
+   "So, can you make the, can you change the font size?"
+  ]
+ },
+ {
+  "input": "We should go, I mean soon.",
+  "sentences": [
+   "We should go, I mean soon."
+  ]
+ },
+ {
+  "input": "Great job, I mean that.",
+  "sentences": [
+   "Great job, I mean that."
+  ]
+ },
+ {
+  "input": "It's not red, I mean blue.",
+  "sentences": [
+   "It's not red, I mean blue."
+  ]
+ },
+ {
+  "input": "Tell John. Sorry. Mike.",
+  "sentences": [
+   "Tell John.",
+   "Sorry.",
+   "Mike."
+  ]
+ },
+ {
+  "input": "Ask John. Wait, no. Thanks.",
+  "sentences": [
+   "Ask John.",
+   "Wait, no.",
+   "Thanks."
+  ]
+ },
+ {
+  "input": "I'm tired. Actually, I'm going to bed.",
+  "sentences": [
+   "I'm tired.",
+   "Actually, I'm going to bed."
+  ]
+ },
+ {
+  "input": "What are you looking at, what are you doing?",
+  "sentences": [
+   "What are you looking at, what are you doing?"
+  ]
+ },
+ {
+  "input": "Look at the last commit, undo that, and rerun the tests.",
+  "sentences": [
+   "Look at the last commit, undo that, and rerun the tests."
+  ]
+ },
+ {
+  "input": "If it fails, start over, then check the logs.",
+  "sentences": [
+   "If it fails, start over, then check the logs."
+  ]
+ },
+ {
+  "input": "Oh, never mind, it's fine.",
+  "sentences": [
+   "Oh, never mind, it's fine."
+  ]
+ },
+ {
+  "input": "Okay, actually never mind, it's fine.",
+  "sentences": [
+   "Okay, actually never mind, it's fine."
+  ]
+ },
+ {
+  "input": "I'll call him, never mind.",
+  "sentences": [
+   "I'll call him, never mind."
+  ]
+ },
+ {
+  "input": "It's raining, never mind, we'll go anyway.",
+  "sentences": [
+   "It's raining, never mind, we'll go anyway."
+  ]
+ },
+ {
+  "input": "We need to start over from scratch.",
+  "sentences": [
+   "We need to start over from scratch."
+  ]
+ },
+ {
+  "input": "Please delete that file.",
+  "sentences": [
+   "Please delete that file."
+  ]
+ },
+ {
+  "input": "Thanks for the gift, sorry, the late reply.",
+  "sentences": [
+   "Thanks for the gift, sorry, the late reply."
+  ]
+ },
+ {
   "input": "Good morning, Mr. Johnson. I would like it.",
   "sentences": [
    "Good morning, Mr. Johnson.",
