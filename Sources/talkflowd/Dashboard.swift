@@ -723,8 +723,8 @@ private struct SettingsView: View {
                        note: model.polishAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
-                toggle("AI corrections",
-                       help: "When you change your mind mid-sentence, removes the words you took back. Never adds or changes a word.",
+                toggle("AI corrections (experimental)",
+                       help: "When you change your mind mid-sentence, tries to remove the words you took back. Never adds or changes a word, but can sometimes remove one you meant.",
                        note: model.correctionsAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
                                      set: { model.aiCorrections = $0 }))

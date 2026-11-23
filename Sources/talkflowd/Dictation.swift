@@ -72,6 +72,17 @@ final class Dictation {
     private var leadingSpace = ""
     /// `Preferences.typeWhileSpeaking`, fixed for the length of a hold.
     private var liveTyping = false
+    /// What the release pass of one hold needs, captured when its transcript
+    /// arrives, so a hold started while the model step runs cannot change how
+    /// this one is written.
+    private struct Hold {
+        let context: ScreenContext.Snapshot?
+        let bundleID: String?
+        let liveTyping: Bool
+        let style: WritingStyle
+        let claudePolishes: Bool
+        let aiPolish: Bool
+    }
     /// `Preferences.writingStyle`, fixed for the length of a hold, so the live
     /// text and the release pass are written the same way.
     private var style: WritingStyle = .formal
@@ -185,8 +196,12 @@ final class Dictation {
                 let detail = Self.logTranscripts ? ": \(result.text)" : ""
                 print("talkflowd: transcribed \(Self.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
 
-                self.correct(final, verbatim: verbatim, english: english) { corrected in
-                    self.complete(corrected, verbatim: verbatim, english: english, duration: duration)
+                let hold = Hold(context: self.context,
+                                bundleID: self.context?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+                                liveTyping: self.liveTyping, style: self.style,
+                                claudePolishes: Self.claudePolishes, aiPolish: Preferences.aiPolish)
+                self.correct(final, verbatim: verbatim, english: english, hold: hold) { corrected in
+                    self.complete(corrected, verbatim: verbatim, english: english, duration: duration, hold: hold)
                 }
             }
         }
@@ -194,7 +209,7 @@ final class Dictation {
 
     /// Everything after the text is settled: fitted to where it lands, the
     /// optional punctuation pass, then `deliver`.
-    private func complete(_ final: String, verbatim: String, english: Bool, duration: TimeInterval) {
+    private func complete(_ final: String, verbatim: String, english: Bool, duration: TimeInterval, hold: Hold) {
         var final = final
         var verbatim = verbatim
         // Fitted to where it lands. The casing change is skipped while
@@ -202,30 +217,30 @@ final class Dictation {
         // recasing it would rewrite the whole dictation. Not in other
         // languages either: a German sentence may open with a noun,
         // and German nouns keep their capital.
-        let context = self.context
-        if !self.liveTyping, english, ScreenContext.continuesSentence(after: context?.textBeforeCaret) {
+        let context = hold.context
+        if !hold.liveTyping, english, ScreenContext.continuesSentence(after: context?.textBeforeCaret) {
             final = ScreenContext.lowercasingStart(final, names: context?.names ?? [])
         }
-        if ScreenContext.isChat(bundleID: context?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier) {
+        if ScreenContext.isChat(bundleID: hold.bundleID) {
             final = ScreenContext.chatStyled(final)
             verbatim = ScreenContext.chatStyled(verbatim)
         }
 
         // The punctuation pass may put capitals back, so the style is
         // applied again to whatever it returns.
-        let style = self.style
+        let style = hold.style
         let names = context?.names ?? []
-        if !self.liveTyping, Self.claudePolishes {
+        if !hold.liveTyping, hold.claudePolishes {
             ClaudePolish.run(final, names: names, keepCapitals: !english) { polished, error in
                 if let error { self.overlay.showError(error) }
-                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
+                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
             }
-        } else if !self.liveTyping, Preferences.aiPolish {
+        } else if !hold.liveTyping, hold.aiPolish {
             Polish.run(final, names: names, keepCapitals: !english) { polished in
-                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
+                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
             }
         } else {
-            self.deliver(final, verbatim: verbatim, duration: duration)
+            self.deliver(final, verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
         }
     }
 
@@ -233,7 +248,7 @@ final class Dictation {
     /// `CorrectionModel`). Calls `next` with the text to use, on the main queue,
     /// at once when the step does not apply. Logs one line when it is relevant,
     /// with no transcript content.
-    private func correct(_ final: String, verbatim: String, english: Bool, next: @escaping (String) -> Void) {
+    private func correct(_ final: String, verbatim: String, english: Bool, hold: Hold, next: @escaping (String) -> Void) {
         guard english else {
             print("talkflowd: corrections skipped: dictation not in English (language setting: \(language.rawValue))")
             return next(final)
@@ -244,16 +259,16 @@ final class Dictation {
             return next(final)
         }
         let skip: String?
-        if liveTyping { skip = "type while speaking" }
+        if hold.liveTyping { skip = "type while speaking" }
         else if !corrections { skip = "setting off" }
-        else if !CorrectionModel.isAvailable && !Self.claudePolishes { skip = "no model on this Mac" }
+        else if !CorrectionModel.isAvailable && !hold.claudePolishes { skip = "no model on this Mac" }
         else { skip = nil }
         if let skip {
             print("talkflowd: corrections: \(rules), marker left; model skipped (\(skip))")
             return next(final)
         }
         let stage: CorrectionModel.Stage = CorrectionModel.isAvailable ? .model : .claude
-        let style = self.style
+        let style = hold.style
         CorrectionModel.run(final, stage: stage) { corrected, outcome, elapsed in
             print("talkflowd: corrections: \(rules), marker left; \(stage.rawValue) \(outcome.logPhrase) in \(String(format: "%.2f", elapsed))s")
             next(corrected == final ? final : style.apply(corrected, english: true))
@@ -261,7 +276,7 @@ final class Dictation {
     }
 
     /// Writes the final text and closes the hold.
-    private func deliver(_ final: String, verbatim: String, duration: TimeInterval) {
+    private func deliver(_ final: String, verbatim: String, duration: TimeInterval, liveTyping: Bool) {
         reconcile(to: final, verbatim: verbatim)
         if !field.typedText.isEmpty {
             StatsStore.shared.recordSession(text: field.typedText, durationSeconds: duration)
@@ -278,7 +293,7 @@ final class Dictation {
         // A new hold started while this one was still finishing: what was just
         // written belongs to the old hold, and the new one must start from an
         // empty record or its insert would be aligned against this text.
-        if isRecording, !liveTyping { field.reset() }
+        if isRecording, !self.liveTyping { field.reset() }
         // The pill goes now - the user has stopped speaking and there is
         // nothing left to visualise - but a long keystroke insert takes a
         // moment to finish landing. Stay in `.processing` until it is out, or

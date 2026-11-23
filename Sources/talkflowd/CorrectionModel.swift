@@ -53,7 +53,7 @@ enum CorrectionModel {
     enum GuardFailure: String {
         case empty, notSubsequence, spanNotFound, spanAmbiguous
         case crossesParagraph, noMarkerInRun, nothingBeforeMarker, outsideWindow
-        case tooMuchAfterMarker, noReplacementLeft, notDeletionOnly
+        case tooMuchAfterMarker, noReplacementLeft, notDeletionOnly, deletesNegation
     }
 
     enum Verdict: Equatable {
@@ -193,12 +193,36 @@ enum CorrectionModel {
         return e
     }
 
+    /// Words that turn a sentence around. Deleting one can reverse what the user
+    /// said ("Actually, do not ship it" -> "ship it"), so no deleted run may hold
+    /// one. Straight or curly apostrophe: "don't", "don\u{2019}t".
+    static func isNegation(_ token: Token) -> Bool {
+        let word = token.norm.replacingOccurrences(of: "\u{2019}", with: "'")
+        return ["not", "no", "never", "cannot"].contains(word) || word.hasSuffix("n't")
+    }
+
+    /// Marker words, as SelfCorrection chains them ("wait, no", "actually no").
+    private static let markerWords: Set<String> = ["oh", "wait", "no", "actually", "sorry"]
+
+    /// A negation that is part of the correction itself and may go: a "no" chained
+    /// to a marker through marker words only ("Wait, no,", "actually no", "No,
+    /// actually"), or "never" in "never mind".
+    static func isMarkerNegation(_ tokens: [Token], _ i: Int, markers: [Int]) -> Bool {
+        let word = tokens[i].norm
+        if word == "never" { return i + 1 < tokens.count && tokens[i + 1].norm == "mind" }
+        guard word == "no" else { return false }
+        return markers.contains { m in
+            m <= i && i - m <= 2 && (m...i).allSatisfy { markerWords.contains(tokens[$0].norm) }
+        }
+    }
+
     /// The bounds guard. Every run must: stay inside one paragraph; hold a marker that
     /// is not its first token (something said before the marker is what is taken back);
     /// start no earlier than the marker's sentence, or the sentence before it when the
     /// marker opens its sentence (and that sentence is not the start of a paragraph);
     /// hold at most `maxAfterMarker` tokens after its last marker; and leave at least
-    /// `minKeptAfter` tokens of the marker's sentence after it.
+    /// `minKeptAfter` tokens of the marker's sentence after it, and delete no negation
+    /// that is not part of the marker (`isNegation`).
     static func check(runs: [Range<Int>], tokens: [Token], markers: [Int]) -> GuardFailure? {
         for run in runs {
             if run.dropFirst().contains(where: { tokens[$0].leading.contains("\n") }) { return .crossesParagraph }
@@ -215,6 +239,9 @@ enum CorrectionModel {
             guard run.upperBound - 1 - lastMarker <= maxAfterMarker else { return .tooMuchAfterMarker }
             let end = sentenceEnd(tokens, m)
             guard end - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
+            if run.contains(where: { isNegation(tokens[$0]) && !isMarkerNegation(tokens, $0, markers: markers) }) {
+                return .deletesNegation
+            }
         }
         return nil
     }

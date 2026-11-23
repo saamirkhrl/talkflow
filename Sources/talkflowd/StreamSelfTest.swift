@@ -834,6 +834,14 @@ enum StreamSelfTest {
             ("text: inside a paragraph", .text, o5, "Hi Sam,\n\nThe cloud is cheaper.", .applied("Hi Sam,\n\nThe cloud is cheaper.")),
             ("text: mid-sentence false start", .text, o6, "Let me fix the bug.", .applied("Let me fix the bug.")),
             ("text: not the sentence before a mid-sentence marker", .text, o7, "Let me fix the bug.", .rejected(.outsideWindow)),
+            ("text: negation after the marker kept", .text, "Ship it Friday. Actually, do not ship it.", "Ship it.", .rejected(.deletesNegation)),
+            ("text: n't after the marker kept", .text, "Fire everyone. Sorry, don't fire anyone today.", "Fire anyone today.", .rejected(.deletesNegation)),
+            ("text: curly n't kept", .text, "Fire everyone. Sorry, don\u{2019}t fire anyone today.", "Fire anyone today.", .rejected(.deletesNegation)),
+            ("text: never after the marker kept", .text, "Call him today. Actually, never call him, email him.", "Call him, email him.", .rejected(.deletesNegation)),
+            ("text: a no that is not the marker kept", .text, "Invite Sam. Wait, Sam said no, invite Alex.", "Invite Alex.", .rejected(.deletesNegation)),
+            ("text: marker no deleted", .text, "Let's take the bus. Wait, no, the train is faster.", "The train is faster.", .applied("The train is faster.")),
+            ("text: actually no deleted", .text, "I'll rewrite the parser, actually no, I'll patch it.", "I'll patch it.", .applied("I'll patch it.")),
+            ("text: never mind deleted", .text, "Use Rust for the CLI. Actually, never mind, keep it in Swift.", "Keep it in Swift.", .applied("Keep it in Swift.")),
             ("span: correction applied", .span, o, "We should host it on our own servers. Actually, you know what,", .applied("The cloud is cheaper for now.")),
             ("span: NONE", .span, o, "NONE", .unchanged),
             ("span: none, lowercase", .span, o, "none.", .unchanged),
@@ -852,6 +860,7 @@ enum StreamSelfTest {
 
         check(CorrectionModel.Outcome.timedOut.logPhrase == "missed its budget", "log phrase: missed its budget")
         check(CorrectionModel.Outcome.verdict(.rejected(.outsideWindow)).logPhrase == "rejected by guard (outsideWindow)", "log phrase: rejected by guard")
+        check(CorrectionModel.Outcome.verdict(.rejected(.deletesNegation)).logPhrase == "rejected by guard (deletesNegation)", "correction model: negation reject is logged")
     }
 
     /// The default mode: the caption shows the words while speaking, and the
