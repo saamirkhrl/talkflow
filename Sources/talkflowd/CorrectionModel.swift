@@ -212,6 +212,9 @@ enum CorrectionModel {
         ["i", "meant"], ["i", "mean"], ["or", "rather"], ["make", "that"],
         ["nevermind"], ["actually"], ["wait"], ["sorry"], ["oh"], ["correction"], ["rather"], ["no"],
     ]
+    /// Marker phrases that never take an object, so they close the marker even
+    /// without punctuation ("Actually let's do Monday", "or rather the blue one").
+    private static let objectless: Set<[String]> = [["actually"], ["oh"], ["correction"], ["rather"], ["or", "rather"]]
     /// Retract commands, which filler leads may come in front of ("okay, scratch that").
     private static let commandPhrases: [[String]] = [
         ["scratch", "that"], ["strike", "that"], ["ignore", "that"], ["disregard", "that"],
@@ -251,14 +254,34 @@ enum CorrectionModel {
     }
 
     /// Index just past the marker that starts at `m`: its chain of marker phrases,
-    /// inside one paragraph, at most about five words. Always past `m` itself.
+    /// inside one paragraph, at most about five words, counting only phrases that
+    /// are closed: punctuation ends them ("Wait, no,"), they never take an object
+    /// ("actually"), or the next phrase of the chain is closed ("No wait,"). "delete
+    /// that file", "never mind the tests", "make that change", "Wait for review" and
+    /// "I mean it" run into their object: that is what is meant, not the marker.
+    /// `m` itself when even the first phrase is not closed.
     static func markerEnd(_ tokens: [Token], from m: Int) -> Int {
+        var phrases: [Range<Int>] = []
         var p = m
         while p < tokens.count, p - m < 5, p == m || !tokens[p].leading.contains("\n"),
               let length = markerPhraseLength(tokens, at: p) {
+            phrases.append(p..<(p + length))
             p += length
         }
-        return max(p, m + 1)
+        // From the end: a phrase is closed when it is itself, or when the next one is.
+        var closed = Array(repeating: false, count: phrases.count)
+        for i in phrases.indices.reversed() {
+            let range = phrases[i]
+            closed[i] = tokens[range.upperBound - 1].trailingPunctuation != nil
+                || objectless.contains(range.map { tokens[$0].norm })
+                || (i + 1 < phrases.count && closed[i + 1])
+        }
+        var end = m
+        for i in phrases.indices {
+            guard closed[i] else { break }
+            end = phrases[i].upperBound
+        }
+        return end
     }
 
     /// What may go right after a marker, besides the marker itself: hesitation
@@ -292,15 +315,15 @@ enum CorrectionModel {
     /// - hold a marker, and start before its first one (something is taken back);
     /// - start no earlier than that marker's sentence, or the sentence before it
     ///   when the marker opens its sentence (and not across a paragraph start);
-    /// - delete the whole of its last marker (`markerEnd`), so no "actually" or
-    ///   "I meant" is left standing;
-    /// - after that marker, delete nothing but fillers (`fillerEnd`): every content
-    ///   word said after the marker survives, so the retracted version can never be
-    ///   the one kept;
+    /// - delete the whole of its last marker (`markerEnd`), and leave no marker
+    ///   standing right after the cut;
+    /// - after EVERY marker in the run, delete nothing but its closed marker
+    ///   phrases and fillers (`fillerEnd`): every content word said after a marker
+    ///   survives, so the retracted version can never be the one kept;
     /// - leave at least `minKeptAfter` words of the marker's sentence;
     /// - delete no negation after the marker (belt and braces: fillers hold none).
-    /// Negations BEFORE the marker may go: "Don't ship it. Actually, ship it." ->
-    /// "Ship it." is the correction, and what the user said last is all kept.
+    /// A negation before the marker may go only when the kept text restates the word
+    /// right after it (`Don't ship it. Actually, ship it.`); otherwise it is refused.
     static func check(runs: [Range<Int>], tokens: [Token], markers: [Int]) -> GuardFailure? {
         for run in runs {
             if run.dropFirst().contains(where: { tokens[$0].leading.contains("\n") }) { return .crossesParagraph }
@@ -311,11 +334,26 @@ enum CorrectionModel {
             let lower = (own == m && m > 0 && !tokens[m].leading.contains("\n")) ? sentenceStart(tokens, m - 1) : own
             guard run.lowerBound >= lower else { return .outsideWindow }
             let k = inRun.max()!
-            let phraseEnd = markerEnd(tokens, from: k)
-            guard run.upperBound >= phraseEnd else { return .keepsMarker }
-            guard run.upperBound <= fillerEnd(tokens, from: phraseEnd) else { return .deletesAfterMarker }
+            // The whole last marker goes, and no marker is left standing right after the cut.
+            guard run.upperBound >= markerEnd(tokens, from: k), !markers.contains(run.upperBound) else { return .keepsMarker }
+            // After EVERY marker in the run, only its closed marker phrases and fillers may go:
+            // what was said between two markers is kept like what was said after the last.
+            for j in inRun {
+                guard run.upperBound <= fillerEnd(tokens, from: markerEnd(tokens, from: j)) else { return .deletesAfterMarker }
+            }
             guard sentenceEnd(tokens, k) - (run.upperBound - 1) >= minKeptAfter else { return .noReplacementLeft }
+            let phraseEnd = markerEnd(tokens, from: k)
             if (phraseEnd..<run.upperBound).contains(where: { isNegation(tokens[$0]) }) { return .deletesNegation }
+            // A negation said before the marker may go only when the kept text restates the
+            // word it negated: "Don't ship it. Actually, ship it." keeps "ship"; "Don't merge
+            // yet. Actually, the tests pass now." would drop a standing instruction.
+            for i in run.lowerBound..<m where isNegation(tokens[i]) {
+                var w = i + 1
+                while w < m, isNegation(tokens[w]) { w += 1 }
+                guard w < m else { return .deletesNegation }
+                let negated = tokens[w].norm
+                guard (run.upperBound...sentenceEnd(tokens, k)).contains(where: { tokens[$0].norm == negated }) else { return .deletesNegation }
+            }
         }
         return nil
     }

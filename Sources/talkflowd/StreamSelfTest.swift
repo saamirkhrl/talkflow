@@ -872,7 +872,7 @@ enum StreamSelfTest {
             ("text: a no that starts the clause is kept", .text, "Rewrite the module. Actually no changes are needed here.", "Changes are needed here.", .rejected(.deletesAfterMarker)),
             ("text: half the marker left", .text, "Approve it. Sorry, I meant reject it today.", "Approve I meant reject it today.", .rejected(.keepsMarker)),
             ("text: keeps the old half", .text, "Use Postgres. Actually, use SQLite instead.", "Use Postgres.", .rejected(.nothingBeforeMarker)),
-            ("text: new version kept", .text, "Move it to Monday. Sorry, I mean move it to Tuesday.", "Move it to Tuesday.", .applied("Move it to Tuesday.")),
+            ("text: unpunctuated I mean runs into what is meant", .text, "Move it to Monday. Sorry, I mean move it to Tuesday.", "Move it to Tuesday.", .rejected(.deletesAfterMarker)),
             ("text: one content word after the marker deleted", .text, o, "Cloud is cheaper for now.", .rejected(.deletesAfterMarker)),
             ("text: whole post-marker clause deleted", .text, "Let's meet at noon. Actually, I can't make noon, let's do three.", "Let's do three.", .rejected(.deletesAfterMarker)),
             ("text: hedge after the marker kept", .text, "We could hire a contractor. Actually, I think a full-time hire is better.", "A full-time hire is better.", .rejected(.deletesAfterMarker)),
@@ -882,6 +882,23 @@ enum StreamSelfTest {
             ("text: actually no, comma, deleted", .text, "Add a checkbox. Actually no, a toggle is clearer.", "A toggle is clearer.", .applied("A toggle is clearer.")),
             ("text: no wait deleted", .text, "Meet at the cafe. No wait, the library is quieter.", "The library is quieter.", .applied("The library is quieter.")),
             ("text: negation before the marker may go", .text, "Don't ship it. Actually, ship it today.", "Ship it today.", .applied("Ship it today.")),
+            ("text: delete that runs into its object", .text, "Keep the config. Actually, delete that file too.", "File too.", .rejected(.deletesAfterMarker)),
+            ("text: never mind runs into its object", .text, "Ask Sam. Actually, never mind the tests, ship it.", "The tests, ship it.", .rejected(.deletesAfterMarker)),
+            ("text: make that runs into its object", .text, "Use blue. Actually, make that change now.", "Change now.", .rejected(.deletesAfterMarker)),
+            ("text: start over runs into its object", .text, "Fix the build. Actually, start over the migration from scratch.", "The migration from scratch.", .rejected(.deletesAfterMarker)),
+            ("text: wait runs into its object", .text, "Should we merge? Actually, no. Wait for review.", "For review.", .rejected(.deletesAfterMarker)),
+            ("text: I mean it is not an aside", .text, "Rewrite it. Actually, okay, I mean it, rewrite it.", "It, rewrite it.", .rejected(.deletesAfterMarker)),
+            ("text: content between two markers kept", .text, "Let's ship Monday. Actually, let's ship Tuesday. Sorry, I know it's late.", "I know it's late.", .rejected(.deletesAfterMarker)),
+            ("text: standing negation kept", .text, "Don't merge yet. Actually, the tests pass now.", "The tests pass now.", .rejected(.deletesNegation)),
+            ("text: restated negated verb may go", .text, "Don't ship it. Actually, ship it.", "Ship it.", .applied("Ship it.")),
+            ("text: punctuated I mean deleted", .text, "Move it to Monday. Sorry, I mean, move it to Tuesday.", "Move it to Tuesday.", .applied("Move it to Tuesday.")),
+            ("text: make that, um, deleted", .text, "Use blue. Actually, make that, um, dark green.", "Dark green.", .applied("Dark green.")),
+            ("text: wait no actually chain deleted", .text, "Use the checkbox. Wait, no, actually, use the toggle.", "Use the toggle.", .applied("Use the toggle.")),
+            ("text: never restated may go", .text, "Never deploy on Fridays. Actually, deploy after the freeze.", "Deploy after the freeze.", .applied("Deploy after the freeze.")),
+            ("text: negated verb not restated exactly", .text, "Don't ship it. Actually, shipping it is fine.", "Shipping it is fine.", .rejected(.deletesNegation)),
+            ("text: negation with nothing after it", .text, "We should not. Actually, we should ship it.", "We should ship it.", .rejected(.deletesNegation)),
+            ("text: a later correction does not excuse the middle", .text, "Book Friday. Actually, book Saturday. No wait, book Sunday.", "Book Sunday.", .rejected(.deletesAfterMarker)),
+            ("text: you know what plus its object", .text, "Pick the blue one. Actually, you know what you want, pick it.", "What you want, pick it.", .rejected(.deletesAfterMarker)),
             ("span: correction applied", .span, o, "We should host it on our own servers. Actually, you know what,", .applied("The cloud is cheaper for now.")),
             ("span: NONE", .span, o, "NONE", .unchanged),
             ("span: none, lowercase", .span, o, "none.", .unchanged),
@@ -916,6 +933,23 @@ enum StreamSelfTest {
         check(SelfCorrection.hasMarker(in: "Add a checkbox. Actually no, a toggle is clearer."), "precondition: marker in actually no, comma, deleted")
         check(SelfCorrection.hasMarker(in: "Meet at the cafe. No wait, the library is quieter."), "precondition: marker in no wait deleted")
         check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, ship it today."), "precondition: marker in negation before the marker may go")
+        check(SelfCorrection.hasMarker(in: "Keep the config. Actually, delete that file too."), "precondition: marker in delete that runs into its object")
+        check(SelfCorrection.hasMarker(in: "Ask Sam. Actually, never mind the tests, ship it."), "precondition: marker in never mind runs into its object")
+        check(SelfCorrection.hasMarker(in: "Use blue. Actually, make that change now."), "precondition: marker in make that runs into its object")
+        check(SelfCorrection.hasMarker(in: "Fix the build. Actually, start over the migration from scratch."), "precondition: marker in start over runs into its object")
+        check(SelfCorrection.hasMarker(in: "Should we merge? Actually, no. Wait for review."), "precondition: marker in wait runs into its object")
+        check(SelfCorrection.hasMarker(in: "Rewrite it. Actually, okay, I mean it, rewrite it."), "precondition: marker in I mean it is not an aside")
+        check(SelfCorrection.hasMarker(in: "Let's ship Monday. Actually, let's ship Tuesday. Sorry, I know it's late."), "precondition: marker in content between two markers kept")
+        check(SelfCorrection.hasMarker(in: "Don't merge yet. Actually, the tests pass now."), "precondition: marker in standing negation kept")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, ship it."), "precondition: marker in restated negated verb may go")
+        check(SelfCorrection.hasMarker(in: "Move it to Monday. Sorry, I mean, move it to Tuesday."), "precondition: marker in punctuated I mean deleted")
+        check(SelfCorrection.hasMarker(in: "Use blue. Actually, make that, um, dark green."), "precondition: marker in make that, um, deleted")
+        check(SelfCorrection.hasMarker(in: "Use the checkbox. Wait, no, actually, use the toggle."), "precondition: marker in wait no actually chain deleted")
+        check(SelfCorrection.hasMarker(in: "Never deploy on Fridays. Actually, deploy after the freeze."), "precondition: marker in never restated may go")
+        check(SelfCorrection.hasMarker(in: "Don't ship it. Actually, shipping it is fine."), "precondition: marker in negated verb not restated exactly")
+        check(SelfCorrection.hasMarker(in: "We should not. Actually, we should ship it."), "precondition: marker in negation with nothing after it")
+        check(SelfCorrection.hasMarker(in: "Book Friday. Actually, book Saturday. No wait, book Sunday."), "precondition: marker in a later correction does not excuse the middle")
+        check(SelfCorrection.hasMarker(in: "Pick the blue one. Actually, you know what you want, pick it."), "precondition: marker in you know what plus its object")
         for word in ["dont", "no", "neither", "nor", "nobody", "none", "nothing", "without", "hardly",
                      "don't", "don\u{2019}t", "cannot", "never", "not", "isn't", "wasnt"] {
             check(CorrectionModel.isNegation(SelfCorrection.Token(leading: "", word: word)), "negation: \(word)")
