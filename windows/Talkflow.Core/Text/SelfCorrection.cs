@@ -95,6 +95,21 @@ public static class SelfCorrection
 
         /// <summary>May be followed by a name that the sentence break capitalised: "Tell John. Wait, no. Mike."</summary>
         public bool AllowsSentenceStartName => Strong;
+
+        /// <summary>
+        /// A marker that takes something back ("actually", "wait", "no", "I mean"), as
+        /// opposed to an apology ("sorry") or an exclamation ("oh no").
+        /// </summary>
+        public bool Retracts
+        {
+            get
+            {
+                if (Words.Contains("oh") && !Words.Contains("wait")) return false;
+                return Strong || Words.Contains("actually") || Words.Contains("wait") || Words.Contains("no")
+                    || Words.SequenceEqual(new[] { "i", "mean" }) || Words.SequenceEqual(new[] { "i", "meant" })
+                    || Words.SequenceEqual(new[] { "or", "rather" }) || Words.SequenceEqual(new[] { "correction" });
+            }
+        }
     }
 
     static readonly Marker[] FixedMarkers =
@@ -300,7 +315,7 @@ public static class SelfCorrection
                   && tokens[old[^1].Upper - 1].TrailingPunctuation is not null)) return false;
             if (!marker.TrustsPlainWords)
             {
-                if (!(marker.PlainAtClauseEnd && PlainSwapAllowed(old, @new, changedWords[0], tokens))) return false;
+                if (!(marker.PlainAtClauseEnd && PlainSwapAllowed(old, @new, changedWords[0], marker, tokens))) return false;
             }
         }
         if (marker.NeedsClauseEnd || changedName || changedWords.Count > 0)
@@ -319,7 +334,7 @@ public static class SelfCorrection
     /// before the changed one is an article, possessive or preposition said
     /// again; neither word is a filler; the old phrase is not negated.
     /// </summary>
-    static bool PlainSwapAllowed(List<Unit> old, List<Unit> @new, int index, List<Token> tokens)
+    static bool PlainSwapAllowed(List<Unit> old, List<Unit> @new, int index, Marker marker, List<Token> tokens)
     {
         int n = old.Count;
         if (!(index == n - 1 && n <= 3)) return false;
@@ -331,6 +346,12 @@ public static class SelfCorrection
         var o = old[index].Norm;
         var r = @new[index].Norm;
         if (PlainSwapStop.Contains(o) || PlainSwapStop.Contains(r)) return false;
+        // "sorry" alone is just as often an apology ("Thanks for the gift. Sorry, the delay."):
+        // after it, only a swap inside one closed class counts ("the left, sorry, the right").
+        if (!marker.Retracts)
+        {
+            if (!PlainClasses.Any(c => c.Contains(o) && c.Contains(r))) return false;
+        }
         if (n == 1)
         {
             if (!PlainClasses.Any(c => c.Contains(o) && c.Contains(r))) return false;
@@ -381,38 +402,66 @@ public static class SelfCorrection
     static bool SentenceStartName(int index, int old, Marker marker, int lead, List<Token> tokens)
     {
         var token = tokens[index];
-        var norm = token.Norm;
+        // Positive evidence, not a stop list: both are given names from one closed list
+        // ("Tell John. Wait, no. Mike."). "Phew", "Lunch" or "Congrats" never are.
+        if (!(GivenNames.Contains(token.Norm) && GivenNames.Contains(tokens[old].Norm))) return false;
         // The old name is one capitalised word, not the end of a longer one ("Main Street").
         if (old > 0 && !IsSentenceStart(tokens, old - 1) && tokens[old - 1].Word.Length > 0 && char.IsUpper(tokens[old - 1].Word[0])) return false;
-        // Both end their sentence with a full stop ("Tell John. Wait, no. Mike."); a comma, "?" or "!"
-        // after the new word means it opens or reacts ("Honestly, ask anyone", "Seriously?").
+        // Not a greeting, thanks or sign-off: "Hi Tom.", "Thanks, Kevin.", "Love you, Mom."
+        if (SocialOpeners.Contains(tokens[ClauseStart(tokens, old)].Norm)) return false;
+        // Both end their sentence with a full stop, or the new one ends the text.
         if (!(tokens[old].TrailingPunctuation == '.'
               && (token.TrailingPunctuation == '.' || (token.TrailingPunctuation is null && index == tokens.Count - 1)))) return false;
         return lead == 0 && marker.AllowsSentenceStartName && IsSentenceStart(tokens, index)
-            && !token.BreaksLine && token.Word.Length > 0 && char.IsUpper(token.Word[0])
-            && Chars.Graphemes(norm).Count >= 2 && norm.All(c => char.IsLetter(c) || c == '\'')
-            && norm != "i" && !norm.StartsWith("i'", StringComparison.Ordinal)
-            && !NameSuffixes.Any(x => norm.EndsWith(x, StringComparison.Ordinal))
-            && !SentenceStartStop.Contains(norm) && !StutterWords.Contains(norm)
-            && !RunWords.Contains(norm) && !PlainSwapStop.Contains(norm);
+            && !token.BreaksLine && token.Word.Length > 0 && char.IsUpper(token.Word[0]);
     }
 
-    /// <summary>Endings of adverbs and adjectives said as a one-word reaction ("Seriously.", "Unbelievable.", "Typical.").</summary>
-    static readonly string[] NameSuffixes = { "ly", "ible", "able", "ful", "ous", "ical", "less" };
-
-    static readonly HashSet<string> SentenceStartStop = new()
+    static readonly HashSet<string> SocialOpeners = new()
     {
-        "thanks", "thank", "sorry", "okay", "ok", "yes", "yeah", "yep", "no", "nope", "sure", "fine", "great",
-        "good", "right", "never", "nevermind", "nothing", "anyway", "whatever", "please", "hello", "hi", "hey",
-        "bye", "perfect", "cool", "done", "oh", "wait", "actually", "well", "so", "and", "but", "or", "maybe",
-        "exactly", "correct", "true", "wrong", "cancel", "stop", "nice", "awesome", "agreed", "noted", "later",
-        "sounds", "got",
-        "wow", "ugh", "ouch", "yikes", "oops", "whoops", "hmm", "huh", "jeez", "gosh", "damn", "darn", "crap",
-        "shoot", "typical", "brilliant", "amazing", "fantastic", "wonderful", "lovely", "classic", "figures",
-        "bummer", "absolutely", "definitely", "obviously", "totally", "seriously", "honestly", "really", "also",
-        "instead", "weird", "strange", "interesting", "funny", "sad", "unreal", "incredible", "ridiculous",
-        "terrible", "awful", "horrible", "excellent", "sweet", "fair", "again", "still", "indeed", "alright",
-        "rain", "snow",
+        "hi", "hey", "hello", "dear", "thanks", "thank", "bye", "goodbye",
+        "love", "good", "cheers", "congrats", "congratulations", "welcome", "sorry", "morning",
+        "night", "yo",
+    };
+
+    /// <summary>
+    /// Unambiguous given names: none is also an everyday word (no Will, Mark, Rose, Grace,
+    /// May, Hope, Jack, Frank, Bill, Ray, Joy, June, April, Ivy, Holly, Penny, Dawn, Chase).
+    /// One list for Mac and Windows; keep them identical.
+    /// </summary>
+    static readonly HashSet<string> GivenNames = new()
+    {
+        "aaron", "abigail", "adam", "ahmed", "aiden", "aisha", "alan", "albert",
+        "alex", "alexander", "ali", "alice", "amanda", "amelia", "amit", "amy",
+        "ana", "ananya", "andrea", "andrew", "andy", "angela", "anna", "anne",
+        "anthony", "arjun", "ashley", "ava", "barbara", "beth", "ben", "benjamin",
+        "betty", "bob", "brad", "brandon", "brenda", "brian", "bruce", "bryan",
+        "caleb", "carlos", "carmen", "carol", "carolyn", "catherine", "charles", "charlotte",
+        "chen", "cheryl", "chloe", "chris", "christina", "christine", "claire", "cynthia",
+        "dan", "daniel", "dave", "david", "deborah", "dennis", "derek", "diana",
+        "diane", "diego", "donna", "doris", "dylan", "edward", "elena", "elijah",
+        "elizabeth", "ella", "ellie", "emily", "emma", "eric", "erica", "erin",
+        "ethan", "eva", "evelyn", "ezra", "fatima", "gabriel", "gary", "george",
+        "gloria", "greg", "gregory", "hannah", "harold", "heather", "helen", "henry",
+        "hiroshi", "ian", "isaac", "isabella", "jacob", "jake", "james", "jane",
+        "janet", "janice", "jason", "jeff", "jeffrey", "jennifer", "jenny", "jeremy",
+        "jerry", "jessica", "jill", "jim", "joan", "joe", "john", "jonathan",
+        "jordan", "jose", "joseph", "josh", "joshua", "joyce", "juan", "judith",
+        "julia", "julian", "julie", "justin", "karen", "kate", "katherine", "kathleen",
+        "katie", "keith", "kelly", "kenji", "kevin", "kim", "kimberly", "kyle",
+        "larry", "laura", "lauren", "lawrence", "leah", "leo", "liam", "linda",
+        "lisa", "logan", "lucas", "lucia", "lucy", "luis", "madison", "marcus",
+        "margaret", "maria", "marie", "martha", "mary", "mateo", "matt", "matthew",
+        "maya", "megan", "mei", "melissa", "mia", "michael", "michelle", "miguel",
+        "mike", "mohammed", "monica", "muhammad", "nancy", "natalie", "nathan", "neil",
+        "nicholas", "nick", "nicole", "nina", "noah", "nora", "oliver", "olivia",
+        "omar", "owen", "pamela", "patricia", "patrick", "paul", "paula", "peter",
+        "priya", "priyanka", "rachel", "rahul", "raj", "ravi", "raymond", "rebecca",
+        "richard", "robert", "roger", "ronald", "ruth", "ryan", "samantha", "samuel",
+        "sam", "sandra", "sanjay", "sara", "sarah", "scott", "sean", "sebastian",
+        "sharon", "shirley", "sofia", "sophia", "sophie", "stephanie", "stephen", "steve",
+        "steven", "susan", "tara", "teresa", "thomas", "tim", "timothy", "tina",
+        "todd", "tom", "tony", "trevor", "tyler", "vanessa", "victoria", "vikram",
+        "vincent", "walter", "wei", "wendy", "william", "yuki", "zachary", "zoe",
     };
 
     static readonly string[][] LeadIns =
@@ -442,6 +491,9 @@ public static class SelfCorrection
     static readonly HashSet<string> ObjectPronouns = new() { "it", "that", "this", "them", "these", "those", "him", "her", "us", "me" };
     static readonly HashSet<string> NegationTails = new() { "yet", "now", "anymore", "again", "today" };
 
+    /// <summary>Words after which a verb is an instruction: "I want you to refactor", "please send", "let's ship".</summary>
+    static readonly HashSet<string> InstructionSlots = new() { "to", "please", "let's", "lets", "i'll", "we'll", "should", "must" };
+
     static readonly HashSet<string> RestartSkips = new() { "just", "only" };
 
     /// <summary>"I went home, I mean I went to the office": the clause restarts.</summary>
@@ -457,10 +509,12 @@ public static class SelfCorrection
                 if (Repeated(after, start, m, tokens) is { } p) return Delete(tokens, p, after);
                 // 2. "the whole file. Actually, just refactor the render function": the
                 //    restart is one "just"/"only" in; that word is kept.
-                if (after + 1 < tokens.Count && RestartSkips.Contains(tokens[after].Norm)
+                if (marker.Retracts && after + 1 < tokens.Count && RestartSkips.Contains(tokens[after].Norm)
+                    && tokens[m - 1].TrailingPunctuation != '?'
                     && !AnchorWords.Contains(tokens[after + 1].Norm) && !StutterWords.Contains(tokens[after + 1].Norm)
                     && Repeated(after + 1, start, m, tokens) is { } p2
-                    && tokens[p2 + 1].TrailingPunctuation is null && p2 + 2 < m) return Delete(tokens, p2, after);
+                    && tokens[p2 + 1].TrailingPunctuation is null && p2 + 2 < m
+                    && (IsSentenceStart(tokens, p2) || InstructionSlots.Contains(tokens[p2 - 1].Norm))) return Delete(tokens, p2, after);
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
                 //    a firm marker, the new clause opens with the old sentence's first word.
                 int s = ClauseStart(tokens, m - 1);
@@ -594,7 +648,9 @@ public static class SelfCorrection
                 var phrase = string.Join(" ", cmd.Phrase);
                 if (phrase is "never mind" or "nevermind")
                 {
-                    // "Rust? Actually, never mind, keep it in Swift."
+                    // Only a question or a request is taken back ("Rust? Actually, never mind, keep it
+                    // in Swift."); a greeting or thanks is not ("Hi team. Actually, never mind, ...").
+                    if (!(tokens[m - 1].TrailingPunctuation == '?' || RequestOpeners.Contains(tokens[start].Norm))) continue;
                     return Delete(tokens, start, end);
                 }
                 if (phrase == "start over")
@@ -637,6 +693,8 @@ public static class SelfCorrection
     {
         new[] { "never", "mind" }, new[] { "nevermind" }, new[] { "start", "over" }, new[] { "delete", "that" }, new[] { "undo", "that" },
     };
+
+    static readonly HashSet<string> RequestOpeners = new() { "please", "let's", "lets", "i'll", "we'll", "i'd", "we'd" };
 
     /// <summary>"actually" and "wait" mark a retraction; "oh", "so", "okay" do not ("Oh, never mind, it's fine").</summary>
     static readonly HashSet<string> RetractSignals = new() { "actually", "wait" };
@@ -706,6 +764,15 @@ public static class SelfCorrection
             if (!(d - f >= 2 && d - f <= 7 && d + 2 < tokens.Count
                   && !tokens[d + 1].BreaksLine && !tokens[d + 2].BreaksLine
                   && tokens[d + 1].Norm == tokens[f].Norm && tokens[d + 2].Norm == tokens[f + 1].Norm)) continue;
+            // "Search for the, search for an": the same words again with another article is a
+            // list of words, not a restart. A real restart changes something before the slot.
+            int len = d - f;
+            if (d + 1 + len <= tokens.Count)
+            {
+                bool identical = true;
+                for (int k = 0; k < len; k++) if (tokens[d + 1 + k].Norm != tokens[f + k].Norm) { identical = false; break; }
+                if (identical) continue;
+            }
             return Delete(tokens, f, d + 1);
         }
         return null;

@@ -116,6 +116,13 @@ enum SelfCorrection {
         var firm: Bool { strong || (words.contains("no") && words.contains("actually")) }
         /// May be followed by a name that the sentence break capitalised: "Tell John. Wait, no. Mike."
         var allowsSentenceStartName: Bool { strong }
+        /// A marker that takes something back ("actually", "wait", "no", "I mean"), as
+        /// opposed to an apology ("sorry") or an exclamation ("oh no").
+        var retracts: Bool {
+            if words.contains("oh") && !words.contains("wait") { return false }
+            return strong || words.contains("actually") || words.contains("wait") || words.contains("no")
+                || words == ["i", "mean"] || words == ["i", "meant"] || words == ["or", "rather"] || words == ["correction"]
+        }
     }
 
     /// Fixed phrases. Longest first, so "or rather" wins over "rather".
@@ -335,7 +342,7 @@ enum SelfCorrection {
                   tokens[old[old.count - 1].range.upperBound - 1].trailingPunctuation != nil else { return false }
             if !marker.trustsPlainWords {
                 guard marker.plainAtClauseEnd,
-                      plainSwapAllowed(old, new, changedAt: changedWords[0], tokens: tokens) else { return false }
+                      plainSwapAllowed(old, new, changedAt: changedWords[0], marker: marker, tokens: tokens) else { return false }
             }
         }
         if marker.needsClauseEnd || changedName || !changedWords.isEmpty {
@@ -354,7 +361,7 @@ enum SelfCorrection {
     ///   article, possessive or preposition said again ("a dropdown" -> "a toggle");
     /// - neither word is a filler or pronoun-like word ("Great job, I mean that.");
     /// - the old phrase is not negated ("not bad, I mean good").
-    private static func plainSwapAllowed(_ old: [Unit], _ new: [Unit], changedAt index: Int, tokens: [Token]) -> Bool {
+    private static func plainSwapAllowed(_ old: [Unit], _ new: [Unit], changedAt index: Int, marker: Marker, tokens: [Token]) -> Bool {
         let n = old.count
         guard index == n - 1, n <= 3 else { return false }
         // "Did you read the book? Actually, the movie." must not become a statement: the old
@@ -364,6 +371,11 @@ enum SelfCorrection {
         guard oldEnd == "," || oldEnd == newEnd else { return false }
         let o = old[index].norm, r = new[index].norm
         guard !plainSwapStop.contains(o), !plainSwapStop.contains(r) else { return false }
+        // "sorry" alone is just as often an apology ("Thanks for the gift. Sorry, the delay."):
+        // after it, only a swap inside one closed class counts ("the left, sorry, the right").
+        if !marker.retracts {
+            guard plainClasses.contains(where: { $0.contains(o) && $0.contains(r) }) else { return false }
+        }
         if n == 1 {
             guard plainClasses.contains(where: { $0.contains(o) && $0.contains(r) }) else { return false }
         } else {
@@ -398,43 +410,60 @@ enum SelfCorrection {
     ]
 
     /// "Tell John. Wait, no. Mike.": the marker ended a sentence, so the name
-    /// after it starts one and its capital looks like grammar. Only a single word
-    /// standing for a name, only after a marker that is plainly a correction
-    /// ("Tell John. Sorry. Mike." may be an apology), never a common reply.
+    /// after it starts one and its capital looks like grammar. Only a given name
+    /// from a closed list replaces another, only after a marker that is plainly
+    /// a retraction, never after a greeting, thanks or sign-off.
     private static func sentenceStartName(at index: Int, old: Int, marker: Marker, lead: Int, tokens: [Token]) -> Bool {
         let token = tokens[index]
-        let norm = token.norm
+        // Positive evidence, not a stop list: both are given names from one closed list
+        // ("Tell John. Wait, no. Mike."). "Phew", "Lunch" or "Congrats" never are.
+        guard givenNames.contains(token.norm), givenNames.contains(tokens[old].norm) else { return false }
         // The old name is one capitalised word, not the end of a longer one ("Main Street").
         if old > 0, !isSentenceStart(tokens, old - 1), tokens[old - 1].word.first?.isUppercase == true { return false }
-        // Both end their sentence with a full stop ("Tell John. Wait, no. Mike."); a comma, "?" or "!"
-        // after the new word means it opens or reacts ("Honestly, ask anyone", "Seriously?").
+        // Not a greeting, thanks or sign-off: "Hi Tom.", "Thanks, Kevin.", "Love you, Mom."
+        if socialOpeners.contains(tokens[clauseStart(tokens, before: old)].norm) { return false }
+        // Both end their sentence with a full stop, or the new one ends the text.
         guard tokens[old].trailingPunctuation == ".",
               token.trailingPunctuation == "." || (token.trailingPunctuation == nil && index == tokens.count - 1) else { return false }
         guard lead == 0, marker.allowsSentenceStartName, isSentenceStart(tokens, index),
-              !token.leading.contains("\n"), token.word.first?.isUppercase == true,
-              norm.count >= 2, norm.allSatisfy({ $0.isLetter || $0 == "'" }),
-              norm != "i", !norm.hasPrefix("i'"),
-              !nameSuffixes.contains(where: { norm.hasSuffix($0) }),
-              !sentenceStartStop.contains(norm), !stutterWords.contains(norm),
-              !runWords.contains(norm), !plainSwapStop.contains(norm) else { return false }
+              !token.leading.contains("\n"), token.word.first?.isUppercase == true else { return false }
         return true
     }
 
-    /// Endings of adverbs and adjectives said as a one-word reaction ("Seriously.", "Unbelievable.", "Typical.").
-    private static let nameSuffixes = ["ly", "ible", "able", "ful", "ous", "ical", "less"]
+    private static let socialOpeners: Set<String> = [
+        "hi", "hey", "hello", "dear", "thanks", "thank", "bye", "goodbye", "love", "good", "cheers",
+        "congrats", "congratulations", "welcome", "sorry", "morning", "night", "yo"
+    ]
 
-    private static let sentenceStartStop: Set<String> = [
-        "thanks", "thank", "sorry", "okay", "ok", "yes", "yeah", "yep", "no", "nope", "sure", "fine", "great",
-        "good", "right", "never", "nevermind", "nothing", "anyway", "whatever", "please", "hello", "hi", "hey",
-        "bye", "perfect", "cool", "done", "oh", "wait", "actually", "well", "so", "and", "but", "or", "maybe",
-        "exactly", "correct", "true", "wrong", "cancel", "stop", "nice", "awesome", "agreed", "noted", "later",
-        "sounds", "got",
-        "wow", "ugh", "ouch", "yikes", "oops", "whoops", "hmm", "huh", "jeez", "gosh", "damn", "darn", "crap",
-        "shoot", "typical", "brilliant", "amazing", "fantastic", "wonderful", "lovely", "classic", "figures",
-        "bummer", "absolutely", "definitely", "obviously", "totally", "seriously", "honestly", "really", "also",
-        "instead", "weird", "strange", "interesting", "funny", "sad", "unreal", "incredible", "ridiculous",
-        "terrible", "awful", "horrible", "excellent", "sweet", "fair", "again", "still", "indeed", "alright",
-        "rain", "snow"
+    /// Unambiguous given names: none is also an everyday word (no Will, Mark, Rose, Grace,
+    /// May, Hope, Jack, Frank, Bill, Ray, Joy, June, April, Ivy, Holly, Penny, Dawn, Chase).
+    /// One list for Mac and Windows; keep them identical.
+    private static let givenNames: Set<String> = [
+        "aaron", "abigail", "adam", "ahmed", "aiden", "aisha", "alan", "albert", "alex", "alexander", "ali",
+        "alice", "amanda", "amelia", "amit", "amy", "ana", "ananya", "andrea", "andrew", "andy", "angela",
+        "anna", "anne", "anthony", "arjun", "ashley", "ava", "barbara", "beth", "ben", "benjamin", "betty",
+        "bob", "brad", "brandon", "brenda", "brian", "bruce", "bryan", "caleb", "carlos", "carmen", "carol",
+        "carolyn", "catherine", "charles", "charlotte", "chen", "cheryl", "chloe", "chris", "christina",
+        "christine", "claire", "cynthia", "dan", "daniel", "dave", "david", "deborah", "dennis", "derek",
+        "diana", "diane", "diego", "donna", "doris", "dylan", "edward", "elena", "elijah", "elizabeth",
+        "ella", "ellie", "emily", "emma", "eric", "erica", "erin", "ethan", "eva", "evelyn", "ezra",
+        "fatima", "gabriel", "gary", "george", "gloria", "greg", "gregory", "hannah", "harold", "heather",
+        "helen", "henry", "hiroshi", "ian", "isaac", "isabella", "jacob", "jake", "james", "jane", "janet",
+        "janice", "jason", "jeff", "jeffrey", "jennifer", "jenny", "jeremy", "jerry", "jessica", "jill",
+        "jim", "joan", "joe", "john", "jonathan", "jordan", "jose", "joseph", "josh", "joshua", "joyce",
+        "juan", "judith", "julia", "julian", "julie", "justin", "karen", "kate", "katherine", "kathleen",
+        "katie", "keith", "kelly", "kenji", "kevin", "kim", "kimberly", "kyle", "larry", "laura", "lauren",
+        "lawrence", "leah", "leo", "liam", "linda", "lisa", "logan", "lucas", "lucia", "lucy", "luis",
+        "madison", "marcus", "margaret", "maria", "marie", "martha", "mary", "mateo", "matt", "matthew",
+        "maya", "megan", "mei", "melissa", "mia", "michael", "michelle", "miguel", "mike", "mohammed",
+        "monica", "muhammad", "nancy", "natalie", "nathan", "neil", "nicholas", "nick", "nicole", "nina",
+        "noah", "nora", "oliver", "olivia", "omar", "owen", "pamela", "patricia", "patrick", "paul",
+        "paula", "peter", "priya", "priyanka", "rachel", "rahul", "raj", "ravi", "raymond", "rebecca",
+        "richard", "robert", "roger", "ronald", "ruth", "ryan", "samantha", "samuel", "sam", "sandra",
+        "sanjay", "sara", "sarah", "scott", "sean", "sebastian", "sharon", "shirley", "sofia", "sophia",
+        "sophie", "stephanie", "stephen", "steve", "steven", "susan", "tara", "teresa", "thomas", "tim",
+        "timothy", "tina", "todd", "tom", "tony", "trevor", "tyler", "vanessa", "victoria", "vikram",
+        "vincent", "walter", "wei", "wendy", "william", "yuki", "zachary", "zoe"
     ]
 
     private static let leadIns: [[String]] = [
@@ -460,6 +489,9 @@ enum SelfCorrection {
 
     private static let restartSkips: Set<String> = ["just", "only"]
 
+    /// Words after which a verb is an instruction: "I want you to refactor", "please send", "let's ship".
+    private static let instructionSlots: Set<String> = ["to", "please", "let's", "lets", "i'll", "we'll", "should", "must"]
+
     /// "I went home, I mean I went to the office": the words after the marker
     /// restart the clause, repeating at least two of its words from where they
     /// first appeared. Everything from that point through the marker goes.
@@ -474,10 +506,12 @@ enum SelfCorrection {
                 }
                 // 2. "the whole file. Actually, just refactor the render function": the
                 //    restart is one "just"/"only" in; that word is kept.
-                if after + 1 < tokens.count, restartSkips.contains(tokens[after].norm),
+                if marker.retracts, after + 1 < tokens.count, restartSkips.contains(tokens[after].norm),
+                   tokens[m - 1].trailingPunctuation != "?",
                    !anchorWords.contains(tokens[after + 1].norm), !stutterWords.contains(tokens[after + 1].norm),
                    let p = repeated(at: after + 1, from: start, before: m, in: tokens),
-                   tokens[p + 1].trailingPunctuation == nil, p + 2 < m {
+                   tokens[p + 1].trailingPunctuation == nil, p + 2 < m,
+                   isSentenceStart(tokens, p) || instructionSlots.contains(tokens[p - 1].norm) {
                     return delete(tokens, p..<after)
                 }
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
@@ -607,6 +641,8 @@ enum SelfCorrection {
         return nil
     }
 
+    private static let requestOpeners: Set<String> = ["please", "let's", "lets", "i'll", "we'll", "i'd", "we'd"]
+
     /// Words that open a subordinate clause: "If it fails, start over" is an instruction.
     private static let subordinators: Set<String> = [
         "if", "when", "whenever", "once", "unless", "until", "till", "while", "after", "before", "because",
@@ -642,7 +678,9 @@ enum SelfCorrection {
                 guard cmd.retractLead, hasContent(tokens, start..<m), !subordinators.contains(tokens[start].norm) else { continue }
                 switch cmd.phrase {
                 case ["never", "mind"], ["nevermind"]:
-                    // "Rust? Actually, never mind, keep it in Swift."
+                    // Only a question or a request is taken back ("Rust? Actually, never mind, keep it
+                    // in Swift."); a greeting or thanks is not ("Hi team. Actually, never mind, ...").
+                    guard tokens[m - 1].trailingPunctuation == "?" || requestOpeners.contains(tokens[start].norm) else { continue }
                     return delete(tokens, start..<end)
                 case ["start", "over"]:
                     // "Let's ship today, wait, start over, let's ship tomorrow": the clause is said
@@ -686,7 +724,12 @@ enum SelfCorrection {
             while f > 0, tokens[f - 1].trailingPunctuation == nil, !tokens[f].leading.contains("\n") { f -= 1 }
             guard d - f >= 2, d - f <= 7, d + 2 < tokens.count,
                   !tokens[d + 1].leading.contains("\n"), !tokens[d + 2].leading.contains("\n"),
-                  tokens[d + 1].norm == tokens[f].norm, tokens[d + 2].norm == tokens[f + 1].norm else { continue }
+                  tokens[d + 1].norm == tokens[f].norm, tokens[d + 2].norm == tokens[f + 1].norm,
+                  // "Search for the, search for an": the same words again with another article is a
+                  // list of words, not a restart. A real restart changes something before the slot
+                  // ("Can you make the, can you change ...").
+                  (d + 1 + (d - f) > tokens.count
+                      || tokens[(d + 1)..<(d + 1 + (d - f))].map(\.norm) != tokens[f..<d].map(\.norm)) else { continue }
             return delete(tokens, f..<(d + 1))
         }
         return nil
