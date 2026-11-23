@@ -155,6 +155,14 @@ if CommandLine.arguments.contains("--windowpreview") {
     WindowPreview.run()
 }
 
+// Cmd+V and the other Edit shortcuts in the app window's fields, through the
+// real main menu, on throwaway settings. Briefly opens and activates the
+// window, and puts the clipboard back afterwards. Results in
+// $TMPDIR/talkflow-pastetest.log.
+if CommandLine.arguments.contains("--pastetest") {
+    PasteSelfTest.run()
+}
+
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by
 // step, and where the kept data folder is. Changes nothing.
 if CommandLine.arguments.contains("--uninstallplan") {
