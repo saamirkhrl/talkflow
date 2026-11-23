@@ -147,9 +147,41 @@ final class DashboardController: NSWindowController, NSWindowDelegate {
     }
 }
 
+/// The hidden Edit menu. A menu bar app has no menus of its own, and text
+/// fields only get Cmd+X/C/V/A and undo through a main menu's key
+/// equivalents, so this is what makes pasting an API key work. Shared by
+/// AppDelegate, MainMenu and --pastetest so the test checks the real one.
+/// Not @MainActor: AppDelegate is not, and MainActor.assumeIsolated needs
+/// macOS 14. It only touches NSApp, always from the main thread.
+enum EditMenu {
+    static func item() -> NSMenuItem {
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        editItem.submenu = edit
+        return editItem
+    }
+
+    /// Puts the Edit menu in the main menu if it is not there yet.
+    static func install() {
+        let main = NSApp.mainMenu ?? NSMenu()
+        if main.items.isEmpty {
+            main.addItem(NSMenuItem(title: "talkflow", action: nil, keyEquivalent: ""))
+        }
+        if main.item(withTitle: "Edit") == nil { main.addItem(item()) }
+        NSApp.mainMenu = main
+    }
+}
+
 /// The menus a regular app needs while the window is open: Settings (Cmd+,),
 /// Hide, Quit, the sections (Cmd+1 to Cmd+4), Close (Cmd+W) and Minimize.
-/// AppDelegate's Edit menu (Cmd+V into the key fields) is kept as it is.
+/// The Edit menu (Cmd+V into the key fields) comes from EditMenu.
 @MainActor
 enum MainMenu {
     private static var installed = false
@@ -178,17 +210,7 @@ enum MainMenu {
 
         // Only the preview gets here without AppDelegate's Edit menu.
         if main.item(withTitle: "Edit") == nil {
-            let edit = NSMenu(title: "Edit")
-            edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-            edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
-            edit.addItem(.separator())
-            edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-            edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-            edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-            edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-            let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
-            editItem.submenu = edit
-            main.addItem(editItem)
+            main.addItem(EditMenu.item())
         }
 
         let go = NSMenu(title: "Go")
