@@ -4,9 +4,10 @@ import UserNotifications
 /// One macOS notification per new version, saying an update is available.
 ///
 /// Permission is asked the first time there is something to say, not at
-/// launch. If it is refused, the "Update to X.Y.Z..." menu bar item is the
-/// only sign. Clicking the notification opens the talkflow window, where the
-/// Update button is; nothing is installed without that click.
+/// launch. If it is refused, the "Update to X.Y.Z..." item in the menu bar
+/// icon's right-click menu is the only sign. Clicking the notification opens the
+/// talkflow window, where the Update button is; nothing is installed without
+/// that click.
 final class UpdateNotice: NSObject, UNUserNotificationCenterDelegate {
     static let shared = UpdateNotice()
     private static let notifiedKey = "updateNotifiedVersion"
