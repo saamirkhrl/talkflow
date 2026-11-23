@@ -94,10 +94,7 @@ public static class SelfCorrection
         public bool Firm => Strong || (Words.Contains("no") && Words.Contains("actually"));
 
         /// <summary>May be followed by a name that the sentence break capitalised: "Tell John. Wait, no. Mike."</summary>
-        public bool AllowsSentenceStartName =>
-            Strong || Words.Contains("wait") || Words.Contains("no")
-            || Words.SequenceEqual(new[] { "i", "mean" }) || Words.SequenceEqual(new[] { "i", "meant" })
-            || Words.SequenceEqual(new[] { "correction" }) || Words.SequenceEqual(new[] { "or", "rather" });
+        public bool AllowsSentenceStartName => Strong;
     }
 
     static readonly Marker[] FixedMarkers =
@@ -124,7 +121,7 @@ public static class SelfCorrection
         // A lone "no" is an answer and a lone "oh" is an exclamation.
         if (words.Count == 0 || (words.Count == 1 && (words[0] == "no" || words[0] == "oh"))) return null;
         bool hasWait = words.Contains("wait");
-        return new Marker(words.ToArray(), hasWait && words.Count >= 2, !hasWait && !words.Contains("no"), true);
+        return new Marker(words.ToArray(), hasWait && words.Count >= 2, !hasWait && !words.Contains("no"), hasWait || !words.Contains("oh"));
     }
 
     /// <summary>Words that may lead into "scratch that": "10 to 20, actually scratch that, 10 to 30".</summary>
@@ -211,7 +208,7 @@ public static class SelfCorrection
                         var olds = old.Take(n).Reverse().ToList();
                         var news = @new.Take(n).ToList();
                         if (n == 1 && olds[0].Kind == Kind.Name && news[0].Kind == Kind.Other
-                            && SentenceStartName(news[0].Lower, marker, lead, tokens))
+                            && SentenceStartName(news[0].Lower, olds[0].Lower, marker, lead, tokens))
                             news[0] = new Unit(news[0].Lower, news[0].Upper, Kind.Name, news[0].Norm);
                         if (!Aligns(olds, news, tokens, marker, lead)) continue;
                         return Delete(tokens, olds[0].Lower, after);
@@ -326,6 +323,11 @@ public static class SelfCorrection
     {
         int n = old.Count;
         if (!(index == n - 1 && n <= 3)) return false;
+        // "Did you read the book? Actually, the movie." must not become a statement: the old
+        // phrase ends in a comma, or in the same mark the replacement ends in.
+        var oldEnd = tokens[old[n - 1].Upper - 1].TrailingPunctuation;
+        var newEnd = tokens[@new[n - 1].Upper - 1].TrailingPunctuation;
+        if (!(oldEnd == ',' || oldEnd == newEnd)) return false;
         var o = old[index].Norm;
         var r = @new[index].Norm;
         if (PlainSwapStop.Contains(o) || PlainSwapStop.Contains(r)) return false;
@@ -376,17 +378,27 @@ public static class SelfCorrection
     /// standing for a name, only after a marker that is plainly a correction,
     /// never a common reply.
     /// </summary>
-    static bool SentenceStartName(int index, Marker marker, int lead, List<Token> tokens)
+    static bool SentenceStartName(int index, int old, Marker marker, int lead, List<Token> tokens)
     {
         var token = tokens[index];
         var norm = token.Norm;
+        // The old name is one capitalised word, not the end of a longer one ("Main Street").
+        if (old > 0 && !IsSentenceStart(tokens, old - 1) && tokens[old - 1].Word.Length > 0 && char.IsUpper(tokens[old - 1].Word[0])) return false;
+        // Both end their sentence with a full stop ("Tell John. Wait, no. Mike."); a comma, "?" or "!"
+        // after the new word means it opens or reacts ("Honestly, ask anyone", "Seriously?").
+        if (!(tokens[old].TrailingPunctuation == '.'
+              && (token.TrailingPunctuation == '.' || (token.TrailingPunctuation is null && index == tokens.Count - 1)))) return false;
         return lead == 0 && marker.AllowsSentenceStartName && IsSentenceStart(tokens, index)
             && !token.BreaksLine && token.Word.Length > 0 && char.IsUpper(token.Word[0])
             && Chars.Graphemes(norm).Count >= 2 && norm.All(c => char.IsLetter(c) || c == '\'')
             && norm != "i" && !norm.StartsWith("i'", StringComparison.Ordinal)
+            && !NameSuffixes.Any(x => norm.EndsWith(x, StringComparison.Ordinal))
             && !SentenceStartStop.Contains(norm) && !StutterWords.Contains(norm)
             && !RunWords.Contains(norm) && !PlainSwapStop.Contains(norm);
     }
+
+    /// <summary>Endings of adverbs and adjectives said as a one-word reaction ("Seriously.", "Unbelievable.", "Typical.").</summary>
+    static readonly string[] NameSuffixes = { "ly", "ible", "able", "ful", "ous", "ical", "less" };
 
     static readonly HashSet<string> SentenceStartStop = new()
     {
@@ -395,6 +407,12 @@ public static class SelfCorrection
         "bye", "perfect", "cool", "done", "oh", "wait", "actually", "well", "so", "and", "but", "or", "maybe",
         "exactly", "correct", "true", "wrong", "cancel", "stop", "nice", "awesome", "agreed", "noted", "later",
         "sounds", "got",
+        "wow", "ugh", "ouch", "yikes", "oops", "whoops", "hmm", "huh", "jeez", "gosh", "damn", "darn", "crap",
+        "shoot", "typical", "brilliant", "amazing", "fantastic", "wonderful", "lovely", "classic", "figures",
+        "bummer", "absolutely", "definitely", "obviously", "totally", "seriously", "honestly", "really", "also",
+        "instead", "weird", "strange", "interesting", "funny", "sad", "unreal", "incredible", "ridiculous",
+        "terrible", "awful", "horrible", "excellent", "sweet", "fair", "again", "still", "indeed", "alright",
+        "rain", "snow",
     };
 
     static readonly string[][] LeadIns =
@@ -421,6 +439,9 @@ public static class SelfCorrection
         return 0;
     }
 
+    static readonly HashSet<string> ObjectPronouns = new() { "it", "that", "this", "them", "these", "those", "him", "her", "us", "me" };
+    static readonly HashSet<string> NegationTails = new() { "yet", "now", "anymore", "again", "today" };
+
     static readonly HashSet<string> RestartSkips = new() { "just", "only" };
 
     /// <summary>"I went home, I mean I went to the office": the clause restarts.</summary>
@@ -436,8 +457,10 @@ public static class SelfCorrection
                 if (Repeated(after, start, m, tokens) is { } p) return Delete(tokens, p, after);
                 // 2. "the whole file. Actually, just refactor the render function": the
                 //    restart is one "just"/"only" in; that word is kept.
-                if (after < tokens.Count && RestartSkips.Contains(tokens[after].Norm)
-                    && Repeated(after + 1, start, m, tokens) is { } p2) return Delete(tokens, p2, after);
+                if (after + 1 < tokens.Count && RestartSkips.Contains(tokens[after].Norm)
+                    && !AnchorWords.Contains(tokens[after + 1].Norm) && !StutterWords.Contains(tokens[after + 1].Norm)
+                    && Repeated(after + 1, start, m, tokens) is { } p2
+                    && tokens[p2 + 1].TrailingPunctuation is null && p2 + 2 < m) return Delete(tokens, p2, after);
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
                 //    a firm marker, the new clause opens with the old sentence's first word.
                 int s = ClauseStart(tokens, m - 1);
@@ -492,15 +515,30 @@ public static class SelfCorrection
                 }
                 else continue;
                 if (!(v < tokens.Count && tokens[v].Norm == tokens[verb].Norm)) continue;
-                // The negated clause: the verb plus at most four words, ending in , ; . or !
-                int k = v;
-                while (k < tokens.Count && k - v <= 4 && tokens[k].TrailingPunctuation is null) k++;
-                if (!(k < tokens.Count && k - v <= 4 && tokens[k].TrailingPunctuation is { } p && ",;.!".Contains(p)
-                      && k + 1 < tokens.Count)) continue;
+                // Positive evidence that the old instruction itself is negated: the same object again,
+                // as a pronoun ("don't delete it") or the same two words ("don't bring the charger").
+                // "Go ahead and explore. Actually, don't go too far" only qualifies it.
+                int o = v + 1;
+                if (o < tokens.Count && ObjectPronouns.Contains(tokens[o].Norm))
+                {
+                    o += 1;
+                }
+                else if (o + 1 < tokens.Count && verb + 2 < m
+                         && tokens[o].Norm == tokens[verb + 1].Norm && tokens[o + 1].Norm == tokens[verb + 2].Norm
+                         && tokens[o].TrailingPunctuation is null)
+                {
+                    o += 2;
+                }
+                else continue;
+                // At most one more word ("yet"), then the clause ends: "don't have it too strong" qualifies.
+                int k = o - 1;
+                if (tokens[k].TrailingPunctuation is null && o < tokens.Count && NegationTails.Contains(tokens[o].Norm)) k = o;
+                if (!(tokens[k].TrailingPunctuation is { } p && ",;.!".Contains(p))) continue;
                 bool broken = false;
-                for (int j = markerEnd + 1; j <= k + 1; j++) if (tokens[j].BreaksLine) broken = true;
+                for (int j = markerEnd + 1; j <= k; j++) if (tokens[j].BreaksLine) broken = true;
                 if (broken) continue;
-                return Delete(tokens, s, k + 1);
+                // Only the old sentence and the marker go; "Don't delete it, just rename it." stays.
+                return Delete(tokens, s, markerEnd);
             }
         }
         return null;
@@ -552,13 +590,30 @@ public static class SelfCorrection
                 int end = m + cmd.Count;
                 if (end >= tokens.Count || tokens[end].BreaksLine) continue;
                 int start = RetractStart(tokens, m);
-                if (!HasContent(tokens, start, m)) continue;
-                // "Let's ship today, start over, let's ship tomorrow": the clause is said again.
-                bool restarts = tokens[end].Norm == tokens[start].Norm;
-                // "Rust? Actually, never mind, keep it in Swift." / "Rust? Never mind, keep it in Swift."
-                bool neverMind = cmd.NeverMind && (cmd.Leads || tokens[m - 1].EndsSentence);
-                if (!(restarts || neverMind)) continue;
-                return Delete(tokens, start, end);
+                if (!(cmd.RetractLead && HasContent(tokens, start, m) && !Subordinators.Contains(tokens[start].Norm))) continue;
+                var phrase = string.Join(" ", cmd.Phrase);
+                if (phrase is "never mind" or "nevermind")
+                {
+                    // "Rust? Actually, never mind, keep it in Swift."
+                    return Delete(tokens, start, end);
+                }
+                if (phrase == "start over")
+                {
+                    // "Let's ship today, wait, start over, let's ship tomorrow": the clause is said
+                    // again, opening with the same two words but not repeated word for word.
+                    int length = m - start;
+                    if (!(length >= 2 && end + 1 < tokens.Count && !tokens[end + 1].BreaksLine
+                          && tokens[end].Norm == tokens[start].Norm && tokens[end + 1].Norm == tokens[start + 1].Norm)) continue;
+                    bool repeatsAll = end + length <= tokens.Count;
+                    if (repeatsAll)
+                        for (int k = 0; k < length; k++)
+                            if (tokens[end + k].Norm != tokens[start + k].Norm) { repeatsAll = false; break; }
+                    if (repeatsAll) continue;
+                    return Delete(tokens, start, end);
+                }
+                // "delete that", "undo that": everyday editor instructions ("Select the first row,
+                // delete that, select the next row"). Detected for the model step, never applied here.
+                continue;
             }
         }
         return null;
@@ -583,19 +638,29 @@ public static class SelfCorrection
         new[] { "never", "mind" }, new[] { "nevermind" }, new[] { "start", "over" }, new[] { "delete", "that" }, new[] { "undo", "that" },
     };
 
+    /// <summary>"actually" and "wait" mark a retraction; "oh", "so", "okay" do not ("Oh, never mind, it's fine").</summary>
+    static readonly HashSet<string> RetractSignals = new() { "actually", "wait" };
+
+    /// <summary>Words that open a subordinate clause: "If it fails, start over" is an instruction.</summary>
+    static readonly HashSet<string> Subordinators = new()
+    {
+        "if", "when", "whenever", "once", "unless", "until", "till", "while", "after", "before", "because",
+        "since", "as", "though", "although", "where", "wherever", "whether",
+    };
+
     /// <summary>
     /// A command at <paramref name="index"/>, with optional filler leads, set off the way
-    /// <see cref="Scratch"/> requires. Returns the number of tokens it spans, whether it is
-    /// "never mind", and whether it had leads.
+    /// <see cref="Scratch"/> requires and followed at once by punctuation. Returns the number of
+    /// tokens it spans, the phrase, and whether a lead was "actually" or "wait".
     /// </summary>
-    static (int Count, bool NeverMind, bool Leads)? Command(int index, List<Token> tokens)
+    static (int Count, string[] Phrase, bool RetractLead)? Command(int index, List<Token> tokens)
     {
         if (index <= 0) return null;
-        int leads = 0;
+        var leadWords = new List<string>();
         int i = index;
-        while (i < tokens.Count && leads < 3 && RetractLeads.Contains(tokens[i].Norm) && (i == index || !tokens[i].BreaksLine))
+        while (i < tokens.Count && leadWords.Count < 3 && RetractLeads.Contains(tokens[i].Norm) && (i == index || !tokens[i].BreaksLine))
         {
-            leads++;
+            leadWords.Add(tokens[i].Norm);
             i++;
         }
         foreach (var phrase in CommandRetracts)
@@ -608,10 +673,10 @@ public static class SelfCorrection
             bool brokenInside = false;
             for (int k = i + 1; k < i + phrase.Length; k++) if (tokens[k].BreaksLine) brokenInside = true;
             if (brokenInside) continue;
-            bool setOff = leads > 0
-                || (tokens[index - 1].TrailingPunctuation is not null && tokens[i + phrase.Length - 1].TrailingPunctuation is not null);
+            if (tokens[i + phrase.Length - 1].TrailingPunctuation is null) continue;
+            bool setOff = leadWords.Count > 0 || tokens[index - 1].TrailingPunctuation is not null;
             if (!setOff) return null;
-            return (leads + phrase.Length, phrase[0] == "never" || phrase.SequenceEqual(new[] { "nevermind" }), leads > 0);
+            return (leadWords.Count + phrase.Length, phrase, leadWords.Any(w => RetractSignals.Contains(w)));
         }
         return null;
     }
@@ -624,7 +689,7 @@ public static class SelfCorrection
     }
 
     /// <summary>Articles and possessives never end a phrase, so a comma right after one is a broken-off clause.</summary>
-    static readonly HashSet<string> Danglers = new() { "a", "an", "the", "my", "our", "your", "their", "its" };
+    static readonly HashSet<string> Danglers = new() { "an", "the", "my", "our", "your", "their", "its" };
 
     /// <summary>
     /// "Can you make the, can you change the font size?": a clause broken off after
@@ -634,7 +699,8 @@ public static class SelfCorrection
     {
         for (int d = 0; d < tokens.Count; d++)
         {
-            if (!(tokens[d].TrailingPunctuation == ',' && Danglers.Contains(tokens[d].Norm))) continue;
+            if (!(tokens[d].TrailingPunctuation == ',' && Danglers.Contains(tokens[d].Norm)
+                  && tokens[d].Word.Length > 0 && char.IsLower(tokens[d].Word[0]))) continue;
             int f = d;
             while (f > 0 && tokens[f - 1].TrailingPunctuation is null && !tokens[f].BreaksLine) f--;
             if (!(d - f >= 2 && d - f <= 7 && d + 2 < tokens.Count

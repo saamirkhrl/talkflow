@@ -27,9 +27,11 @@ import Foundation
 /// closed class ("blue, I mean green"), a name the marker's full stop
 /// capitalised ("Tell John. Wait, no. Mike."), a restart after "just"/"only" or
 /// one that repeats the sentence's first word, a negated restart ("Delete it.
-/// Wait, don't delete it, archive it."), the spoken commands "never mind",
-/// "start over", "delete that" and "undo that", and a clause broken off after
-/// an article ("Can you make the, can you change the font size?").
+/// Wait, don't delete it, archive it." keeps the negation), the spoken commands
+/// "actually, never mind" and "wait, start over" after a clause, and a clause
+/// broken off after an article ("Can you make the, can you change the font
+/// size?"). "delete that" and "undo that" are only detected (`hasMarker`), for
+/// the model step; these rules never apply them.
 ///
 /// Release-only (`Dictation.render(structure: true)`): a correction deletes
 /// words the live path may already have typed, and a live update may only
@@ -113,10 +115,7 @@ enum SelfCorrection {
         /// Firm enough for a restart that repeats only the sentence's first word.
         var firm: Bool { strong || (words.contains("no") && words.contains("actually")) }
         /// May be followed by a name that the sentence break capitalised: "Tell John. Wait, no. Mike."
-        var allowsSentenceStartName: Bool {
-            strong || words.contains("wait") || words.contains("no")
-                || words == ["i", "mean"] || words == ["i", "meant"] || words == ["correction"] || words == ["or", "rather"]
-        }
+        var allowsSentenceStartName: Bool { strong }
     }
 
     /// Fixed phrases. Longest first, so "or rather" wins over "rather".
@@ -153,7 +152,8 @@ enum SelfCorrection {
         guard !words.isEmpty, words != ["no"], words != ["oh"] else { return nil }
         let hasWait = words.contains("wait")
         return Marker(words: words, strong: hasWait && words.count >= 2,
-                      needsClauseEnd: !hasWait && !words.contains("no"), plainAtClauseEnd: true)
+                      needsClauseEnd: !hasWait && !words.contains("no"),
+                      plainAtClauseEnd: hasWait || !words.contains("oh"))
     }
 
     /// Words that may lead into "scratch that": "10 to 20, actually scratch
@@ -233,7 +233,8 @@ enum SelfCorrection {
                         let olds = Array(old.prefix(n).reversed())
                         var news = Array(new.prefix(n))
                         if n == 1, olds[0].kind == .name, news[0].kind == .other,
-                           sentenceStartName(at: news[0].range.lowerBound, marker: marker, lead: lead, tokens: tokens) {
+                           sentenceStartName(at: news[0].range.lowerBound, old: olds[0].range.lowerBound,
+                                             marker: marker, lead: lead, tokens: tokens) {
                             news[0] = Unit(range: news[0].range, kind: .name, norm: news[0].norm)
                         }
                         guard aligns(olds, news, tokens: tokens, marker: marker, lead: lead) else { continue }
@@ -356,6 +357,11 @@ enum SelfCorrection {
     private static func plainSwapAllowed(_ old: [Unit], _ new: [Unit], changedAt index: Int, tokens: [Token]) -> Bool {
         let n = old.count
         guard index == n - 1, n <= 3 else { return false }
+        // "Did you read the book? Actually, the movie." must not become a statement: the old
+        // phrase ends in a comma, or in the same mark the replacement ends in.
+        let oldEnd = tokens[old[n - 1].range.upperBound - 1].trailingPunctuation
+        let newEnd = tokens[new[n - 1].range.upperBound - 1].trailingPunctuation
+        guard oldEnd == "," || oldEnd == newEnd else { return false }
         let o = old[index].norm, r = new[index].norm
         guard !plainSwapStop.contains(o), !plainSwapStop.contains(r) else { return false }
         if n == 1 {
@@ -395,24 +401,40 @@ enum SelfCorrection {
     /// after it starts one and its capital looks like grammar. Only a single word
     /// standing for a name, only after a marker that is plainly a correction
     /// ("Tell John. Sorry. Mike." may be an apology), never a common reply.
-    private static func sentenceStartName(at index: Int, marker: Marker, lead: Int, tokens: [Token]) -> Bool {
+    private static func sentenceStartName(at index: Int, old: Int, marker: Marker, lead: Int, tokens: [Token]) -> Bool {
         let token = tokens[index]
         let norm = token.norm
+        // The old name is one capitalised word, not the end of a longer one ("Main Street").
+        if old > 0, !isSentenceStart(tokens, old - 1), tokens[old - 1].word.first?.isUppercase == true { return false }
+        // Both end their sentence with a full stop ("Tell John. Wait, no. Mike."); a comma, "?" or "!"
+        // after the new word means it opens or reacts ("Honestly, ask anyone", "Seriously?").
+        guard tokens[old].trailingPunctuation == ".",
+              token.trailingPunctuation == "." || (token.trailingPunctuation == nil && index == tokens.count - 1) else { return false }
         guard lead == 0, marker.allowsSentenceStartName, isSentenceStart(tokens, index),
               !token.leading.contains("\n"), token.word.first?.isUppercase == true,
               norm.count >= 2, norm.allSatisfy({ $0.isLetter || $0 == "'" }),
               norm != "i", !norm.hasPrefix("i'"),
+              !nameSuffixes.contains(where: { norm.hasSuffix($0) }),
               !sentenceStartStop.contains(norm), !stutterWords.contains(norm),
               !runWords.contains(norm), !plainSwapStop.contains(norm) else { return false }
         return true
     }
+
+    /// Endings of adverbs and adjectives said as a one-word reaction ("Seriously.", "Unbelievable.", "Typical.").
+    private static let nameSuffixes = ["ly", "ible", "able", "ful", "ous", "ical", "less"]
 
     private static let sentenceStartStop: Set<String> = [
         "thanks", "thank", "sorry", "okay", "ok", "yes", "yeah", "yep", "no", "nope", "sure", "fine", "great",
         "good", "right", "never", "nevermind", "nothing", "anyway", "whatever", "please", "hello", "hi", "hey",
         "bye", "perfect", "cool", "done", "oh", "wait", "actually", "well", "so", "and", "but", "or", "maybe",
         "exactly", "correct", "true", "wrong", "cancel", "stop", "nice", "awesome", "agreed", "noted", "later",
-        "sounds", "got"
+        "sounds", "got",
+        "wow", "ugh", "ouch", "yikes", "oops", "whoops", "hmm", "huh", "jeez", "gosh", "damn", "darn", "crap",
+        "shoot", "typical", "brilliant", "amazing", "fantastic", "wonderful", "lovely", "classic", "figures",
+        "bummer", "absolutely", "definitely", "obviously", "totally", "seriously", "honestly", "really", "also",
+        "instead", "weird", "strange", "interesting", "funny", "sad", "unreal", "incredible", "ridiculous",
+        "terrible", "awful", "horrible", "excellent", "sweet", "fair", "again", "still", "indeed", "alright",
+        "rain", "snow"
     ]
 
     private static let leadIns: [[String]] = [
@@ -452,8 +474,10 @@ enum SelfCorrection {
                 }
                 // 2. "the whole file. Actually, just refactor the render function": the
                 //    restart is one "just"/"only" in; that word is kept.
-                if after < tokens.count, restartSkips.contains(tokens[after].norm),
-                   let p = repeated(at: after + 1, from: start, before: m, in: tokens) {
+                if after + 1 < tokens.count, restartSkips.contains(tokens[after].norm),
+                   !anchorWords.contains(tokens[after + 1].norm), !stutterWords.contains(tokens[after + 1].norm),
+                   let p = repeated(at: after + 1, from: start, before: m, in: tokens),
+                   tokens[p + 1].trailingPunctuation == nil, p + 2 < m {
                     return delete(tokens, p..<after)
                 }
                 // 3. "First fix the tests. Wait, no, first pull the latest changes": after
@@ -486,7 +510,8 @@ enum SelfCorrection {
 
     /// "Delete the old migration. Wait, don't delete it, just rename it.": the user
     /// negates the verb that opened the sentence before the marker, then says what
-    /// to do instead. The old sentence and the short negated clause go; the rest stays.
+    /// to do instead. Only the old sentence and the marker go: the negation is the
+    /// instruction and stays ("Don't delete it, just rename it.").
     private static func negatedRestart(_ tokens: [Token]) -> [Token]? {
         for m in tokens.indices {
             for (_, markerEnd) in markers(at: m, in: tokens) {
@@ -502,17 +527,31 @@ enum SelfCorrection {
                     v += 2
                 } else { continue }
                 guard v < tokens.count, tokens[v].norm == tokens[verb].norm else { continue }
-                // The negated clause: the verb plus at most four words, ending in , ; . or !
-                var k = v
-                while k < tokens.count, k - v <= 4, tokens[k].trailingPunctuation == nil { k += 1 }
-                guard k < tokens.count, k - v <= 4, let p = tokens[k].trailingPunctuation, ",;.!".contains(p),
-                      k + 1 < tokens.count,
-                      !tokens[(markerEnd + 1)...(k + 1)].contains(where: { $0.leading.contains("\n") }) else { continue }
-                return delete(tokens, s..<(k + 1))
+                // Positive evidence that the old instruction itself is negated: the same object again,
+                // as a pronoun ("don't delete it") or the same two words ("don't bring the charger").
+                // "Go ahead and explore. Actually, don't go too far" only qualifies it.
+                var o = v + 1
+                if o < tokens.count, objectPronouns.contains(tokens[o].norm) {
+                    o += 1
+                } else if o + 1 < tokens.count, verb + 2 < m,
+                          tokens[o].norm == tokens[verb + 1].norm, tokens[o + 1].norm == tokens[verb + 2].norm,
+                          tokens[o].trailingPunctuation == nil {
+                    o += 2
+                } else { continue }
+                // At most one more word ("yet"), then the clause ends: "don't have it too strong" qualifies.
+                var k = o - 1
+                if tokens[k].trailingPunctuation == nil, o < tokens.count, negationTails.contains(tokens[o].norm) { k = o }
+                guard let p = tokens[k].trailingPunctuation, ",;.!".contains(p),
+                      !tokens[(markerEnd + 1)...k].contains(where: { $0.leading.contains("\n") }) else { continue }
+                // Only the old sentence and the marker go; "Don't delete it, just rename it." stays.
+                return delete(tokens, s..<markerEnd)
             }
         }
         return nil
     }
+
+    private static let objectPronouns: Set<String> = ["it", "that", "this", "them", "these", "those", "him", "her", "us", "me"]
+    private static let negationTails: Set<String> = ["yet", "now", "anymore", "again", "today"]
 
     /// "a short, actually no not a short, we'll add a long one": after the
     /// marker, "not" plus the very words just before it (ending in
@@ -532,37 +571,47 @@ enum SelfCorrection {
     private static let retractVerbs: Set<String> = ["scratch", "strike", "ignore", "disregard"]
 
     /// Newer retract commands. Unlike scratch that they are everyday instructions
-    /// ("look at the last commit, undo that, and rerun the tests"), so they only drop
-    /// a clause, never act as markers for the other rules, and need more than
-    /// punctuation: see `scratchThat`.
+    /// ("look at the last commit, undo that, and rerun the tests"), so only "never
+    /// mind" and "start over" ever drop a clause, they never act as markers for
+    /// the other rules, and they need more than punctuation: see `scratchThat`.
     private static let commandRetracts: [[String]] = [
         ["never", "mind"], ["nevermind"], ["start", "over"], ["delete", "that"], ["undo", "that"]
     ]
 
+    /// "actually" and "wait" mark a retraction; "oh", "so", "okay" do not ("Oh, never mind, it's fine").
+    private static let retractSignals: Set<String> = ["actually", "wait"]
+
     /// A command at `index`, with optional filler leads, set off the way `scratch`
-    /// requires. Returns the number of tokens it spans, whether it is "never mind",
-    /// and whether it had leads.
-    private static func command(at index: Int, in tokens: [Token]) -> (count: Int, neverMind: Bool, leads: Bool)? {
+    /// requires and followed by punctuation ("never mind the dog" is not one).
+    /// Returns the number of tokens it spans, the phrase, and whether a lead was
+    /// "actually" or "wait".
+    private static func command(at index: Int, in tokens: [Token]) -> (count: Int, phrase: [String], retractLead: Bool)? {
         guard index > 0 else { return nil }
-        var leads = 0
+        var leadWords: [String] = []
         var i = index
-        while i < tokens.count, leads < 3, retractLeads.contains(tokens[i].norm),
+        while i < tokens.count, leadWords.count < 3, retractLeads.contains(tokens[i].norm),
               i == index || !tokens[i].leading.contains("\n") {
-            leads += 1
+            leadWords.append(tokens[i].norm)
             i += 1
         }
         for phrase in commandRetracts where i + phrase.count <= tokens.count {
             let span = tokens[i..<(i + phrase.count)]
             guard span.map(\.norm) == phrase,
                   i == index || !tokens[i].leading.contains("\n"),
-                  !span.dropFirst().contains(where: { $0.leading.contains("\n") }) else { continue }
-            let setOff = leads > 0
-                || (tokens[index - 1].trailingPunctuation != nil && tokens[i + phrase.count - 1].trailingPunctuation != nil)
+                  !span.dropFirst().contains(where: { $0.leading.contains("\n") }),
+                  tokens[i + phrase.count - 1].trailingPunctuation != nil else { continue }
+            let setOff = !leadWords.isEmpty || tokens[index - 1].trailingPunctuation != nil
             guard setOff else { return nil }
-            return (leads + phrase.count, phrase.first == "never" || phrase == ["nevermind"], leads > 0)
+            return (leadWords.count + phrase.count, phrase, leadWords.contains { retractSignals.contains($0) })
         }
         return nil
     }
+
+    /// Words that open a subordinate clause: "If it fails, start over" is an instruction.
+    private static let subordinators: Set<String> = [
+        "if", "when", "whenever", "once", "unless", "until", "till", "while", "after", "before", "because",
+        "since", "as", "though", "although", "where", "wherever", "whether"
+    ]
 
     /// Whether `range` holds a word that is not just a filler lead ("Oh, never mind").
     private static func hasContent(_ tokens: [Token], _ range: Range<Int>) -> Bool {
@@ -590,13 +639,26 @@ enum SelfCorrection {
                 let end = m + cmd.count
                 guard end < tokens.count, !tokens[end].leading.contains("\n") else { continue }
                 let start = retractStart(tokens, before: m)
-                guard hasContent(tokens, start..<m) else { continue }
-                // "Let's ship today, start over, let's ship tomorrow": the clause is said again.
-                let restarts = tokens[end].norm == tokens[start].norm
-                // "Rust? Actually, never mind, keep it in Swift." / "Rust? Never mind, keep it in Swift."
-                let neverMind = cmd.neverMind && (cmd.leads || tokens[m - 1].endsSentence)
-                guard restarts || neverMind else { continue }
-                return delete(tokens, start..<end)
+                guard cmd.retractLead, hasContent(tokens, start..<m), !subordinators.contains(tokens[start].norm) else { continue }
+                switch cmd.phrase {
+                case ["never", "mind"], ["nevermind"]:
+                    // "Rust? Actually, never mind, keep it in Swift."
+                    return delete(tokens, start..<end)
+                case ["start", "over"]:
+                    // "Let's ship today, wait, start over, let's ship tomorrow": the clause is said
+                    // again, opening with the same two words but not repeated word for word.
+                    let length = m - start
+                    guard length >= 2, end + 1 < tokens.count, !tokens[end + 1].leading.contains("\n"),
+                          tokens[end].norm == tokens[start].norm, tokens[end + 1].norm == tokens[start + 1].norm else { continue }
+                    let repeatsAll = end + length <= tokens.count
+                        && tokens[end..<(end + length)].map(\.norm) == tokens[start..<m].map(\.norm)
+                    guard !repeatsAll else { continue }
+                    return delete(tokens, start..<end)
+                default:
+                    // "delete that", "undo that": everyday editor instructions ("Select the first row,
+                    // delete that, select the next row"). Detected for the model step, never applied here.
+                    continue
+                }
             }
         }
         return nil
@@ -612,13 +674,14 @@ enum SelfCorrection {
     }
 
     /// Articles and possessives never end a phrase, so a comma right after one is
-    /// a broken-off clause.
-    private static let danglers: Set<String> = ["a", "an", "the", "my", "our", "your", "their", "its"]
+    /// a broken-off clause. Bare "a" is left out: "plan A, plan B" is a label.
+    private static let danglers: Set<String> = ["an", "the", "my", "our", "your", "their", "its"]
 
     /// "Can you make the, can you change the font size?": a clause broken off after
     /// an article or possessive, then begun again with its first two words.
     private static func falseStart(_ tokens: [Token]) -> [Token]? {
-        for d in tokens.indices where tokens[d].trailingPunctuation == "," && danglers.contains(tokens[d].norm) {
+        for d in tokens.indices where tokens[d].trailingPunctuation == "," && danglers.contains(tokens[d].norm)
+            && tokens[d].word.first?.isLowercase == true {
             var f = d
             while f > 0, tokens[f - 1].trailingPunctuation == nil, !tokens[f].leading.contains("\n") { f -= 1 }
             guard d - f >= 2, d - f <= 7, d + 2 < tokens.count,

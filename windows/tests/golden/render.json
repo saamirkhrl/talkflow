@@ -3469,7 +3469,7 @@
  },
  {
   "input": "Delete the old migration. Wait, don't delete it, just rename it.",
-  "expected": "Just rename it."
+  "expected": "Don't delete it, just rename it."
  },
  {
   "input": "Can you make the, can you change the font size?",
@@ -3477,7 +3477,7 @@
  },
  {
   "input": "Let's ship today, start over, let's ship tomorrow.",
-  "expected": "Let's ship tomorrow."
+  "expected": "Let's ship today, start over, let's ship tomorrow."
  },
  {
   "input": "Turn left, I mean right.",
@@ -3505,15 +3505,15 @@
  },
  {
   "input": "Delete it. Actually, don't delete it, archive it.",
-  "expected": "Archive it."
+  "expected": "Don't delete it, archive it."
  },
  {
   "input": "Can you rewrite this in Rust? Never mind, keep it in Swift.",
-  "expected": "Keep it in Swift."
+  "expected": "Can you rewrite this in Rust? Never mind, keep it in Swift."
  },
  {
   "input": "Make it blue, undo that, make it green.",
-  "expected": "Make it green."
+  "expected": "Make it blue, undo that, make it green."
  },
  {
   "input": "So, can you make the, can you change the font size?",
@@ -3582,5 +3582,501 @@
  {
   "input": "Thanks for the gift, sorry, the late reply.",
   "expected": "Thanks for the gift, sorry, the late reply."
+ },
+ {
+  "input": "We have plan A, we have plan B.",
+  "expected": "We have plan A, we have plan B."
+ },
+ {
+  "input": "Pick option A, pick option B, or skip both.",
+  "expected": "Pick option A, pick option B, or skip both."
+ },
+ {
+  "input": "If it's type A, if it's type B, do nothing.",
+  "expected": "If it's type A, if it's type B, do nothing."
+ },
+ {
+  "input": "I got an A, I got a B, and a C in chemistry.",
+  "expected": "I got an A, I got a B, and a C in chemistry."
+ },
+ {
+  "input": "You can take route A, you can take route B.",
+  "expected": "You can take route A, you can take route B."
+ },
+ {
+  "input": "Use vitamin A, use vitamin C too.",
+  "expected": "Use vitamin A, use vitamin C too."
+ },
+ {
+  "input": "Fix bug A, fix bug B, then deploy.",
+  "expected": "Fix bug A, fix bug B, then deploy."
+ },
+ {
+  "input": "we have plan a, we have plan b.",
+  "expected": "We have plan a, we have plan b."
+ },
+ {
+  "input": "If it fails, start over, if it works, ship it.",
+  "expected": "If it fails, start over, if it works, ship it."
+ },
+ {
+  "input": "If you get lost, start over, if you get stuck, call me.",
+  "expected": "If you get lost, start over, if you get stuck, call me."
+ },
+ {
+  "input": "When you're done, delete that, when you're not, keep it.",
+  "expected": "When you're done, delete that, when you're not, keep it."
+ },
+ {
+  "input": "Select the first row, delete that, select the next row.",
+  "expected": "Select the first row, delete that, select the next row."
+ },
+ {
+  "input": "Go to line 5, delete that, go to line 10.",
+  "expected": "Go to line 5, delete that, go to line 10."
+ },
+ {
+  "input": "Close the tab, undo that, close the window.",
+  "expected": "Close the tab, undo that, close the window."
+ },
+ {
+  "input": "Make it blue, wait, undo that, make it green.",
+  "expected": "Make it blue, wait, undo that, make it green."
+ },
+ {
+  "input": "Clear the board, start over, clear the scores.",
+  "expected": "Clear the board, start over, clear the scores."
+ },
+ {
+  "input": "Read the intro, wait, start over, read the intro again.",
+  "expected": "Read the intro, wait, start over, read the intro again."
+ },
+ {
+  "input": "Come in. Oh, never mind the mess, it's fine.",
+  "expected": "Come in. Oh, never mind the mess, it's fine."
+ },
+ {
+  "input": "Thanks for coming. Oh, never mind the dog, he's friendly.",
+  "expected": "Thanks for coming. Oh, never mind the dog, he's friendly."
+ },
+ {
+  "input": "We got the deal. So never mind the old plan, we're going ahead.",
+  "expected": "We got the deal. So never mind the old plan, we're going ahead."
+ },
+ {
+  "input": "Oh dear, you lost your keys. Never mind, we'll find them.",
+  "expected": "Oh dear, you lost your keys. Never mind, we'll find them."
+ },
+ {
+  "input": "You missed the bus? Never mind, there's another one at five.",
+  "expected": "You missed the bus? Never mind, there's another one at five."
+ },
+ {
+  "input": "Where's my phone? Never mind, found it.",
+  "expected": "Where's my phone? Never mind, found it."
+ },
+ {
+  "input": "If it rains, actually never mind, we'll go anyway.",
+  "expected": "If it rains, actually never mind, we'll go anyway."
+ },
+ {
+  "input": "My phone died at Costco. Oh no. Typical.",
+  "expected": "My phone died at Costco. Oh no. Typical."
+ },
+ {
+  "input": "He's moving to Berlin. Wait, no. Seriously?",
+  "expected": "He's moving to Berlin. Wait, no. Seriously?"
+ },
+ {
+  "input": "I just got an email from Google. Oh no. Unbelievable.",
+  "expected": "I just got an email from Google. Oh no. Unbelievable."
+ },
+ {
+  "input": "I bought it on Amazon. Oh, no. Brilliant.",
+  "expected": "I bought it on Amazon. Oh, no. Brilliant."
+ },
+ {
+  "input": "Tell Ben. Oh no. Ugh.",
+  "expected": "Tell Ben. Oh no. Ugh."
+ },
+ {
+  "input": "Grab lunch with Alex. Oh no. Rain, again.",
+  "expected": "Grab lunch with Alex. Oh no. Rain, again."
+ },
+ {
+  "input": "Ask Tom. Wait, no. Honestly, ask anyone.",
+  "expected": "Ask Tom. Wait, no. Honestly, ask anyone."
+ },
+ {
+  "input": "Email Sarah. No wait. Instead, call her.",
+  "expected": "Email Sarah. No wait. Instead, call her."
+ },
+ {
+  "input": "Ping Dave. Wait, no. Also, ping Lisa.",
+  "expected": "Ping Dave. Wait, no. Also, ping Lisa."
+ },
+ {
+  "input": "Thanks John. I mean. Wow.",
+  "expected": "Thanks John. I mean. Wow."
+ },
+ {
+  "input": "Meet me at the cafe on Main Street. Wait, no. Starbucks.",
+  "expected": "Meet me at the cafe on Main Street. Wait, no. Starbucks."
+ },
+ {
+  "input": "Go ahead and explore. Actually, don't go too far, stay close.",
+  "expected": "Go ahead and explore. Actually, don't go too far, stay close."
+ },
+ {
+  "input": "Have fun. Actually, don't have too much fun! See you soon.",
+  "expected": "Have fun. Actually, don't have too much fun! See you soon."
+ },
+ {
+  "input": "Take your time. Actually, don't take too long, we need it Friday.",
+  "expected": "Take your time. Actually, don't take too long, we need it Friday."
+ },
+ {
+  "input": "Have a drink. Actually, don't have it too strong.",
+  "expected": "Have a drink. Actually, don't have it too strong."
+ },
+ {
+  "input": "I fixed the parser. Actually, just the parser tests are left.",
+  "expected": "I fixed the parser. Actually, just the parser tests are left."
+ },
+ {
+  "input": "Did you read the book? Actually, the movie.",
+  "expected": "Did you read the book? Actually, the movie."
+ },
+ {
+  "input": "Let's ship today, wait, start over, let's ship tomorrow.",
+  "expected": "Let's ship tomorrow."
+ },
+ {
+  "input": "Delete the branch. Wait, don't delete it yet, we still need it.",
+  "expected": "Don't delete it yet, we still need it."
+ },
+ {
+  "input": "Bring the charger. Wait, don't bring the charger, I have one.",
+  "expected": "Don't bring the charger, I have one."
+ },
+ {
+  "input": "Review the PR. Actually, only review the tests.",
+  "expected": "Only review the tests."
+ },
+ {
+  "input": "Option A, option B, option C are all fine.",
+  "expected": "Option A, option B, option C are all fine."
+ },
+ {
+  "input": "Plan a, plan b, whatever works.",
+  "expected": "Plan a, plan b, whatever works."
+ },
+ {
+  "input": "Grade A, grade B, it doesn't matter.",
+  "expected": "Grade A, grade B, it doesn't matter."
+ },
+ {
+  "input": "I want the, uh, the blue one.",
+  "expected": "I want the blue one."
+ },
+ {
+  "input": "My, my, what a surprise.",
+  "expected": "My, what a surprise."
+ },
+ {
+  "input": "We need an A, an A plus would be better.",
+  "expected": "We need an A plus would be better."
+ },
+ {
+  "input": "Section A, section B, and the appendix are done.",
+  "expected": "Section A, section B, and the appendix are done."
+ },
+ {
+  "input": "Is it yours or mine, mine I think.",
+  "expected": "Is it yours or mine, mine I think."
+ },
+ {
+  "input": "Vote for candidate A, vote for candidate B, just vote.",
+  "expected": "Vote for candidate A, vote for candidate B, just vote."
+ },
+ {
+  "input": "Use the, use them wisely.",
+  "expected": "Use the, use them wisely."
+ },
+ {
+  "input": "Their, um, their car broke down.",
+  "expected": "Their car broke down."
+ },
+ {
+  "input": "Call Jake. Oh no. Not again.",
+  "expected": "Call Jake. Oh no. Not again."
+ },
+ {
+  "input": "Tell Maria. Wait, no. Really?",
+  "expected": "Tell Maria. Wait, no. Really?"
+ },
+ {
+  "input": "Ask Sam. Wait, no. Hmm.",
+  "expected": "Ask Sam. Wait, no.."
+ },
+ {
+  "input": "Invite Tom. Wait, no. Whatever.",
+  "expected": "Invite Tom. Wait, no. Whatever."
+ },
+ {
+  "input": "Text Mom. Wait, no. Later.",
+  "expected": "Text Mom. Wait, no. Later."
+ },
+ {
+  "input": "Message Priya. Wait, no. Done.",
+  "expected": "Message Priya. Wait, no. Done."
+ },
+ {
+  "input": "I'll see Ana. Wait, no. Okay.",
+  "expected": "I'll see Ana. Wait, no. Okay."
+ },
+ {
+  "input": "Book Paris. Wait, no. Seriously.",
+  "expected": "Book Paris. Wait, no. Seriously."
+ },
+ {
+  "input": "We flew to Denver. Oh no. Snow.",
+  "expected": "We flew to Denver. Oh no. Snow."
+ },
+ {
+  "input": "She works at Google. Wait, no. Interesting.",
+  "expected": "She works at Google. Wait, no. Interesting."
+ },
+ {
+  "input": "Meet at Union Square. Wait, no. Fine.",
+  "expected": "Meet at Union Square. Wait, no. Fine."
+ },
+ {
+  "input": "Ping Sarah. No wait. Actually, ping everyone.",
+  "expected": "Ping everyone."
+ },
+ {
+  "input": "Thank Leo. I mean. Wow.",
+  "expected": "Thank Leo. I mean. Wow."
+ },
+ {
+  "input": "Visit New York. Wait, no. Boston.",
+  "expected": "Visit New York. Wait, no. Boston."
+ },
+ {
+  "input": "I talked to Kim. Wait, no. Absolutely.",
+  "expected": "I talked to Kim. Wait, no. Absolutely."
+ },
+ {
+  "input": "Lunch with Raj. Oh wait. Perfect.",
+  "expected": "Lunch with Raj. Oh wait. Perfect."
+ },
+ {
+  "input": "He works at Apple. Wait, no. Impossible.",
+  "expected": "He works at Apple. Wait, no. Impossible."
+ },
+ {
+  "input": "Did you buy the red one? Actually, the blue one.",
+  "expected": "Did you buy the red one? Actually, the blue one."
+ },
+ {
+  "input": "I painted it blue, I mean it looks blue.",
+  "expected": "I painted it blue, I mean it looks blue."
+ },
+ {
+  "input": "Turn it up, sorry, I can't hear.",
+  "expected": "Turn it up, sorry, I can't hear."
+ },
+ {
+  "input": "Go left, actually, left is closed.",
+  "expected": "Go left, actually, left is closed."
+ },
+ {
+  "input": "Put it in the top drawer, sorry, the bottom one.",
+  "expected": "Put it in the top drawer, sorry, the bottom one."
+ },
+ {
+  "input": "I'll take the first, actually, the second too.",
+  "expected": "I'll take the first, actually, the second too."
+ },
+ {
+  "input": "Use the left door, I mean the left one is locked.",
+  "expected": "Use the left one is locked."
+ },
+ {
+  "input": "She said the blue, sorry, the blue team won.",
+  "expected": "She said the blue team won."
+ },
+ {
+  "input": "Make the header bold, I mean the footer too.",
+  "expected": "Make the header bold, I mean the footer too."
+ },
+ {
+  "input": "Make it blue, I mean like a light blue.",
+  "expected": "Make it blue, I mean like a light blue."
+ },
+ {
+  "input": "Put it on the left, sorry, the left side is full.",
+  "expected": "Put it on the left side is full."
+ },
+ {
+  "input": "Pick the first one, actually, the first one works.",
+  "expected": "Pick the first one works."
+ },
+ {
+  "input": "Is the meeting at the office? Sorry, at the cafe?",
+  "expected": "Is the meeting at the cafe?"
+ },
+ {
+  "input": "It's not big, I mean small.",
+  "expected": "It's not big, I mean small."
+ },
+ {
+  "input": "Oh, never mind the weather, let's go.",
+  "expected": "Oh, never mind the weather, let's go."
+ },
+ {
+  "input": "Never mind me, I'm just tired.",
+  "expected": "Never mind me, I'm just tired."
+ },
+ {
+  "input": "Sorry, never mind, it's nothing.",
+  "expected": "Sorry, never mind, it's nothing."
+ },
+ {
+  "input": "Did you call? Okay, never mind, I see it.",
+  "expected": "Did you call? Okay, never mind, I see it."
+ },
+ {
+  "input": "Ask Tom. Actually, never mind him, ask Lisa.",
+  "expected": "Ask Tom. Actually, never mind him, ask Lisa."
+ },
+ {
+  "input": "Well, never mind, see you tomorrow.",
+  "expected": "Well, never mind, see you tomorrow."
+ },
+ {
+  "input": "So, never mind, what's next?",
+  "expected": "So, never mind, what's next?"
+ },
+ {
+  "input": "Can you check the logs? Actually, never mind the logs, check the metrics.",
+  "expected": "Can you check the logs? Actually, never mind the logs, check the metrics."
+ },
+ {
+  "input": "When it's done, wait, never mind, I'll check later.",
+  "expected": "When it's done, wait, never mind, I'll check later."
+ },
+ {
+  "input": "Oh, never mind.",
+  "expected": "Oh, never mind."
+ },
+ {
+  "input": "Press reset, start over, and wait.",
+  "expected": "Press reset, start over, and wait."
+ },
+ {
+  "input": "Go back, start over, go back again.",
+  "expected": "Go back, start over, go back again."
+ },
+ {
+  "input": "Reset the board, start over, reset the timer.",
+  "expected": "Reset the board, start over, reset the timer."
+ },
+ {
+  "input": "Count to ten, start over, count to twenty.",
+  "expected": "Count to ten, start over, count to twenty."
+ },
+ {
+  "input": "If you lose, wait, start over, if you win, stop.",
+  "expected": "If you lose, wait, start over, if you win, stop."
+ },
+ {
+  "input": "Copy the line, delete that, copy the next.",
+  "expected": "Copy the line, delete that, copy the next."
+ },
+ {
+  "input": "Copy the line, actually delete that, copy the next.",
+  "expected": "Copy the line, actually delete that, copy the next."
+ },
+ {
+  "input": "Open the file, undo that, open the folder.",
+  "expected": "Open the file, undo that, open the folder."
+ },
+ {
+  "input": "Type hello, wait, undo that, type hi.",
+  "expected": "Type hello, wait, undo that, type hi."
+ },
+ {
+  "input": "I fixed the bug. Actually, just the bug in the parser.",
+  "expected": "I fixed the bug. Actually, just the bug in the parser."
+ },
+ {
+  "input": "I'll fix the bug. Actually, just fix the tests are failing.",
+  "expected": "I'll just fix the tests are failing."
+ },
+ {
+  "input": "We need the logs from prod. Actually, just the logs from staging.",
+  "expected": "We need the logs from prod. Actually, just the logs from staging."
+ },
+ {
+  "input": "I like the movie a lot. Actually, only the movie had problems.",
+  "expected": "I like the movie a lot. Actually, only the movie had problems."
+ },
+ {
+  "input": "Fix the login page and the header. Actually, just the header.",
+  "expected": "Fix the login page and the header. Actually, just the header."
+ },
+ {
+  "input": "Don't merge it. Wait, don't merge it yet.",
+  "expected": "Don't merge it yet."
+ },
+ {
+  "input": "Go home. Wait, don't go yet.",
+  "expected": "Go home. Wait, don't go yet."
+ },
+ {
+  "input": "Call him. Actually, don't call him, text him.",
+  "expected": "Don't call him, text him."
+ },
+ {
+  "input": "Eat the cake. Actually, don't eat all of it.",
+  "expected": "Eat the cake. Actually, don't eat all of it."
+ },
+ {
+  "input": "Run the tests. Wait, don't run them all, just the fast ones.",
+  "expected": "Run the tests. Wait, don't run them all, just the fast ones."
+ },
+ {
+  "input": "Sign the form. Actually, don't sign it without reading it.",
+  "expected": "Sign the form. Actually, don't sign it without reading it."
+ },
+ {
+  "input": "Try the new build. Actually, don't try too hard.",
+  "expected": "Try the new build. Actually, don't try too hard."
+ },
+ {
+  "input": "Can you make the, uh, button bigger?",
+  "expected": "Can you make the, button bigger?"
+ },
+ {
+  "input": "Can you make the, I mean, can you fix it?",
+  "expected": "Can you fix it?"
+ },
+ {
+  "input": "Leave the, the door open.",
+  "expected": "Leave the door open."
+ },
+ {
+  "input": "I think we should, I think we should wait.",
+  "expected": "I think we should, I think we should wait."
+ },
+ {
+  "input": "Send the email to the team, actually, the whole company.",
+  "expected": "Send the email to the team, actually, the whole company."
+ },
+ {
+  "input": "We meet on Monday, sorry, on Mondays and Fridays.",
+  "expected": "We meet on Monday, sorry, on Mondays and Fridays."
  }
 ]
