@@ -117,6 +117,7 @@ enum StreamSelfTest {
         runReleaseSplitCases()
         runEmailAndListCases()
         runSelfCorrectionCases()
+        runCorrectionModelCases()
         runInsertOnceCases()
         runWritingStyleCases()
         runLanguageCases()
@@ -742,6 +743,67 @@ enum StreamSelfTest {
         let partial = Dictation.render("Let's move the review to Friday, wait no, Thursday, and then we", leadingSpace: "", structure: false)
         let appended = FieldSync.appendOnlyTarget(current: partial, final: longVerbatim) ?? partial
         check(appended == longVerbatim, "long: the append loses no words when the correction is refused", appended.debugDescription)
+    }
+
+    /// The guard around the model step for corrections the rules leave in. Pure:
+    /// every reply here is made up, the model is never called. What matters is
+    /// that a wrong or wandering reply is rejected, and that an accepted one is
+    /// only ever a deletion.
+    private static func runCorrectionModelCases() {
+        report("case: the correction model step only deletes, inside tight bounds")
+
+        let o = "We should host it on our own servers. Actually, you know what, the cloud is cheaper for now."
+        let o2 = "Thanks for the notes. " + o
+        let o4 = "Let's take the bus. Actually, we walk."
+        let o5 = "Hi Sam,\n\nWe should host it on our own servers. Actually, the cloud is cheaper."
+        let o6 = "I was going to write the tests first, actually, let me fix the bug."
+        let o7 = "Thanks for the notes. " + o6
+        let o8 = "Send it to the team. Actually, send it to the team lead."
+
+        let indices = SelfCorrection.markerIndices(in: o)
+        check(indices == [8], "marker index of the sentence-opening Actually", "\(indices)")
+        for (label, text) in [("o", o), ("o2", o2), ("o4", o4), ("o5", o5), ("o6", o6), ("o7", o7), ("o8", o8)] {
+            check(SelfCorrection.hasMarker(in: text), "hasMarker sees the marker in \(label)")
+        }
+
+        typealias V = CorrectionModel.Verdict
+        let cases: [(String, CorrectionModel.Mode, String, String, V)] = [
+            ("text: correction applied", .text, o, "The cloud is cheaper for now.", .applied("The cloud is cheaper for now.")),
+            ("text: model's punctuation ignored", .text, o, "the cloud is cheaper for now", .applied("The cloud is cheaper for now.")),
+            ("text: unchanged reply", .text, o, o, .unchanged),
+            ("text: Reply prefix and quotes stripped", .text, o, "Reply: \"The cloud is cheaper for now.\"", .applied("The cloud is cheaper for now.")),
+            ("text: rewritten word", .text, o, "The cloud is less expensive for now.", .rejected(.notSubsequence)),
+            ("text: junk preamble", .text, o, "Sure! Here is the corrected text: The cloud is cheaper for now.", .rejected(.notSubsequence)),
+            ("text: empty reply", .text, o, "", .rejected(.empty)),
+            ("text: unrelated sentence deleted", .text, o2, o, .rejected(.noMarkerInRun)),
+            ("text: deletes past the sentence before", .text, o2, "The cloud is cheaper for now.", .rejected(.outsideWindow)),
+            ("text: only the marker dropped", .text, o, "We should host it on our own servers. You know what, the cloud is cheaper for now.", .rejected(.nothingBeforeMarker)),
+            ("text: only two markers dropped", .text, "The report is due Thursday, sorry, I mean the draft is due Thursday.",
+             "The report is due Thursday, the draft is due Thursday.", .rejected(.nothingBeforeMarker)),
+            ("text: eats the replacement", .text, o, "for now.", .rejected(.tooMuchAfterMarker)),
+            ("text: nothing left after", .text, o4, "Walk.", .rejected(.noReplacementLeft)),
+            ("text: across a paragraph", .text, o5, "The cloud is cheaper.", .rejected(.crossesParagraph)),
+            ("text: inside a paragraph", .text, o5, "Hi Sam,\n\nThe cloud is cheaper.", .applied("Hi Sam,\n\nThe cloud is cheaper.")),
+            ("text: mid-sentence false start", .text, o6, "Let me fix the bug.", .applied("Let me fix the bug.")),
+            ("text: not the sentence before a mid-sentence marker", .text, o7, "Let me fix the bug.", .rejected(.outsideWindow)),
+            ("span: correction applied", .span, o, "We should host it on our own servers. Actually, you know what,", .applied("The cloud is cheaper for now.")),
+            ("span: NONE", .span, o, "NONE", .unchanged),
+            ("span: none, lowercase", .span, o, "none.", .unchanged),
+            ("span: not in the text", .span, o, "We should host it in the cloud.", .rejected(.spanNotFound)),
+            ("span: twice in the text", .span, o8, "send it to the team", .rejected(.spanAmbiguous)),
+            ("span: unrelated sentence", .span, o2, "Thanks for the notes.", .rejected(.noMarkerInRun)),
+            ("span: quoted with prefix", .span, o, "Reply: \"We should host it on our own servers. Actually, you know what,\"", .applied("The cloud is cheaper for now."))
+        ]
+        for (label, mode, original, reply, expected) in cases {
+            let got = CorrectionModel.evaluate(original: original, reply: reply, mode: mode)
+            check(got == expected, label, "\(got)")
+            if case .applied(let result) = got {
+                check(SelfCorrection.isDeletionOnly(original: original, result: result), label + ": deletion only")
+            }
+        }
+
+        check(CorrectionModel.Outcome.timedOut.logPhrase == "missed its budget", "log phrase: missed its budget")
+        check(CorrectionModel.Outcome.verdict(.rejected(.outsideWindow)).logPhrase == "rejected by guard (outsideWindow)", "log phrase: rejected by guard")
     }
 
     /// The default mode: the caption shows the words while speaking, and the

@@ -30,6 +30,12 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span]`.
+// `check` runs no model. Run from a build, not the installed app.
+if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
+    CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // The on-demand final-pass server, timed against the real engine. Run from
 // the installed app; stops its final-pass server, which the next hold restarts.
 if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {

@@ -82,8 +82,15 @@ enum SelfCorrection {
     /// Whether a correction marker, set off the way a correction is, still stands
     /// in `text`. After `apply`, true means the rules saw a marker and left it.
     static func hasMarker(in text: String) -> Bool {
+        !markerIndices(in: text).isEmpty
+    }
+
+    /// Token indices (as in `tokenize`) where a correction marker or spoken
+    /// command, set off the way a correction is, starts. Read-only: what
+    /// `hasMarker` checks, with positions, for `CorrectionModel`'s guard.
+    static func markerIndices(in text: String) -> [Int] {
         let tokens = tokenize(text)
-        return tokens.indices.dropFirst().contains { !markers(at: $0, in: tokens).isEmpty || command(at: $0, in: tokens) != nil }
+        return tokens.indices.dropFirst().filter { !markers(at: $0, in: tokens).isEmpty || command(at: $0, in: tokens) != nil }
     }
 
     // MARK: - Markers

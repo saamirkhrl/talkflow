@@ -529,6 +529,8 @@ final class SettingsModel: ObservableObject {
         didSet { Preferences.aiPolish = aiPolish }
     }
     let polishAvailable = Polish.isAvailable
+    @Published var aiCorrections = Preferences.aiCorrections { didSet { Preferences.aiCorrections = aiCorrections } }
+    var correctionsAvailable: Bool { polishAvailable || (useClaude && hasAnthropicKey) }
 
     @Published var writingStyle = Preferences.writingStyle {
         didSet { if Preferences.writingStyle != writingStyle { Preferences.writingStyle = writingStyle } }
@@ -635,7 +637,12 @@ final class SettingsModel: ObservableObject {
         if useClaude && hasAnthropicKey { punctuation = "\(claudeModel.title), your key" }
         else if aiPolish && polishAvailable { punctuation = "Apple Intelligence, on this Mac" }
         else { punctuation = "Built-in rules only" }
-        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation)]
+        let corrections: String
+        if !aiCorrections { corrections = "Built-in rules only" }
+        else if polishAvailable { corrections = "Apple Intelligence, on this Mac" }
+        else if useClaude && hasAnthropicKey { corrections = "\(claudeModel.title), your key" }
+        else { corrections = "Built-in rules only" }
+        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections)]
     }
 
     /// Checks the key with the provider, and keeps it only if it works.
@@ -716,6 +723,12 @@ private struct SettingsView: View {
                        note: model.polishAvailable ? nil : "Needs Apple Intelligence.",
                        isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
+                toggle("AI corrections",
+                       help: "When you change your mind mid-sentence, removes the words you took back. Never adds or changes a word.",
+                       note: model.correctionsAvailable ? nil : "Needs Apple Intelligence.",
+                       isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
+                                     set: { model.aiCorrections = $0 }))
+                    .disabled(!model.correctionsAvailable)
                 advanced
                 footer
             }
