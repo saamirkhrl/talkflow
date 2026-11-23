@@ -90,18 +90,21 @@ Any other asset on a release (and the manifest itself) is left out.
 - About 10 seconds after the network becomes reachable (so shortly after
   launch when online; nothing is attempted while offline), then again once 6
   hours have passed since the last successful check, while it runs. These
-  background checks fail quietly: a failure is logged, the dashboard keeps
+  background checks fail quietly: a failure is logged, the app window keeps
   showing what it showed before, and the next try is at least 15 minutes
   later.
-- When the dashboard opens, if the last check (a successful background check
-  counts) was more than 6 hours ago, as before; failures from this check show
-  in the dashboard with a Retry link.
+- When the app window opens, if the last check (a successful background check
+  counts) was more than 6 hours ago, as before; a failure from this check
+  shows in the sidebar footer (and Settings > About) with a Retry button.
+  The footer's **Check for updates** button checks on demand.
 
-When a newer version is found, the menu bar menu shows **Update to X.Y.Z...**
-at the top and macOS shows one notification for that version (permission is
-asked the first time; if it is refused, the menu item is the only sign). Both
-open the dashboard, whose **Update to X.Y.Z** button downloads, verifies,
-installs and relaunches. Nothing is installed without that click.
+When a newer version is found, the right-click menu of the menu bar icon shows
+**Update to X.Y.Z...** at the top and macOS shows one notification for that
+version (permission is asked the first time; if it is refused, the menu item
+is the only sign). Both open the app window on Settings > About. The
+**Update to X.Y.Z** button there, in the sidebar footer and in the banner on
+Home downloads, verifies, installs and relaunches. Nothing is installed
+without that click.
 
 ## How a release gets its manifest
 
