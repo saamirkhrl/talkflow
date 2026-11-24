@@ -573,11 +573,11 @@ struct SettingsPage: View {
 
     private var dataRow: some View {
         row("Your data", lines: {
-            note("Stats and settings live in one folder on this Mac. Audio is never saved.")
+            note("Stats, settings and meeting notes live in one folder on this Mac. Meeting audio is deleted as soon as its transcript is ready.")
         }, control: {
             Button("Show in Finder") { model.revealData() }
                 .buttonStyle(AppSecondaryButtonStyle())
-                .help("Stats, settings and learned words. Kept if you uninstall.")
+                .help("Stats, settings, learned words and meeting notes. Kept if you uninstall.")
         })
     }
 

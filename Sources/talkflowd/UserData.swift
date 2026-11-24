@@ -7,6 +7,7 @@ import Foundation
 ///   (written by `StatsStore`).
 /// - `settings.json`: a copy of the Settings page and the learned words,
 ///   rewritten whenever one changes.
+/// - `notes/`: one folder per recorded meeting (see `NoteStore`).
 ///
 /// Uninstalling (`Uninstaller`) keeps this folder, so installing again picks
 /// up where the user left off: stats are read straight from it, and settings
