@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The meeting being recorded, then its notes being written: one screen, as in the mockup, so Stop never jumps
@@ -71,11 +72,22 @@ struct NoteSessionPage: View {
             VStack(alignment: .leading, spacing: 0) {
                 RowDivider()
                 VStack(alignment: .leading, spacing: 6) {
-                    if l.noComputerAudio {
-                        Text("No sound is coming from this Mac yet. If the call has started, check that it's playing on this Mac.")
+                    if let problem = l.problem {
+                        Text(problem)
                             .font(AppFont.caption)
                             .foregroundColor(Palette.warn)
                             .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let note = computerAudioNote(l) {
+                        Text(note.text)
+                            .font(AppFont.caption)
+                            .foregroundColor(note.warn ? Palette.warn : Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if note.settings {
+                            Button("Open System Settings") { NotesSystemSettings.openAudioRecording() }
+                                .buttonStyle(.link)
+                                .font(AppFont.caption)
+                        }
                     }
                     if l.echoHandlingActive {
                         Text("You're on speakers, so talkflow is filtering the other voices out of your microphone.")
@@ -90,6 +102,26 @@ struct NoteSessionPage: View {
                 }
                 .padding(.top, 16)
             }
+        }
+    }
+
+    /// The line about the computer-audio track, chosen from what the capture has seen so far.
+    private func computerAudioNote(_ l: CaptureLevels) -> (text: String, warn: Bool, settings: Bool)? {
+        switch l.computerAudio {
+        case .waitingForPermission:
+            return ("Waiting for macOS to allow talkflow to record the sound from this Mac. If a message asks, choose Allow.", false, false)
+        case .nothingPlaying:
+            return ("Sound from this Mac: nothing playing yet.", false, false)
+        case .notArriving:
+            return ("No sound is arriving from this Mac, though an app is playing. talkflow may not be allowed to record it.", true, true)
+        case .notAuthorised:
+            return ("talkflow can't hear the sound from this Mac yet. If macOS asked, choose Allow. Otherwise turn on talkflow in System Settings > Privacy & Security > Screen & System Audio Recording.", true, true)
+        case .starting, .receiving:
+            // Older callers and the fakes only set noComputerAudio.
+            if l.noComputerAudio {
+                return ("No sound is coming from this Mac yet. If the call has started, check that it's playing on this Mac.", true, false)
+            }
+            return nil
         }
     }
 
@@ -161,5 +193,15 @@ struct NoteSessionPage: View {
                 .foregroundColor(now ? Palette.ink : Palette.muted)
                 .frame(width: 16)
         }
+    }
+}
+
+/// System Settings > Privacy & Security > Screen & System Audio Recording, where System Audio Recording is turned on.
+/// The anchor is the one macOS 14.2+ uses for that list; if a macOS version ignores it, the pane still opens at
+/// Privacy & Security.
+enum NotesSystemSettings {
+    static func openAudioRecording() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AudioCapture") else { return }
+        NSWorkspace.shared.open(url)
     }
 }

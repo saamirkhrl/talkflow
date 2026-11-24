@@ -30,10 +30,11 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
-// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude]`.
-// `check` runs no model. `claude` sends each case to Anthropic with the saved key and Claude
-// model (billed; synthetic sentences only), never runs unless given, and needs the Keychain
-// item readable (see CorrectionSelfTest). Run from a build, not the installed app.
+// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude [<model id>]]`.
+// `check` runs no model. `claude` sends each case to Anthropic with the saved key and the
+// corrections model (`CorrectionModel.claudeModel`, or the id given after it, e.g.
+// claude-haiku-5-5); billed, synthetic sentences only, never runs unless given. Run it from
+// the installed app: only its signature may read the Keychain item without a prompt.
 if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
     CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
 }
@@ -159,6 +160,43 @@ if CommandLine.arguments.contains("--dictionarytest") {
 // label and copy rules, and the notes store. Results in $TMPDIR/talkflow-notestest.log.
 if CommandLine.arguments.contains("--notestest") {
     NotesSelfTest.run()
+}
+
+// Records the microphone and this Mac's sound for a few seconds into a temporary folder through the real meeting
+// capture, reports durations, sample counts against the clock, levels and the computer-audio state, then deletes
+// the audio. Never requests a permission. Results in $TMPDIR/talkflow-capturetest.log. Usage: --capturetest [seconds]
+if let index = CommandLine.arguments.firstIndex(of: "--capturetest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 10
+    CaptureSelfTest.run(seconds: seconds)
+}
+
+// The note taker end to end on the made-up meeting fixture (FakeMeeting.swift): records through the real capture
+// while the meeting plays through the speakers, writes notes through the app's own pipeline into a temporary notes
+// folder on throwaway settings, then scores the transcript against the fixture's truth. Plays sound, so it is never
+// run by a build script. --dry-run plays nothing and feeds the fixture's files instead; --fake-pipeline returns the
+// truth instead of transcribing. Results on the terminal and in $TMPDIR/talkflow-fakemeeting.log; the app log gets
+// counts only. Usage: --fakemeeting [folder] [--dry-run] [--fake-pipeline]
+if CommandLine.arguments.contains("--fakemeeting") {
+    FakeMeeting.run(CommandLine.arguments)
+}
+
+// The speaker helper on the diarization spike's fixtures: error rate, speakers found and wall time.
+// Optional --helper <path> and --models <dir>. Results in $TMPDIR/talkflow-diarizetest.log; skips
+// with one line when the fixtures or the helper are absent.
+if CommandLine.arguments.contains("--diarizetest") {
+    DiarizeSelfTest.run(arguments: CommandLine.arguments)
+}
+
+// The whole after-Stop pipeline on two WAV files (mic, system), with a transcript JSON out. Numbers only on
+// stdout; takes the shared bench lock. See NotesPipelineHarness for the options (--check, --headphones, ...).
+if let index = CommandLine.arguments.firstIndex(of: "--notespipeline") {
+    NotesPipelineHarness.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
+// The offline echo canceller on the digital echo fixtures (folder optional). Numbers only, in
+// $TMPDIR/talkflow-echotest.log; skips with one line when the fixtures are absent.
+if let index = CommandLine.arguments.firstIndex(of: "--echotest") {
+    EchoSelfTest.run(folder: CommandLine.arguments.dropFirst(index + 1).first)
 }
 
 // Opens the real app window from a build, on throwaway settings and sample

@@ -89,6 +89,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SpeechEngine.prepareOnLaunch()
             DispatchQueue.main.async { LiveModel.prepare() }
         }
+        // A crash can leave the notes engine or the speaker helper running. Synchronous so a notes job started right
+        // after launch is never hit by it, and cheap (one ps).
+        NotesProcesses.stopLeftovers(reason: "launch")
         FinalPassEngine.prepare()
         startUpdateChecks()
         stopOnSIGTERM()
@@ -134,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         source.setEventHandler { [weak self] in
             self?.notes.appWillTerminate()
+            NotesProcesses.stopLeftovers(reason: "sigterm")
             self?.dictation?.abandon()
             FinalPassEngine.stop()
             exit(0)
@@ -144,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         notes.appWillTerminate()
+        NotesProcesses.stopLeftovers(reason: "quit")
         dictation?.abandon()
         FinalPassEngine.stop()
     }

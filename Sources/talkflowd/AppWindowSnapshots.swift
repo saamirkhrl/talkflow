@@ -80,7 +80,8 @@ extension DashboardController {
             elapsed: 754, you: 0.62, others: 0.34, noComputerAudio: false, echoHandlingActive: true))), title: "Launch planning")
         shoot(10, "notes-recording", .notes, fullHeight: true)
         n.stage(route: .session, session: NotesSession(noteID: launch, phase: .recording(CaptureLevels(
-            elapsed: 95, you: 0.4, others: 0, noComputerAudio: true, echoHandlingActive: false))))
+            elapsed: 95, you: 0.4, others: 0, noComputerAudio: true, echoHandlingActive: false,
+            computerAudio: .notArriving))))
         shoot(11, "notes-recording-quiet", .notes, fullHeight: true)
         n.stage(route: .session, session: NotesSession(noteID: launch, phase: .writing(WritingProgress(
             step: .transcribing, fraction: 0.8, secondsLeft: 110))), title: "Launch planning", duration: 2520)
@@ -128,6 +129,11 @@ extension DashboardController {
         for note in n.store.list() { try? n.store.delete(note.id) }
         n.refresh()
         shoot(19, "notes-empty", .notes, fullHeight: true)
+        n.downloads.stage(model: .absent, speakers: .absent, declined: false)
+        shoot(21, "notes-downloads", .notes, fullHeight: true)
+        n.downloads.stage(model: .downloading(0.42), speakers: .done, declined: false)
+        shoot(22, "notes-downloading", .notes, fullHeight: true)
+        n.downloads.stage(model: .done, speakers: .done, declined: false)
         n.supportsRecording = false
         n.unsupportedMessage = NotesLogic.unsupportedMessage(OperatingSystemVersion(majorVersion: 13, minorVersion: 6, patchVersion: 0))
         shoot(20, "notes-unsupported", .notes, fullHeight: true)

@@ -39,17 +39,25 @@ final class NotesModel: ObservableObject {
     var openKeySettings: (() -> Void)?
     /// Asks before deleting; replaced in tests. Default: NSAlert (see below).
     var confirmDelete: () -> Bool = NotesModel.askBeforeDeleting
+    /// Fixes the headers of WAV files left by a crash, so "Finish notes" can read all the audio. Set by live();
+    /// a no-op in previews and tests.
+    var repairAudio: (URL) -> Void = { _ in }
+
+    /// The optional first-use downloads (larger speech model, speaker models) offered on the Notes list.
+    let downloads: NoteDownloads
 
     private var timer: Timer?
     /// The last step written to note.json, so the disk is written once per step, not ten times a second.
     private var lastStep: WritingStep = .saving
 
     init(store: NoteStore, capture: MeetingCapture, pipeline: NotesPipeline, assistant: NoteAssistant? = nil,
+         downloads: NoteDownloads = NoteDownloads(environment: .inert),
          os: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion) {
         self.store = store
         self.capture = capture
         self.pipeline = pipeline
         self.assistant = assistant ?? NoteAssistant(store: store)
+        self.downloads = downloads
         supportsRecording = NotesLogic.supportsRecording(os)
         unsupportedMessage = NotesLogic.unsupportedMessage(os)
         // The list shows each note's action item count.
@@ -57,7 +65,13 @@ final class NotesModel: ObservableObject {
     }
 
     static func live() -> NotesModel {
-        NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: UnbuiltCapture(), pipeline: UnbuiltPipeline())
+        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: LocalNotesPipeline(),
+                           downloads: NoteDownloads(environment: .live()))
+        model.repairAudio = { folder in
+            let fixed = WavRepair.repairAll(in: folder)
+            Self.log("repaired \(fixed) leftover audio file(s)")
+        }
+        return model
     }
 
     static let previewRoot = FileManager.default.temporaryDirectory
@@ -107,6 +121,7 @@ final class NotesModel: ObservableObject {
     // MARK: - List
 
     func refresh() {
+        downloads.refresh()
         let all = store.list()
         // A finished note must not keep its audio: if talkflow stopped between saving a transcript and deleting the
         // audio, the next look at the list finishes the job.
@@ -172,8 +187,16 @@ final class NotesModel: ObservableObject {
 
     private func tick() {
         guard var s = session, case .recording = s.phase else { stopTimer(); return }
-        s.phase = .recording(capture.levels())
+        let l = capture.levels()
+        s.phase = .recording(l)
         session = s
+        if l.stoppedByItself {
+            // The capture already closed its files (disk nearly full); finish the meeting the normal way and keep
+            // the reason on screen.
+            stop()
+            problem = l.problem
+            Self.log("recording stopped by itself")
+        }
     }
 
     func stop() {
@@ -390,6 +413,7 @@ final class NotesModel: ObservableObject {
             return
         }
         if store.hasAudio(id) {
+            repairAudio(store.audioFolder(for: id))
             runPipeline(id)
             route = .session
             return
@@ -403,6 +427,8 @@ final class NotesModel: ObservableObject {
     // MARK: - Quit
 
     func appWillTerminate() {
+        // The helper's prepare is a child process and must not outlive the app.
+        downloads.cancel()
         if isRecording, let id = session?.noteID {
             stopTimer()
             let d = capture.stop()

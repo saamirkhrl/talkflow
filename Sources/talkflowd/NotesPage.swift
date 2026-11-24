@@ -15,6 +15,128 @@ struct NotesPage: View {
     }
 }
 
+/// The first-use offer for the two optional downloads. Its own view so the model's published changes redraw it.
+private struct NotesDownloadsCard: View {
+    @ObservedObject var downloads: NoteDownloads
+    let enabled: Bool
+
+    private struct Item {
+        let name: String
+        let reason: String
+        let mb: Int
+        let state: NoteDownloadState
+    }
+
+    private var items: [Item] {
+        let all = [
+            Item(name: "More accurate notes", reason: "A larger speech model, about \(NoteDownloadsLogic.modelMB) MB.",
+                 mb: NoteDownloadsLogic.modelMB, state: downloads.model),
+            Item(name: "Tells the other voices apart", reason: "Speaker models, about \(NoteDownloadsLogic.speakersMB) MB.",
+                 mb: NoteDownloadsLogic.speakersMB, state: downloads.speakers),
+        ]
+        let anyActive = [downloads.model, downloads.speakers].contains { NoteDownloadsLogic.busy($0) || NoteDownloadsLogic.needed($0) }
+        return all.filter { $0.state != .unavailable && ($0.state != .done || anyActive) }
+    }
+
+    private var anyBusy: Bool { NoteDownloadsLogic.busy(downloads.model) || NoteDownloadsLogic.busy(downloads.speakers) }
+    private var anyFailed: Bool { downloads.model == .failed || downloads.speakers == .failed }
+
+    var body: some View {
+        if enabled && downloads.showsCard {
+            let listed = items
+            AppCard {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(listed.count == 1 ? "Better notes with one download" : "Better notes with two downloads")
+                        .font(AppFont.bodyMedium)
+                        .foregroundColor(Palette.ink)
+                    Text("talkflow can download these once. They stay on this Mac. Without them, notes use the speech model you already have and label the other voices Everyone else.")
+                        .font(AppFont.caption)
+                        .foregroundColor(Palette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, AppMetrics.rowH)
+                .padding(.vertical, AppMetrics.rowV)
+                ForEach(Array(listed.enumerated()), id: \.offset) { _, item in
+                    RowDivider()
+                    row(item)
+                }
+                RowDivider()
+                buttons
+                    .padding(.horizontal, AppMetrics.rowH)
+                    .padding(.vertical, AppMetrics.rowV)
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    private func row(_ item: Item) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name).font(AppFont.body).foregroundColor(Palette.ink)
+                Text(item.reason)
+                    .font(AppFont.caption)
+                    .foregroundColor(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            status(item)
+        }
+        .padding(.horizontal, AppMetrics.rowH)
+        .padding(.vertical, AppMetrics.rowV)
+    }
+
+    @ViewBuilder private func status(_ item: Item) -> some View {
+        switch item.state {
+        case .downloading(let f):
+            let label = NoteDownloadsLogic.progressLabel(fraction: f, totalMB: item.mb)
+            VStack(alignment: .trailing, spacing: 4) {
+                AppMeter(value: f).frame(width: 140)
+                Text(label).font(AppFont.caption).foregroundColor(Palette.muted).monospacedDigit()
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(item.name), \(label)")
+        case .done:
+            Text("Downloaded").font(AppFont.caption).foregroundColor(Palette.muted)
+        case .failed:
+            Text("Didn't finish").font(AppFont.caption).foregroundColor(Palette.warn)
+        case .absent, .unavailable:
+            Text("\(item.mb) MB").font(AppFont.caption).foregroundColor(Palette.muted)
+        }
+    }
+
+    private var buttons: some View {
+        HStack(spacing: 10) {
+            if anyBusy {
+                Button("Cancel") { downloads.cancel() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+            } else {
+                Button(anyFailed ? "Try again" : "Download") { downloads.download() }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .help("Downloads from Hugging Face, the same place talkflow's speech model comes from.")
+                Button("Not now") { downloads.decline() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// After "Not now": one link under the list brings the offer back while something is still missing.
+private struct NotesDownloadsReoffer: View {
+    @ObservedObject var downloads: NoteDownloads
+
+    var body: some View {
+        if downloads.showsReofferLink {
+            Button("Download the models for better notes") { downloads.reoffer() }
+                .buttonStyle(AppLinkButtonStyle())
+                .font(AppFont.caption)
+        } else {
+            EmptyView()
+        }
+    }
+}
+
 private struct NotesListPage: View {
     @ObservedObject var model: NotesModel
     let scrolls: Bool
@@ -32,12 +154,14 @@ private struct NotesListPage: View {
                 }
                 availabilityNotice
                 ForEach(model.leftovers, id: \.id) { m in leftoverNotice(m, now: now) }
+                NotesDownloadsCard(downloads: model.downloads, enabled: model.supportsRecording)
                 if !model.keyInUse { keyBanner }
                 meetings(now: now)
                 Text("Notes are saved in your talkflow folder on this Mac. The audio is deleted as soon as the transcript is ready.")
                     .font(AppFont.caption)
                     .foregroundColor(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
+                if model.supportsRecording { NotesDownloadsReoffer(downloads: model.downloads) }
             }
         }
     }
