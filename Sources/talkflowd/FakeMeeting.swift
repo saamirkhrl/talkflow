@@ -4,9 +4,12 @@ import CoreAudio
 import Foundation
 
 // `talkflowd --fakemeeting [folder] [--dry-run] [--fake-pipeline] [--notes-model PATH] [--speaker-helper PATH]
-// [--speaker-models DIR] [--server PATH]`: records a made-up meeting for real (played
+// [--speaker-models DIR] [--server PATH] [--misaligned]`: records a made-up meeting for real (played
 // through the Mac's speakers), writes notes through the app's real pipeline seam, then scores them against the
-// truth. --dry-run plays nothing and copies the fixture's 16 kHz files in place of captured audio. Exit codes:
+// truth. --dry-run plays nothing and copies the fixture's 16 kHz files in place of captured audio. With --dry-run,
+// --misaligned instead writes them the way a bad first meeting leaves them: the computer's sound starts 12 s after the
+// microphone and the microphone has an 8 s break, so the pipeline's track alignment is tested and the truth is scored
+// shifted. Exit codes:
 // 0 PASS, 1 FAIL or refused, 2 fixture missing or bad, 130 interrupted. The four path flags override what the app
 // would use, so a test can run the real pipeline on test copies of the models and leave the user's models folder alone.
 
@@ -20,6 +23,7 @@ struct FakeMeetingOptions: Equatable {
     var speakerHelper: URL?
     var speakerModels: URL?
     var server: String?
+    var misaligned = false
 
     static let defaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/talkflow/test-fixtures/fakemeeting", isDirectory: true)
@@ -41,7 +45,8 @@ struct FakeMeetingOptions: Equatable {
                                   notesModel: value("--notes-model").map { URL(fileURLWithPath: $0) },
                                   speakerHelper: value("--speaker-helper").map { URL(fileURLWithPath: $0) },
                                   speakerModels: value("--speaker-models").map { URL(fileURLWithPath: $0, isDirectory: true) },
-                                  server: value("--server"))
+                                  server: value("--server"),
+                                  misaligned: arguments.contains("--misaligned"))
     }
 }
 
@@ -188,6 +193,34 @@ enum FMThresholds {
     }
 }
 
+// MARK: - Misaligned dry run
+
+/// The shape of a bad first meeting, for --dry-run --misaligned. Pure.
+enum FMMisalign {
+    /// Seconds the system track starts after the microphone: the first-meeting permission prompt takes 5 to 30 s.
+    static let lateStart = 12.0
+    /// A microphone break longer than GapRule.padMax (5 s), so the capture marks a segment instead of padding.
+    static let breakSeconds = 8.0
+
+    /// The middle of the first pause of at least 0.5 s that starts at or after 60 s, so the break lands between
+    /// two utterances. A running end keeps overlapping utterances from faking a gap. Nil when there is none.
+    static func breakAt(_ utterances: [(start: Double, end: Double)]) -> Double? {
+        let sorted = utterances.sorted { $0.start < $1.start }
+        var runningEnd = -Double.infinity
+        for u in sorted {
+            if runningEnd >= 60.0 && u.start - runningEnd >= 0.5 { return (runningEnd + u.start) / 2 }
+            runningEnd = max(runningEnd, u.end)
+        }
+        return nil
+    }
+
+    /// Fixture time to the pipeline's common axis.
+    static func shift(_ t: Double, breakAt b: Double) -> Double {
+        let after: Double = t >= b ? breakSeconds : 0
+        return t + lateStart + after
+    }
+}
+
 // MARK: - Stand-ins
 
 /// --dry-run capture: copies the fixture's 16 kHz tracks into the note's audio folder, plus the timelines and
@@ -197,14 +230,25 @@ final class FixtureCapture: MeetingCapture {
     private let fixture: URL
     private var recording = false
     private var duration = 0.0
+    private let misaligned: Bool
+    private let breakAt: Double
 
-    init(fixture: URL) { self.fixture = fixture }
+    /// `breakAt` (fixture seconds) matters only when `misaligned`.
+    init(fixture: URL, misaligned: Bool = false, breakAt: Double = 0) {
+        self.fixture = fixture
+        self.misaligned = misaligned
+        self.breakAt = breakAt
+    }
 
     var unavailableReason: String? { nil }
     var microphoneName: String { "fake meeting fixture" }
     var isRecording: Bool { recording }
 
     func start(into folder: URL) throws {
+        if misaligned {
+            try startMisaligned(into: folder)
+            return
+        }
         let hostStart = CaptureClock.nowSeconds()
         let fm = FileManager.default
         var samples: [Int64] = []
@@ -232,6 +276,67 @@ final class FixtureCapture: MeetingCapture {
                                       micSamples: samples[0], systemSamples: samples[1], finalComputerAudio: "receiving")
         do { try info.write(to: folder) } catch { throw NotesError(message: "The fake meeting files couldn't be copied.") }
         duration = Double(max(samples[0], samples[1])) / 16000
+        recording = true
+    }
+
+    /// Writes the two tracks as a late permission prompt and a microphone break leave them. The microphone file is
+    /// one contiguous file (the break exists only in its timeline, as in the real capture, which marks a segment and
+    /// pads nothing); the system file carries the break as silence so both stay on one axis.
+    private func startMisaligned(into folder: URL) throws {
+        let failed = NotesError(message: "The fake meeting files couldn't be written.")
+        let rate = 16000
+        let hostStart = CaptureClock.nowSeconds()
+        let late = FMMisalign.lateStart
+        let brk = FMMisalign.breakSeconds
+        let mic = WavSamples.read(fixture.appendingPathComponent("mic_speakers.wav"))
+        let sys = WavSamples.read(fixture.appendingPathComponent("system.wav"))
+        let cut = min(Int((breakAt * Double(rate)).rounded()), mic.count, sys.count)
+        let lateZeros = [Int16](repeating: 0, count: Int(late * Double(rate)))
+        let breakZeros = [Int16](repeating: 0, count: Int(brk * Double(rate)))
+        let micCut = Int(((late + breakAt) * Double(rate)).rounded())
+
+        let youURL = folder.appendingPathComponent(CaptureFolder.mic)
+        let othersURL = folder.appendingPathComponent(CaptureFolder.system)
+        do {
+            let you = try StreamingWav(url: youURL)
+            _ = you.append(lateZeros)
+            _ = you.append(Array(mic[0..<cut]))
+            _ = you.append(Array(mic[cut...]))
+            let youLength = Int(you.finish())
+
+            let others = try StreamingWav(url: othersURL)
+            _ = others.append(Array(sys[0..<cut]))
+            _ = others.append(breakZeros)
+            _ = others.append(Array(sys[cut...]))
+            let othersLength = Int(others.finish())
+
+            // The microphone timeline: the break is a segment line, then the chunk at the same index, as TrackSink writes.
+            let youLine = try TrackTimeline(url: folder.appendingPathComponent(CaptureFolder.micTimeline))
+            for i in stride(from: 0, to: micCut, by: rate) {
+                youLine.write(["k": "chunk", "idx": Int64(i), "host": hostStart + Double(i) / Double(rate)])
+            }
+            youLine.write(["k": "segment", "idx": Int64(micCut), "gapSec": brk])
+            for i in stride(from: micCut, to: youLength, by: rate) {
+                youLine.write(["k": "chunk", "idx": Int64(i), "host": hostStart + brk + Double(i) / Double(rate)])
+            }
+            youLine.close()
+
+            // The system track began `late` seconds after the microphone and ran without a break.
+            let othersLine = try TrackTimeline(url: folder.appendingPathComponent(CaptureFolder.systemTimeline))
+            for i in stride(from: 0, to: othersLength, by: rate) {
+                othersLine.write(["k": "chunk", "idx": Int64(i), "host": hostStart + late + Double(i) / Double(rate)])
+            }
+            othersLine.close()
+
+            let info = CaptureSessionInfo(started: Date(), hostStart: hostStart,
+                                          routes: [.init(atSeconds: 0, route: .speakers)], systemAudioMode: "fixture",
+                                          micSamples: Int64(youLength), systemSamples: Int64(othersLength),
+                                          finalComputerAudio: "receiving")
+            try info.write(to: folder)
+            duration = Double(max(youLength, othersLength)) / Double(rate) + brk
+        } catch {
+            throw failed
+        }
         recording = true
     }
 
@@ -463,10 +568,22 @@ enum FakeMeeting {
         let o = FakeMeetingOptions.parse(arguments)
         say("--- fakemeeting (\(o.dryRun ? "dry run" : "live")), pipeline: \(o.fakePipeline ? "fake: the truth word for word" : "the app's") ---")
         let mode = o.dryRun ? "dry run" : "live"
+        if o.misaligned && !o.dryRun {
+            say("--misaligned needs --dry-run.")
+            appLog("usage: misaligned without dry run")
+            finish(2)
+        }
         // Refuse before anything else when the given model is not there (same style as a missing fixture).
         if let m = o.notesModel, !FileManager.default.fileExists(atPath: m.path) {
             say("The notes model given with --notes-model is not there.")
             appLog("notes model missing")
+            finish(2)
+        }
+
+        // The fake pipeline returns the unshifted truth, so scoring it against the shifted truth would always fail.
+        if o.misaligned && o.fakePipeline {
+            say("--misaligned needs the real pipeline, not --fake-pipeline.")
+            appLog("usage: misaligned with fake pipeline")
             finish(2)
         }
 
@@ -546,6 +663,7 @@ enum FakeMeeting {
         // The same pipeline class and config the app uses, with only the file locations swapped.
         let pipeline: NotesPipeline = truthPipeline ?? LocalNotesPipeline(makeConfig: {
             var c = LocalNotesPipeline.liveConfig()
+            c.port = NotesEngine.testPort   // never the app's port or command line
             if let m = o.notesModel { c.model = m }
             if let h = o.speakerHelper { c.speakerHelper = h }
             if let d = o.speakerModels { c.speakerModels = d }
@@ -560,7 +678,27 @@ enum FakeMeeting {
             let sv = o.server.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "app default"
             say("pipeline files: model \(m), speaker helper \(h), speaker models \(d), server \(sv)")
         }
-        let capture: MeetingCapture = o.dryRun ? FixtureCapture(fixture: o.folder) : MeetingRecorder()
+        // --misaligned: where in the fixture the microphone break goes, and the truth moved onto the pipeline's axis.
+        var breakTime = 0.0
+        if o.misaligned {
+            let spans: [(start: Double, end: Double)] = truth.utterances.map { (start: $0.start, end: $0.end) }
+            guard let b = FMMisalign.breakAt(spans) else {
+                refuse("--misaligned needs a pause of at least 0.5 s after the first minute of the meeting, and the truth has none.",
+                       category: "misaligned: no pause")
+            }
+            breakTime = b
+            say(String(format: "misaligned: system starts %.1f s late, microphone break %.1f s at %.1f s (fixture time)",
+                       FMMisalign.lateStart, FMMisalign.breakSeconds, b))
+        }
+        var scoredTruth = truth.utterances
+        if o.misaligned {
+            for i in scoredTruth.indices {
+                scoredTruth[i].start = FMMisalign.shift(scoredTruth[i].start, breakAt: breakTime)
+                scoredTruth[i].end = FMMisalign.shift(scoredTruth[i].end, breakAt: breakTime)
+            }
+        }
+        let capture: MeetingCapture = o.dryRun
+            ? FixtureCapture(fixture: o.folder, misaligned: o.misaligned, breakAt: breakTime) : MeetingRecorder()
         let store = NoteStore(root: notesRoot)
         let model = NotesModel(store: store, capture: capture, pipeline: pipeline)
         model.confirmDelete = { false }
@@ -736,12 +874,16 @@ enum FakeMeeting {
                            end: $0.end - offset, text: $0.text)
                 }
                 turnCount = turns.count
-                let score = FMScorer.score(turns: turns, truth: truth.utterances, mic: "speakers")
+                let score = FMScorer.score(turns: turns, truth: scoredTruth, mic: "speakers")
                 for line in FMReport.lines(score) { say(line) }
                 outcome = FMThresholds.outcome(score, notesReady: true, audioGone: audioGone, writeSeconds: writeSeconds,
                                                meetingSeconds: meetingSeconds, peakMB: peakMB)
                 summary(score, outcome: outcome, skew: skew)
-                crossCheck(score, folder: o.folder, turns: turns)
+                if o.misaligned {
+                    say("score.py cross-check skipped (--misaligned shifts the truth)")
+                } else {
+                    crossCheck(score, folder: o.folder, turns: turns)
+                }
             } else {
                 say("The transcript could not be read back.")
             }
