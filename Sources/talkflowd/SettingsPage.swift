@@ -134,7 +134,7 @@ final class SettingsModel: ObservableObject {
         let corrections: String
         if !aiCorrections { corrections = "Built-in rules only" }
         else if polishAvailable { corrections = "Apple Intelligence, on this Mac" }
-        else if correctionsUseClaude { corrections = "\(claudeModel.title), your key" }
+        else if correctionsUseClaude { corrections = "\(CorrectionModel.claudeModelTitle), your key" }
         else { corrections = "Built-in rules only" }
         return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections)]
     }
@@ -218,11 +218,11 @@ struct SettingsPage: View {
                         // Experimental and off by default: the binding reads off while
                         // no model is available, so the switch never looks on when it
                         // cannot run.
-                        // Says where the words go: on this Mac, or to Anthropic with the user's key.
+                        // Says where the words go: on this Mac, or to Anthropic with the user's key, and which Claude model.
                         toggleRow("AI corrections (experimental)",
                                   help: "When you change your mind mid-sentence, tries to remove the words you took back. Never adds or changes a word, but can sometimes remove one you meant."
                                       + (model.polishAvailable ? " Runs on this Mac with Apple Intelligence."
-                                         : model.correctionsUseClaude ? " Uses Claude with your Anthropic key: your words are sent to Anthropic and billed to your account."
+                                         : model.correctionsUseClaude ? " Uses \(CorrectionModel.claudeModelTitle) with your Anthropic key, whichever model punctuation uses: your words are sent to Anthropic and billed to your account."
                                          : " Needs Apple Intelligence."),
                                   isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
                                                 set: { model.aiCorrections = $0 }))
@@ -258,7 +258,7 @@ struct SettingsPage: View {
                         keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
                         RowDivider()
                         toggleRow("Use my Anthropic key for punctuation", medium: false,
-                                  help: "Claude does this in place of AI punctuation. Billed to your account." + (!model.polishAvailable && model.aiCorrections ? " With AI corrections on, Claude also does those, in a second billed request." : ""),
+                                  help: "Claude does this in place of AI punctuation. Billed to your account." + (!model.polishAvailable && model.aiCorrections ? " With AI corrections on, \(CorrectionModel.claudeModelTitle) also does those, in a second billed request." : ""),
                                   isOn: $model.useClaude)
                             .disabled(!model.hasAnthropicKey)
                         if model.useClaude && model.hasAnthropicKey {
