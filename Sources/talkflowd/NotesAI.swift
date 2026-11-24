@@ -118,6 +118,11 @@ struct NotesAccess: Equatable {
     }
 }
 
+extension NotesAccess {
+    /// Posted when "Use my key for meeting notes" changes or a key is removed.
+    static let changed = Notification.Name("talkflow.notesAccessChanged")
+}
+
 // MARK: - Errors
 
 /// Everything that can go wrong, in categories. The transcript is never touched by any of them.
@@ -235,7 +240,10 @@ enum NotesAI {
     static let maxSummaryTokens = 720_000
     /// - Ask sends the whole transcript every time (cached), up to 600,000 estimated tokens (about 27 hours),
     ///   which leaves room under 922K for history and the answer.
+    /// Ask can send up to 600K estimated tokens, so a question on a long meeting crosses `priceStepTokens`.
     static let maxAskTokens = 600_000
+    /// Haiku 5.5 charges more per token for a prompt above this size, so the Ask tab says so for long meetings.
+    static let priceStepTokens = 100_000
 
     /// Output budgets. Adaptive thinking (on by default for Sonnet and Opus 5.5) counts against max_tokens, so
     /// these are generous; a summary itself is 1,000 to 3,000 tokens.
@@ -317,6 +325,27 @@ enum NotesAI {
 
     static func askFooter(_ access: NotesAccess) -> String {
         "Answers come from \(access.model.shortTitle) with your key. Each question sends this transcript to \(access.provider.name)."
+    }
+
+    /// Shown under the Ask footer for a long meeting. Same size estimate the client uses to send the transcript.
+    static func askCostHint(lines: [String]) -> String? {
+        let estimate = lines.reduce(0) { $0 + estimateTokens($1) + 1 }
+        return estimate > priceStepTokens ? "This is a long meeting, so each question costs more than usual." : nil
+    }
+
+    /// "Write again" starts from a fresh summary, so ticks the user made would be lost. An item that has exactly
+    /// the same owner and task as a done item in the old summary stays done; anything reworded starts undone.
+    static func carryingDone(from old: NoteSummary?, into new: NoteSummary) -> NoteSummary {
+        guard let old else { return new }
+        let done = old.actionItems.filter { $0.done }
+        var result = new
+        for i in result.actionItems.indices {
+            let item = result.actionItems[i]
+            if done.contains(where: { $0.owner == item.owner && $0.task == item.task }) {
+                result.actionItems[i].done = true
+            }
+        }
+        return result
     }
 
     static func confirmTitle(_ provider: NotesProvider) -> String {

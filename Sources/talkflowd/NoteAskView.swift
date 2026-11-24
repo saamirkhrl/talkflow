@@ -20,6 +20,13 @@ struct NoteAskView: View {
                         .font(AppFont.caption)
                         .foregroundColor(Palette.muted)
                         .fixedSize(horizontal: false, vertical: true)
+                    // Computed once per body, the same way the client builds the transcript it sends.
+                    if let hint = NotesAI.askCostHint(lines: NotesAI.transcriptLines(turns, speakers: meta.speakers)) {
+                        Text(hint)
+                            .font(AppFont.caption)
+                            .foregroundColor(Palette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }

@@ -51,7 +51,13 @@ final class SettingsModel: ObservableObject {
     }
     /// "Use my key for meeting notes". Off until the user flips it: saving a key
     /// does not turn it on, because sending a transcript away is its own decision.
-    @Published var useKeyForNotes = Preferences.notesUseKey { didSet { Preferences.notesUseKey = useKeyForNotes } }
+    @Published var useKeyForNotes = Preferences.notesUseKey {
+        didSet {
+            Preferences.notesUseKey = useKeyForNotes
+            // Lets a running summary or question stop now, not only refuse its next send.
+            NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
+        }
+    }
     @Published var notesAnthropicModel = SettingsModel.storedNotesModel(Preferences.notesAnthropicModel, .anthropic) {
         didSet { Preferences.notesAnthropicModel = notesAnthropicModel.rawValue }
     }
@@ -197,6 +203,7 @@ final class SettingsModel: ObservableObject {
             // sending the words to Anthropic for corrections again.
             if !polishAvailable { aiCorrections = false }
         }
+        NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
     }
 
     func uninstall() {

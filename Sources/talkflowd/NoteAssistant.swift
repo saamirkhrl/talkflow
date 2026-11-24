@@ -58,6 +58,10 @@ final class NoteAssistant: ObservableObject {
     private var summaryJobs: [String: NotesCancel] = [:]
     private var askJob: NotesCancel?
     private var askNoteID: String?
+    /// The provider each running job was started with, so a change of access can tell which jobs it affects.
+    private var summaryJobProviders: [String: NotesProvider] = [:]
+    private var askProvider: NotesProvider?
+    private var accessObserver: NSObjectProtocol?
     private var highlightToken = 0
 
     init(store: NoteStore, client: NotesAIClient = .live(), access: @escaping () -> NotesAccess? = NotesAccess.current,
@@ -68,6 +72,42 @@ final class NoteAssistant: ObservableObject {
         self.access = access
         self.confirmedProvider = confirmedProvider
         self.setConfirmedProvider = setConfirmedProvider
+        // The client asks this before every send, so a switch turned off (or a key removed) stops the next send
+        // and any retry; accessChanged() below stops the request already in flight.
+        self.client.allowed = { [weak self] provider in self?.access()?.provider == provider }
+        accessObserver = NotificationCenter.default.addObserver(forName: NotesAccess.changed, object: nil, queue: .main) { [weak self] _ in
+            self?.accessChanged()
+        }
+    }
+
+    deinit {
+        if let accessObserver { NotificationCenter.default.removeObserver(accessObserver) }
+    }
+
+    /// The switch or a key changed: stop every job that was started with a provider that is no longer the one in
+    /// use, and drop a waiting confirmation when nothing may be sent at all.
+    func accessChanged() {
+        let now = access()?.provider
+        var stopped = 0
+        for (id, provider) in summaryJobProviders where provider != now {
+            summaryJobs[id]?.cancel()
+            summaryJobs[id] = nil
+            summaryJobProviders[id] = nil
+            summaryPhases[id] = .failed(.noKey, retryAt: nil)
+            stopped += 1
+        }
+        if let provider = askProvider, provider != now {
+            askJob?.cancel()
+            askJob = nil
+            askNoteID = nil
+            askProvider = nil
+            if let q = asking { askFailure = AskFailure(question: q, error: .noKey, retryAt: nil) }
+            asking = nil
+            partialAnswer = ""
+            stopped += 1
+        }
+        if now == nil, pending != nil { cancelPending() }
+        if stopped > 0 { Self.log("\(stopped) request(s) stopped, key switch off or key removed") }
     }
 
     var currentAccess: NotesAccess? { access() }
@@ -88,6 +128,7 @@ final class NoteAssistant: ObservableObject {
         askJob?.cancel()
         askJob = nil
         askNoteID = nil
+        askProvider = nil
         openID = id
         summary = id.flatMap { store.summary($0) }
         questions = id.flatMap { store.questions($0)?.entries } ?? []
@@ -129,6 +170,7 @@ final class NoteAssistant: ObservableObject {
         guard let t = store.transcript(id), !t.turns.isEmpty, let meta = store.meta(id) else { return }
         if case .writing = phase(for: id) { return }
         summaryPhases[id] = .writing(step: 1, total: 1)
+        summaryJobProviders[id] = a.provider
         summaryJobs[id] = client.writeSummary(
             access: a, transcript: t, speakers: meta.speakers,
             progress: { [weak self] s, n in self?.summaryPhases[id] = .writing(step: s, total: n) },
@@ -137,8 +179,11 @@ final class NoteAssistant: ObservableObject {
 
     private func summaryFinished(_ id: String, _ result: Result<NoteSummary, NotesAIError>) {
         summaryJobs[id] = nil
+        summaryJobProviders[id] = nil
         switch result {
-        case .success(let s):
+        case .success(let written):
+            // "Write again" must not lose the ticks on items that came back unchanged.
+            let s = NotesAI.carryingDone(from: store.summary(id), into: written)
             do {
                 try store.save(s, for: id)
             } catch {
@@ -178,6 +223,7 @@ final class NoteAssistant: ObservableObject {
         askFailure = nil
         askDraft = ""
         askNoteID = id
+        askProvider = a.provider
         askJob = client.ask(
             access: a, transcript: t, speakers: meta.speakers, history: questions, question: q,
             onText: { [weak self] in self?.partialAnswer = $0 },
@@ -187,6 +233,7 @@ final class NoteAssistant: ObservableObject {
     private func askFinished(_ id: String, _ q: String, _ result: Result<NoteQuestions.Entry, NotesAIError>) {
         askJob = nil
         askNoteID = nil
+        askProvider = nil
         guard openID == id else { return }
         switch result {
         case .success(let entry):
@@ -257,11 +304,13 @@ final class NoteAssistant: ObservableObject {
     func forget(_ id: String) {
         summaryJobs[id]?.cancel()
         summaryJobs[id] = nil
+        summaryJobProviders[id] = nil
         summaryPhases[id] = nil
         if askNoteID == id {
             askJob?.cancel()
             askJob = nil
             askNoteID = nil
+            askProvider = nil
             asking = nil
             partialAnswer = ""
         }

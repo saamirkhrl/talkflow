@@ -65,6 +65,10 @@ enum NoteAssistantSelfTest {
         let assistant: NoteAssistant
         var confirmed: String?
         var saved: [String] = []
+        /// What the assistant sees as its access; a case switches it to model the key switch going off.
+        var accessNow: () -> NotesAccess? = { nil }
+        /// Retry bodies the client handed to `sleep` while `holdRetries` is on.
+        var heldRetries: [() -> Void] = []
 
         init(replies: [CannedNotesTransport.Reply], access: @escaping () -> NotesAccess?, confirmed: String?) {
             root = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -75,9 +79,10 @@ enum NoteAssistantSelfTest {
             client.sleep = { _, body in body() }
             client.jitter = { 0 }
             self.confirmed = confirmed
+            self.accessNow = access
             // The closures capture a placeholder until `self` is complete, so build via a box.
             let box = Box()
-            assistant = NoteAssistant(store: store, client: client, access: access,
+            assistant = NoteAssistant(store: store, client: client, access: { box.env?.accessNow() },
                                       confirmedProvider: { box.env?.confirmed },
                                       setConfirmedProvider: { box.env?.confirmed = $0 })
             box.env = self
@@ -85,6 +90,17 @@ enum NoteAssistantSelfTest {
         }
 
         private final class Box { weak var env: Env? }
+
+        /// A retry wait stores its body instead of running it, so the case decides when (and whether) it runs.
+        func holdRetries() {
+            assistant.client.sleep = { [weak self] _, body in self?.heldRetries.append(body) }
+        }
+
+        /// Models the switch going off (or the key leaving) and tells the assistant, as Settings does.
+        func switchAccess(to next: @escaping () -> NotesAccess?) {
+            accessNow = next
+            NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
+        }
 
         /// A ready note with transcript T and speakers SP.
         func makeNote() -> String {
@@ -296,6 +312,103 @@ enum NoteAssistantSelfTest {
             check(started && e.assistant.asking == nil && e.store.questions(first) == nil && e.assistant.questions.isEmpty,
                   "AS12 load cancels the ask", "started \(started) asking \(String(describing: e.assistant.asking))")
             gone(e, "AS12", check: check)
+        }
+
+        let limited = CannedNotesTransport.Reply.http(
+            status: 429, headers: ["Retry-After": "5"],
+            body: #"{"type":"error","error":{"type":"rate_limit_error","message":"x"}}"#)
+
+        // AS13 a summary waiting in a retry stops when the switch goes off, and the retry sends nothing.
+        do {
+            let e = Env(replies: [limited, goodReply], access: on, confirmed: "anthropic")
+            e.holdRetries()
+            let id = e.makeNote()
+            e.assistant.transcriptSaved(id)
+            spin(5) { !e.heldRetries.isEmpty }
+            let waiting = e.heldRetries.count == 1 && e.transport.requests.count == 1
+            e.switchAccess(to: off)
+            spinFor(0.05)
+            let stopped = e.assistant.phase(for: id) == .failed(.noKey, retryAt: nil)
+            e.heldRetries.forEach { $0() }
+            spinFor(0.2)
+            check(waiting && stopped && e.transport.requests.count == 1 && e.store.summary(id) == nil
+                    && e.assistant.phase(for: id) == .failed(.noKey, retryAt: nil) && e.saved.isEmpty,
+                  "AS13 summary in a retry stops when the switch goes off",
+                  "waiting \(waiting) stopped \(stopped) requests \(e.transport.requests.count) phase \(e.assistant.phase(for: id))")
+            gone(e, "AS13", check: check)
+        }
+
+        // AS14 the same for a question waiting in a retry.
+        do {
+            let e = Env(replies: [limited, streamReply("Lead with privacy [36].")], access: on, confirmed: "anthropic")
+            e.holdRetries()
+            let id = e.makeNote()
+            e.assistant.load(id)
+            e.assistant.askDraft = "What about the post?"
+            e.assistant.ask()
+            spin(5) { !e.heldRetries.isEmpty }
+            let waiting = e.heldRetries.count == 1 && e.assistant.asking != nil
+            e.switchAccess(to: off)
+            spinFor(0.05)
+            let stopped = e.assistant.askFailure?.error == .noKey && e.assistant.asking == nil
+                && e.assistant.askFailure?.question == "What about the post?"
+            e.heldRetries.forEach { $0() }
+            spinFor(0.2)
+            check(waiting && stopped && e.transport.requests.count == 1 && e.assistant.questions.isEmpty
+                    && e.store.questions(id) == nil && e.assistant.asking == nil,
+                  "AS14 question in a retry stops when the switch goes off",
+                  "waiting \(waiting) stopped \(stopped) requests \(e.transport.requests.count)")
+            gone(e, "AS14", check: check)
+        }
+
+        // AS15 the provider changes (Anthropic key removed, OpenAI left): the Anthropic job stops.
+        do {
+            let e = Env(replies: [limited, goodReply], access: on, confirmed: "anthropic")
+            e.holdRetries()
+            let id = e.makeNote()
+            e.assistant.transcriptSaved(id)
+            spin(5) { !e.heldRetries.isEmpty }
+            e.switchAccess(to: onOpenAI)
+            spinFor(0.05)
+            let stopped = e.assistant.phase(for: id) == .failed(.noKey, retryAt: nil)
+            e.heldRetries.forEach { $0() }
+            spinFor(0.2)
+            check(stopped && e.transport.requests.count == 1 && e.store.summary(id) == nil,
+                  "AS15 provider change stops the job",
+                  "stopped \(stopped) requests \(e.transport.requests.count)")
+            gone(e, "AS15", check: check)
+        }
+
+        // AS16 writing again keeps the tick on an item that came back unchanged, and drops it on a reworded one.
+        do {
+            let e = Env(replies: [goodReply], access: on, confirmed: "anthropic")
+            let id = e.makeNote()
+            e.assistant.load(id)
+            let first = NoteSummary(summary: "Old.", summaryTimes: [4],
+                                    actionItems: [NoteSummary.ActionItem(owner: "you", task: "Cut the demo video", time: 27, done: true)],
+                                    decisions: [], openQuestions: [],
+                                    provider: "Anthropic", model: "claude-haiku-5-5", written: Date(timeIntervalSince1970: 1_792_000_000), parts: 1)
+            try? e.store.save(first, for: id)
+            e.assistant.load(id)
+            e.assistant.writeSummary(id)
+            spin(5) { e.store.summary(id)?.summary != "Old." }
+            let kept = e.store.summary(id)?.actionItems.first?.done == true
+                && e.store.summary(id)?.actionItems.first?.task == "Cut the demo video"
+            gone(e, "AS16a", check: check)
+
+            let changedText = good.replacingOccurrences(of: "Cut the demo video", with: "Cut the long demo video")
+            let reply2 = CannedNotesTransport.Reply.http(
+                status: 200, headers: [:], body: json(["content": [["type": "text", "text": changedText]], "stop_reason": "end_turn"]))
+            let e2 = Env(replies: [reply2], access: on, confirmed: "anthropic")
+            let id2 = e2.makeNote()
+            try? e2.store.save(first, for: id2)
+            e2.assistant.load(id2)
+            e2.assistant.writeSummary(id2)
+            spin(5) { e2.store.summary(id2)?.summary != "Old." }
+            let dropped = e2.store.summary(id2)?.actionItems.first?.task == "Cut the long demo video"
+                && e2.store.summary(id2)?.actionItems.first?.done == false
+            check(kept && dropped, "AS16 write again keeps ticks on unchanged items", "kept \(kept) dropped \(dropped)")
+            gone(e2, "AS16", check: check)
         }
     }
 }

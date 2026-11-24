@@ -534,5 +534,30 @@ enum NotesAISelfTest {
         let d82 = NotesAI.disclosure(provider: "Anthropic", modelID: "claude-haiku-5-5")
         check(d82 == "Written by Claude Haiku 5.5 with your key. The transcript was sent to Anthropic. The audio never left this Mac.",
               "NA82 disclosure line", d82)
+
+        // NA90 "Write again" keeps a tick only for an item with the same owner and task.
+        func item(_ owner: String, _ task: String, _ done: Bool) -> NoteSummary.ActionItem {
+            NoteSummary.ActionItem(owner: owner, task: task, time: 1, done: done)
+        }
+        func summaryWith(_ items: [NoteSummary.ActionItem]) -> NoteSummary {
+            NoteSummary(summary: "S.", summaryTimes: [], actionItems: items, decisions: [], openQuestions: [],
+                        provider: "Anthropic", model: "claude-haiku-5-5", written: fixedNow, parts: 1)
+        }
+        let oldS = summaryWith([item("you", "A", true), item("s1", "B", false), item("s2", "C", true)])
+        let newS = summaryWith([item("you", "A", false), item("s1", "B", false), item("s2", "C changed", false), item("s3", "A", false)])
+        let carried = NotesAI.carryingDone(from: oldS, into: newS)
+        check(carried.actionItems.map { $0.done } == [true, false, false, false]
+                && carried.actionItems.map { $0.task } == newS.actionItems.map { $0.task }
+                && NotesAI.carryingDone(from: nil, into: newS) == newS,
+              "NA90 carryingDone", describe(carried.actionItems.map { $0.done }))
+
+        // NA91 the cost hint shows only past the price step, and is plain ASCII.
+        let shortLines = (0..<10).map { _ in "[0:04] You: Okay." }
+        let longLines = [String(repeating: "a", count: 260_000)]
+        let hint = NotesAI.askCostHint(lines: longLines)
+        check(NotesAI.askCostHint(lines: shortLines) == nil
+                && hint == "This is a long meeting, so each question costs more than usual."
+                && (hint ?? "").unicodeScalars.allSatisfy { $0.value >= 0x20 && $0.value < 0x7F },
+              "NA91 askCostHint", hint ?? "nil")
     }
 }
