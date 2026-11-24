@@ -134,7 +134,7 @@ enum EchoSelfTest {
     private static let stop: Set<String> = Set("""
         the a an and of to in is it that i we you for on with as was be at by this our or not but have had all
         so are from his her my me no she he they them its their there one what which when were would been if
-        """.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init))
+        """.split(whereSeparator: { (c: Character) -> Bool in c == " " || c == "\n" }).map { String($0) })
 
     /// score.py norm_text: lowercase, hyphens and em dashes split words, only a-z 0-9 and apostrophes kept
     /// (apostrophes dropped).

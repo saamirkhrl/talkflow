@@ -96,14 +96,21 @@ enum NotesPipelineChecks {
         p = PauseCutter.cut(signal(15, [(1, 4), (10, 13)]))
         rec(matches(p, [(0.8, 4.2), (9.8, 13.2)]), "PC T5 pause over 2 s always cuts", p, "[(0.8, 4.2), (9.8, 13.2)]")
 
-        let b6: [(Double, Double)] = (0..<10).map { m in (1 + 4.5 * Double(m), 5 + 4.5 * Double(m)) }
+        var b6: [(Double, Double)] = []
+        for m in 0..<10 {
+            let lo: Double = 1.0 + 4.5 * Double(m)
+            let hi: Double = 5.0 + 4.5 * Double(m)
+            b6.append((lo, hi))
+        }
         p = PauseCutter.cut(signal(47, b6))
         rec(matches(p, [(0.8, 27.7), (27.8, 45.7)]), "PC T6 two pieces at the 28 s limit", p, "[(0.8, 27.7), (27.8, 45.7)]")
 
         var b7: [(Double, Double)] = []
         for m in 0..<10 {
             let off = m < 4 ? 0.0 : 0.5
-            b7.append((1 + off + 4.5 * Double(m), 5 + off + 4.5 * Double(m)))
+            let lo: Double = 1.0 + off + 4.5 * Double(m)
+            let hi: Double = 5.0 + off + 4.5 * Double(m)
+            b7.append((lo, hi))
         }
         p = PauseCutter.cut(signal(48, b7))
         rec(matches(p, [(0.8, 18.7), (19.3, 46.2)]), "PC T7 splits at the longest gap", p, "[(0.8, 18.7), (19.3, 46.2)]")
@@ -194,8 +201,11 @@ enum NotesPipelineChecks {
 
     /// Word i gets the times [t0 + 0.3 i, t0 + 0.3 (i + 1)], like the reference self-test.
     private static func seg(_ text: String, _ t0: Double) -> TimedSegment {
-        let ws = text.split(separator: " ").enumerated().map {
-            TimedWord(text: String($1), start: t0 + 0.3 * Double($0), end: t0 + 0.3 * Double($0 + 1))
+        var ws: [TimedWord] = []
+        for (i, word) in text.split(separator: " ").enumerated() {
+            let a: Double = t0 + 0.3 * Double(i)
+            let b: Double = t0 + 0.3 * Double(i + 1)
+            ws.append(TimedWord(text: String(word), start: a, end: b))
         }
         return TimedSegment(start: t0, end: t0 + 0.3 * Double(ws.count), text: text, words: ws)
     }
