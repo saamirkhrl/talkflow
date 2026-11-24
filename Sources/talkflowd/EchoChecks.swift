@@ -165,5 +165,26 @@ enum EchoChecks {
         let n5 = 5 * fs
         let res7 = EchoStage.run(mic: Array(micI1[0..<n5]), system: Array(refI1[0..<n5]), headphones: false)
         check(res7.bypass == .noEcho && res7.samples == Array(micI1[0..<n5]), "EC E7 5 s input: gate closed, samples identical", "\(String(describing: res7.bypass))")
+
+        // G1-G5 the near-end gate: frames the canceller emptied are zeroed, frames with speech are not.
+        var rngG = RNG(state: 0x6A7E_0001_2026_1123)
+        let rawG = toInt16(noiseLike(2 * fs, rms: 0.05, &rngG))
+        func scaled(_ x: [Int16], _ gain: Double, upTo: Int = Int.max) -> [Int16] {
+            x.enumerated().map { $0.offset < upTo ? Int16((Double($0.element) * gain).rounded()) : $0.element }
+        }
+        let g1 = NearEndGate.apply(raw: rawG, cleaned: scaled(rawG, 0.01))
+        check(g1.samples.allSatisfy { $0 == 0 } && abs(g1.zeroedSeconds - 2.0) <= 0.01,
+              "EC G1 echo only (-40 dB) is zeroed whole (\(f(g1.zeroedSeconds, 2)) s)", "\(g1.zeroedSeconds)")
+        let g2 = NearEndGate.apply(raw: rawG, cleaned: rawG)
+        check(g2.samples == rawG && g2.zeroedSeconds == 0, "EC G2 nothing removed: unchanged", "\(g2.zeroedSeconds)")
+        let cleanedG3 = scaled(rawG, 0.01, upTo: fs)
+        let g3 = NearEndGate.apply(raw: rawG, cleaned: cleanedG3)
+        check(g3.samples[0..<(fs - 320)].allSatisfy { $0 == 0 } && Array(g3.samples[(fs + 320)...]) == Array(cleanedG3[(fs + 320)...]),
+              "EC G3 echo then speech: the first second is zeroed, the speech kept (\(f(g3.zeroedSeconds, 2)) s)", "\(g3.zeroedSeconds)")
+        let g4 = NearEndGate.apply(raw: rawG, cleaned: scaled(rawG, 0.5))
+        check(g4.samples == scaled(rawG, 0.5) && g4.zeroedSeconds == 0, "EC G4 -6 dB removed: unchanged", "\(g4.zeroedSeconds)")
+        let silence = [Int16](repeating: 0, count: 2 * fs)
+        let g5 = NearEndGate.apply(raw: silence, cleaned: silence)
+        check(g5.samples == silence && g5.zeroedSeconds == 0, "EC G5 digital silence: unchanged", "\(g5.zeroedSeconds)")
     }
 }

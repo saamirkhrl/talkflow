@@ -214,7 +214,12 @@ enum WhisperReply {
                     words.append(TimedWord(text: trimmed, start: start, end: end))
                 } else {
                     words[words.count - 1].text += trimmed
-                    words[words.count - 1].end = end
+                    // A trailing "..." or "," token carries whisper's stretched end time (measured on the fake
+                    // meeting: "and..." ran 8 s into the noise after it), so only tokens with letters or digits
+                    // move the word's end.
+                    if trimmed.unicodeScalars.contains(where: CharacterSet.alphanumerics.contains) {
+                        words[words.count - 1].end = end
+                    }
                 }
             }
             // Tokens without times: the echo rule spreads the words uniformly instead.

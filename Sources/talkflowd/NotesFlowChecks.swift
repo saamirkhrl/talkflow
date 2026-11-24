@@ -74,5 +74,17 @@ enum NotesFlowChecks {
         let leaky = Transcript(turns: [TranscriptTurn(speaker: "you", start: 0, end: 1, text: "so the launch moves to march")])
         check(!NotesFlow.logLeaks(log: "notes written: 12 turns, 3 speakers", transcript: clean), "NF10 counts are not a leak")
         check(NotesFlow.logLeaks(log: "x so the launch moves y", transcript: leaky), "NF10 three words in a row are a leak")
+
+        // NF11: segment times come from the word times; without words the whisper times stay.
+        let nfWords = [TimedWord(text: "one", start: 1.0, end: 1.4), TimedWord(text: "two", start: 2.0, end: 2.6)]
+        let nfPiece = CutPiece(start: 100, end: 120, speech: 5, hardStart: false, hardEnd: false)
+        let nfWith = NotesJob.timed([WhisperSegment(start: 0, end: 10, text: "one two", words: nfWords, avgLogprob: nil, noSpeechProb: nil)], piece: nfPiece)
+        let nfWithout = NotesJob.timed([WhisperSegment(start: 0, end: 10, text: "one two", words: [], avgLogprob: nil, noSpeechProb: nil)], piece: nfPiece)
+        let nfShort = NotesJob.timed([WhisperSegment(start: 0, end: 10, text: "one two", words: [], avgLogprob: nil, noSpeechProb: nil)],
+                                     piece: CutPiece(start: 100, end: 104, speech: 3, hardStart: false, hardEnd: false))
+        check(nfWith.count == 1 && near(nfWith[0].start, 101.0) && near(nfWith[0].end, 102.6)
+              && nfWithout.count == 1 && near(nfWithout[0].start, 100.0) && near(nfWithout[0].end, 110.0)
+              && nfShort.count == 1 && near(nfShort[0].end, 104.0),
+              "NF11 segment times follow the word times", "\(nfWith.map { [$0.start, $0.end] }) \(nfWithout.map { [$0.start, $0.end] })")
     }
 }

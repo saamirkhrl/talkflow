@@ -92,6 +92,61 @@ enum HallucinationGuard {
         return Cleaned(segments: kept, dropped: dropped, inaudible: inaudible)
     }
 
+    /// Whisper sometimes repeats its initial prompt on near-silent audio (measured: the fake meeting, 8 times on
+    /// residual echo). Removes every run of 4 or more consecutive words that also occur consecutively in the prompt.
+    static let promptRunWords = 4
+
+    private static func normalise(_ token: Substring) -> String {
+        String(token.lowercased().filter { $0.isLetter || $0.isNumber })
+    }
+
+    static func stripPrompt(_ segments: [WhisperSegment], prompt: String) -> (segments: [WhisperSegment], removed: Int) {
+        let promptWords = prompt.split(whereSeparator: { $0.isWhitespace }).map(normalise).filter { !$0.isEmpty }
+        if promptWords.count < promptRunWords { return (segments, 0) }
+        var out: [WhisperSegment] = []
+        var removed = 0
+        for original in segments {
+            let tokens = original.text.split(whereSeparator: { $0.isWhitespace })
+            let norm = tokens.map(normalise)
+            var drop = [Bool](repeating: false, count: tokens.count)
+            var i = 0
+            while i < tokens.count {
+                if norm[i].isEmpty { i += 1; continue }
+                // the longest prompt stretch starting at token i (empty-normalised tokens are skipped)
+                var bestEnd = -1   // index of the last token of the best run
+                var bestWords = 0
+                for start in promptWords.indices where promptWords[start] == norm[i] {
+                    var t = i
+                    var p = start
+                    var lastMatch = i
+                    var matched = 0
+                    while t < tokens.count && p < promptWords.count {
+                        if norm[t].isEmpty { t += 1; continue }
+                        if norm[t] != promptWords[p] { break }
+                        matched += 1
+                        lastMatch = t
+                        t += 1
+                        p += 1
+                    }
+                    if matched > bestWords { bestWords = matched; bestEnd = lastMatch }
+                }
+                if bestWords >= promptRunWords {
+                    for k in i...bestEnd { drop[k] = true }
+                    i = bestEnd + 1
+                } else {
+                    i += 1
+                }
+            }
+            if !drop.contains(true) { out.append(original); continue }
+            removed += 1
+            var segment = original
+            segment.text = zip(tokens, drop).filter { !$0.1 }.map { String($0.0) }.joined(separator: " ")
+            segment.words = []
+            if segment.text.contains(where: { $0.isLetter || $0.isNumber }) { out.append(segment) }
+        }
+        return (out, removed)
+    }
+
     private static func collapse(_ text: String) -> String {
         text.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
     }

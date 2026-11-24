@@ -225,6 +225,8 @@ enum NotesPipelineHarness {
             "pieces_others": stats.piecesOthers,
             "retries": stats.retries,
             "splits": stats.splits,
+            "near_end_gate_seconds": stats.nearEndZeroedSeconds,
+            "prompt_echoes": stats.promptEchoes,
             "dropped": stats.dropped,
             "inaudible": stats.inaudible,
             "rule_removed_words": stats.ruleRemovedWords,

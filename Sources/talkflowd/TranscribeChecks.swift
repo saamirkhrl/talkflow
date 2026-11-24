@@ -72,6 +72,21 @@ enum TranscribeChecks {
               "TP3 segment without words", "")
         check(WhisperReply.parse(Data("not json".utf8)) == nil, "TP4 invalid JSON is nil", "")
 
+        // P1-P5 the prompt echo.
+        let pr = "I use talkflow, a dictation app."
+        let longPrompt = "I'm Samir, and I use talkflow, a dictation app. Names and words here: Halvorsen, Pedalpoint."
+        let p1 = guardNo.stripPrompt([seg("I use talkflow, a dictation app.")], prompt: pr)
+        check(p1.segments.isEmpty && p1.removed == 1, "TG P1 the prompt alone is dropped", "\(p1)")
+        let p2 = guardNo.stripPrompt([seg("Thank you. I use talkflow, a dictation app.", words: [TimedWord(text: "Thank", start: 0, end: 0.2)])], prompt: pr)
+        check(p2.segments.count == 1 && p2.segments[0].text == "Thank you." && p2.segments[0].words.isEmpty && p2.removed == 1,
+              "TG P2 the prompt after real words is cut off", "\(p2)")
+        let p3 = guardNo.stripPrompt([seg("We use talkflow every day.")], prompt: pr)
+        check(p3.segments == [seg("We use talkflow every day.")] && p3.removed == 0, "TG P3 a short overlap stays", "\(p3)")
+        let p4 = guardNo.stripPrompt([seg("Halvorsen Design sent the quote.")], prompt: longPrompt)
+        check(p4.segments == [seg("Halvorsen Design sent the quote.")] && p4.removed == 0, "TG P4 a name from the prompt stays", "\(p4)")
+        let p5 = guardNo.stripPrompt([seg("and I use talkflow a dictation")], prompt: longPrompt)
+        check(p5.segments.isEmpty && p5.removed == 1, "TG P5 a 6-word run without punctuation is dropped", "\(p5)")
+
         let wav = WavData.make([1, -2, 3][...])
         func tag(_ at: Int) -> String { String(decoding: wav[at..<at + 4], as: UTF8.self) }
         func u32(_ at: Int) -> Int { (0..<4).reduce(0) { $0 | Int(wav[at + $1]) << (8 * $1) } }

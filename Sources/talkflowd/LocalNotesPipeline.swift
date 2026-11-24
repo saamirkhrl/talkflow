@@ -33,6 +33,10 @@ struct NotesJobStats {
     var splits = 0
     var dropped = 0
     var inaudible = 0
+    /// Seconds the near-end gate zeroed (0 when it was not applied).
+    var nearEndZeroedSeconds = 0.0
+    /// Whisper replies where the initial prompt was repeated and stripped.
+    var promptEchoes = 0
     var ruleRemovedWords = 0
     var pausedSeconds = 0.0
     /// Keys: echo, speakers, cut, engine_start, transcribe, rule, total (seconds).
@@ -150,6 +154,11 @@ final class NotesJob {
         if !micRaw.isEmpty && !sys.isEmpty {
             let result = EchoStage.run(mic: micRaw, system: sys, headphones: headphones)
             mic = result.samples
+            if result.bypass == nil {
+                let gated = NearEndGate.apply(raw: micRaw, cleaned: result.samples)
+                mic = gated.samples
+                stats.nearEndZeroedSeconds = gated.zeroedSeconds
+            }
             switch result.bypass {
             case .headphones?: stats.echoGate = "headphones"
             case .noEcho?: stats.echoGate = "noEcho"
@@ -305,11 +314,18 @@ final class NotesJob {
             let thr = item.track == "you" ? thrYou : thrOthers
             let length = piece.end - piece.start
             let reply = try send(slice(track, piece.start, piece.end), seconds: length, temperature: nil)
-            let c0 = HallucinationGuard.clean(reply, fromRetry: false)
+            func cleanReply(_ replySegments: [WhisperSegment], fromRetry: Bool) -> HallucinationGuard.Cleaned {
+                var c = HallucinationGuard.clean(replySegments, fromRetry: fromRetry)
+                let stripped = HallucinationGuard.stripPrompt(c.segments, prompt: config.prompt)
+                c.segments = stripped.segments
+                stats.promptEchoes += stripped.removed
+                return c
+            }
+            let c0 = cleanReply(reply, fromRetry: false)
             var candidates = [c0]
             if HallucinationGuard.needsRetry(words: HallucinationGuard.wordCount(c0.segments), speech: piece.speech) {
                 stats.retries += 1
-                let c1 = HallucinationGuard.clean(
+                let c1 = cleanReply(
                     try send(slice(track, piece.start, piece.end), seconds: length, temperature: 0.4), fromRetry: true)
                 candidates.append(c1)
                 if HallucinationGuard.needsRetry(words: HallucinationGuard.wordCount(c1.segments), speech: piece.speech) {
@@ -325,7 +341,7 @@ final class NotesJob {
                             second[k].words[w].end += s - piece.start
                         }
                     }
-                    candidates.append(HallucinationGuard.clean(first + second, fromRetry: false))
+                    candidates.append(cleanReply(first + second, fromRetry: false))
                 }
             }
             let chosen = candidates[HallucinationGuard.best(candidates)]
@@ -361,7 +377,7 @@ final class NotesJob {
     /// timestamps came back (start and end both 0) on a piece longer than 0.5 s, the segment gets the whole piece.
     static func timed(_ segments: [WhisperSegment], piece: CutPiece) -> [TimedSegment] {
         func clamp(_ t: Double) -> Double { min(max(t, piece.start), piece.end) }
-        return segments.map { segment in
+        func timedOne(_ segment: WhisperSegment) -> TimedSegment {
             if segment.start == 0 && segment.end == 0 && piece.end - piece.start > 0.5 {
                 return TimedSegment(start: piece.start, end: piece.end, text: segment.text,
                                     words: segment.words.map {
@@ -373,6 +389,16 @@ final class NotesJob {
                 words: segment.words.map {
                     TimedWord(text: $0.text, start: clamp($0.start + piece.start), end: clamp($0.end + piece.start))
                 })
+        }
+        return segments.map { segment in
+            var t = timedOne(segment)
+            // Whisper stretches a segment to the end of its 30 s window, so the turn appeared to run over the
+            // silence or noise after it: the word times say when the speech really ended.
+            if let first = t.words.first, let last = t.words.last, last.end > first.start {
+                t.start = first.start
+                t.end = last.end
+            }
+            return t
         }
     }
 
@@ -432,10 +458,10 @@ final class NotesJob {
 
     private static func log(_ s: NotesJobStats) {
         func f(_ v: Double?) -> String { v.map { String(format: "%.2f", $0) } ?? "-" }
-        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, \(f(s.timings["echo"])) s")
+        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, near_end_gate_seconds \(f(s.nearEndZeroedSeconds)), \(f(s.timings["echo"])) s")
         print("talkflowd: notes: speakers engine \(s.speakerEngine), count \(s.speakerCount), reason \(s.speakerReason ?? "-"), \(f(s.timings["speakers"])) s")
         print("talkflowd: notes: pieces you \(s.piecesYou), others \(s.piecesOthers), cut \(f(s.timings["cut"])) s, audio \(f(s.audioSeconds)) s, speech \(f(s.speechSeconds)) s")
-        print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")
+        print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), prompt echoes \(s.promptEchoes), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")
         print("talkflowd: notes: engine start \(f(s.timings["engine_start"])) s, transcribe \(f(s.timings["transcribe"])) s, rule removed \(s.ruleRemovedWords) words, \(f(s.timings["rule"])) s, total \(f(s.timings["total"])) s")
     }
 }
