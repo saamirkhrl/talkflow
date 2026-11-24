@@ -1,6 +1,6 @@
 import Foundation
 
-/// `talkflowd --correctiontest [dev|heldout|all|check] [text|span] [claude]` - measures the
+/// `talkflowd --correctiontest [dev|heldout|all|check] [text|span] [claude [<model id>]]` - measures the
 /// model step for spoken corrections (`CorrectionModel`) on synthetic sentences.
 ///
 /// Every case is a raw transcript, rendered with the rules first (`Dictation.render`)
@@ -15,13 +15,18 @@ import Foundation
 /// slow answers are still measured; `over_budget` says how many the real budget would
 /// have dropped. The first call of the process is the cold one and is not prewarmed.
 ///
-/// `claude` sends each case to Anthropic with the saved key and Claude model (billed;
-/// synthetic sentences only), never runs unless given, and needs the Keychain item
-/// readable (the key is read the way the app reads it, so a build that is not allowed
-/// to read it is refused or prompted by macOS; nothing here prints it).
+/// `claude` sends each case to Anthropic with the saved key (billed; synthetic sentences
+/// only) and never runs unless given. It uses the app's corrections model
+/// (`CorrectionModel.claudeModel`), or the model id given after it (any argument that
+/// starts with "claude-", e.g. `claude-haiku-5-5`), so another model can be measured
+/// without touching the saved settings. The key is read the way the app reads it, so
+/// run it from the installed app: a fresh build is signed differently from the app that
+/// saved the Keychain item, and macOS would refuse it or show a prompt. Nothing here
+/// prints the key.
 ///
 /// Synthetic sentences only, so unlike the app's log this one may hold them. Results
-/// go to `$TMPDIR/talkflow-correctiontest.log` as well as stdout.
+/// go to `$TMPDIR/talkflow-correctiontest.log` only: the app sends stdout to its own
+/// log (main.swift), which must never hold test sentences.
 enum CorrectionSelfTest {
     struct Case { let id: String; let raw: String; let expected: String? }
 
@@ -90,7 +95,6 @@ enum CorrectionSelfTest {
         .appendingPathComponent("talkflow-correctiontest.log")
 
     private static func report(_ line: String) {
-        print(line)
         let data = Data((line + "\n").utf8)
         if let handle = try? FileHandle(forWritingTo: logURL) {
             handle.seekToEndOfFile()
@@ -130,22 +134,30 @@ enum CorrectionSelfTest {
         var set = "dev"
         var mode = CorrectionModel.mode
         var claude = false
+        var model = CorrectionModel.claudeModel
+        var modelGiven = false
         for argument in arguments {
             if ["dev", "heldout", "all", "check"].contains(argument) { set = argument }
             else if argument == "claude" { claude = true }
+            else if argument.hasPrefix("claude-") { model = argument; modelGiven = true }
             else if let parsed = CorrectionModel.Mode(rawValue: argument) { mode = parsed }
         }
         CorrectionModel.mode = mode
+        // A model id alone must not start billed calls: `claude` is always asked for by name.
+        if modelGiven && !claude {
+            report("a model id (\(model)) needs \"claude\" before it")
+            exit(2)
+        }
 
         if set == "check" { check() }
 
         if claude {
             guard APIKeys.hasKey(.anthropic) else {
-                report("mode: \(mode.rawValue)   set: \(set)   path: claude   no Anthropic key saved in the Keychain")
+                report("mode: \(mode.rawValue)   set: \(set)   path: claude (\(model))   no Anthropic key saved in the Keychain")
                 exit(2)
             }
             Task {
-                await measure(set: set, mode: mode, claude: true)
+                await measure(set: set, mode: mode, claude: true, model: model)
                 exit(0)
             }
             dispatchMain()
@@ -157,7 +169,7 @@ enum CorrectionSelfTest {
             exit(2)
         }
         Task {
-            await measure(set: set, mode: mode, claude: false)
+            await measure(set: set, mode: mode, claude: false, model: model)
             exit(0)
         }
         dispatchMain()
@@ -190,12 +202,12 @@ enum CorrectionSelfTest {
 
     /// One model call with the harness cap. Returns the reply or the failure
     /// category, and the seconds it took.
-    private static func timedAsk(_ text: String, mode: CorrectionModel.Mode, claude: Bool) async -> (reply: String?, failure: String?, elapsed: TimeInterval) {
+    private static func timedAsk(_ text: String, mode: CorrectionModel.Mode, claude: Bool, model: String) async -> (reply: String?, failure: String?, elapsed: TimeInterval) {
         let t0 = Date()
         if claude {
             // The app's Claude request, with the harness cap instead of the 4 s budget.
             let outcome: (String?, String?) = await withCheckedContinuation { continuation in
-                _ = CorrectionModel.askClaude(text, timeout: cap) { reply, failure in
+                _ = CorrectionModel.askClaude(text, model: model, timeout: cap) { reply, failure in
                     continuation.resume(returning: (reply, failure))
                 }
             }
@@ -222,9 +234,9 @@ enum CorrectionSelfTest {
         return (nil, "unavailable", Date().timeIntervalSince(t0))
     }
 
-    private static func measure(set: String, mode: CorrectionModel.Mode, claude: Bool) async {
+    private static func measure(set: String, mode: CorrectionModel.Mode, claude: Bool, model: String) async {
         let budget = claude ? CorrectionModel.claudeBudget : CorrectionModel.budget
-        report("--- correctiontest \(set) \(mode.rawValue) \(claude ? "claude" : "model") ---")
+        report("--- correctiontest \(set) \(mode.rawValue) \(claude ? "claude \(model)" : "model") ---")
         var calls = 0
         var coldElapsed: TimeInterval?
         var warm: [TimeInterval] = []
@@ -238,7 +250,7 @@ enum CorrectionSelfTest {
 
         /// One model call, with the cold/warm bookkeeping of step 5.
         func call(_ rules: String) async -> (reply: String?, failure: String?, elapsed: TimeInterval, cold: Bool) {
-            let result = await timedAsk(rules, mode: mode, claude: claude)
+            let result = await timedAsk(rules, mode: mode, claude: claude, model: model)
             let cold = calls == 0
             calls += 1
             if cold {
@@ -348,7 +360,7 @@ enum CorrectionSelfTest {
         let rejectionList = rejections.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
 
         report("")
-        report("mode: \(mode.rawValue)   set: \(set)   path: \(claude ? "claude (\(Preferences.claudeModel.rawValue))" : "on-device")   model available: yes")
+        report("mode: \(mode.rawValue)   set: \(set)   path: \(claude ? "claude (\(model))" : "on-device")   model available: yes")
         report("positives P01-P30: run=\(tallies[0].run) hit=\(tallies[0].hit) (\(pct(tallies[0].hit, of: tallies[0].run))%) unchanged=\(tallies[0].unchanged) rejected=\(tallies[0].rejected) wrong=\(tallies[0].wrong) timeout=\(tallies[0].timeout) failed=\(tallies[0].failed) precondition_fail=\(tallies[0].pre)")
         report("positives P31+: run=\(tallies[1].run) hit=\(tallies[1].hit) (\(pct(tallies[1].hit, of: tallies[1].run))%) unchanged=\(tallies[1].unchanged) rejected=\(tallies[1].rejected) wrong=\(tallies[1].wrong) timeout=\(tallies[1].timeout) failed=\(tallies[1].failed) precondition_fail=\(tallies[1].pre)")
         report("negatives: run=\(nRun) with_marker=\(nMarker) changed=\(nChanged) guard_saved=\(nSaved)")

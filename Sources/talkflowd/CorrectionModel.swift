@@ -41,6 +41,28 @@ enum CorrectionModel {
     static let budget: TimeInterval = 2.0
     /// The longest it waits for Claude (network plus a large model).
     static let claudeBudget: TimeInterval = 4.0
+
+    /// The Claude model for this step, fixed: it does not follow the punctuation
+    /// model picker (`Preferences.claudeModel`), because this step deletes words and
+    /// was measured on one model; a picker choice made for punctuation must not
+    /// quietly change how often words are deleted.
+    ///
+    /// Measured with `--correctiontest all text claude` (synthetic sentences, real 4 s
+    /// budget applied): claude-opus-5-5 found 25 of 30 rephrased corrections (3 of 3
+    /// "you know what" forms), wrongly changed 0 of 18 leave-alone sentences, applied
+    /// 0 wrong replies, and 2 of 49 replies were over budget (4.13 s and 4.01 s;
+    /// 1.65 s median warm, 2.66 s p95). The on-device model found 14 of 30 and changed 1 of 18.
+    ///
+    /// Not measured yet: claude-haiku-5-5 (cheaper, probably faster). To compare, run
+    /// `talkflowd --correctiontest all text claude claude-haiku-5-5` from the installed
+    /// app and switch this constant only if Haiku wrongly changes no more leave-alone
+    /// sentences, then finds at least as many corrections, then has no more replies over
+    /// the 4 s budget, in that order. A model id missing from `ClaudePolish.Model` also
+    /// needs a display name in `claudeModelTitle`.
+    static let claudeModel = "claude-opus-5-5"
+
+    /// The name Settings shows for `claudeModel`.
+    static var claudeModelTitle: String { ClaudePolish.Model(rawValue: claudeModel)?.title ?? claudeModel }
     /// Past this many words the step is skipped: text mode's reply grows with the input.
     static let maxWords = 150
     /// Words of the marker's sentence that must survive after a deleted run.
@@ -512,28 +534,28 @@ enum CorrectionModel {
 
     private static let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
 
-    /// The same request as `ClaudePolish.run`, with this step's prompt. Calls
+    /// The same request as `ClaudePolish.run`, with this step's prompt and its own model. Calls
     /// `completion` with the reply, or a failure category (never a response body or
     /// any text). Returns the task so the budget can cancel it.
-    static func askClaude(_ text: String, timeout: TimeInterval = claudeBudget, completion: @escaping (String?, String?) -> Void) -> URLSessionDataTask? {
+    static func askClaude(_ text: String, model: String = claudeModel, timeout: TimeInterval = claudeBudget, completion: @escaping (String?, String?) -> Void) -> URLSessionDataTask? {
         guard let key = APIKeys.key(for: .anthropic) else {
             completion(nil, "no API key")
             return nil
         }
-        let model = Preferences.claudeModel
         var body: [String: Any] = [
-            "model": model.rawValue,
+            "model": model,
             "max_tokens": 1024,
             "system": instructions(for: mode),
             "messages": [["role": "user", "content": prompt(for: text)]]
         ]
         var request = URLRequest(url: endpoint)
-        if model != .haiku {
-            // Thinking cannot be turned off on these models; low effort keeps
-            // it short. Haiku 4.5 takes no effort setting.
-            body["output_config"] = ["effort": "low"]
-            // A safety classifier declining dictated text re-runs it on the
-            // recommended fallback model instead of failing.
+        // Haiku 4.5 takes no effort setting; every later model thinks, and low
+        // effort keeps it short.
+        if model != ClaudePolish.Model.haiku.rawValue { body["output_config"] = ["effort": "low"] }
+        // A safety classifier declining dictated text re-runs it on the recommended
+        // fallback model instead of failing. Haiku models have no server-side
+        // fallback, so they are sent without one.
+        if !model.hasPrefix("claude-haiku") {
             body["fallbacks"] = "default"
             request.setValue("server-side-fallback-2026-07-01", forHTTPHeaderField: "anthropic-beta")
         }

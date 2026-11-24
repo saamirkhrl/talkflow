@@ -30,10 +30,11 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
-// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude]`.
-// `check` runs no model. `claude` sends each case to Anthropic with the saved key and Claude
-// model (billed; synthetic sentences only), never runs unless given, and needs the Keychain
-// item readable (see CorrectionSelfTest). Run from a build, not the installed app.
+// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude [<model id>]]`.
+// `check` runs no model. `claude` sends each case to Anthropic with the saved key and the
+// corrections model (`CorrectionModel.claudeModel`, or the id given after it, e.g.
+// claude-haiku-5-5); billed, synthetic sentences only, never runs unless given. Run it from
+// the installed app: only its signature may read the Keychain item without a prompt.
 if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
     CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
 }
