@@ -65,10 +65,12 @@ final class DashboardController: NSWindowController, NSWindowDelegate {
         set { model.openSetup = newValue }
     }
 
-    init(mode: Mode = .live) {
+    /// The live app passes AppDelegate's model so a recording outlives the window.
+    init(mode: Mode = .live, notes: NotesModel? = nil) {
         self.mode = mode
         let settings = SettingsModel(environment: mode == .live ? .live : .preview())
-        model = AppWindowModel(settings: settings, updatesEnabled: mode == .live)
+        let notesModel = notes ?? (mode == .live ? NotesModel.live() : NotesModel.preview())
+        model = AppWindowModel(settings: settings, updatesEnabled: mode == .live, notes: notesModel)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: AppMetrics.defaultSize),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],

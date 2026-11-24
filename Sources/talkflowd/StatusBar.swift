@@ -1,11 +1,12 @@
 import AppKit
 
 /// Minimal menu bar indicator: a bars glyph (matching the app icon) tinted by
-/// state. A left click opens the talkflow window; a right click or
-/// Control-click shows a short menu with Open talkflow, the writing style,
-/// Settings and Quit (and "Update to X.Y.Z..." while a newer version is
-/// available, "Finish setup..." while something setup gives talkflow is
-/// missing).
+/// state, with a small dot on it while a meeting is being recorded. A left
+/// click opens the talkflow window; a right click or Control-click shows a
+/// short menu with Open talkflow, the writing style, Settings and Quit (and
+/// "Update to X.Y.Z..." while a newer version is available, "Finish setup..."
+/// while something setup gives talkflow is missing, "Stop and write notes"
+/// while a meeting records).
 final class StatusBar: NSObject, NSMenuDelegate {
     enum State {
         case idle
@@ -42,12 +43,25 @@ final class StatusBar: NSObject, NSMenuDelegate {
     private let updateItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let lowerSeparator = NSMenuItem.separator()
     private let setupItem = NSMenuItem(title: "Finish setup...", action: nil, keyEquivalent: "")
+    /// A meeting is being recorded in Notes. Separate from `state`, which is dictation's: dictation keeps working
+    /// during a meeting, and only dictation should hold back the Dock icon change (DockIcon).
+    private(set) var meetingRecording = false
+    /// "Stop and write notes" in the right-click menu, shown only while a meeting records.
+    var onStopMeeting: (() -> Void)?
+    private let stopMeetingItem = NSMenuItem(title: "Stop and write notes", action: nil, keyEquivalent: "")
+    private let meetingSeparator = NSMenuItem.separator()
 
     override init() {
         Self.keepEarlierPlace()
         item = Self.makeItem()
         super.init()
         menu.delegate = self
+        stopMeetingItem.action = #selector(stopMeetingClicked)
+        stopMeetingItem.target = self
+        stopMeetingItem.isHidden = true
+        menu.addItem(stopMeetingItem)
+        meetingSeparator.isHidden = true
+        menu.addItem(meetingSeparator)
         menu.addItem(withTitle: "Open talkflow", action: #selector(dashboardClicked), keyEquivalent: "")
             .target = self
         // The same setting as on the Settings page, one click away.
@@ -112,12 +126,11 @@ final class StatusBar: NSObject, NSMenuDelegate {
         // No menu attached: an item with a menu opens it on every click, and
         // a left click must open the window instead.
         item?.menu = nil
-        button.image = Self.barsImage
-        button.image?.isTemplate = true
         button.target = self
         button.action = #selector(iconClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        setState(state)
+        // Through applyLook, so an icon re-made by `move` keeps the meeting look.
+        applyLook()
     }
 
     /// Left click opens the window; right click or Control-click shows the
@@ -259,6 +272,18 @@ final class StatusBar: NSObject, NSMenuDelegate {
         onUpdateClicked?()
     }
 
+    @objc private func stopMeetingClicked() {
+        onStopMeeting?()
+    }
+
+    /// Shows the meeting dot on the icon and "Stop and write notes" in the menu, or removes them.
+    func setMeetingRecording(_ on: Bool) {
+        meetingRecording = on
+        stopMeetingItem.isHidden = !on
+        meetingSeparator.isHidden = !on
+        applyLook()
+    }
+
     /// Shows "Update to X.Y.Z..." in the menu, or hides it (nil). The
     /// separator under it is decided when the menu opens.
     func setUpdate(version: String?) {
@@ -283,6 +308,13 @@ final class StatusBar: NSObject, NSMenuDelegate {
 
     func setState(_ state: State) {
         self.state = state
+        applyLook()
+        onStateChange?(state)
+    }
+
+    /// The icon as dictation's state and a running meeting make it.
+    private func applyLook() {
+        item?.button?.image = meetingRecording ? Self.meetingImage : Self.barsImage
         item?.button?.contentTintColor = state == .recording ? .systemRed : (state == .processing ? .systemOrange : nil)
         // No toolTip: talkflow is a menu bar (accessory) app, and a tooltip
         // shown over the icon was left on screen for good when it was
@@ -290,27 +322,45 @@ final class StatusBar: NSObject, NSMenuDelegate {
         // (see `move`). The tint already shows the state; VoiceOver reads it
         // from the accessibility label instead.
         item?.button?.toolTip = nil
-        item?.button?.setAccessibilityLabel(state.description)
-        onStateChange?(state)
+        item?.button?.setAccessibilityLabel(state.description + (meetingRecording ? ", recording a meeting" : ""))
+    }
+
+    /// Draws the 5-bar waveform mark, `shiftX` points to the right of centre.
+    private static func drawBars(in rect: NSRect, shiftX: CGFloat) {
+        let barCount = 5
+        let barWidth: CGFloat = 2.2
+        let spacing: CGFloat = 1.6
+        let totalWidth = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * spacing
+        let startX = (rect.width - totalWidth) / 2 + shiftX
+        let heights: [CGFloat] = [0.4, 0.65, 1.0, 0.65, 0.4]
+        NSColor.black.setFill()
+        for i in 0..<barCount {
+            let h = rect.height * heights[i]
+            let barRect = NSRect(x: startX + CGFloat(i) * (barWidth + spacing), y: (rect.height - h) / 2, width: barWidth, height: h)
+            NSBezierPath(roundedRect: barRect, xRadius: barWidth / 2, yRadius: barWidth / 2).fill()
+        }
     }
 
     /// Same 5-bar waveform mark as the app icon, drawn at menu bar size. Always a
     /// template image so contentTintColor can recolor it per state.
     private static let barsImage: NSImage = {
-        let size = NSSize(width: 18, height: 18)
-        let image = NSImage(size: size, flipped: false) { rect in
-            let barCount = 5
-            let barWidth: CGFloat = 2.2
-            let spacing: CGFloat = 1.6
-            let totalWidth = CGFloat(barCount) * barWidth + CGFloat(barCount - 1) * spacing
-            let startX = (rect.width - totalWidth) / 2
-            let heights: [CGFloat] = [0.4, 0.65, 1.0, 0.65, 0.4]
-            NSColor.black.setFill()
-            for i in 0..<barCount {
-                let h = rect.height * heights[i]
-                let barRect = NSRect(x: startX + CGFloat(i) * (barWidth + spacing), y: (rect.height - h) / 2, width: barWidth, height: h)
-                NSBezierPath(roundedRect: barRect, xRadius: barWidth / 2, yRadius: barWidth / 2).fill()
-            }
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            drawBars(in: rect, shiftX: 0)
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }()
+
+    /// The mark with a dot on it: the meeting sign. Template, so dictation's
+    /// red/orange tint still applies on top during a meeting. The bars sit 2pt
+    /// to the left to make room for the dot.
+    private static let meetingImage: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            drawBars(in: rect, shiftX: -2)
+            let d: CGFloat = 5
+            let center = CGPoint(x: rect.width - 3, y: rect.height - 3.5)
+            NSBezierPath(ovalIn: NSRect(x: center.x - d / 2, y: center.y - d / 2, width: d, height: d)).fill()
             return true
         }
         image.isTemplate = true

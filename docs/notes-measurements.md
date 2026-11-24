@@ -30,9 +30,26 @@ Choices that follow:
 
 - The WAV header is written by hand and patched every second, so a killed process leaves a
   repairable file.
-- Both tracks use the host clock and keep a small timeline file; a straight-line fit per track
-  aligns them after Stop. Gaps of 50 ms to 5 s are filled with silence, longer ones are marked as
-  a break.
+- Both tracks use the host clock and keep a small timeline file. Gaps of 50 ms to 5 s are filled
+  with silence, longer ones are marked as a break.
+- After Stop, before the echo stage, both tracks are put on one time axis, seconds since the
+  recording started (`TrackAlign`): each stretch between breaks is placed at the median of
+  (host time - sample index / 16000) over its timeline points, so equal sample index means equal
+  host time. A late start (the system track begins only when the permission prompt is answered,
+  5 to 30 s in) becomes leading silence; a break in one track becomes silence so later audio stays
+  in place; when neither track has audio for more than 5 s (sleep) the span is kept as 2 s and
+  the removed seconds are added back to every turn time. The transcript shows no marker across a
+  break: turn times simply jump. Recordings without timeline files are read as before.
+- Offsets only, no drift stretching. The real drift measured above (-8.3 to +2.1 ppm) is at most
+  60 ms over two hours, inside the echo stage's own delay and drift fit (0.5 s search) and the
+  transcript rule's 1.0 s pad, while straight-line fits over 10 to 20 s read hundreds of ppm from
+  converter jitter (microphone residuals up to 8.9 ms). A median offset ignores that jitter; the
+  fitted drift is only logged.
+- The tracks are read straight into their aligned place 1 MB at a time, so memory holds one copy
+  of each track (a two-hour track is 230 MB).
+- Checked by `--notestest` (TA1 to TA12) and by `--fakemeeting --dry-run --misaligned`: the
+  fixture recut so the system track starts 12 s late and the microphone has an 8 s break, with
+  timeline files written as the capture writes them, scored against the shifted truth.
 - Every Core Audio create, start and stop call runs on its own queue with a timeout. A pending
   permission prompt stalled `AudioDeviceStop` for more than 60 s in one run.
 
@@ -156,6 +173,27 @@ What turned out different from the plan:
 - The earlier failure on a 69 s clip did not reproduce, as one request or in pieces.
 - whisper.cpp's built-in voice detection needs its own model at startup and cannot say where to
   cut. It is not used.
+
+Speed on a dense meeting (the 8.9 minute fake meeting, 23 November 2026, turbo, this M-series Mac):
+
+- The whole pipeline took 0.19x real time on headphones (100 s; transcription 93 s of it), against
+  0.066x on the spike's hour. The difference is the number of pieces, not the speed of a piece:
+  77 requests for 502 s of speech, a mean of 6.5 s each, against 167 requests of 19.8 s for an hour.
+- Every request costs about 1.1 s whatever its length (fit over the 77 requests: 1.11 s + 0.0135 s
+  per second of audio). The server's own timings put 1.02 s of that in one encoder pass: whisper
+  always encodes a full 30 s window, so a 3 s piece costs the same as a 20 s one. Decoding is
+  about 2.5 ms per token.
+- `no_language_probabilities` matters: without it the server runs the encoder a second time per
+  request to detect the language (2.1 s per request measured). The pipeline already sends it.
+- `audio_ctx` sent with a request is ignored by the server (same 1.02 s encode); setting it for the
+  whole server would shorten the window for every piece, which whisper is known to transcribe less
+  reliably, so it was not tried.
+- Merging neighbouring pieces of the same speaker: only 3 of 73 turns qualify, each across a 3.8 to
+  10.7 s pause the cutter drops on purpose (silence is where whisper invents words). At most 3 s
+  saved. Not done.
+- The pieces are short because the turns are: they are cut at every speaker change so that each
+  piece has one speaker. Joining different speakers' pieces into one request would need the reply
+  split back by word times; not done without a measurement that the scores hold.
 
 ## 5. Summary and Ask
 

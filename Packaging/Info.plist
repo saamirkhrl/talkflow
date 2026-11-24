@@ -22,6 +22,8 @@
     <string>AppIcon</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>talkflow needs microphone access to transcribe your dictation on-device with Whisper.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>talkflow records the sound your Mac plays during a meeting you choose to record, so it can write the notes on this Mac. The audio never leaves your Mac.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>

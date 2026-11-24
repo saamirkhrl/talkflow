@@ -641,7 +641,7 @@ enum FinalPassEngine {
     private(set) static var isReady = false
     private static var isLaunching = false
     private static var process: Process?
-    private static var downloader: FileDownloader?
+    private static var downloader: NoteDownloadTask?
     private static var pendingUnload: DispatchWorkItem?
     /// From `warmUp` to `holdEnded`: a hold is in progress and will want the
     /// server at release.
@@ -665,14 +665,14 @@ enum FinalPassEngine {
         stop()
         guard Preferences.accurateFinalPass, downloader == nil, !modelIsComplete else { return }
         print("talkflowd: downloading the final-pass model in the background")
-        let download = FileDownloader(destination: modelPath, minimumBytes: minimumModelBytes, onProgress: { _ in }) { error in
-            DispatchQueue.main.async {
-                downloader = nil
-                if let error { print("talkflowd: final-pass model download failed: \(error.localizedDescription)") }
-            }
+        // Shared with the note taker, which fetches the same file; onFinish arrives on the main queue.
+        downloader = SharedFileDownloads.shared.fetch(
+            destination: modelPath, url: modelDownloadURL, minimumBytes: minimumModelBytes,
+            onProgress: { _ in }
+        ) { error in
+            downloader = nil
+            if let error { print("talkflowd: final-pass model download failed: \(error.localizedDescription)") }
         }
-        downloader = download
-        download.start(url: modelDownloadURL)
     }
 
     /// The key went down: start loading, so the server is ready by release.
@@ -881,6 +881,79 @@ struct EngineError: LocalizedError {
     let message: String
     init(_ message: String) { self.message = message }
     var errorDescription: String? { message }
+}
+
+/// One download per destination file, shared by every feature that wants it: the accurate final pass and the note
+/// taker fetch the same model file. Main thread only; callbacks are delivered through `deliver` (main queue live).
+final class SharedFileDownloads {
+    typealias Starter = (_ destination: URL, _ url: URL, _ minimumBytes: Int64,
+                         _ progress: @escaping (Double) -> Void, _ finish: @escaping (Error?) -> Void) -> NoteDownloadTask
+
+    static let shared = SharedFileDownloads(
+        starter: { d, u, m, p, f in
+            let x = FileDownloader(destination: d, minimumBytes: m, onProgress: p, onFinish: f)
+            x.start(url: u)
+            return x
+        },
+        deliver: { DispatchQueue.main.async(execute: $0) })
+
+    private final class Entry {
+        var task: NoteDownloadTask?
+        var subscribers: [UUID: (progress: (Double) -> Void, finish: (Error?) -> Void)] = [:]
+    }
+
+    /// A subscriber's handle: cancelling it only removes that subscriber, the download stops with the last one.
+    private final class Subscription: NoteDownloadTask {
+        private let onCancel: () -> Void
+        init(_ onCancel: @escaping () -> Void) { self.onCancel = onCancel }
+        func cancel() { onCancel() }
+    }
+
+    private let starter: Starter
+    private let deliver: (@escaping () -> Void) -> Void
+    private var entries: [String: Entry] = [:]
+
+    init(starter: @escaping Starter, deliver: @escaping (@escaping () -> Void) -> Void) {
+        self.starter = starter
+        self.deliver = deliver
+    }
+
+    private func key(_ destination: URL) -> String { destination.standardizedFileURL.path }
+
+    func isFetching(_ destination: URL) -> Bool { entries[key(destination)] != nil }
+
+    func fetch(destination: URL, url: URL, minimumBytes: Int64, onProgress: @escaping (Double) -> Void,
+               onFinish: @escaping (Error?) -> Void) -> NoteDownloadTask {
+        let k = key(destination)
+        let id = UUID()
+        if let existing = entries[k] {
+            existing.subscribers[id] = (onProgress, onFinish)
+        } else {
+            let entry = Entry()
+            entry.subscribers[id] = (onProgress, onFinish)
+            entries[k] = entry
+            // The entry is stored before the starter runs, so a starter that finishes at once still finds it.
+            entry.task = starter(destination, url, minimumBytes, { [weak self, weak entry] fraction in
+                self?.deliver {
+                    guard let self, let entry, self.entries[k] === entry else { return }
+                    for sub in Array(entry.subscribers.values) { sub.progress(fraction) }
+                }
+            }, { [weak self, weak entry] error in
+                self?.deliver {
+                    guard let self, let entry, self.entries[k] === entry else { return }
+                    self.entries[k] = nil   // first, so a subscriber that fetches again starts a new download
+                    for sub in Array(entry.subscribers.values) { sub.finish(error) }
+                }
+            })
+        }
+        return Subscription { [weak self] in
+            guard let self, let entry = self.entries[k], entry.subscribers.removeValue(forKey: id) != nil else { return }
+            if entry.subscribers.isEmpty {
+                self.entries[k] = nil
+                entry.task?.cancel()
+            }
+        }
+    }
 }
 
 /// Downloads one file with progress. The file only appears at its destination
