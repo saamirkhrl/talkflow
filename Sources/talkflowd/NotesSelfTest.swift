@@ -425,6 +425,9 @@ enum NotesSelfTest {
         NotesAISelfTest.run(check: check)
         NotesAIClientSelfTest.run(check: check)
         NoteAssistantSelfTest.run(check: check)
+        // --notesasktest's arguments, names, result shape and scores, and the real flow's one summary request.
+        NotesAskChecks.run { check($0, $1, $2) }
+        NotesSummaryFlowChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)

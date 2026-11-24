@@ -1,148 +1,109 @@
 import Foundation
 
-/// `talkflowd --notesasktest <transcript.json> [summary|ask "<question>"] [anthropic|openai]`
+/// `talkflowd --notesasktest <transcript.json> [summary | ask "<question>" | questions <truth.json>]
+///   [anthropic | openai] [--provider anthropic|openai] [--model <id>] [--speakers <names.json>]
+///   [--out <result.json>] [--score-out <summary.json>]`
 ///
-/// The real Summary or Ask request on a made-up transcript, with the key in the Keychain (billed). Nothing
-/// else in the app calls this. The result goes to $TMPDIR/talkflow-notesasktest.json; stdout and logs hold
-/// counts only, never transcript text.
+/// The real Summary or Ask requests on a made-up transcript, with the key in the Keychain (billed). Nothing
+/// else in the app calls this. All the logic lives in NotesAskRun (checked offline by NotesAskChecks); this is
+/// only the arguments in and the files out. The result goes to --out (default $TMPDIR/talkflow-notesasktest.json)
+/// and a summary in score.py's shape to --score-out; stdout holds counts only, never transcript, summary or
+/// answer text.
 enum NotesAskTest {
-    private static let usage = """
-    usage: talkflowd --notesasktest <transcript.json> [summary | ask "<question>"] [anthropic | openai]
-      transcript.json: {"turns":[{"speaker":"you","start":0,"end":5,"text":"..."}], "speakers":[{"key":"you"}]}
-    """
-
-    private struct Input: Decodable {
-        var schemaVersion: Int?
-        var turns: [TranscriptTurn]
-        var speakers: [NoteSpeaker]?
-    }
-
-    private struct Output: Encodable {
-        struct Failure: Encodable {
-            var category: String
-            var message: String
-        }
-        var mode: String
-        var provider: String
-        var model: String
-        var ok: Bool
-        var elapsedSeconds: Double
-        var error: Failure?
-        var summary: NoteSummary?
-        var question: String?
-        var answer: String?
-        var citations: [Double]?
-    }
-
     static func run(_ arguments: [String]) -> Never {
-        var rest = arguments
-        guard !rest.isEmpty else { fail(usage) }
-        let path = rest.removeFirst()
-
-        var forced: NotesProvider?
-        if let last = rest.last, last == "anthropic" || last == "openai" {
-            forced = last == "anthropic" ? .anthropic : .openAI
-            rest.removeLast()
-        }
-        var question: String?
-        switch rest.first {
-        case nil, "summary"?:
-            if rest.count > 1 { fail(usage) }
-        case "ask"?:
-            guard rest.count == 2, !rest[1].isEmpty else { fail(usage) }
-            question = rest[1]
-        default:
-            fail(usage)
+        let args: NotesAskRun.Args
+        switch NotesAskRun.parse(arguments) {
+        case .success(let parsed):
+            args = parsed
+        case .failure(let error):
+            fail("notesasktest: \(error.message)\n\(NotesAskRun.usage)")
         }
 
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
-              let input = try? JSONDecoder().decode(Input.self, from: data) else {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: args.transcript)),
+              let (transcript, readSpeakers) = NotesAskRun.readTranscript(data) else {
             fail("notesasktest: can't read that transcript file")
         }
-        let speakers = input.speakers ?? NotesLogic.speakers(for: input.turns, keeping: [])
-        let transcript = Transcript(turns: input.turns)
-        let mode = question == nil ? "summary" : "ask"
-        let started = Date()
+        var speakers = readSpeakers
+        var applied = 0
+        if let path = args.speakerMap {
+            guard let names = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let map = try? JSONDecoder().decode([String: String].self, from: names) else {
+                fail("notesasktest: can't read that names file")
+            }
+            let result = NotesAskRun.applyNames(map, to: speakers)
+            speakers = result.speakers
+            applied = result.applied
+            print("notesasktest: \(result.applied) speaker name(s) applied, \(result.ignored) ignored")
+        }
+
+        var truth: [NotesAskRun.TruthQuestion] = []
+        if case .questions(let path) = args.mode {
+            guard let truthData = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let questions = NotesAskRun.truthQuestions(truthData) else {
+                fail("notesasktest: can't read ask_questions from that truth file")
+            }
+            truth = questions
+        }
+
+        let outURL = args.out.map { URL(fileURLWithPath: $0) } ?? NotesAskRun.defaultOut
+        let scoreURL = args.scoreOut.map { URL(fileURLWithPath: $0) } ?? NotesAskRun.defaultScoreOut
 
         // The switch is on because running this flag is the opt-in: the orchestrator tests from the installed app
-        // before the switch exists in the owner's settings, and only ever with made-up transcripts.
+        // before the switch exists in the owner's settings, and only ever with made-up transcripts. The model is
+        // the cheapest of the provider (or --model); Settings' model choice is deliberately not used, so a test
+        // never bills the dearer model the owner picked for real notes.
         guard let access = NotesAccess.resolve(
             switchOn: true,
-            hasAnthropic: forced == .openAI ? { false } : { APIKeys.hasKey(.anthropic) },
-            hasOpenAI: forced == .anthropic ? { false } : { APIKeys.hasKey(.openAI) },
-            anthropicModel: Preferences.notesAnthropicModel, openAIModel: Preferences.notesOpenAIModel) else {
-            let output = Output(mode: mode, provider: "none", model: "none", ok: false, elapsedSeconds: 0,
-                                error: Output.Failure(category: NotesAIError.noKey.category,
-                                                      message: NotesAIError.noKey.message(forced ?? .anthropic, model: nil)))
-            finish(output, line: "notesasktest: failed, \(NotesAIError.noKey.category)")
+            hasAnthropic: args.provider == .openAI ? { false } : { APIKeys.hasKey(.anthropic) },
+            hasOpenAI: args.provider == .anthropic ? { false } : { APIKeys.hasKey(.openAI) },
+            anthropicModel: args.model?.rawValue, openAIModel: args.model?.rawValue) else {
+            let output = NotesAskRun.Output(
+                mode: args.mode.name, provider: "none", model: "none", ok: false,
+                error: NotesAskRun.Output.Failure(
+                    category: NotesAIError.noKey.category,
+                    message: NotesAIError.noKey.message(args.provider ?? .anthropic, model: nil)))
+            _ = write(output, to: outURL, scoreTo: scoreURL)
+            print("notesasktest: failed, \(NotesAIError.noKey.category)")
+            print("notesasktest: result in \(outURL.path)")
+            exit(1)
         }
 
-        var output = Output(mode: mode, provider: access.provider.name, model: access.model.rawValue, ok: false, elapsedSeconds: 0)
-        var line = ""
-        var done = false
-        func failed(_ error: NotesAIError) {
-            output.error = Output.Failure(category: error.category, message: error.message(access.provider, model: access.model))
-            line = "notesasktest: failed, \(error.category)"
-            done = true
-        }
-
-        let client = NotesAIClient.live()
-        if let question {
-            client.ask(access: access, transcript: transcript, speakers: speakers, history: [], question: question,
-                       onText: { _ in }, completion: { result in
-                switch result {
-                case .success(let entry):
-                    output.ok = true
-                    output.question = entry.question
-                    output.answer = entry.answer
-                    output.citations = entry.citations
-                    line = "notesasktest: ask ok, \(entry.citations.count) citation(s), \(seconds(since: started)) s, \(access.model.rawValue)"
-                    done = true
-                case .failure(let error):
-                    failed(error)
-                }
-            })
-        } else {
-            client.writeSummary(access: access, transcript: transcript, speakers: speakers, progress: { _, _ in },
-                                completion: { result in
-                switch result {
-                case .success(let summary):
-                    output.ok = true
-                    output.summary = summary
-                    line = "notesasktest: summary ok, \(summary.parts) part(s), \(summary.actionItems.count) action items, "
-                        + "\(seconds(since: started)) s, \(access.model.rawValue)"
-                    done = true
-                case .failure(let error):
-                    failed(error)
-                }
-            })
-        }
-
-        let deadline = Date().addingTimeInterval(600)
-        while !done && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
-        if !done { failed(.timedOut) }
-        output.elapsedSeconds = (Date().timeIntervalSince(started) * 10).rounded() / 10
-        finish(output, line: line)
+        var out = NotesAskRun.perform(client: .live(), access: access, transcript: transcript, speakers: speakers,
+                                      mode: args.mode, truth: truth)
+        out.speakerNamesApplied = applied
+        let wroteAll = write(out, to: outURL, scoreTo: scoreURL)
+        for line in NotesAskRun.lines(out) { print(line) }
+        print("notesasktest: result in \(outURL.path)")
+        if out.scoreSummary != nil && wroteAll { print("notesasktest: summary for score.py in \(scoreURL.path)") }
+        exit(out.ok ? 0 : 1)
     }
 
-    private static func seconds(since start: Date) -> String {
-        String(format: "%.1f", Date().timeIntervalSince(start))
+    /// Writes the result file and, when there is a summary, the score.py file. True when every file asked for was
+    /// written. Internal so NotesAskChecks can run it on a temporary folder.
+    static func write(_ out: NotesAskRun.Output, to: URL, scoreTo: URL) -> Bool {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        var ok = true
+        if let data = try? encoder.encode(out) {
+            do { try data.write(to: to, options: .atomic) } catch { ok = false }
+        } else {
+            ok = false
+        }
+        if let score = out.scoreSummary {
+            let scoreEncoder = JSONEncoder()
+            scoreEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            if let data = try? scoreEncoder.encode(score) {
+                do { try data.write(to: scoreTo, options: .atomic) } catch { ok = false }
+            } else {
+                ok = false
+            }
+        }
+        return ok
     }
 
     private static func fail(_ message: String) -> Never {
         print(message)
         exit(2)
-    }
-
-    /// Writes the result file, prints one counts-only line and the file's path, and exits 0 or 1.
-    private static func finish(_ output: Output, line: String) -> Never {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-notesasktest.json")
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(output) { try? data.write(to: url, options: .atomic) }
-        print(line)
-        print("notesasktest: result in \(url.path)")
-        exit(output.ok ? 0 : 1)
     }
 }
