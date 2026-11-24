@@ -403,6 +403,10 @@ enum NotesSelfTest {
         check(!fm.fileExists(atPath: rootURL.path), "S14 cleanup leaves no folder behind")
 
         CaptureChecks.run { check($0, $1, $2) }
+        NotesModelChecks.run { check($0, $1, $2) }
+        // The fake-meeting scorer against hand-made cases and, when the fixture and python3 are on this Mac,
+        // against the fixture's own score.py.
+        ScorerChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
