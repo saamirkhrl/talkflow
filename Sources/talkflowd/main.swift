@@ -174,6 +174,25 @@ if CommandLine.arguments.contains("--fakemeeting") {
     FakeMeeting.run(CommandLine.arguments)
 }
 
+// The speaker helper on the diarization spike's fixtures: error rate, speakers found and wall time.
+// Optional --helper <path> and --models <dir>. Results in $TMPDIR/talkflow-diarizetest.log; skips
+// with one line when the fixtures or the helper are absent.
+if CommandLine.arguments.contains("--diarizetest") {
+    DiarizeSelfTest.run(arguments: CommandLine.arguments)
+}
+
+// The whole after-Stop pipeline on two WAV files (mic, system), with a transcript JSON out. Numbers only on
+// stdout; takes the shared bench lock. See NotesPipelineHarness for the options (--check, --headphones, ...).
+if let index = CommandLine.arguments.firstIndex(of: "--notespipeline") {
+    NotesPipelineHarness.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
+// The offline echo canceller on the digital echo fixtures (folder optional). Numbers only, in
+// $TMPDIR/talkflow-echotest.log; skips with one line when the fixtures are absent.
+if let index = CommandLine.arguments.firstIndex(of: "--echotest") {
+    EchoSelfTest.run(folder: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
 // Opens the real app window from a build, on throwaway settings and sample
 // stats, to click around without installing. Starts no hotkey, recorder,
 // engine, updater or install count, and runs before the single-instance

@@ -109,10 +109,11 @@ final class FakePipeline: NotesPipeline {
                 } else {
                     completion(.finished(pieces: SampleNotes.fakePieces, duration: 0))
                 }
-            } else if f < 0.7 {
-                progress(WritingProgress(step: .transcribing, fraction: f / 0.7, secondsLeft: total - elapsed))
+            } else if f < 0.3 {
+                // Same order as the real pipeline: voices first, then transcribing.
+                progress(WritingProgress(step: .speakers, fraction: f / 0.3, secondsLeft: total - elapsed))
             } else {
-                progress(WritingProgress(step: .speakers, fraction: (f - 0.7) / 0.3, secondsLeft: total - elapsed))
+                progress(WritingProgress(step: .transcribing, fraction: (f - 0.3) / 0.7, secondsLeft: total - elapsed))
             }
         }
         RunLoop.main.add(t, forMode: .common)

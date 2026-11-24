@@ -226,7 +226,7 @@ enum NotesSelfTest {
                   NotesLogic.overallProgress(WritingProgress(step: .saving, fraction: 0, secondsLeft: nil)),
                   NotesLogic.overallProgress(WritingProgress(step: .finishing, fraction: 1, secondsLeft: nil)),
                   NotesLogic.overallProgress(WritingProgress(step: .speakers, fraction: 2, secondsLeft: nil))]
-        let w2Expected = [0.45, 0, 1, 0.75]
+        let w2Expected = [0.7, 0, 1, 0.5]   // steps: saving, speakers, transcribing, finishing
         check(zip(w2, w2Expected).allSatisfy { abs($0 - $1) < 1e-9 }, "W2 overallProgress", "\(w2)")
 
         let w3 = [NotesLogic.stepLabel(.saving, duration: 2520, done: true, summaryProvider: nil),
@@ -408,6 +408,11 @@ enum NotesSelfTest {
         // against the fixture's own score.py.
         ScorerChecks.run { check($0, $1, $2) }
         FakeMeetingChecks.run { check($0, $1, $2) }
+        NotesPipelineChecks.run { check($0, $1, $2) }
+        EchoChecks.run { check($0, $1, $2) }
+        TranscribeChecks.run { check($0, $1, $2) }
+        SpeakerChecks.run { check($0, $1, $2) }
+        NotesFlowChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)

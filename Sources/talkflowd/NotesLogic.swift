@@ -3,6 +3,9 @@ import Foundation
 /// The note taker's pure rules: assembly, speakers, labels, copy text. No I/O, so --notestest checks them.
 enum NotesLogic {
     static let youKey = "you"
+    /// The computer-audio track when the voices on it cannot be told apart (Intel Mac, macOS 13, the speaker helper
+    /// or its models missing, or the helper failed). Like "you", numberSpeakers leaves it alone.
+    static let everyoneKey = "others"
     /// Pieces by the same speaker this close (seconds) merge into one turn. Not measured yet: a pause longer
     /// than a breath starts a new turn. Tune with the real transcriber.
     static let mergeGap: Double = 3.0
@@ -26,7 +29,7 @@ enum NotesLogic {
         }
         var map: [String: String] = [:]
         var n = 0
-        for (_, piece) in order where piece.speaker != youKey && map[piece.speaker] == nil {
+        for (_, piece) in order where piece.speaker != youKey && piece.speaker != everyoneKey && map[piece.speaker] == nil {
             n += 1
             map[piece.speaker] = "s\(n)"
         }
@@ -89,6 +92,7 @@ enum NotesLogic {
 
     static func defaultName(_ key: String) -> String {
         if key == youKey { return "You" }
+        if key == everyoneKey { return "Everyone else" }
         if key.hasPrefix("s"), let n = Int(key.dropFirst()), n > 0 { return "Speaker \(n)" }
         return key
     }

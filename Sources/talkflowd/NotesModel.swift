@@ -55,7 +55,7 @@ final class NotesModel: ObservableObject {
     }
 
     static func live() -> NotesModel {
-        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: UnbuiltPipeline())
+        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: LocalNotesPipeline())
         model.repairAudio = { folder in
             let fixed = WavRepair.repairAll(in: folder)
             Self.log("repaired \(fixed) leftover audio file(s)")
