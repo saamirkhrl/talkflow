@@ -409,6 +409,7 @@ enum NotesSelfTest {
         ScorerChecks.run { check($0, $1, $2) }
         FakeMeetingChecks.run { check($0, $1, $2) }
         NotesPipelineChecks.run { check($0, $1, $2) }
+        TrackAlignChecks.run { check($0, $1, $2) }
         EchoChecks.run { check($0, $1, $2) }
         TranscribeChecks.run { check($0, $1, $2) }
         SpeakerChecks.run { check($0, $1, $2) }
