@@ -366,17 +366,18 @@ enum CaptureChecks {
             for (count, playing, nonZero) in steps {
                 for _ in 0..<count { w.update(audioSeconds: 0.1, nonZeroSamples: nonZero, othersPlaying: playing) }
             }
-            return w.status(startCompleted: true, sinceStartRequested: 10, sinceStartCompleted: 10, callbacks: 200)
+            return w.status(startCompleted: true, sinceStartRequested: 10, sinceStartCompleted: 10, callbacks: 200, othersPlaying: false)
         }
         let fresh = ComputerAudioWatch()
-        check(fresh.status(startCompleted: false, sinceStartRequested: 0.5, sinceStartCompleted: 0, callbacks: 0) == .starting,
+        check(fresh.status(startCompleted: false, sinceStartRequested: 0.5, sinceStartCompleted: 0, callbacks: 0, othersPlaying: false) == .starting,
               "C1 start not finished after 0.5 s is still starting")
-        check(fresh.status(startCompleted: false, sinceStartRequested: 1.5, sinceStartCompleted: 0, callbacks: 0) == .waitingForPermission,
+        check(fresh.status(startCompleted: false, sinceStartRequested: 1.5, sinceStartCompleted: 0, callbacks: 0, othersPlaying: false) == .waitingForPermission,
               "C2 start not finished after 1.5 s is waiting for permission")
-        check(fresh.status(startCompleted: true, sinceStartRequested: 1, sinceStartCompleted: 0.5, callbacks: 0) == .starting,
+        check(fresh.status(startCompleted: true, sinceStartRequested: 1, sinceStartCompleted: 0.5, callbacks: 0, othersPlaying: false) == .starting,
               "C3 no callbacks 0.5 s after start is still starting")
-        check(fresh.status(startCompleted: true, sinceStartRequested: 2, sinceStartCompleted: 1.2, callbacks: 0) == .notAuthorised,
-              "C4 no callbacks 1.2 s after start is not authorised")
+        check(fresh.status(startCompleted: true, sinceStartRequested: 2, sinceStartCompleted: 1.2, callbacks: 0, othersPlaying: false) == .nothingPlaying
+              && fresh.status(startCompleted: true, sinceStartRequested: 2, sinceStartCompleted: 1.2, callbacks: 0, othersPlaying: true) == .notAuthorised,
+              "C4 no callbacks 1.2 s after start: nothing playing when idle, not authorised while others play")
         check(watch([(20, false, 0)]) == .starting, "C5 2 s of zeros is too early to say")
         check(watch([(35, false, 0)]) == .nothingPlaying, "C6 3.5 s of zeros with nothing playing is nothing playing")
         check(watch([(35, true, 0)]) == .notArriving, "C7 3.5 s of zeros while another app plays is not arriving")
@@ -386,6 +387,22 @@ enum CaptureChecks {
         let all: [ComputerAudioStatus] = [.starting, .waitingForPermission, .receiving, .nothingPlaying, .notArriving, .notAuthorised]
         check(all.map { ComputerAudioWatch.noComputerAudio($0) } == [false, false, false, false, true, true],
               "C10 only notArriving and notAuthorised count as no computer audio")
+
+        // C11: the sequence seen on a real Mac with the permission granted and the output idle.
+        var w11 = ComputerAudioWatch()
+        func st11(_ cb: Int, _ t: Double) -> ComputerAudioStatus {
+            w11.status(startCompleted: true, sinceStartRequested: t + 1, sinceStartCompleted: t, callbacks: cb, othersPlaying: false)
+        }
+        let c11a = st11(0, 1.2)
+        for _ in 0..<5 { w11.update(audioSeconds: 0.1, nonZeroSamples: 0, othersPlaying: false) }
+        // .starting is as before; the UI shows no line for it.
+        let c11b = st11(50, 2)
+        for _ in 0..<25 { w11.update(audioSeconds: 0.1, nonZeroSamples: 0, othersPlaying: false) }
+        let c11c = st11(300, 4)
+        w11.update(audioSeconds: 0.1, nonZeroSamples: 7, othersPlaying: false)
+        let c11d = st11(310, 4.1)
+        check(c11a == .nothingPlaying && c11b == .starting && c11c == .nothingPlaying && c11d == .receiving,
+              "C11 idle output: nothing playing, starting, nothing playing, then receiving")
 
         // MARK: OutputRoute
 

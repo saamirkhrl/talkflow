@@ -92,28 +92,56 @@ enum FMPreflight {
         return "The volume is low (\(Int((volume * 100).rounded()))%). The microphone may barely hear the meeting; about half volume or more works best."
     }
 
+    /// How long the owner gets to click Allow on the macOS prompt.
+    static let permissionWait: Double = 90
+
     /// sinceStart = seconds since NotesModel.start().
     static func beforePlay(status: ComputerAudioStatus, sinceStart: Double) -> FMGate {
         switch status {
-        case .notAuthorised, .notArriving:
-            return .refuse(permissionMessage)
         case .waitingForPermission:
-            return sinceStart < 120 ? .wait
-                : .refuse("Nobody answered the macOS question about recording this Mac's sound within 2 minutes. " + permissionMessage)
-        case .starting:
-            return sinceStart < 15 ? .wait
-                : .refuse("Recording this Mac's sound didn't start within 15 seconds. Run this again; if it keeps happening, restart the Mac.")
+            // The macOS prompt is up. Refusing early made macOS take it away before the owner could click Allow.
+            return sinceStart < permissionWait ? .wait
+                : .refuse("Nobody clicked Allow for recording this Mac's sound within 90 seconds. " + permissionMessage)
         case .nothingPlaying, .receiving:
             return sinceStart >= 1.5 ? .go : .wait
+        case .starting, .notAuthorised, .notArriving:
+            // With the output idle a granted permission looks the same as a missing one, so give it a short grace
+            // and play anyway; afterPlay judges once there is something to hear.
+            return sinceStart >= 3 ? .go : .wait
         }
     }
 
     /// sincePlay = seconds since playback started.
     static func afterPlay(status: ComputerAudioStatus, sincePlay: Double) -> FMGate {
-        switch status {
-        case .receiving: return .go
-        case .notAuthorised, .notArriving: return .refuse(permissionMessage)
-        default: return sincePlay < 8 ? .wait : .refuse(permissionMessage)
+        if status == .receiving { return .go }
+        return sincePlay < 5 ? .wait : .refuse(permissionMessage)
+    }
+
+    /// The live wait before playing, on closures so it can be checked with a fake capture and clock.
+    /// Says a short notice every 10 s while the macOS prompt is still unanswered.
+    static func waitBeforePlay(status: () -> ComputerAudioStatus, elapsed: () -> Double,
+                               pump: (Double) -> Void, say: (String) -> Void) -> FMGate {
+        var nextNotice = 10.0
+        while true {
+            pump(0.1)
+            let s = status()
+            let t = elapsed()
+            let g = beforePlay(status: s, sinceStart: t)
+            if g != .wait { return g }
+            if s == .waitingForPermission && t >= nextNotice {
+                say("waiting for you to click Allow")
+                while nextNotice <= t { nextNotice += 10 }
+            }
+        }
+    }
+
+    /// The live wait after playback started: the same loop without notices, using afterPlay.
+    static func waitAfterPlay(status: () -> ComputerAudioStatus, elapsed: () -> Double,
+                              pump: (Double) -> Void) -> FMGate {
+        while true {
+            pump(0.1)
+            let g = afterPlay(status: status(), sincePlay: elapsed())
+            if g != .wait { return g }
         }
     }
 }
@@ -740,25 +768,19 @@ enum FakeMeeting {
             say("computer audio gate (dry run): \(describe(FMPreflight.beforePlay(status: l.computerAudio, sinceStart: max(now() - startT, 1.5))))")
         } else {
             var announced = false
-            gate: while true {
-                pump(0.1)
-                let l = model.capture.levels()
-                if l.computerAudio == .waitingForPermission && !announced {
-                    announced = true
-                    say("macOS is asking whether talkflow may record this Mac's sound. Click Allow; the meeting starts right after.")
-                }
-                switch FMPreflight.beforePlay(status: l.computerAudio, sinceStart: now() - startT) {
-                case .wait:
-                    continue
-                case .go:
-                    if l.computerAudio == .receiving {
-                        say("Note: something else is already playing sound on this Mac. Pause it for a clean result.")
+            let g = FMPreflight.waitBeforePlay(
+                status: {
+                    let st = model.capture.levels().computerAudio
+                    if st == .waitingForPermission && !announced {
+                        announced = true
+                        say("macOS is asking whether talkflow may record this Mac's sound. Click Allow; the meeting starts right after.")
                     }
-                    break gate
-                case .refuse(let message):
-                    refuse(message, category: l.computerAudio == .starting ? "start timeout" : "permission")
-                }
-            }
+                    return st
+                },
+                elapsed: { now() - startT },
+                pump: pump,
+                say: say)
+            if case .refuse(let message) = g { refuse(message, category: "permission") }
         }
 
         // 10. Live: play the meeting. afplay is a different process, so the tap hears it; our own player is excluded.
@@ -792,16 +814,13 @@ enum FakeMeeting {
 
             // 11. After play.
             let sincePlayGate = ownAt
-            after: while true {
-                pump(0.1)
-                let l = model.capture.levels()
-                switch FMPreflight.afterPlay(status: l.computerAudio, sincePlay: now() - sincePlayGate) {
-                case .wait: continue
-                case .go:
-                    say("this Mac's sound is arriving.")
-                    break after
-                case .refuse(let message): refuse(message, category: "permission")
-                }
+            let after = FMPreflight.waitAfterPlay(
+                status: { model.capture.levels().computerAudio },
+                elapsed: { now() - sincePlayGate },
+                pump: pump)
+            switch after {
+            case .refuse(let message): refuse(message, category: "permission")
+            case .go, .wait: say("this Mac's sound is arriving.")
             }
 
             // 12. Play to the end.
