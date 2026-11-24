@@ -104,8 +104,14 @@ final class IOContext {
 
 // MARK: - Ring consumer
 
+/// A system-track writer that missed its stop deadline: the notes pipeline waits for it, or fences it off.
+protocol SettlingWriter: AnyObject {
+    func waitSettled(timeout: Double) -> Bool
+    func abandon()
+}
+
 /// The only reader of the ring and the only user of the system TrackSink.
-final class SystemConsumer {
+final class SystemConsumer: SettlingWriter {
     private let ring: RingBox
     private let sink: TrackSink
     private let counters: SharedCounters
@@ -117,6 +123,13 @@ final class SystemConsumer {
     private var events: [(String, Double)] = []
     private let done = DispatchSemaphore(value: 0)
     private var started = false
+    // Why a second lock: shutdown may give up waiting for this thread (stop timed out). `abandoned` lets the notes
+    // pipeline fence the files off, so every sink write holds writeLock and checks it.
+    private let writeLock = NSLock()
+    private var abandoned = false                      // under lock; read by writers while they hold writeLock
+    private var finishOnExit = false                   // under lock
+    private var exited = false                         // under lock
+    private let settled = DispatchSemaphore(value: 0)
 
     init(ring: RingBox, sink: TrackSink, counters: SharedCounters) {
         self.ring = ring
@@ -161,6 +174,40 @@ final class SystemConsumer {
         return done.wait(timeout: .now() + timeout) == .success
     }
 
+    /// Called by shutdown after stop() timed out. True means this thread now finishes the file itself when it ends;
+    /// false means it ended in between and the caller finishes the file.
+    func handOver() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if exited { return false }
+        finishOnExit = true
+        return true
+    }
+
+    /// After it returns no write is in progress and none starts, so the file cannot change while it is read; the
+    /// track may be cut short.
+    /// A write stuck in the kernel would hold writeLock forever, so the wait for an in-flight write is bounded (2 s)
+    /// and the pipeline thread can never hang here; the flag alone still stops every later write.
+    func abandon() {
+        lock.lock()
+        abandoned = true
+        lock.unlock()
+        if writeLock.lock(before: Date().addingTimeInterval(2)) { writeLock.unlock() }
+    }
+
+    private var isAbandoned: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return abandoned
+    }
+
+    /// True once the thread has ended and finished the file. Re-signals so later calls see it settled too.
+    func waitSettled(timeout: Double) -> Bool {
+        let ok = settled.wait(timeout: .now() + timeout) == .success
+        if ok { settled.signal() }
+        return ok
+    }
+
     private var isRunning: Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -174,7 +221,20 @@ final class SystemConsumer {
             usleep(10_000)
         }
         drain()
+        lock.lock()
+        exited = true
+        let fin = finishOnExit
+        lock.unlock()
+        if fin {
+            writeLock.lock()
+            if !isAbandoned {
+                sink.writer.finish()
+                sink.timeline?.close()
+            }
+            writeLock.unlock()
+        }
         done.signal()
+        settled.signal()
     }
 
     private func drain() {
@@ -182,7 +242,11 @@ final class SystemConsumer {
         let pending = events
         events = []
         lock.unlock()
-        for (what, host) in pending { sink.event(what, hostSeconds: host) }
+        for (what, host) in pending {
+            writeLock.lock()
+            if !isAbandoned { sink.event(what, hostSeconds: host) }
+            writeLock.unlock()
+        }
 
         let hsz = MemoryLayout<cap_chunk_header>.size
         var h = cap_chunk_header()
@@ -211,12 +275,19 @@ final class SystemConsumer {
                 breakNow = true
             }
             lock.unlock()
-            if breakNow { sink.markBreak() }
+            if breakNow {
+                writeLock.lock()
+                if !isAbandoned { sink.markBreak() }
+                writeLock.unlock()
+            }
             if resampler == nil || resampler!.inputRate != h.rate { resampler = Resampler(inputRate: h.rate) }
             let pcm = resampler?.convert(scratch, count: n) ?? []
-            if !sink.writer.isFinished, !sink.push(pcm, hostSeconds: start, nativeFrames: n, nativeRate: h.rate) {
+            // The ring is still consumed when abandoned, so the producer never backs up.
+            writeLock.lock()
+            if !isAbandoned, !sink.writer.isFinished, !sink.push(pcm, hostSeconds: start, nativeFrames: n, nativeRate: h.rate) {
                 failed = true
             }
+            writeLock.unlock()
             chunks += 1
             seconds += nativeSeconds
             nonZero += Int(h.nonZero)

@@ -34,7 +34,7 @@ enum NotesPipelineHarness {
         var server: String?
         var helper: String?
         var speakerModels: String?
-        var port = 8192
+        var port = NotesEngine.testPort
         var language = "en"
         var noSpeakers = false
         var check = false

@@ -39,6 +39,9 @@ enum RetryKind: String, Codable, Equatable {
     case summary
     /// Nothing to retry from. The note can only be deleted.
     case none
+    /// The transcript is saved but the recording's audio could not be deleted.
+    /// The audio is kept, shown as kept, and deleting it is tried again.
+    case deleteAudio
 }
 
 struct NoteFailure: Codable, Equatable {

@@ -2,8 +2,8 @@
 # Builds talkflow-diarize, the helper that tells the speakers in a recording
 # apart (Helpers/talkflow-diarize, a Swift package over FluidAudio).
 #
-#   scripts/build-diarize-macos.sh [out-dir]       default: .build/diarize-helper
-#   scripts/build-diarize-macos.sh --check <file>  only check an existing binary
+#   scripts/build-diarize-macos.sh [--require] [out-dir]   default: .build/diarize-helper
+#   scripts/build-diarize-macos.sh --check <file>          only check an existing binary
 #
 # Writes <out-dir>/talkflow-diarize and <out-dir>/talkflow-diarize-NOTICES.txt.
 # release.sh, deploy.sh and the macos-engine workflow call it.
@@ -14,6 +14,11 @@
 # its Swift is older than 6.2 (the package needs 6.2 to leave the unused TTS
 # code out). The app then ships without the helper and labels the other
 # voices "Everyone else". Callers must treat a missing binary as normal.
+#
+# --require (release.sh): every case that would skip prints "error: <reason>;
+# a release must include the speaker helper" and exits 1 instead, so a release
+# can never ship without the helper by accident. Allowed anywhere among the
+# arguments.
 #
 # Needs: the Swift toolchain (Xcode or the Command Line Tools) and network on
 # the first build, to fetch FluidAudio at the version pinned in Package.resolved.
@@ -46,19 +51,33 @@ if [ "${1:-}" = "--check" ]; then
     exit 0
 fi
 
-OUT="${1:-$PROJECT_DIR/.build/diarize-helper}"
+# Pulls --require out of the arguments wherever it is, leaving the rest in order.
+REQUIRE=0
+ARGS=()
+for a in "$@"; do
+    if [ "$a" = "--require" ]; then REQUIRE=1; else ARGS+=("$a"); fi
+done
+OUT="${ARGS[0]:-$PROJECT_DIR/.build/diarize-helper}"
+
+# Where the helper cannot be built: skip quietly, or stop a release.
+skip() {
+    if [ "$REQUIRE" -eq 1 ]; then
+        echo "error: $1; a release must include the speaker helper" >&2
+        exit 1
+    fi
+    echo "==> Speaker helper skipped: $1"
+    exit 0
+}
 
 if [ "$(uname)" != "Darwin" ] || [ "$(uname -m)" != "arm64" ]; then
-    echo "==> Speaker helper skipped: it is built on an Apple Silicon Mac only (this is $(uname)/$(uname -m))"
-    exit 0
+    skip "it is built on an Apple Silicon Mac only (this is $(uname)/$(uname -m))"
 fi
-command -v swift >/dev/null 2>&1 || { echo "==> Speaker helper skipped: swift was not found"; exit 0; }
+command -v swift >/dev/null 2>&1 || skip "swift was not found"
 SWIFT_VER="$(swift --version 2>&1 | sed -n 's/.*Swift version \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' | head -1)"
 SWIFT_MAJOR="${SWIFT_VER%%.*}"
 SWIFT_MINOR="${SWIFT_VER#*.}"
 if [ -z "$SWIFT_VER" ] || [ "$SWIFT_MAJOR" -lt 6 ] || { [ "$SWIFT_MAJOR" -eq 6 ] && [ "$SWIFT_MINOR" -lt 2 ]; }; then
-    echo "==> Speaker helper skipped: Swift ${SWIFT_VER:-unknown} is older than 6.2"
-    exit 0
+    skip "Swift ${SWIFT_VER:-unknown} is older than 6.2"
 fi
 
 echo "==> Building talkflow-diarize (Swift $SWIFT_VER, arm64)"

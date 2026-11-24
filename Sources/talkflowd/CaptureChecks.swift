@@ -289,8 +289,12 @@ enum CaptureChecks {
             check(abs(f.b - 1.000002) < 1e-9 && abs(f.a - 1000) < 1e-6 && f.maxResidual < 1e-6,
                   "F1 a straight timeline fits exactly", "a=\(f.a) b=\(f.b) res=\(f.maxResidual)")
         } else { check(false, "F1 a straight timeline fits exactly", "nil") }
-        let pts2 = (0..<100).map {
-            TimelinePoint(idx: Int64($0) * 16000, host: 1000 + Double($0) * 1.000002 + ($0 % 2 == 0 ? 0.0004 : -0.0004))
+        // A plain loop: the closure form of this was slow to type-check, and CI's older compiler gives up on such.
+        var pts2: [TimelinePoint] = []
+        for i in 0..<100 {
+            let jitter: Double = i % 2 == 0 ? 0.0004 : -0.0004
+            let host: Double = 1000 + Double(i) * 1.000002 + jitter
+            pts2.append(TimelinePoint(idx: Int64(i) * 16000, host: host))
         }
         if let f = TimelineFit.fit(pts2) {
             check(f.maxResidual <= 0.0005 + 1e-9 && abs(f.b - 1.000002) < 1e-5,
@@ -423,6 +427,32 @@ enum CaptureChecks {
             try info.write(to: dir)
             check(CaptureSessionInfo.read(from: dir) == info, "J1 session.json reads back equal to what was written")
         } catch { check(false, "J1 session.json reads back equal to what was written", "\(type(of: error))") }
+
+        // MARK: CaptureSettle
+
+        final class FakeWriter: SettlingWriter {
+            let settles: Bool
+            var abandoned = false
+            init(settles: Bool) { self.settles = settles }
+            func waitSettled(timeout: Double) -> Bool {
+                if !settles { Thread.sleep(forTimeInterval: timeout) }
+                return settles
+            }
+            func abandon() { abandoned = true }
+        }
+        func folderURL() -> URL { fm.temporaryDirectory.appendingPathComponent("capsettle-\(UUID().uuidString)", isDirectory: true) }
+        let sf0 = folderURL()
+        check(CaptureSettle.waitForSystemTrack(folder: sf0, timeout: 0.05) == .settled, "SET1 no registered writer is settled")
+        let sf1 = folderURL(), w1 = FakeWriter(settles: true)
+        CaptureSettle.register(folder: sf1, writer: w1)
+        check(CaptureSettle.waitForSystemTrack(folder: sf1, timeout: 0.05) == .settled && !w1.abandoned,
+              "SET2 a writer that settles is settled and left alone")
+        let sf2 = folderURL(), w2 = FakeWriter(settles: false)
+        CaptureSettle.register(folder: sf2, writer: w2)
+        check(CaptureSettle.waitForSystemTrack(folder: sf2, timeout: 0.05) == .abandoned && w2.abandoned,
+              "SET3 a writer that never settles is abandoned")
+        check(CaptureSettle.waitForSystemTrack(folder: sf2, timeout: 0.05) == .settled,
+              "SET4 a second wait on the same folder finds nothing")
 
         try? fm.removeItem(at: dir)
         check(!fm.fileExists(atPath: dir.path), "Z1 the capture checks leave no folder behind")

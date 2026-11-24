@@ -26,6 +26,9 @@ enum NotesModelChoice {
 /// touched or kept busy. Transcription spike RESULTS.md 7: 8192 is free in the app.
 final class NotesEngine {
     static let defaultPort = 8192
+    /// The port the test modes (--notespipeline, --fakemeeting) use. They never share the app's port or its command
+    /// line, so neither one's leftover cleanup can end the other's server.
+    static let testPort = 8193
 
     private let binary: String
     private let model: URL
@@ -101,7 +104,8 @@ final class NotesEngine {
     private func killLeftover() {
         let killer = Process()
         killer.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        killer.arguments = ["-f", "\(model.path) --host 127.0.0.1 --port \(port)"]
+        // Ends with " -nt" so port 8192 never matches 81920.
+        killer.arguments = ["-f", "\(model.path) --host 127.0.0.1 --port \(port) -nt"]
         killer.standardOutput = FileHandle.nullDevice
         killer.standardError = FileHandle.nullDevice
         try? killer.run()

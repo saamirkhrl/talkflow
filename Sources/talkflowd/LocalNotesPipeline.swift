@@ -45,6 +45,15 @@ struct NotesJobStats {
     var timings: [String: Double] = [:]
     var audioSeconds = 0.0
     var speechSeconds = 0.0
+    /// True when the tracks were placed on the common time axis from their timelines.
+    var aligned = false
+    var alignBreaks = 0
+    /// Seconds cut out of spans where neither track had audio (added back to the turn times).
+    var alignRemovedSeconds = 0.0
+    var micStartSeconds: Double?
+    var systemStartSeconds: Double?
+    var micDriftFitPPM: Double?
+    var systemDriftFitPPM: Double?
 }
 
 enum NotesJobError: Error, Equatable {
@@ -135,9 +144,34 @@ final class NotesJob {
         // 1. Read both tracks.
         let fm = FileManager.default
         guard fm.fileExists(atPath: micURL.path) || fm.fileExists(atPath: sysURL.path) else { throw NotesJobError.unreadable }
-        let micRaw = WavSamples.read(micURL)
-        let sys = WavSamples.read(sysURL)
+        // The timelines put both tracks on one clock; without them (or when nothing needs moving) the files are
+        // read as they are, as before.
+        let plan = TrackAlign.plan(mic: micURL, system: sysURL)
+        let usedPlan: AlignPlan? = (plan != nil && plan!.isIdentity == false) ? plan : nil
+        let micRaw: [Int16]
+        let sys: [Int16]
+        if let p = usedPlan {
+            micRaw = fm.fileExists(atPath: micURL.path) ? WavSamples.readPlaced(micURL, p.mic, length: p.micLength) : []
+            sys = fm.fileExists(atPath: sysURL.path) ? WavSamples.readPlaced(sysURL, p.system, length: p.systemLength) : []
+            stats.aligned = true
+            stats.alignBreaks = p.breaks.count
+            var removed = 0.0
+            for e in p.expansions { removed += e.add }
+            stats.alignRemovedSeconds = removed
+        } else {
+            micRaw = WavSamples.read(micURL)
+            sys = WavSamples.read(sysURL)
+        }
+        if let p = plan {
+            stats.micStartSeconds = p.mic.first.map { Double($0.dst) / TrackAlign.rate }
+            stats.systemStartSeconds = p.system.first.map { Double($0.dst) / TrackAlign.rate }
+            stats.micDriftFitPPM = p.micDriftPPM
+            stats.systemDriftFitPPM = p.systemDriftPPM
+        }
+        let expansions: [(at: Double, add: Double)] = usedPlan?.expansions ?? []
         let duration = Double(max(micRaw.count, sys.count)) / 16000
+        // The time the caller sees is the true time since the recording started, removed breaks put back.
+        let reportedDuration = TrackAlign.expand(duration, expansions)
         let turbo = NotesModelChoice.isTurbo(config.model)
         stats.audioSeconds = duration
         let before = NotesEstimate.beforeCut(duration, turbo: turbo)
@@ -191,8 +225,19 @@ final class NotesJob {
             let helperRun = SpeakerRun(binary: binary, modelsDir: config.speakerModels)
             lock.lock(); speakerRun = helperRun; let wasCancelled = cancelledFlag; lock.unlock()
             if wasCancelled { throw NotesJobError.cancelled }
+            // The helper reads a file: when the track was moved, it gets an aligned copy (removed right after).
+            var helperWav = sysURL
+            var alignedCopy: URL?
+            if usedPlan != nil {
+                let url = sysURL.deletingLastPathComponent().appendingPathComponent(CaptureFolder.systemAligned)
+                if Self.writeWav(sys, to: url) {
+                    helperWav = url
+                    alignedCopy = url
+                }
+            }
+            defer { if let alignedCopy { try? fm.removeItem(at: alignedCopy) } }
             do {
-                let turns = try helperRun.run(wav: sysURL, audioSeconds: Double(sys.count) / 16000, onPhase: { phase in
+                let turns = try helperRun.run(wav: helperWav, audioSeconds: Double(sys.count) / 16000, onPhase: { phase in
                     if phase == "diarizing" { speakersProgress(0.5) }
                 })
                 runs = SpeakerTurns.flatten(turns)
@@ -233,7 +278,7 @@ final class NotesJob {
         if youPieces.isEmpty && othersPieces.isEmpty {
             stats.timings["total"] = seconds(since: runStart)
             Self.log(stats)
-            return ([], duration, stats)
+            return ([], reportedDuration, stats)
         }
         guard let binary = config.serverBinary, fm.isExecutableFile(atPath: binary) else { throw NotesJobError.engineMissing }
         guard fm.fileExists(atPath: config.model.path) else { throw NotesJobError.modelMissing }
@@ -376,7 +421,39 @@ final class NotesJob {
         stats.timings["rule"] = seconds(since: ruleStart)
         stats.timings["total"] = seconds(since: runStart)
         Self.log(stats)
-        return (assembled.pieces, duration, stats)
+        return (Self.expandTimes(assembled.pieces, expansions), reportedDuration, stats)
+    }
+
+    /// Pure: maps turn times from the compressed axis back to true seconds since the recording started.
+    static func expandTimes(_ pieces: [SpeechPiece], _ expansions: [(at: Double, add: Double)]) -> [SpeechPiece] {
+        if expansions.isEmpty { return pieces }
+        var out: [SpeechPiece] = []
+        for p in pieces {
+            var q = p
+            q.start = TrackAlign.expand(p.start, expansions)
+            q.end = TrackAlign.expand(p.end, expansions)
+            out.append(q)
+        }
+        return out
+    }
+
+    /// Writes samples as a 16 kHz mono WAV in slices; false when the file could not be written.
+    private static func writeWav(_ samples: [Int16], to url: URL) -> Bool {
+        guard !samples.isEmpty, let writer = try? StreamingWav(url: url) else { return false }
+        var ok = true
+        samples.withUnsafeBufferPointer { all in
+            // 160000 samples = 10 s per slice.
+            let slice = 160_000
+            var at = 0
+            while at < all.count && ok {
+                let n = min(slice, all.count - at)
+                ok = writer.append(UnsafeBufferPointer(rebasing: all[at..<at + n]))
+                at += n
+            }
+        }
+        writer.finish()
+        if !ok { try? FileManager.default.removeItem(at: url) }
+        return ok
     }
 
     /// Whisper segments (relative to the piece) as absolute-time segments, clamped into the piece. When no
@@ -468,6 +545,7 @@ final class NotesJob {
         print("talkflowd: notes: speakers engine \(s.speakerEngine), count \(s.speakerCount), reason \(s.speakerReason ?? "-"), \(f(s.timings["speakers"])) s")
         print("talkflowd: notes: pieces you \(s.piecesYou), others \(s.piecesOthers), cut \(f(s.timings["cut"])) s, audio \(f(s.audioSeconds)) s, speech \(f(s.speechSeconds)) s")
         print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), prompt echoes \(s.promptEchoes), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")
+        print("talkflowd: notes: align \(s.aligned ? "yes" : "no"), you starts \(f(s.micStartSeconds)) s, others starts \(f(s.systemStartSeconds)) s, breaks \(s.alignBreaks), removed \(f(s.alignRemovedSeconds)) s, drift fit you \(f(s.micDriftFitPPM)) others \(f(s.systemDriftFitPPM)) ppm")
         print("talkflowd: notes: engine start \(f(s.timings["engine_start"])) s, transcribe \(f(s.timings["transcribe"])) s, rule removed \(s.ruleRemovedWords) words, \(f(s.timings["rule"])) s, total \(f(s.timings["total"])) s")
     }
 }
@@ -515,6 +593,11 @@ final class LocalNotesPipeline: NotesPipeline {
         self.token = token
 
         DispatchQueue.global(qos: .utility).async {
+            // A system writer that missed its stop deadline may still be writing others.wav: wait for it here, off
+            // the main thread, or fence it off so the file cannot change while it is read.
+            if CaptureSettle.waitForSystemTrack(folder: audioFolder) == .abandoned {
+                print("talkflowd: notes: system track writer did not finish; the track may be cut short")
+            }
             let outcome: PipelineOutcome?
             do {
                 let result = try job.run(mic: micURL, system: sysURL, headphones: headphones, progress: { p in

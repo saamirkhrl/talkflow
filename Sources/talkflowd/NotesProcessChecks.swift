@@ -26,6 +26,11 @@ enum NotesProcessChecks {
         check(parsed.count == 2 && parsed[0].pid == 123 && parsed[0].command == "/bin/a -x"
               && parsed[1].pid == 4567 && parsed[1].command == "/usr/bin/b",
               "NP5 ps output is parsed into pids and commands", "\(parsed.count)")
+        // The test modes' port (8193) is never the app's (8192), and 81920 is not 8192.
+        check(!NotesProcesses.isLeftover(command: engine(NotesEngine.testPort), port: 8192, helperPath: nil)
+              && NotesProcesses.isLeftover(command: engine(NotesEngine.testPort), port: 8193, helperPath: nil)
+              && !NotesProcesses.isLeftover(command: engine(81920), port: 8192, helperPath: nil),
+              "NP5b a test-mode engine on 8193 is not the app's leftover, and 81920 is not 8192")
         let pids = NotesProcesses.leftoverPIDs([(10, engine(8192)), (11, engine(8192)), (12, "/bin/zsh")], helperPath: nil, ownPID: 11)
         check(pids == [10], "NP6 the leftover list skips our own pid and unrelated processes", "\(pids)")
 

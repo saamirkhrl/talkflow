@@ -247,6 +247,41 @@ enum NotesModelChecks {
               "M22 quitting while writing cancels the pipeline and keeps the note for Finish notes",
               "cancels=\(pipeB.cancels) state=\(String(describing: state(idW)))")
 
+        // M23 a failed audio deletion is shown, kept and retried. The store's remover fails while `blocked` is set.
+        final class Blocker { var on = true }
+        let blocker = Blocker()
+        var blockedStore = NoteStore(root: root)
+        blockedStore.removeItem = { url in
+            if blocker.on { throw NotesError(message: "not allowed") }
+            try FileManager.default.removeItem(at: url)
+        }
+        let pipeD = ManualPipeline()
+        let modelD = NotesModel(store: blockedStore, capture: FakeCapture(), pipeline: pipeD, os: os)
+        modelD.confirmDelete = { true }
+        modelD.start()
+        let idD = modelD.session?.noteID ?? "none"
+        modelD.stop()
+        pipeD.complete(.finished(pieces: SampleNotes.fakePieces, duration: 5))
+        var deleteFailure: NoteFailure?
+        if case .failed(let f)? = state(idD) { deleteFailure = f }
+        check(deleteFailure?.retry == .deleteAudio && deleteFailure?.step == .finishing && modelD.session == nil
+              && store.transcript(idD) != nil && store.hasAudio(idD),
+              "audio delete fails: the note is failed with retry deleteAudio, the transcript is saved and the audio is kept",
+              "state=\(String(describing: state(idD))) audio=\(store.hasAudio(idD))")
+
+        modelD.retry(idD)
+        var stillFailed = false
+        if case .failed(let f)? = state(idD) { stillFailed = f.retry == .deleteAudio }
+        check(stillFailed && store.hasAudio(idD) && modelD.problem == "talkflow still couldn't delete the audio. Try again, or delete the note.",
+              "audio delete fails: a retry that still cannot delete says so and keeps the note failed",
+              "problem=\(modelD.problem ?? "nil") state=\(String(describing: state(idD)))")
+
+        blocker.on = false
+        modelD.retry(idD)
+        check(state(idD) == .ready && !store.hasAudio(idD) && store.transcript(idD) != nil && modelD.problem == nil,
+              "audio delete fails: once deleting works, retry deletes the audio and the note is ready",
+              "state=\(String(describing: state(idD))) audio=\(store.hasAudio(idD))")
+
         // M99 clean up
         try? fm.removeItem(at: root)
         check(!fm.fileExists(atPath: root.path), "M99 temporary notes folder removed", root.lastPathComponent)

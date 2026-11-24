@@ -42,6 +42,25 @@ enum FakeMeetingChecks {
         report(w2.withSummary && w2.dryRun && w2.folder.standardizedFileURL.path == "/fixture",
                "FM-S2 a folder is still parsed when --with-summary follows it", "")
 
+        // G1e --misaligned
+        let mis = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--misaligned"])
+        report(mis.misaligned && mis.dryRun && !a.misaligned, "FG1e --misaligned is parsed", "")
+
+        // G1f the misaligned dry run's break and time shift
+        let spansA: [(start: Double, end: Double)] = [(0, 10), (10.2, 50), (50.1, 61), (62, 70)]
+        let spansB: [(start: Double, end: Double)] = [(0, 10), (11, 20)]
+        let spansC: [(start: Double, end: Double)] = [(0, 61), (30, 70), (70.4, 80), (81, 90)]
+        let breakA = FMMisalign.breakAt(spansA)
+        let breakB = FMMisalign.breakAt(spansB)
+        let breakC = FMMisalign.breakAt(spansC)
+        report(breakA == 61.5, "FG1f the break goes in the first pause of 0.5 s or more after 60 s", "\(String(describing: breakA))")
+        report(breakB == nil, "FG1g no pause after 60 s means no break", "\(String(describing: breakB))")
+        report(breakC == 80.5, "FG1h an overlapping utterance does not fake a pause", "\(String(describing: breakC))")
+        let shiftEarly = FMMisalign.shift(5, breakAt: 61.5)
+        let shiftLate = FMMisalign.shift(61.5, breakAt: 61.5)
+        report(shiftEarly == 17 && shiftLate == 81.5, "FG1i truth times move by the late start, and by the break after it",
+               "\(shiftEarly), \(shiftLate)")
+
         // G2 missing files
         let none = FMPreflight.missingFiles { _ in true }
         let some = FMPreflight.missingFiles { $0 == "truth.json" || $0 == "system.wav" }

@@ -11,6 +11,8 @@ enum CaptureFolder {
     static let micTimeline = "you.timeline.jsonl"
     static let systemTimeline = "others.timeline.jsonl"
     static let session = "session.json"
+    /// Temporary copy of others.wav on the common time axis, for the speaker helper; removed right after.
+    static let systemAligned = "others.aligned.wav"
 }
 
 private func le32(_ v: UInt32) -> [UInt8] { withUnsafeBytes(of: v.littleEndian) { Array($0) } }
@@ -212,6 +214,41 @@ enum WavSamples {
         var out = [Int16](repeating: 0, count: n)
         for i in 0..<n {
             out[i] = Int16(bitPattern: UInt16(b[44 + 2 * i]) | UInt16(b[45 + 2 * i]) << 8)
+        }
+        return out
+    }
+
+    /// Reads a 16-bit mono WAV straight into its aligned place, 1 MB at a time: one output buffer, no whole-file copy
+    /// (a two-hour track is 230 MB). Bytes past the end of the file read as silence.
+    static func readPlaced(_ url: URL, _ placements: [TrackPlacement], length: Int) -> [Int16] {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return [] }
+        defer { try? handle.close() }
+        var out = [Int16](repeating: 0, count: max(length, 0))
+        // 1 MB of audio per read.
+        let chunkSamples = 524_288
+        out.withUnsafeMutableBufferPointer { buffer in
+            for p in placements {
+                var done = 0
+                let wanted = min(p.count, length - p.dst)
+                if wanted <= 0 || p.src < 0 || p.dst < 0 { continue }
+                do { try handle.seek(toOffset: UInt64(44 + 2 * p.src)) } catch { continue }
+                while done < wanted {
+                    let n = min(chunkSamples, wanted - done)
+                    guard let data = try? handle.read(upToCount: n * 2), !data.isEmpty else { break }
+                    let got = data.count / 2
+                    if got == 0 { break }
+                    data.withUnsafeBytes { raw in
+                        let bytes = raw.bindMemory(to: UInt8.self)
+                        for i in 0..<got {
+                            let lo = UInt16(bytes[2 * i])
+                            let hi = UInt16(bytes[2 * i + 1]) << 8
+                            buffer[p.dst + done + i] = Int16(bitPattern: lo | hi)
+                        }
+                    }
+                    done += got
+                    if data.count < n * 2 { break }
+                }
+            }
         }
         return out
     }
