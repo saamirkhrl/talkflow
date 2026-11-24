@@ -163,12 +163,11 @@ final class NoteDownloads: ObservableObject {
                 speakersAvailable: { SpeakerHelper.unavailableReason(binary: SpeakerHelper.bundledBinary()) == nil },
                 speakersPresent: { SpeakerHelper.modelsPresent(SpeakerHelper.modelsFolder) },
                 startModel: { progress, finish in
-                    // Same file, URL and checks as the accurate final pass, so the two features share one copy.
-                    let d = FileDownloader(destination: FinalPassEngine.modelPath,
-                                           minimumBytes: FinalPassEngine.minimumModelBytes,
-                                           onProgress: progress, onFinish: { finish($0 == nil) })
-                    d.start(url: FinalPassEngine.modelDownloadURL)
-                    return d
+                    // Same file, URL and checks as the accurate final pass, and one shared download, so the two
+                    // features never fetch the same model twice.
+                    SharedFileDownloads.shared.fetch(destination: FinalPassEngine.modelPath, url: FinalPassEngine.modelDownloadURL,
+                                                     minimumBytes: FinalPassEngine.minimumModelBytes,
+                                                     onProgress: progress, onFinish: { finish($0 == nil) })
                 },
                 startSpeakers: { progress, finish in
                     let task = SpeakerPrepare()

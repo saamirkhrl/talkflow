@@ -131,6 +131,44 @@ enum NotesDownloadChecks {
         report(!flags.contains(false), "ND7 NoteDownloads state machine",
                "a-i: " + flags.map { $0 ? "ok" : "FAIL" }.joined(separator: " "))
 
+        // ND9 shared downloads
+        final class Fake: NoteDownloadTask {
+            var cancels = 0
+            func cancel() { cancels += 1 }
+        }
+        var starts = 0
+        var progressFns: [(Double) -> Void] = []
+        var finishFns: [(Error?) -> Void] = []
+        var fakes: [Fake] = []
+        let shared = SharedFileDownloads(starter: { _, _, _, p, f in
+            starts += 1
+            progressFns.append(p)
+            finishFns.append(f)
+            let t = Fake()
+            fakes.append(t)
+            return t
+        }, deliver: { $0() })
+        let dest = FileManager.default.temporaryDirectory.appendingPathComponent("shared-dl-check.bin")
+        let src = URL(string: "https://example.invalid/model.bin")!
+        var sp1: [Double] = [], sp2: [Double] = []
+        var f1: [Bool] = [], f2: [Bool] = []
+        let t1 = shared.fetch(destination: dest, url: src, minimumBytes: 1, onProgress: { sp1.append($0) }, onFinish: { f1.append($0 == nil) })
+        let t2 = shared.fetch(destination: dest, url: src, minimumBytes: 1, onProgress: { sp2.append($0) }, onFinish: { f2.append($0 == nil) })
+        report(starts == 1 && shared.isFetching(dest), "SD1 two fetches of one file start one download", "starts=\(starts)")
+        progressFns[0](0.5)
+        report(sp1 == [0.5] && sp2 == [0.5], "SD2 progress reaches both subscribers", "\(sp1) \(sp2)")
+        t1.cancel()
+        t1.cancel()
+        report(fakes[0].cancels == 0 && shared.isFetching(dest), "SD3 cancelling one subscriber keeps the download", "")
+        finishFns[0](nil)
+        report(f1.isEmpty && f2 == [true] && !shared.isFetching(dest), "SD4 finish reaches only the remaining subscriber",
+               "f1=\(f1) f2=\(f2)")
+        _ = t2
+        let t3 = shared.fetch(destination: dest, url: src, minimumBytes: 1, onProgress: { _ in }, onFinish: { _ in })
+        report(starts == 2, "SD5 a fetch after the finish starts a new download", "starts=\(starts)")
+        t3.cancel()
+        report(fakes[1].cancels == 1 && !shared.isFetching(dest), "SD6 cancelling the last subscriber cancels the download", "")
+
         // ND8
         let inert = NoteDownloads(environment: .inert)
         report(!inert.showsCard && !inert.showsReofferLink, "ND8 inert environment", "card=\(inert.showsCard) link=\(inert.showsReofferLink)")
