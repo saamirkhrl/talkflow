@@ -37,6 +37,9 @@ final class NotesModel: ObservableObject {
     var openKeySettings: (() -> Void)?
     /// Asks before deleting; replaced in tests. Default: NSAlert (see below).
     var confirmDelete: () -> Bool = NotesModel.askBeforeDeleting
+    /// Fixes the headers of WAV files left by a crash, so "Finish notes" can read all the audio. Set by live();
+    /// a no-op in previews and tests.
+    var repairAudio: (URL) -> Void = { _ in }
 
     private var timer: Timer?
     /// The last step written to note.json, so the disk is written once per step, not ten times a second.
@@ -156,8 +159,16 @@ final class NotesModel: ObservableObject {
 
     private func tick() {
         guard var s = session, case .recording = s.phase else { stopTimer(); return }
-        s.phase = .recording(capture.levels())
+        let l = capture.levels()
+        s.phase = .recording(l)
         session = s
+        if l.stoppedByItself {
+            // The capture already closed its files (disk nearly full); finish the meeting the normal way and keep
+            // the reason on screen.
+            stop()
+            problem = l.problem
+            Self.log("recording stopped by itself")
+        }
     }
 
     func stop() {
@@ -370,6 +381,7 @@ final class NotesModel: ObservableObject {
             return
         }
         if store.hasAudio(id) {
+            repairAudio(store.audioFolder(for: id))
             runPipeline(id)
             route = .session
             return

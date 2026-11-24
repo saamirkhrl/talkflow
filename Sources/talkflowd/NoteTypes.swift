@@ -199,6 +199,28 @@ struct SpeechPiece: Equatable {
 
 // MARK: - Seam: capture
 
+/// What is known about the computer-audio track. macOS has no call that says
+/// whether System Audio Recording is allowed, so this is read from what the
+/// tap delivers (ComputerAudioWatch; measured rules in the capture spike).
+enum ComputerAudioStatus: String, Equatable {
+    /// Just started; too early to say anything.
+    case starting
+    /// Start has not finished after a second: macOS is most likely showing
+    /// its permission prompt, which stalls the audio system until answered.
+    case waitingForPermission
+    /// Real (non-zero) computer audio has arrived at least once.
+    case receiving
+    /// Only exact silence so far, and no other app is playing: this can't be
+    /// told apart from a missing permission, so it is a neutral note.
+    case nothingPlaying
+    /// Only exact silence for 3 s while another app plays: most likely the
+    /// permission is missing.
+    case notArriving
+    /// Started, but the tap delivered nothing at all for a second: not
+    /// allowed (or the prompt is still open).
+    case notAuthorised
+}
+
 /// What the Recording screen draws, polled from the capture.
 struct CaptureLevels: Equatable {
     /// Seconds since recording started.
@@ -213,13 +235,21 @@ struct CaptureLevels: Equatable {
     /// The other voices are being filtered out of the microphone because the
     /// user is on speakers; the screen shows the speakers hint.
     var echoHandlingActive = false
+    /// What is known about the computer-audio track; picks the line under the meters. Fakes leave it at
+    /// .receiving, which shows nothing.
+    var computerAudio: ComputerAudioStatus = .receiving
+    /// One plain sentence about a problem with the recording (the microphone stopped, the disk is nearly full),
+    /// or nil. Never holds anything from the meeting.
+    var problem: String? = nil
+    /// The capture stopped by itself (the disk is nearly full). NotesModel then stops the meeting as if Stop was
+    /// pressed, so what was recorded still becomes notes, and keeps `problem` on screen.
+    var stoppedByItself = false
 }
 
 /// Recording a meeting: the microphone and the sound this Mac plays, as two
-/// separate tracks. Used from the main thread only. The real one (a Core
-/// Audio process tap, macOS 14.2 and later) is built separately; FakeCapture
-/// drives the preview and the snapshots, UnbuiltCapture the live app until
-/// then.
+/// separate tracks. Used from the main thread only. The real one is
+/// MeetingRecorder (a Core Audio process tap, macOS 14.2 and later);
+/// FakeCapture drives the preview and the snapshots.
 protocol MeetingCapture: AnyObject {
     /// Nil when recording can start now; otherwise one plain sentence that
     /// says why not and what to do (a permission missing, say). The macOS
@@ -231,11 +261,13 @@ protocol MeetingCapture: AnyObject {
     var isRecording: Bool { get }
     /// Starts writing both tracks as files into `folder` (the note's audio
     /// folder, which exists). Throws an error whose localizedDescription is
-    /// plain words for the user.
+    /// plain words for the user. Returns quickly: the audio system is started in the background, because a
+    /// pending macOS permission prompt can stall it for a minute (capture spike); levels() reports progress.
     func start(into folder: URL) throws
     /// Polled about ten times a second while recording.
     func levels() -> CaptureLevels
-    /// Stops and closes the files. Returns the seconds recorded.
+    /// Stops and closes the files. Returns the seconds recorded. Waits a bounded time (about 2 s at most) for
+    /// the audio system; a stuck one is abandoned and the files are closed anyway.
     func stop() -> Double
 }
 

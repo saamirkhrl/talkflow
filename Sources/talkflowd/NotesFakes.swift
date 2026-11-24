@@ -12,7 +12,7 @@ struct NotesError: LocalizedError {
 
 // MARK: - Live app until the real code lands
 
-/// Stand-in for the live app until the real capture is built: it says so
+/// Kept for builds and tests that have no real capture (the live app uses MeetingRecorder): it says so
 /// plainly instead of pretending to record.
 final class UnbuiltCapture: MeetingCapture {
     private static let text = "Meeting recording isn't in this build of talkflow yet."

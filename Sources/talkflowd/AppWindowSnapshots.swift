@@ -80,7 +80,8 @@ extension DashboardController {
             elapsed: 754, you: 0.62, others: 0.34, noComputerAudio: false, echoHandlingActive: true))), title: "Launch planning")
         shoot(10, "notes-recording", .notes, fullHeight: true)
         n.stage(route: .session, session: NotesSession(noteID: launch, phase: .recording(CaptureLevels(
-            elapsed: 95, you: 0.4, others: 0, noComputerAudio: true, echoHandlingActive: false))))
+            elapsed: 95, you: 0.4, others: 0, noComputerAudio: true, echoHandlingActive: false,
+            computerAudio: .notArriving))))
         shoot(11, "notes-recording-quiet", .notes, fullHeight: true)
         n.stage(route: .session, session: NotesSession(noteID: launch, phase: .writing(WritingProgress(
             step: .transcribing, fraction: 0.8, secondsLeft: 110))), title: "Launch planning", duration: 2520)
