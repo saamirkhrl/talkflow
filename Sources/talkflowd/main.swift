@@ -155,6 +155,14 @@ if CommandLine.arguments.contains("--notestest") {
     NotesSelfTest.run()
 }
 
+// Records the microphone and this Mac's sound for a few seconds into a temporary folder through the real meeting
+// capture, reports durations, sample counts against the clock, levels and the computer-audio state, then deletes
+// the audio. Never requests a permission. Results in $TMPDIR/talkflow-capturetest.log. Usage: --capturetest [seconds]
+if let index = CommandLine.arguments.firstIndex(of: "--capturetest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 10
+    CaptureSelfTest.run(seconds: seconds)
+}
+
 // Opens the real app window from a build, on throwaway settings and sample
 // stats, to click around without installing. Starts no hotkey, recorder,
 // engine, updater or install count, and runs before the single-instance

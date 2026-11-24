@@ -55,7 +55,12 @@ final class NotesModel: ObservableObject {
     }
 
     static func live() -> NotesModel {
-        NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: UnbuiltCapture(), pipeline: UnbuiltPipeline())
+        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: UnbuiltPipeline())
+        model.repairAudio = { folder in
+            let fixed = WavRepair.repairAll(in: folder)
+            Self.log("repaired \(fixed) leftover audio file(s)")
+        }
+        return model
     }
 
     static let previewRoot = FileManager.default.temporaryDirectory
