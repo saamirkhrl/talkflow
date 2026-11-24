@@ -10,6 +10,8 @@ import Foundation
 /// The root is injected so tests and previews use a temporary folder.
 struct NoteStore {
     let root: URL
+    /// How files are removed. Tests swap in a failing one to check what happens when the audio cannot be deleted.
+    var removeItem: (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
 
     static var defaultRoot: URL { UserData.directory.appendingPathComponent("notes", isDirectory: true) }
 
@@ -140,7 +142,7 @@ struct NoteStore {
         let fm = FileManager.default
         let url = audioFolder(for: id)
         if fm.fileExists(atPath: url.path) {
-            try? fm.removeItem(at: url)
+            try? removeItem(url)
         }
         return !fm.fileExists(atPath: url.path)
     }

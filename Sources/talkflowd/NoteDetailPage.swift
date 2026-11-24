@@ -98,6 +98,7 @@ struct NoteDetailPage: View {
         switch kind {
         case .notes: return "The audio is kept on this Mac so you can try again. Deleting the note deletes it too."
         case .summary: return "The transcript is saved."
+        case .deleteAudio: return "The audio of this meeting is still on this Mac. Delete it again, or delete the note."
         case .none: return "There's nothing to try again from. Delete the note to remove it."
         }
     }
@@ -120,6 +121,10 @@ struct NoteDetailPage: View {
             Spacer(minLength: 12)
             if f.retry == .notes {
                 Button("Try again") { model.retry(meta.id) }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .disabled(model.session != nil)
+            } else if f.retry == .deleteAudio {
+                Button("Delete audio") { model.retry(meta.id) }
                     .buttonStyle(AppPrimaryButtonStyle())
                     .disabled(model.session != nil)
             }

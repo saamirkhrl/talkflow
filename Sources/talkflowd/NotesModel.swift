@@ -107,10 +107,19 @@ final class NotesModel: ObservableObject {
 
     func refresh() {
         downloads.refresh()
-        let all = store.list()
+        var all = store.list()
         // A finished note must not keep its audio: if talkflow stopped between saving a transcript and deleting the
         // audio, the next look at the list finishes the job.
         for m in all where m.state == .ready && store.hasAudio(m.id) { store.deleteAudio(m.id) }
+        // A note kept as "audio not deleted" gets another try each time the list is looked at.
+        var settled = false
+        for var m in all {
+            guard case .failed(let f) = m.state, f.retry == .deleteAudio, store.deleteAudio(m.id) else { continue }
+            m.state = .ready
+            try? store.save(m)
+            settled = true
+        }
+        if settled { all = store.list() }
         let found = store.leftovers(active: session?.noteID)
         if found.count != leftovers.count && !found.isEmpty { Self.log("\(found.count) interrupted recording(s) found") }
         leftovers = found
@@ -245,7 +254,11 @@ final class NotesModel: ObservableObject {
             let gone = store.deleteAudio(id)
             meta.duration = max(meta.duration, duration)
             meta.speakers = NotesLogic.speakers(for: transcript.turns, keeping: meta.speakers)
-            meta.state = .ready
+            // If the audio could not be deleted, say so instead of calling the note ready: it is still on this Mac.
+            meta.state = gone ? .ready : .failed(NoteFailure(
+                step: .finishing,
+                message: "The transcript is saved, but talkflow couldn't delete this meeting's audio. It is still on this Mac.",
+                retry: .deleteAudio))
             try? store.save(meta)
             Self.log("notes written: \(transcript.turns.count) turns, \(meta.speakers.count) speakers, audio deleted: \(gone ? "yes" : "NO")")
             let wasWatching = route == .session
@@ -372,6 +385,19 @@ final class NotesModel: ObservableObject {
     // MARK: - Retry and leftovers
 
     func retry(_ id: String) {
+        if session == nil, var meta = store.meta(id), case .failed(let f) = meta.state, f.retry == .deleteAudio {
+            if store.deleteAudio(id) {
+                meta.state = .ready
+                try? store.save(meta)
+                problem = nil
+                Self.log("audio deleted on retry")
+            } else {
+                problem = "talkflow still couldn't delete the audio. Try again, or delete the note."
+                Self.log("audio still not deleted")
+            }
+            refresh()
+            return
+        }
         guard session == nil, let meta = store.meta(id), case .failed(let f) = meta.state, f.retry == .notes,
               store.hasAudio(id) else { return }
         runPipeline(id)
