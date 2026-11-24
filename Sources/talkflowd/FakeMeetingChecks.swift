@@ -33,6 +33,15 @@ enum FakeMeetingChecks {
         report(p3.folder.standardizedFileURL.path == "/fixture" && p3.notesModel?.path == "/m.bin",
                "FG1d a folder and a path flag are both kept", "")
 
+        // FM-S1 --with-summary
+        let w1 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--with-summary"])
+        let w2 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "/fixture", "--with-summary", "--dry-run"])
+        report(!a.withSummary && !b.withSummary && !c.withSummary && w1.withSummary && w1.dryRun
+               && w1.folder.standardizedFileURL.path == d,
+               "FM-S1 --with-summary is off unless given", "")
+        report(w2.withSummary && w2.dryRun && w2.folder.standardizedFileURL.path == "/fixture",
+               "FM-S2 a folder is still parsed when --with-summary follows it", "")
+
         // G2 missing files
         let none = FMPreflight.missingFiles { _ in true }
         let some = FMPreflight.missingFiles { $0 == "truth.json" || $0 == "system.wav" }
