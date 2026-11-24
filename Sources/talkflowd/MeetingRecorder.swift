@@ -111,6 +111,32 @@ struct CaptureCounters {
     var lastStatus: ComputerAudioStatus = .starting
 }
 
+/// System-track writers that missed their stop deadline, by recording folder. The pipeline waits on one before
+/// reading (off the main thread), so shutdown never blocks the main thread longer than today.
+enum CaptureSettle {
+    enum Result: Equatable { case settled, abandoned }
+    private static let lock = NSLock()
+    private static var writers: [String: SettlingWriter] = [:]
+
+    static func register(folder: URL, writer: SettlingWriter) {
+        lock.lock()
+        writers[folder.standardizedFileURL.path] = writer
+        lock.unlock()
+    }
+
+    /// The 10 s default is on top of the 1 s stop deadline: a writer that has not finished a last 10 ms drain by
+    /// then is stuck, so it is fenced off and the track is read as it is.
+    static func waitForSystemTrack(folder: URL, timeout: Double = 10) -> Result {
+        lock.lock()
+        let writer = writers.removeValue(forKey: folder.standardizedFileURL.path)
+        lock.unlock()
+        guard let writer else { return .settled }
+        if writer.waitSettled(timeout: timeout) { return .settled }
+        writer.abandon()
+        return .abandoned
+    }
+}
+
 final class SharedCounters {
     private let lock = NSLock()
     private var c = CaptureCounters()
@@ -507,8 +533,13 @@ final class CaptureSession {
         if consumer.stop(timeout: Self.consumerStopTimeout) {
             sysSink.writer.finish()
             sysSink.timeline?.close()
+        } else if consumer.handOver() {
+            CaptureSettle.register(folder: folder, writer: consumer)
+            log("system writer missed its stop deadline; it finishes the file itself and the notes wait for it")
         } else {
-            log("system consumer did not end; its file header is at most 1 s stale and repairable")
+            // The thread ended between the timeout and the hand-over, so nobody else will finish the file.
+            sysSink.writer.finish()
+            sysSink.timeline?.close()
         }
         micQueue.sync {
             micSink.writer.finish()
