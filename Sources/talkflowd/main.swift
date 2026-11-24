@@ -149,6 +149,12 @@ if CommandLine.arguments.contains("--dictionarytest") {
     DictionarySelfTest.run()
 }
 
+// Pure logic and storage in a temporary folder, like --dictionarytest: the note taker's merge, speaker,
+// label and copy rules, and the notes store. Results in $TMPDIR/talkflow-notestest.log.
+if CommandLine.arguments.contains("--notestest") {
+    NotesSelfTest.run()
+}
+
 // Opens the real app window from a build, on throwaway settings and sample
 // stats, to click around without installing. Starts no hotkey, recorder,
 // engine, updater or install count, and runs before the single-instance
