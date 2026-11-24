@@ -54,6 +54,7 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 - **Learns your words.** Names and terms you correct are remembered.
 - **Your shortcut.** <kbd>fn</kbd> by default, or any modifier key or combination you record.
 - **A home screen.** Words dictated, speaking speed, your daily streak and the typing time you've saved.
+- **Meeting notes (Mac).** In the app window's Notes section, record a call and get a transcript written on your Mac, with the voices told apart. A summary, action items and questions about the meeting are optional and use your own key. Mac only for now.
 
 ## Download
 
@@ -63,7 +64,7 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 | macOS (Intel) | [Download](https://talkflow.live/download/mac-intel) |
 | Windows (x64, runs on Arm too) | [Download](https://talkflow.live/download/windows-x64) |
 
-**Requirements:** macOS 13 or later, or Windows 10 (1809) or later. The speech model needs about 200 MB of disk space, plus about 575 MB for the optional, more accurate final-pass model, which downloads only if you turn on Accurate final pass in Settings.
+**Requirements:** macOS 13 or later, or Windows 10 (1809) or later. The speech model needs about 200 MB of disk space, plus about 575 MB for the optional, more accurate final-pass model, which downloads only if you turn on Accurate final pass in Settings. Meeting notes need macOS 14.2 or later; they can use that same larger model and, to tell voices apart (Apple Silicon only), about 21 MB of speaker models, both downloaded only when you click.
 
 ### Build from source
 
@@ -89,7 +90,7 @@ To use a different shortcut, open **Settings > Shortcut** and pick Right Option,
 
 Setup walks you through it:
 
-1. **Permissions:** Microphone and Accessibility. Accessibility also lets talkflow notice the <kbd>fn</kbd> key, so it doesn't ask for Input Monitoring (and isn't listed there).
+1. **Permissions:** Microphone and Accessibility. Accessibility also lets talkflow notice the <kbd>fn</kbd> key, so it doesn't ask for Input Monitoring (and isn't listed there). Meeting notes ask for one more, System Audio Recording, the first time you record a meeting.
 2. **Speech engine:** it downloads the English model (about 190 MB) and starts the engine in the background. The engine (whisper.cpp's `whisper-server`) ships inside the app at `talkflow.app/Contents/Helpers/whisper-server`, so Homebrew isn't needed.
 
 <details>
@@ -101,18 +102,19 @@ If an earlier talkflow set the engine up with Homebrew's `whisper-cpp`, talkflow
 
 ## Privacy
 
-- **Speech stays on your computer.** It is transcribed locally by Whisper, on your Mac or PC. Audio is held in memory and never written to disk.
-- **Optional cloud keys.** In Settings you can add your own OpenAI key (transcription) or Anthropic key (punctuation). That step then goes to that provider and is billed to your account. It's off unless you add a key. On a Mac without Apple Intelligence, AI corrections (off by default) also use the Anthropic key while Claude punctuation is on, so the dictated text is sent to Anthropic in a second, billed request.
+- **Speech stays on your computer.** It is transcribed locally by Whisper, on your Mac or PC. Dictation audio is held in memory and never written to disk.
+- **Meeting notes (Mac).** When you click **Start recording** in Notes, talkflow records your microphone and, separately, the sound your Mac plays, through a Core Audio process tap (macOS 14.2 or later, with the System Audio Recording permission). It never uses Screen Recording and never connects to your meeting app. The recording is saved to disk until the notes are written: echo removal, telling the voices apart and Whisper transcription all run on your Mac, and the audio is deleted as soon as the transcript is saved. If writing fails, the audio is kept so you can try again, until you delete the note. Notes use no network except two downloads you click (a larger speech model, about 574 MB, and speaker models, about 21 MB, from Hugging Face) and the key option below. Logs hold counts and durations, never what was said. **Telling the other people that they are being recorded is your responsibility, and the law on recording differs from place to place.**
+- **Optional cloud keys.** In Settings you can add your own OpenAI key (transcription) or Anthropic key (punctuation). That step then goes to that provider and is billed to your account. It's off unless you add a key. On a Mac without Apple Intelligence, AI corrections (off by default) also use the Anthropic key while Claude punctuation is on, so the dictated text is sent to Anthropic in a second, billed request. Summary, action items and Ask in meeting notes stay off until you turn on **Use my key for meeting notes**; then a meeting's transcript text (never audio) is sent to Anthropic, or to OpenAI if you only have an OpenAI key, billed to you.
 - **Update checks.** The app checks GitHub for updates shortly after it starts (when you're online), every few hours while it runs, and when you open the app window. It downloads only the release's small manifest file. Updates install only when you click, and only if the download matches the release's sha256 checksum. See [docs/releases.md](docs/releases.md).
 - **Install count.** The first time an official release runs while online, it sends one empty request so installs can be counted. It sends no ID and nothing about you, your computer or your usage, and once it succeeds it never sends again. Builds from source send nothing. See [docs/telemetry.md](docs/telemetry.md).
-- **Your data** lives in one folder: `~/Library/Application Support/talkflow/` on a Mac, `%APPDATA%\talkflow\` on Windows. `stats.json` holds your stats and `settings.json` your settings and learned words. On Windows, models and logs are in `%LOCALAPPDATA%\talkflow\`.
+- **Your data** lives in one folder: `~/Library/Application Support/talkflow/` on a Mac, `%APPDATA%\talkflow\` on Windows. `stats.json` holds your stats and `settings.json` your settings and learned words. On a Mac, meeting notes are in `notes/<id>/` there (the transcript, the note's details and any summary or questions); apart from learned words, they are the only text of what was said that talkflow keeps. On Windows, models and logs are in `%LOCALAPPDATA%\talkflow\`.
 - **Full details** are in the [privacy policy](https://talkflow.live/privacy).
 
 ## Uninstall
 
 In talkflow's **Settings**, scroll to **Uninstall talkflow** and click **Uninstall...**. It removes the app (the speech engine is inside it), the engine's background service, the speech models, saved API keys, logs, caches, the login item and the app's permissions. It doesn't touch Homebrew or anything installed with it.
 
-Your data folder is kept, so reinstalling picks up where you left off. Delete `~/Library/Application Support/talkflow/` for a completely fresh start.
+Your data folder, meeting notes included, is kept, so reinstalling picks up where you left off. Delete `~/Library/Application Support/talkflow/` for a completely fresh start.
 
 ## Troubleshooting
 

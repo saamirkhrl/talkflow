@@ -161,6 +161,24 @@ Release builds carry the URL of the anonymous install counter
   describe the counter (with this version filled in) before the first release
   that carries the URL ships.
 
+## The speaker helper
+
+From the note taker on, the Mac app carries a second helper next to the speech engine:
+`Contents/Helpers/talkflow-diarize`, which tells the voices in a meeting apart
+([notes.md](notes.md)). `release.sh` builds it with `scripts/build-diarize-macos.sh`,
+copies it into the bundle with its notices (`Contents/Resources/talkflow-diarize-NOTICES.txt`),
+and signs it with the release certificate under its own identifier,
+`com.samir.talkflow.diarize`, before the app, so the app's signature seals it like the
+engine's. It is arm64 only. The build script skips itself (exit 0, no binary) on an Intel
+Mac or with Swift older than 6.2, and the release then ships without the helper: notes
+still work, but the other voices are all labelled "Everyone else". So build releases on
+Apple Silicon with Swift 6.2 or newer, and check before publishing:
+
+```bash
+ls .build/release-artifacts/talkflow.app/Contents/Helpers/   # whisper-server and talkflow-diarize
+scripts/build-diarize-macos.sh --check .build/release-artifacts/talkflow.app/Contents/Helpers/talkflow-diarize
+```
+
 ## Adding Linux
 
 1. Build and attach `talkflow-linux-x64.AppImage` and/or

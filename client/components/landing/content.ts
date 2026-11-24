@@ -116,7 +116,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Does anything get sent to the cloud?",
-    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the dashboard). An update only installs when you click it.",
+    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the dashboard). An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries on a Mac, are off unless you turn them on.",
   ],
   [
     "Which key do I hold?",
@@ -136,7 +136,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "What do I need to run it?",
-    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, including Arm PCs. The English speech model needs about 190 MB of disk space on a Mac and about 490 MB on Windows, plus about 575 MB for the optional, more accurate final-pass model.",
+    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, including Arm PCs. The English speech model needs about 190 MB of disk space on a Mac and about 490 MB on Windows, plus about 575 MB for the optional, more accurate final-pass model. Meeting notes (Mac only for now) need macOS 14.2 or later.",
   ],
 ];
 
