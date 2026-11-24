@@ -403,6 +403,11 @@ enum NotesSelfTest {
         check(!fm.fileExists(atPath: rootURL.path), "S14 cleanup leaves no folder behind")
 
         CaptureChecks.run { check($0, $1, $2) }
+        NotesPipelineChecks.run { check($0, $1, $2) }
+        EchoChecks.run { check($0, $1, $2) }
+        TranscribeChecks.run { check($0, $1, $2) }
+        SpeakerChecks.run { check($0, $1, $2) }
+        NotesFlowChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
