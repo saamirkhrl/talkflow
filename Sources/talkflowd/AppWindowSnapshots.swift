@@ -98,6 +98,27 @@ extension DashboardController {
         n.detailTab = .transcript
         n.stage(route: .detail(failed))
         shoot(17, "note-failed", .notes, fullHeight: true)
+        // Summary and Ask with a key in use, from the made-up summary and answers NotesModel.preview() seeded and canned states.
+        // The access is resolved with the switch on in memory; nothing is sent anywhere.
+        let a = n.assistant
+        a.access = { NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil) }
+        n.stage(route: .detail(launch)); n.detailTab = .summary
+        shoot(21, "note-summary", .notes, fullHeight: true)
+        a.stageSummaryPhase(.writing(step: 2, total: 3), for: launch)
+        shoot(22, "note-summary-writing", .notes, fullHeight: true)
+        a.stageSummaryPhase(.failed(.rateLimited(retryAfter: 30), retryAt: Date().addingTimeInterval(30)), for: launch)
+        shoot(23, "note-summary-failed", .notes, fullHeight: true)
+        a.stageSummaryPhase(.idle, for: launch); a.stagePending(.summary(launch))
+        shoot(24, "note-summary-confirm", .notes, fullHeight: true)
+        a.stagePending(nil); n.detailTab = .ask
+        shoot(25, "note-ask", .notes, fullHeight: true)
+        a.stageAsk(asking: "Who is sending the screenshots?", partial: "Speaker 2 is lining up the screenshots for launch day [75] and keeping them", failure: nil)
+        shoot(26, "note-ask-streaming", .notes, fullHeight: true)
+        a.stageAsk(asking: nil, partial: "", failure: NoteAssistant.AskFailure(question: "Who is sending the screenshots?", error: .offline, retryAt: nil))
+        shoot(27, "note-ask-failed", .notes, fullHeight: true)
+        a.stageAsk(asking: nil, partial: "", failure: nil); n.detailTab = .transcript; a.stageHighlight(3)
+        shoot(29, "note-cited-row", .notes, fullHeight: true)
+        a.stageHighlight(nil); a.access = { nil }
         // A meeting still marked as recording, as if talkflow had quit during it.
         let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))
         n.stage(route: .list)
@@ -110,6 +131,11 @@ extension DashboardController {
         n.supportsRecording = false
         n.unsupportedMessage = NotesLogic.unsupportedMessage(OperatingSystemVersion(majorVersion: 13, minorVersion: 6, patchVersion: 0))
         shoot(20, "notes-unsupported", .notes, fullHeight: true)
+
+        model.settings.hasAnthropicKey = true
+        model.settings.useKeyForNotes = true
+        shoot(28, "settings-notes-key", .settings, fullHeight: true)
+        model.settings.useKeyForNotes = false
 
         return written
     }

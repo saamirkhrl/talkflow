@@ -31,6 +31,8 @@ final class NotesModel: ObservableObject {
     let store: NoteStore
     let capture: MeetingCapture
     let pipeline: NotesPipeline
+    /// Summary and Ask (off unless "Use my key for meeting notes" is on).
+    let assistant: NoteAssistant
     /// true when a meeting starts recording, false when it stops (the menu bar icon).
     var onRecordingChange: ((Bool) -> Void)?
     /// Opens Settings at Models and API keys (key banner, Summary and Ask tabs). Set by AppWindowModel.
@@ -42,13 +44,16 @@ final class NotesModel: ObservableObject {
     /// The last step written to note.json, so the disk is written once per step, not ten times a second.
     private var lastStep: WritingStep = .saving
 
-    init(store: NoteStore, capture: MeetingCapture, pipeline: NotesPipeline,
+    init(store: NoteStore, capture: MeetingCapture, pipeline: NotesPipeline, assistant: NoteAssistant? = nil,
          os: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion) {
         self.store = store
         self.capture = capture
         self.pipeline = pipeline
+        self.assistant = assistant ?? NoteAssistant(store: store)
         supportsRecording = NotesLogic.supportsRecording(os)
         unsupportedMessage = NotesLogic.unsupportedMessage(os)
+        // The list shows each note's action item count.
+        self.assistant.onSummarySaved = { [weak self] _ in self?.refresh() }
     }
 
     static func live() -> NotesModel {
@@ -59,11 +64,21 @@ final class NotesModel: ObservableObject {
         .appendingPathComponent("talkflow-preview-notes", isDirectory: true)
 
     /// Never the user's folder, whatever TALKFLOW_DATA_DIR says: previews seed made-up meetings and wipe them.
-    static func preview() -> NotesModel {
+    /// Summary and Ask run on canned replies only (nothing is ever sent), with the confirmation kept in memory;
+    /// `aiOn` (the window preview) shows them as if a key were switched on.
+    static func preview(aiOn: Bool = false) -> NotesModel {
         try? FileManager.default.removeItem(at: previewRoot)
         let store = NoteStore(root: previewRoot)
-        _ = SampleNotes.seed(into: store)
-        let model = NotesModel(store: store, capture: FakeCapture(), pipeline: FakePipeline())
+        let ids = SampleNotes.seed(into: store)
+        NotesAISamples.seed(into: store, launchID: ids["launch"])
+        var confirmed: String? = "anthropic"
+        let assistant = NoteAssistant(
+            store: store,
+            client: NotesAIClient(transport: CannedNotesTransport.preview(), keyFor: { _ in "preview" }),
+            access: aiOn ? { NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+                                                 anthropicModel: nil, openAIModel: nil) } : { nil },
+            confirmedProvider: { confirmed }, setConfirmedProvider: { confirmed = $0 })
+        let model = NotesModel(store: store, capture: FakeCapture(), pipeline: FakePipeline(), assistant: assistant)
         model.refresh()
         return model
     }
@@ -75,7 +90,7 @@ final class NotesModel: ObservableObject {
         return false
     }
 
-    var keyInUse: Bool { NotesKeys.inUse() }
+    var keyInUse: Bool { assistant.currentAccess != nil }
 
     var startBlockedReason: String? {
         if !supportsRecording { return unsupportedMessage }
@@ -109,6 +124,7 @@ final class NotesModel: ObservableObject {
     private func loadDetail(_ id: String) {
         detailMeta = store.meta(id)
         detailTranscript = store.transcript(id)
+        assistant.load(id)
     }
 
     // MARK: - Recording
@@ -225,6 +241,7 @@ final class NotesModel: ObservableObject {
             meta.state = .ready
             try? store.save(meta)
             Self.log("notes written: \(transcript.turns.count) turns, \(meta.speakers.count) speakers, audio deleted: \(gone ? "yes" : "NO")")
+            assistant.transcriptSaved(id)
             let wasWatching = route == .session
             session = nil
             refresh()
@@ -264,6 +281,7 @@ final class NotesModel: ObservableObject {
 
     func backToList() {
         route = .list
+        assistant.load(nil)
         problem = nil
         renamingKey = nil
         refresh()
@@ -342,6 +360,7 @@ final class NotesModel: ObservableObject {
             return
         }
         Self.log("note deleted")
+        assistant.forget(id)
         if route == .detail(id) { route = .list }
         refresh()
     }
@@ -365,6 +384,7 @@ final class NotesModel: ObservableObject {
             meta.speakers = NotesLogic.speakers(for: t.turns, keeping: meta.speakers)
             meta.state = .ready
             try? store.save(meta)
+            assistant.transcriptSaved(id)
             refresh()
             open(id)
             return
