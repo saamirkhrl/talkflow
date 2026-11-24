@@ -163,6 +163,16 @@ if let index = CommandLine.arguments.firstIndex(of: "--capturetest") {
     CaptureSelfTest.run(seconds: seconds)
 }
 
+// The note taker end to end on the made-up meeting fixture (FakeMeeting.swift): records through the real capture
+// while the meeting plays through the speakers, writes notes through the app's own pipeline into a temporary notes
+// folder on throwaway settings, then scores the transcript against the fixture's truth. Plays sound, so it is never
+// run by a build script. --dry-run plays nothing and feeds the fixture's files instead; --fake-pipeline returns the
+// truth instead of transcribing. Results on the terminal and in $TMPDIR/talkflow-fakemeeting.log; the app log gets
+// counts only. Usage: --fakemeeting [folder] [--dry-run] [--fake-pipeline]
+if CommandLine.arguments.contains("--fakemeeting") {
+    FakeMeeting.run(CommandLine.arguments)
+}
+
 // Opens the real app window from a build, on throwaway settings and sample
 // stats, to click around without installing. Starts no hotkey, recorder,
 // engine, updater or install count, and runs before the single-instance
