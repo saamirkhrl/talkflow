@@ -507,7 +507,7 @@ final class LocalNotesPipeline: NotesPipeline {
              completion: @escaping (PipelineOutcome) -> Void) {
         let config = makeConfig()
         let info = CaptureSessionInfo.read(from: audioFolder)
-        let headphones = info.map { !$0.routes.isEmpty && $0.routes.allSatisfy { $0.route == .headphones } } ?? false
+        let headphones = info.map { OutputRoute.headphonesThroughout($0.routes.map { $0.route }) } ?? false
         let micURL = audioFolder.appendingPathComponent(CaptureFolder.mic)
         let sysURL = audioFolder.appendingPathComponent(CaptureFolder.system)
         let job = NotesJob(config: config)

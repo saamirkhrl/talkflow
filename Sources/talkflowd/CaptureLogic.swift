@@ -312,6 +312,20 @@ enum OutputRoute: String, Codable {
             return .unknown
         }
     }
+
+    /// The Recording screen's "filtering the other voices" hint: true while the microphone is recorded and the
+    /// current (latest) route is not headphones. .unknown counts as speakers, as in the echo stage (the safe side).
+    /// False before the first route is known.
+    static func echoHandlingActive(routes: [OutputRoute], hasMic: Bool) -> Bool {
+        guard hasMic, let current = routes.last else { return false }
+        return current != .headphones
+    }
+
+    /// The echo stage is skipped only when the whole recording was on headphones; one stretch on speakers (or an
+    /// unknown output) means the other voices may be in the microphone.
+    static func headphonesThroughout(_ routes: [OutputRoute]) -> Bool {
+        !routes.isEmpty && routes.allSatisfy { $0 == .headphones }
+    }
 }
 
 // MARK: - Disk

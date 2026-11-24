@@ -444,10 +444,10 @@ final class CaptureSession {
         }
         youShown = Self.smooth(youShown, MeterScale.value(peak: s.micPeak))
         othersShown = Self.smooth(othersShown, MeterScale.value(peak: s.sysPeak))
-        // echoHandlingActive stays false: the echo stage is not built yet, so the screen must not claim filtering; the
-        // route is saved in session.json for it.
+        // The pipeline's echo stage runs whenever the recording was not on headphones throughout (LocalNotesPipeline),
+        // so the hint follows the current route.
         var l = CaptureLevels(elapsed: now - hostStart, you: mic == nil ? 0 : youShown, others: othersShown,
-                              noComputerAudio: ComputerAudioWatch.noComputerAudio(status), echoHandlingActive: false)
+                              noComputerAudio: ComputerAudioWatch.noComputerAudio(status), echoHandlingActive: OutputRoute.echoHandlingActive(routes: s.routes.map { $0.route }, hasMic: mic != nil))
         l.computerAudio = status
         l.problem = problem(s, now: now)
         l.stoppedByItself = s.autoStopped != nil

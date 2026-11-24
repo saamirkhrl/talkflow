@@ -396,6 +396,15 @@ enum CaptureChecks {
         check(cls("hdmi", nil) == .speakers, "O6 HDMI is speakers")
         check(cls("usb ", nil) == .unknown, "O7 USB is unknown")
 
+        let rr: [([OutputRoute], Bool, Bool)] = [([.speakers], true, true), ([.headphones], true, false), ([.unknown], true, true),
+                                                 ([], true, false), ([.speakers], false, false),
+                                                 ([.speakers, .headphones], true, false), ([.headphones, .speakers], true, true)]
+        check(rr.allSatisfy { OutputRoute.echoHandlingActive(routes: $0.0, hasMic: $0.1) == $0.2 },
+              "ROUTE1 echo handling shows only with a microphone and a current route that is not headphones")
+        let ht: [([OutputRoute], Bool)] = [([], false), ([.headphones], true), ([.headphones, .speakers], false), ([.unknown], false)]
+        check(ht.allSatisfy { OutputRoute.headphonesThroughout($0.0) == $0.1 },
+              "ROUTE2 the echo stage is skipped only when the whole recording was on headphones")
+
         // MARK: DiskRule, MeterScale, session.json
 
         check(DiskRule.canStart(free: nil) && !DiskRule.canStart(free: 299_999_999) && DiskRule.canStart(free: 300_000_000)
