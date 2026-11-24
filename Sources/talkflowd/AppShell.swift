@@ -69,6 +69,8 @@ final class AppWindowModel: ObservableObject {
     let dashboard: DashboardModel
     let settings: SettingsModel
     let dictionary: DictionaryModel
+    /// The Notes section. Owned by AppDelegate in the live app (a recording outlives the window).
+    let notes: NotesModel
     /// False under `--windowpreview` and `--dashboardshot`: no update check
     /// or install is ever started from there.
     let updatesEnabled: Bool
@@ -79,8 +81,9 @@ final class AppWindowModel: ObservableObject {
 
     private var hotkeyObserver: NSObjectProtocol?
 
-    init(settings: SettingsModel, updatesEnabled: Bool) {
+    init(settings: SettingsModel, updatesEnabled: Bool, notes: NotesModel) {
         self.settings = settings
+        self.notes = notes
         self.updatesEnabled = updatesEnabled
         dashboard = DashboardModel()
         dictionary = DictionaryModel()
@@ -88,6 +91,7 @@ final class AppWindowModel: ObservableObject {
         hotkeyObserver = NotificationCenter.default.addObserver(forName: .hotkeyChanged, object: nil, queue: .main) { [weak self] _ in
             self?.hotkeyName = Preferences.hotkey.name
         }
+        notes.openKeySettings = { [weak self] in self?.go(to: .settings, anchor: .models) }
     }
 
     deinit {
@@ -95,6 +99,8 @@ final class AppWindowModel: ObservableObject {
     }
 
     func go(to section: AppSection, anchor: SettingsGroup? = nil) {
+        // Notes again from Notes: back to the list, as a sidebar click does on the web.
+        if section == .notes && self.section == .notes { notes.backToList() }
         self.section = section
         if let anchor { settingsAnchor = anchor }
     }
@@ -105,6 +111,7 @@ final class AppWindowModel: ObservableObject {
         dashboard.refresh()
         settings.refresh()
         dictionary.refresh()
+        notes.refresh()
         setupNeeded = checkSetup()
         hotkeyName = Preferences.hotkey.name
     }
@@ -131,7 +138,7 @@ struct AppShellView: View {
     @ViewBuilder private var page: some View {
         switch model.section {
         case .home: HomePage(window: model, model: model.dashboard, updater: Updater.shared, scrolls: !snapshot)
-        case .notes: NotesPage()
+        case .notes: NotesPage(model: model.notes, scrolls: !snapshot)
         case .dictionary: DictionaryPage(model: model.dictionary, scrolls: !snapshot)
         case .settings: SettingsPage(window: model, model: model.settings, updater: Updater.shared, scrolls: !snapshot)
         }
@@ -221,7 +228,6 @@ private struct Sidebar: View {
                 Text(section.title)
                     .font(.system(size: 14, weight: selected ? .medium : .regular))
                 Spacer(minLength: 0)
-                if section == .notes { AppPill(text: "Soon", inverted: selected) }
             }
             .foregroundColor(selected ? Palette.window : Palette.ink)
             .padding(.horizontal, 12)
@@ -231,7 +237,7 @@ private struct Sidebar: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
-        .accessibilityLabel(section == .notes ? "Notes, coming soon" : section.title)
+        .accessibilityLabel(section.title)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .help("\(section.title) (Command-\(section.keyEquivalent))")
     }

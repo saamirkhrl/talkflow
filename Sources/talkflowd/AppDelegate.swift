@@ -8,7 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let overlay = OverlayController()
     /// Made on first use, after `UserData.start()` has restored a
     /// reinstall's settings, so the window reads the restored ones.
-    private lazy var dashboard = DashboardController()
+    /// The Notes section's state. Owned here, not by the window, so a meeting keeps recording when the window is
+    /// closed and the menu bar can stop it. Made on first use, after UserData.start().
+    private lazy var notes = NotesModel.live()
+    private lazy var dashboard = DashboardController(notes: notes)
     private var statusBar: StatusBar!
     private var dictation: Dictation!
     /// Made the first time setup is shown, and kept (with its engine
@@ -41,6 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DockIcon.isDictating = { [weak self] in self?.statusBar.isBusy ?? false }
         statusBar.onStateChange = { state in if state == .idle { DockIcon.dictationEnded() } }
         statusBar.onSettingsClicked = { [weak self] in self?.dashboard.show(.settings) }
+        // The menu bar shows a meeting being recorded and can stop it, window open or not.
+        notes.onRecordingChange = { [weak self] on in self?.statusBar.setMeetingRecording(on) }
+        statusBar.onStopMeeting = { [weak self] in self?.notes.stop() }
+        // Finds recordings an earlier run left unfinished; the Notes page offers to finish or delete them.
+        notes.refresh()
         dashboard.setupNeeded = statusBar.setupNeeded
         dashboard.openSetup = { [weak self] in self?.onboarding.show() }
 
@@ -125,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         source.setEventHandler { [weak self] in
+            self?.notes.appWillTerminate()
             self?.dictation?.abandon()
             FinalPassEngine.stop()
             exit(0)
@@ -134,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        notes.appWillTerminate()
         dictation?.abandon()
         FinalPassEngine.stop()
     }

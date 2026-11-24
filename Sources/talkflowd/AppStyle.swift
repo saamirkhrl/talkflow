@@ -219,7 +219,7 @@ struct AppCapsuleButtonStyle: ButtonStyle {
             .padding(.horizontal, 20)
             .frame(minHeight: height)
             .background(Capsule().fill(isEnabled ? Palette.ink.opacity(configuration.isPressed ? 0.75 : 1) : Color.clear))
-            .overlay(Capsule().stroke(isEnabled ? Color.clear : Palette.line, lineWidth: 1))
+            .overlay(Capsule().strokeBorder(isEnabled ? Color.clear : Palette.line, lineWidth: 1))
             .contentShape(Capsule())
             .pointerCursor()
     }

@@ -55,6 +55,7 @@ enum PreviewSandbox {
     static func leave() {
         UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
         try? FileManager.default.removeItem(at: folder)
+        try? FileManager.default.removeItem(at: NotesModel.previewRoot)
     }
 
     /// A bare `.build` binary has no icon of its own; use the app's, as

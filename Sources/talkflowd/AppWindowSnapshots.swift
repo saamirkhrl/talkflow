@@ -17,7 +17,7 @@ extension DashboardController {
         defer { PreviewSandbox.leave() }
         PreviewSandbox.useRepoIcon()
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        let model = AppWindowModel(settings: SettingsModel(environment: .preview()), updatesEnabled: false)
+        let model = AppWindowModel(settings: SettingsModel(environment: .preview()), updatesEnabled: false, notes: NotesModel.preview())
         model.refresh()
         let update = Updater.State.available(Updater.Release(
             version: "0.2.0", zipURL: URL(string: "https://example.invalid/talkflow.zip")!, pageURL: nil))
@@ -69,6 +69,47 @@ extension DashboardController {
         shoot(9, "settings-keys", .settings, fullHeight: true)
         model.updateOverride = nil
         model.settings.keyStatus["openai"] = nil
+
+        // Notes: every screen, from the made-up meetings NotesModel.preview() seeded. `stage` sets each state
+        // without timers or a microphone.
+        let n = model.notes
+        func noteID(_ title: String) -> String { n.notes.first { $0.title == title }?.id ?? "" }
+        let launch = noteID("Launch planning")
+        let failed = noteID("Customer call")
+        n.stage(route: .session, session: NotesSession(noteID: launch, phase: .recording(CaptureLevels(
+            elapsed: 754, you: 0.62, others: 0.34, noComputerAudio: false, echoHandlingActive: true))), title: "Launch planning")
+        shoot(10, "notes-recording", .notes, fullHeight: true)
+        n.stage(route: .session, session: NotesSession(noteID: launch, phase: .recording(CaptureLevels(
+            elapsed: 95, you: 0.4, others: 0, noComputerAudio: true, echoHandlingActive: false))))
+        shoot(11, "notes-recording-quiet", .notes, fullHeight: true)
+        n.stage(route: .session, session: NotesSession(noteID: launch, phase: .writing(WritingProgress(
+            step: .transcribing, fraction: 0.8, secondsLeft: 110))), title: "Launch planning", duration: 2520)
+        shoot(12, "notes-writing", .notes, fullHeight: true)
+        n.stage(route: .detail(launch))
+        shoot(13, "note-detail", .notes, fullHeight: true)
+        n.renamingKey = "s2"
+        n.renameDraft = "Sam"
+        shoot(14, "note-rename", .notes, fullHeight: true)
+        n.cancelRename()
+        n.detailTab = .summary
+        shoot(15, "note-summary-off", .notes, fullHeight: true)
+        n.detailTab = .ask
+        shoot(16, "note-ask-off", .notes, fullHeight: true)
+        n.detailTab = .transcript
+        n.stage(route: .detail(failed))
+        shoot(17, "note-failed", .notes, fullHeight: true)
+        // A meeting still marked as recording, as if talkflow had quit during it.
+        let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))
+        n.stage(route: .list)
+        n.refresh()
+        shoot(18, "notes-leftover", .notes, fullHeight: true)
+        if let left { try? n.store.delete(left.id) }
+        for note in n.store.list() { try? n.store.delete(note.id) }
+        n.refresh()
+        shoot(19, "notes-empty", .notes, fullHeight: true)
+        n.supportsRecording = false
+        n.unsupportedMessage = NotesLogic.unsupportedMessage(OperatingSystemVersion(majorVersion: 13, minorVersion: 6, patchVersion: 0))
+        shoot(20, "notes-unsupported", .notes, fullHeight: true)
 
         return written
     }
