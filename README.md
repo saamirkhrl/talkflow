@@ -53,7 +53,7 @@ Hold <kbd>fn</kbd>, speak, let go. Your words are typed into whatever app you're
 - **Clean text.** Spoken punctuation, lists and filler-word removal are handled for you.
 - **Learns your words.** Names and terms you correct are remembered.
 - **Your shortcut.** <kbd>fn</kbd> by default, or any modifier key or combination you record.
-- **A dashboard.** Words dictated, speaking speed, your daily streak and the typing time you've saved.
+- **A home screen.** Words dictated, speaking speed, your daily streak and the typing time you've saved.
 
 ## Download
 
@@ -102,8 +102,8 @@ If an earlier talkflow set the engine up with Homebrew's `whisper-cpp`, talkflow
 ## Privacy
 
 - **Speech stays on your computer.** It is transcribed locally by Whisper, on your Mac or PC. Audio is held in memory and never written to disk.
-- **Optional cloud keys.** In Settings you can add your own OpenAI key (transcription) or Anthropic key (punctuation). That step then goes to that provider. It's off unless you add a key.
-- **Update checks.** The app checks GitHub for updates shortly after it starts (when you're online), every few hours while it runs, and when you open the dashboard. It downloads only the release's small manifest file. Updates install only when you click, and only if the download matches the release's sha256 checksum. See [docs/releases.md](docs/releases.md).
+- **Optional cloud keys.** In Settings you can add your own OpenAI key (transcription) or Anthropic key (punctuation). That step then goes to that provider and is billed to your account. It's off unless you add a key. On a Mac without Apple Intelligence, AI corrections (off by default) also use the Anthropic key while Claude punctuation is on, so the dictated text is sent to Anthropic in a second, billed request.
+- **Update checks.** The app checks GitHub for updates shortly after it starts (when you're online), every few hours while it runs, and when you open the app window. It downloads only the release's small manifest file. Updates install only when you click, and only if the download matches the release's sha256 checksum. See [docs/releases.md](docs/releases.md).
 - **Install count.** The first time an official release runs while online, it sends one empty request so installs can be counted. It sends no ID and nothing about you, your computer or your usage, and once it succeeds it never sends again. Builds from source send nothing. See [docs/telemetry.md](docs/telemetry.md).
 - **Your data** lives in one folder: `~/Library/Application Support/talkflow/` on a Mac, `%APPDATA%\talkflow\` on Windows. `stats.json` holds your stats and `settings.json` your settings and learned words. On Windows, models and logs are in `%LOCALAPPDATA%\talkflow\`.
 - **Full details** are in the [privacy policy](https://talkflow.live/privacy).
@@ -118,11 +118,11 @@ Your data folder is kept, so reinstalling picks up where you left off. Delete `~
 
 | Symptom | Fix |
 |---|---|
-| Holding fn does nothing | Open **Finish setup...** from the menu bar (it shows while something is missing) and do what it asks. If Accessibility was just granted, press **Restart talkflow**. |
+| Holding fn does nothing | Right-click the talkflow icon in the menu bar and choose **Finish setup...** (it shows while something is missing; Home has the same link) and do what it asks. If Accessibility was just granted, press **Restart talkflow**. |
 | The emoji picker or dictation opens when you press fn | System Settings > Keyboard > "Press the globe key to" > **Do Nothing**. |
 | Words never appear | The speech engine may be down. `curl http://127.0.0.1:8178/` should answer. Log: `~/Library/Logs/TalkFlow/whisper-server.log`. Restart it with `launchctl kickstart -k gui/$(id -u)/com.samir.talkflow.whisperserver`. |
 | Setup says the speech engine is missing | The app is damaged or incomplete. Download talkflow again and replace the copy in Applications. |
-| A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Open **Finish setup...** from the menu bar and press **Reset and allow again**, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
+| A permission is on but it still fails (often right after an update) | macOS is holding the permission for the previous copy. Right-click the talkflow icon in the menu bar, choose **Finish setup...** and press **Reset and allow again**, or remove talkflow from that list in System Settings with **-**, add it again with **+** and switch it on. Why: [docs/signing.md](docs/signing.md). |
 
 Still stuck? [Open an issue](https://github.com/saamirkhrl/talkflow/issues/new) with your macOS version and what you tried.
 

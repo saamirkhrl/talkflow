@@ -30,6 +30,14 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude]`.
+// `check` runs no model. `claude` sends each case to Anthropic with the saved key and Claude
+// model (billed; synthetic sentences only), never runs unless given, and needs the Keychain
+// item readable (see CorrectionSelfTest). Run from a build, not the installed app.
+if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
+    CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // The on-demand final-pass server, timed against the real engine. Run from
 // the installed app; stops its final-pass server, which the next hold restarts.
 if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {
@@ -133,6 +141,28 @@ if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
         if Date().timeIntervalSince(started) >= seconds { exit(0) }
     }
     NSApplication.shared.run()
+}
+
+// Pure logic, like --streamtest: the Dictionary page's add and remove
+// rules. Results in $TMPDIR/talkflow-dictionarytest.log.
+if CommandLine.arguments.contains("--dictionarytest") {
+    DictionarySelfTest.run()
+}
+
+// Opens the real app window from a build, on throwaway settings and sample
+// stats, to click around without installing. Starts no hotkey, recorder,
+// engine, updater or install count, and runs before the single-instance
+// guard. Run it from the repo root so it finds the app icon.
+if CommandLine.arguments.contains("--windowpreview") {
+    WindowPreview.run()
+}
+
+// Cmd+V and the other Edit shortcuts in the app window's fields, through the
+// real main menu, on throwaway settings. Briefly opens and activates the
+// window, and puts the clipboard back afterwards. Results in
+// $TMPDIR/talkflow-pastetest.log.
+if CommandLine.arguments.contains("--pastetest") {
+    PasteSelfTest.run()
 }
 
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by

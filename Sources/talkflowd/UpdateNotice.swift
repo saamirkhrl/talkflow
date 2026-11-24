@@ -4,15 +4,16 @@ import UserNotifications
 /// One macOS notification per new version, saying an update is available.
 ///
 /// Permission is asked the first time there is something to say, not at
-/// launch. If it is refused, the "Update to X.Y.Z..." menu bar item is the
-/// only sign. Clicking the notification opens the dashboard, where the
-/// Update button is; nothing is installed without that click.
+/// launch. If it is refused, the "Update to X.Y.Z..." item in the menu bar
+/// icon's right-click menu is the only sign. Clicking the notification opens the
+/// talkflow window, where the Update button is; nothing is installed without
+/// that click.
 final class UpdateNotice: NSObject, UNUserNotificationCenterDelegate {
     static let shared = UpdateNotice()
     private static let notifiedKey = "updateNotifiedVersion"
     private static let identifierPrefix = "talkflow-update-"
 
-    /// Opens the dashboard; set by AppDelegate.
+    /// Opens the talkflow window; set by AppDelegate.
     var onOpen: (() -> Void)?
 
     /// UNUserNotificationCenter raises an exception in a process that is not
@@ -24,7 +25,7 @@ final class UpdateNotice: NSObject, UNUserNotificationCenterDelegate {
     }
 
     /// At launch, so a click on a notification posted by an earlier run
-    /// still opens the dashboard. Asks for nothing.
+    /// still opens the talkflow window. Asks for nothing.
     func start() {
         center?.delegate = self
     }
@@ -39,7 +40,7 @@ final class UpdateNotice: NSObject, UNUserNotificationCenterDelegate {
             guard granted else { return }
             let content = UNMutableNotificationContent()
             content.title = "talkflow \(version) is available"
-            content.body = "Open the dashboard to update. Nothing installs until you click Update."
+            content.body = "Open talkflow to update. Nothing installs until you click Update."
             let request = UNNotificationRequest(identifier: Self.identifierPrefix + version, content: content, trigger: nil)
             center.add(request) { error in
                 if let error { print("talkflowd: update notification failed: \(error.localizedDescription)") }
@@ -55,7 +56,7 @@ final class UpdateNotice: NSObject, UNUserNotificationCenterDelegate {
         completionHandler()
     }
 
-    /// Shown even while talkflow is the active app (the dashboard is open).
+    /// Shown even while talkflow is the active app (the talkflow window is open).
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner])

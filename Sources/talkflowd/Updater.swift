@@ -14,7 +14,7 @@ import Network
 /// running from, and relaunches. Nothing installs without a click.
 ///
 /// Checked shortly after launch once the network is up, every few hours while
-/// running, and when the dashboard opens (`checkIfStale`).
+/// running, and when the app window opens (`checkIfStale`).
 ///
 /// The signature matters: macOS ties the microphone, Accessibility and Input
 /// Monitoring grants to the code signature's designated requirement. Releases
@@ -87,9 +87,9 @@ final class Updater: ObservableObject {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
-    /// Checks when the dashboard opens, at most every few hours (a successful
-    /// background check counts), so the header already knows when the user
-    /// looks at it.
+    /// Checks when the app window opens, at most every few hours (a successful
+    /// background check counts), so the sidebar footer and Home already know
+    /// when the user looks at them.
     func checkIfStale() {
         if let lastCheck, Date().timeIntervalSince(lastCheck) < 6 * 3600 { return }
         if case .checking = state { return }
@@ -141,7 +141,7 @@ final class Updater: ObservableObject {
         }
         let previous = state
         state = .checking
-        // A quiet failure leaves `lastCheck` alone, so opening the dashboard
+        // A quiet failure leaves `lastCheck` alone, so opening the app window
         // still checks (and shows the error) as it always has.
         if quietly { lastBackgroundAttempt = Date() } else { lastCheck = Date() }
         DispatchQueue.global(qos: .utility).async { _ = Self.keepsPermissions }
