@@ -219,5 +219,105 @@ enum NotesAIClientSelfTest {
         let e16 = success(r16)
         check(e16?.answer == "Hello [19]" && e16?.citations == [19] && t16.requests.first?.url == NotesAI.openAIURL,
               "NC16 OpenAI ask", "\(String(describing: failure(r16))) url \(String(describing: t16.requests.first?.url?.host))")
+
+        // NC17 the switch goes off between the parts of a long summary: nothing more is sent.
+        do {
+            var on = true
+            let (client, transport, _) = client([])
+            client.allowed = { _ in on }
+            transport.provider = { _ in on = false; return part(0) }
+            var result: Result<NoteSummary, NotesAIError>?
+            client.writeSummary(access: access()!, transcript: Transcript(turns: longTurns),
+                                speakers: [NoteSpeaker(key: "you"), NoteSpeaker(key: "s1")],
+                                progress: { _, _ in }, completion: { result = $0 })
+            spin(5) { result != nil }
+            check(transport.requests.count == 1 && failure(result) == .noKey,
+                  "NC17 access lost between parts", "requests \(transport.requests.count) \(String(describing: failure(result)))")
+        }
+
+        // NC18 the switch goes off during a retry wait of a summary.
+        do {
+            var on = true
+            let slow = CannedNotesTransport.Reply.http(status: 429, headers: ["Retry-After": "5"],
+                                                       body: #"{"type":"error","error":{"type":"rate_limit_error","message":"x"}}"#)
+            let (client, transport, _) = client([slow, .http(status: 200, headers: [:], body: anth(good))])
+            client.allowed = { _ in on }
+            client.sleep = { _, body in on = false; body() }
+            var result: Result<NoteSummary, NotesAIError>?
+            client.writeSummary(access: access()!, transcript: Transcript(turns: turns), speakers: speakers,
+                                progress: { _, _ in }, completion: { result = $0 })
+            spin(5) { result != nil }
+            check(transport.requests.count == 1 && failure(result) == .noKey,
+                  "NC18 access lost during summary retry", "requests \(transport.requests.count) \(String(describing: failure(result)))")
+        }
+
+        // NC19 the switch goes off during a retry wait of a question.
+        do {
+            var on = true
+            let slow = CannedNotesTransport.Reply.http(status: 429, headers: ["Retry-After": "5"],
+                                                       body: #"{"type":"error","error":{"type":"rate_limit_error","message":"x"}}"#)
+            let (client, transport, _) = client([slow, .stream(status: 200, lines: answerLines)])
+            client.allowed = { _ in on }
+            client.sleep = { _, body in on = false; body() }
+            var result: Result<NoteQuestions.Entry, NotesAIError>?
+            var texts: [String] = []
+            client.ask(access: access()!, transcript: Transcript(turns: turns), speakers: speakers, history: [],
+                       question: "What next?", onText: { texts.append($0) }, completion: { result = $0 })
+            spin(5) { result != nil }
+            check(transport.requests.count == 1 && failure(result) == .noKey && texts.isEmpty,
+                  "NC19 access lost during ask retry", "requests \(transport.requests.count) \(String(describing: failure(result))) texts \(texts.count)")
+        }
+
+        // NC20 access refused from the start: no request for either.
+        do {
+            let (c1, t1, _) = client([.http(status: 200, headers: [:], body: anth(good))])
+            c1.allowed = { _ in false }
+            var sum: Result<NoteSummary, NotesAIError>?
+            c1.writeSummary(access: access()!, transcript: Transcript(turns: turns), speakers: speakers,
+                            progress: { _, _ in }, completion: { sum = $0 })
+            spin(5) { sum != nil }
+            let (c2, t2, _) = client([.stream(status: 200, lines: answerLines)])
+            c2.allowed = { _ in false }
+            var ans: Result<NoteQuestions.Entry, NotesAIError>?
+            c2.ask(access: access()!, transcript: Transcript(turns: turns), speakers: speakers, history: [],
+                   question: "What next?", onText: { _ in }, completion: { ans = $0 })
+            spin(5) { ans != nil }
+            check(t1.requests.isEmpty && t2.requests.isEmpty && failure(sum) == .noKey && failure(ans) == .noKey,
+                  "NC20 access refused up front", "\(t1.requests.count) \(t2.requests.count)")
+        }
+
+        // NC21 the notes session keeps no cache and refuses redirects (no network: the task is never started).
+        do {
+            let session = LiveNotesTransport.session
+            let url = URL(string: "https://example.invalid/")!
+            let task = session.dataTask(with: url)
+            var redirected: URLRequest? = URLRequest(url: url)
+            if let http = HTTPURLResponse(url: url, statusCode: 302, httpVersion: nil, headerFields: ["Location": "https://example.invalid/"]) {
+                NotesNoRedirect().urlSession(session, task: task, willPerformHTTPRedirection: http,
+                                             newRequest: URLRequest(url: url)) { redirected = $0 }
+            }
+            task.cancel()
+            check(session.configuration.urlCache == nil && session.delegate is NotesNoRedirect && redirected == nil,
+                  "NC21 notes session", "cache \(session.configuration.urlCache == nil) redirect \(redirected == nil)")
+        }
+
+        // NC22 lines split on LF only, CR dropped, the last line kept.
+        let split22 = NotesLineSplitter.lines([Array("data: a\r\n".utf8), Array("data: b".utf8), Array("\nlast".utf8)])
+        check(split22 == ["data: a", "data: b", "last"] && NotesLineSplitter.lines([]).isEmpty,
+              "NC22 line splitter", "\(split22)")
+
+        // NC23 U+2028 inside a JSON string and a multi-byte character cut between chunks.
+        do {
+            let text = "a\u{2028}b \u{e9}"
+            let delta = "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"\(text)\"}}"
+            let bytes = Array((delta + "\n" + "data: {\"type\":\"message_stop\"}\n").utf8)
+            let cut = (bytes.firstIndex(of: 0xC3) ?? 0) + 1
+            let lines = NotesLineSplitter.lines([Array(bytes[..<cut]), Array(bytes[cut...])])
+            var parser = NotesStreamParser(provider: .anthropic)
+            _ = parser.feed("data: " + json(["type": "message_start", "message": ["id": "m"]]))
+            for line in lines { _ = parser.feed(line) }
+            check(lines.count == 2 && lines[0].contains("\u{2028}") && lines[0].contains("\u{e9}") && parser.text == text,
+                  "NC23 U+2028 and split character", "lines \(lines.count) text \(parser.text.unicodeScalars.count)")
+        }
     }
 }

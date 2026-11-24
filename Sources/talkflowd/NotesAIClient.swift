@@ -34,14 +34,72 @@ protocol NotesTransport: AnyObject {
 
 // MARK: - The real transport
 
-/// URLSession on the same ephemeral session the cloud transcriber uses, so the transcript (in the request body)
-/// is never cached to disk.
+/// Refuses every redirect. A redirect would carry the key header to another host; refusing hands the 3xx back,
+/// which is reported as a server error.
+final class NotesNoRedirect: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
+    }
+}
+
+/// Splits a byte stream into lines on 0x0A only (one trailing 0x0D dropped). bytes.lines also splits on U+0085,
+/// U+2028 and U+2029, which may sit inside a JSON string and would break a data: line.
+struct NotesLineSplitter {
+    private var buffer: [UInt8] = []
+
+    private mutating func take() -> String {
+        if buffer.last == 0x0D { buffer.removeLast() }
+        let line = String(decoding: buffer, as: UTF8.self)
+        buffer.removeAll(keepingCapacity: true)
+        return line
+    }
+
+    /// Returns a finished line when `byte` is the newline, otherwise nil.
+    mutating func feed(_ byte: UInt8) -> String? {
+        if byte != 0x0A {
+            buffer.append(byte)
+            return nil
+        }
+        return take()
+    }
+
+    /// The last line when the stream ends without a newline; nil if nothing is left.
+    mutating func finish() -> String? {
+        buffer.isEmpty ? nil : take()
+    }
+
+    static func lines(_ chunks: [[UInt8]]) -> [String] {
+        var splitter = NotesLineSplitter()
+        var result: [String] = []
+        for chunk in chunks {
+            for byte in chunk {
+                if let line = splitter.feed(byte) { result.append(line) }
+            }
+        }
+        if let last = splitter.finish() { result.append(last) }
+        return result
+    }
+}
+
+/// URLSession on its own ephemeral session (no cache, no cookies, no redirects), so the transcript (in the
+/// request body) is never cached to disk and the key header never follows a redirect to another host.
 final class LiveNotesTransport: NotesTransport {
+    static let session: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldSetCookies = false
+        return URLSession(configuration: configuration, delegate: NotesNoRedirect(), delegateQueue: nil)
+    }()
+
     /// Most of an error body that is read; a provider's error JSON is far smaller.
     private static let maxErrorBody = 65_536
 
     func send(_ request: URLRequest, completion: @escaping (Result<(HTTPURLResponse, Data), URLError>) -> Void) -> NotesCancel {
-        let task = CloudTranscriber.session.dataTask(with: request) { data, response, error in
+        let task = LiveNotesTransport.session.dataTask(with: request) { data, response, error in
             if let error {
                 completion(.failure((error as? URLError) ?? URLError(.badServerResponse)))
                 return
@@ -61,7 +119,7 @@ final class LiveNotesTransport: NotesTransport {
         // URLSession.bytes needs macOS 12, fine for the macOS 13 target.
         let task = Task {
             do {
-                let (bytes, response) = try await CloudTranscriber.session.bytes(for: request)
+                let (bytes, response) = try await LiveNotesTransport.session.bytes(for: request)
                 guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
                 if !(200...299).contains(http.statusCode) {
                     var body = Data()
@@ -72,7 +130,11 @@ final class LiveNotesTransport: NotesTransport {
                     completion(.success((http, body)))
                     return
                 }
-                for try await line in bytes.lines { onLine(line) }
+                var splitter = NotesLineSplitter()
+                for try await byte in bytes {
+                    if let line = splitter.feed(byte) { onLine(line) }
+                }
+                if let last = splitter.finish() { onLine(last) }
                 completion(.success((http, nil)))
             } catch let error as URLError {
                 completion(.failure(error))
@@ -94,6 +156,10 @@ final class NotesAIClient {
     /// 0...1 s added to every automatic wait, so many Macs do not retry in step.
     var jitter: () -> Double = { Double.random(in: 0...1) }
     var now: () -> Date = Date.init
+    /// Asked right before every send, retries included: false once "Use my key for meeting notes" is off or the
+    /// provider's key is gone, so a running job stops instead of reusing the request it built at the start.
+    /// NoteAssistant sets it from the real access check; tests and the test flags keep the default.
+    var allowed: (NotesProvider) -> Bool = { _ in true }
 
     init(transport: NotesTransport, keyFor: @escaping (APIKeys.Provider) -> String?) {
         self.transport = transport
@@ -272,6 +338,15 @@ final class NotesAIClient {
     /// queue, once, and never after a cancel.
     private func perform(_ request: URLRequest, provider: NotesProvider, job: Job, attempt: Int,
                          done: @escaping (Result<Data, NotesAIError>) -> Void) {
+        // Asked before every send, retries included: the switch may go off or the key may be removed mid-job, and
+        // the saved request still holds the key, so each send asks again.
+        guard allowed(provider) else {
+            DispatchQueue.main.async {
+                guard job.live else { return }
+                done(.failure(.noKey))
+            }
+            return
+        }
         job.current = transport.send(request) { [self] result in
             DispatchQueue.main.async { [self] in
                 guard job.live else { return }
@@ -375,6 +450,8 @@ final class NotesAIClient {
 
     private func startStream(_ job: AskJob) {
         guard job.live else { return }
+        // Same reason as in perform: the saved request holds the key, so every send (retry too) asks again.
+        guard allowed(job.access.provider) else { fail(job, .noKey); return }
         let generation = job.generation
         job.current = transport.stream(job.request, onLine: { [self] line in
             DispatchQueue.main.async { [self] in
@@ -425,11 +502,15 @@ final class NotesAIClient {
                 startStream(job)
             }
         } else {
-            job.finished = true
-            job.current?.cancel()
-            print("talkflowd: notes: question failed: \(error.category)")
-            job.completion(.failure(error))
+            fail(job, error)
         }
+    }
+
+    private func fail(_ job: AskJob, _ error: NotesAIError) {
+        job.finished = true
+        job.current?.cancel()
+        print("talkflowd: notes: question failed: \(error.category)")
+        job.completion(.failure(error))
     }
 
     private func succeed(_ job: AskJob) {
