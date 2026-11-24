@@ -108,6 +108,11 @@ extension DashboardController {
         for note in n.store.list() { try? n.store.delete(note.id) }
         n.refresh()
         shoot(19, "notes-empty", .notes, fullHeight: true)
+        n.downloads.stage(model: .absent, speakers: .absent, declined: false)
+        shoot(21, "notes-downloads", .notes, fullHeight: true)
+        n.downloads.stage(model: .downloading(0.42), speakers: .done, declined: false)
+        shoot(22, "notes-downloading", .notes, fullHeight: true)
+        n.downloads.stage(model: .done, speakers: .done, declined: false)
         n.supportsRecording = false
         n.unsupportedMessage = NotesLogic.unsupportedMessage(OperatingSystemVersion(majorVersion: 13, minorVersion: 6, patchVersion: 0))
         shoot(20, "notes-unsupported", .notes, fullHeight: true)

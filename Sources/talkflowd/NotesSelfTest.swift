@@ -413,6 +413,8 @@ enum NotesSelfTest {
         TranscribeChecks.run { check($0, $1, $2) }
         SpeakerChecks.run { check($0, $1, $2) }
         NotesFlowChecks.run { check($0, $1, $2) }
+        NotesDownloadChecks.run { check($0, $1, $2) }
+        NotesProcessChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)

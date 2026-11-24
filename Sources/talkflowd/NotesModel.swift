@@ -41,21 +41,27 @@ final class NotesModel: ObservableObject {
     /// a no-op in previews and tests.
     var repairAudio: (URL) -> Void = { _ in }
 
+    /// The optional first-use downloads (larger speech model, speaker models) offered on the Notes list.
+    let downloads: NoteDownloads
+
     private var timer: Timer?
     /// The last step written to note.json, so the disk is written once per step, not ten times a second.
     private var lastStep: WritingStep = .saving
 
     init(store: NoteStore, capture: MeetingCapture, pipeline: NotesPipeline,
+         downloads: NoteDownloads = NoteDownloads(environment: .inert),
          os: OperatingSystemVersion = ProcessInfo.processInfo.operatingSystemVersion) {
         self.store = store
         self.capture = capture
         self.pipeline = pipeline
+        self.downloads = downloads
         supportsRecording = NotesLogic.supportsRecording(os)
         unsupportedMessage = NotesLogic.unsupportedMessage(os)
     }
 
     static func live() -> NotesModel {
-        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: LocalNotesPipeline())
+        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: LocalNotesPipeline(),
+                           downloads: NoteDownloads(environment: .live()))
         model.repairAudio = { folder in
             let fixed = WavRepair.repairAll(in: folder)
             Self.log("repaired \(fixed) leftover audio file(s)")
@@ -100,6 +106,7 @@ final class NotesModel: ObservableObject {
     // MARK: - List
 
     func refresh() {
+        downloads.refresh()
         let all = store.list()
         // A finished note must not keep its audio: if talkflow stopped between saving a transcript and deleting the
         // audio, the next look at the list finishes the job.
@@ -400,6 +407,8 @@ final class NotesModel: ObservableObject {
     // MARK: - Quit
 
     func appWillTerminate() {
+        // The helper's prepare is a child process and must not outlive the app.
+        downloads.cancel()
         if isRecording, let id = session?.noteID {
             stopTimer()
             let d = capture.stop()

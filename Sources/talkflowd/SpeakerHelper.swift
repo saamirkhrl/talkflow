@@ -36,8 +36,24 @@ enum SpeakerHelper {
         #endif
     }
 
-    /// Arguments that download the models (the only command that uses the network). Nothing calls
-    /// this yet; a later settings screen will.
+    /// The helper's model folder inside `modelsDir` (FluidAudio's repo folder name).
+    static let repoFolder = "speaker-diarization"
+    /// Mirrors the helper's modelsPresent (FluidAudio ModelNames.OfflineDiarizer.requiredModels): every required
+    /// entry exists and no interrupted ".partial" download is left anywhere under the folder.
+    static let requiredModels = ["Segmentation.mlmodelc", "FBank.mlmodelc", "Embedding.mlmodelc", "PldaRho.mlmodelc", "plda-parameters.json"]
+
+    static func modelsPresent(_ modelsDir: URL) -> Bool {
+        let repo = modelsDir.appendingPathComponent(repoFolder, isDirectory: true)
+        let fm = FileManager.default
+        for name in requiredModels where !fm.fileExists(atPath: repo.appendingPathComponent(name).path) { return false }
+        if let walk = fm.enumerator(at: repo, includingPropertiesForKeys: nil) {
+            for case let url as URL in walk where url.pathExtension == "partial" { return false }
+        }
+        return true
+    }
+
+    /// Arguments that download the models (the only command that uses the network). Called by NoteDownloads
+    /// when the user clicks Download on the Notes list.
     static func prepareArguments(modelsDir: URL) -> [String] {
         ["prepare", "--models-dir", modelsDir.path]
     }
@@ -185,7 +201,7 @@ final class SpeakerRun: @unchecked Sendable {
 }
 
 /// Splits a stream of stderr bytes into lines.
-private final class LineBuffer: @unchecked Sendable {
+final class LineBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
     private let onLine: (String) -> Void
