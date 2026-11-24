@@ -462,7 +462,8 @@ final class CaptureSession {
         watch.update(audioSeconds: s.sysSecondsDelta, nonZeroSamples: s.sysNonZeroDelta, othersPlaying: s.othersPlaying)
         let callbacks = s.sysChunks + Int(cap_ring_dropped(ring.ptr))
         var status = watch.status(startCompleted: s.startCompletedAt != nil, sinceStartRequested: now - hostStart,
-                                  sinceStartCompleted: now - (s.startCompletedAt ?? now), callbacks: callbacks)
+                                  sinceStartCompleted: now - (s.startCompletedAt ?? now), callbacks: callbacks,
+                                  othersPlaying: s.othersPlaying)
         if s.systemAudioFailed && status != .receiving { status = .starting }   // a real error, shown as `problem` instead of a permission hint
         if status != s.lastStatus {
             counters.with { $0.lastStatus = status }

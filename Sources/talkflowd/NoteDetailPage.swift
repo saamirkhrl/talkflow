@@ -1,19 +1,44 @@
+import AppKit
 import SwiftUI
 
-/// One meeting: header with Copy and Delete, then Transcript, Summary and Ask. Summary and Ask only say how to
-/// turn them on until the key switch exists (NotesKeys); nothing here sends anything anywhere.
+/// One meeting: header with Copy and Delete, then Transcript, Summary and Ask. With "Use my key for meeting
+/// notes" off, Summary and Ask only say how to turn it on; with it on they show the summary and the questions
+/// (NoteSummaryView, NoteAskView), and a time in either jumps to its row in the transcript.
 struct NoteDetailPage: View {
     @ObservedObject var model: NotesModel
+    @ObservedObject private var assistant: NoteAssistant
     var scrolls = true
 
+    init(model: NotesModel, scrolls: Bool = true) {
+        self.model = model
+        self.scrolls = scrolls
+        _assistant = ObservedObject(wrappedValue: model.assistant)
+    }
+
     var body: some View {
-        AppPage(maxWidth: 780, scrolls: scrolls) {
-            VStack(alignment: .leading, spacing: 22) {
-                AppBackLink(title: "Notes") { model.backToList() }
-                if let meta = model.detailMeta {
-                    content(meta)
+        ScrollViewReader { proxy in
+            AppPage(maxWidth: 780, scrolls: scrolls) {
+                VStack(alignment: .leading, spacing: 22) {
+                    AppBackLink(title: "Notes") { model.backToList() }
+                    if let meta = model.detailMeta {
+                        content(meta)
+                    }
                 }
             }
+            .onChange(of: assistant.jump) { jump in
+                guard let jump else { return }
+                model.detailTab = .transcript
+                // Next turn: the transcript rows only exist once the tab has switched.
+                DispatchQueue.main.async { scroll(proxy, to: jump.turn) }
+            }
+        }
+    }
+
+    private func scroll(_ proxy: ScrollViewProxy, to turn: Int) {
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            proxy.scrollTo(turn, anchor: .center)
+        } else {
+            withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo(turn, anchor: .center) }
         }
     }
 
@@ -34,18 +59,14 @@ struct NoteDetailPage: View {
             transcript(meta)
         case .summary:
             if model.keyInUse {
-                Text("No summary for this meeting yet.")
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.muted)
+                NoteSummaryView(assistant: assistant, meta: meta, turns: turns)
             } else {
                 offCard(title: "Summaries are off",
                         body: "Turn on 'Use my key for meeting notes' in Settings > Models and API keys and talkflow writes a summary, action items and decisions for each meeting. The transcript is sent to your provider to write them; the audio never leaves this Mac.")
             }
         case .ask:
             if model.keyInUse {
-                Text("No questions yet.")
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.muted)
+                NoteAskView(assistant: assistant, meta: meta, turns: turns)
             } else {
                 offCard(title: "Questions are off",
                         body: "Turn on 'Use my key for meeting notes' in Settings > Models and API keys to ask questions about this meeting. Each question sends the transcript to your provider; the audio never leaves this Mac.")
@@ -147,11 +168,23 @@ struct NoteDetailPage: View {
             VStack(alignment: .leading, spacing: 18) {
                 speakersRow(meta)
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    ForEach(Array(turns.enumerated()), id: \.offset) { _, t in
+                    ForEach(Array(turns.enumerated()), id: \.offset) { index, t in
                         turnRow(t, meta)
+                            .background(highlight(index))
+                            .id(index)
                     }
                 }
             }
+        }
+    }
+
+    /// The row a citation jumped to: a faint tint a little wider than the text, so the text does not move.
+    @ViewBuilder
+    private func highlight(_ index: Int) -> some View {
+        if assistant.highlightedTurn == index {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Palette.ink.opacity(0.06))
+                .padding(-8)
         }
     }
 

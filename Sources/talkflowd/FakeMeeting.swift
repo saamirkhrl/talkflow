@@ -4,7 +4,7 @@ import CoreAudio
 import Foundation
 
 // `talkflowd --fakemeeting [folder] [--dry-run] [--fake-pipeline] [--notes-model PATH] [--speaker-helper PATH]
-// [--speaker-models DIR] [--server PATH] [--misaligned]`: records a made-up meeting for real (played
+// [--speaker-models DIR] [--server PATH] [--with-summary] [--misaligned]`: records a made-up meeting for real (played
 // through the Mac's speakers), writes notes through the app's real pipeline seam, then scores them against the
 // truth. --dry-run plays nothing and copies the fixture's 16 kHz files in place of captured audio. With --dry-run,
 // --misaligned instead writes them the way a bad first meeting leaves them: the computer's sound starts 12 s after the
@@ -12,6 +12,8 @@ import Foundation
 // shifted. Exit codes:
 // 0 PASS, 1 FAIL or refused, 2 fixture missing or bad, 130 interrupted. The four path flags override what the app
 // would use, so a test can run the real pipeline on test copies of the models and leave the user's models folder alone.
+// After the transcript scores, a live run also writes the Summary and asks the five questions when "Use my key for
+// meeting notes" is on and a key exists; --with-summary makes a dry run do the same. These scores are informational.
 
 // MARK: - Options
 
@@ -23,6 +25,8 @@ struct FakeMeetingOptions: Equatable {
     var speakerHelper: URL?
     var speakerModels: URL?
     var server: String?
+    /// Run the Summary and the five questions even in a dry run (a live run does when the key switch is on).
+    var withSummary: Bool = false
     var misaligned = false
 
     static let defaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
@@ -46,6 +50,7 @@ struct FakeMeetingOptions: Equatable {
                                   speakerHelper: value("--speaker-helper").map { URL(fileURLWithPath: $0) },
                                   speakerModels: value("--speaker-models").map { URL(fileURLWithPath: $0, isDirectory: true) },
                                   server: value("--server"),
+                                  withSummary: arguments.contains("--with-summary"),
                                   misaligned: arguments.contains("--misaligned"))
     }
 }
@@ -87,28 +92,56 @@ enum FMPreflight {
         return "The volume is low (\(Int((volume * 100).rounded()))%). The microphone may barely hear the meeting; about half volume or more works best."
     }
 
+    /// How long the owner gets to click Allow on the macOS prompt.
+    static let permissionWait: Double = 90
+
     /// sinceStart = seconds since NotesModel.start().
     static func beforePlay(status: ComputerAudioStatus, sinceStart: Double) -> FMGate {
         switch status {
-        case .notAuthorised, .notArriving:
-            return .refuse(permissionMessage)
         case .waitingForPermission:
-            return sinceStart < 120 ? .wait
-                : .refuse("Nobody answered the macOS question about recording this Mac's sound within 2 minutes. " + permissionMessage)
-        case .starting:
-            return sinceStart < 15 ? .wait
-                : .refuse("Recording this Mac's sound didn't start within 15 seconds. Run this again; if it keeps happening, restart the Mac.")
+            // The macOS prompt is up. Refusing early made macOS take it away before the owner could click Allow.
+            return sinceStart < permissionWait ? .wait
+                : .refuse("Nobody clicked Allow for recording this Mac's sound within 90 seconds. " + permissionMessage)
         case .nothingPlaying, .receiving:
             return sinceStart >= 1.5 ? .go : .wait
+        case .starting, .notAuthorised, .notArriving:
+            // With the output idle a granted permission looks the same as a missing one, so give it a short grace
+            // and play anyway; afterPlay judges once there is something to hear.
+            return sinceStart >= 3 ? .go : .wait
         }
     }
 
     /// sincePlay = seconds since playback started.
     static func afterPlay(status: ComputerAudioStatus, sincePlay: Double) -> FMGate {
-        switch status {
-        case .receiving: return .go
-        case .notAuthorised, .notArriving: return .refuse(permissionMessage)
-        default: return sincePlay < 8 ? .wait : .refuse(permissionMessage)
+        if status == .receiving { return .go }
+        return sincePlay < 5 ? .wait : .refuse(permissionMessage)
+    }
+
+    /// The live wait before playing, on closures so it can be checked with a fake capture and clock.
+    /// Says a short notice every 10 s while the macOS prompt is still unanswered.
+    static func waitBeforePlay(status: () -> ComputerAudioStatus, elapsed: () -> Double,
+                               pump: (Double) -> Void, say: (String) -> Void) -> FMGate {
+        var nextNotice = 10.0
+        while true {
+            pump(0.1)
+            let s = status()
+            let t = elapsed()
+            let g = beforePlay(status: s, sinceStart: t)
+            if g != .wait { return g }
+            if s == .waitingForPermission && t >= nextNotice {
+                say("waiting for you to click Allow")
+                while nextNotice <= t { nextNotice += 10 }
+            }
+        }
+    }
+
+    /// The live wait after playback started: the same loop without notices, using afterPlay.
+    static func waitAfterPlay(status: () -> ComputerAudioStatus, elapsed: () -> Double,
+                              pump: (Double) -> Void) -> FMGate {
+        while true {
+            pump(0.1)
+            let g = afterPlay(status: status(), sincePlay: elapsed())
+            if g != .wait { return g }
         }
     }
 }
@@ -560,6 +593,8 @@ enum FakeMeeting {
     // MARK: The flow
 
     static func run(_ arguments: [String]) -> Never {
+        // Before step 5 swaps in the sandbox settings suite (which is empty, so it would always read off). Read only.
+        let notesSwitchOn = Preferences.notesUseKey
         resetLog()
         FMCleanup.install()
         // The run loop must always have a source, or RunLoop.run(until:) returns at once and the loops below spin.
@@ -733,25 +768,19 @@ enum FakeMeeting {
             say("computer audio gate (dry run): \(describe(FMPreflight.beforePlay(status: l.computerAudio, sinceStart: max(now() - startT, 1.5))))")
         } else {
             var announced = false
-            gate: while true {
-                pump(0.1)
-                let l = model.capture.levels()
-                if l.computerAudio == .waitingForPermission && !announced {
-                    announced = true
-                    say("macOS is asking whether talkflow may record this Mac's sound. Click Allow; the meeting starts right after.")
-                }
-                switch FMPreflight.beforePlay(status: l.computerAudio, sinceStart: now() - startT) {
-                case .wait:
-                    continue
-                case .go:
-                    if l.computerAudio == .receiving {
-                        say("Note: something else is already playing sound on this Mac. Pause it for a clean result.")
+            let g = FMPreflight.waitBeforePlay(
+                status: {
+                    let st = model.capture.levels().computerAudio
+                    if st == .waitingForPermission && !announced {
+                        announced = true
+                        say("macOS is asking whether talkflow may record this Mac's sound. Click Allow; the meeting starts right after.")
                     }
-                    break gate
-                case .refuse(let message):
-                    refuse(message, category: l.computerAudio == .starting ? "start timeout" : "permission")
-                }
-            }
+                    return st
+                },
+                elapsed: { now() - startT },
+                pump: pump,
+                say: say)
+            if case .refuse(let message) = g { refuse(message, category: "permission") }
         }
 
         // 10. Live: play the meeting. afplay is a different process, so the tap hears it; our own player is excluded.
@@ -785,16 +814,13 @@ enum FakeMeeting {
 
             // 11. After play.
             let sincePlayGate = ownAt
-            after: while true {
-                pump(0.1)
-                let l = model.capture.levels()
-                switch FMPreflight.afterPlay(status: l.computerAudio, sincePlay: now() - sincePlayGate) {
-                case .wait: continue
-                case .go:
-                    say("this Mac's sound is arriving.")
-                    break after
-                case .refuse(let message): refuse(message, category: "permission")
-                }
+            let after = FMPreflight.waitAfterPlay(
+                status: { model.capture.levels().computerAudio },
+                elapsed: { now() - sincePlayGate },
+                pump: pump)
+            switch after {
+            case .refuse(let message): refuse(message, category: "permission")
+            case .go, .wait: say("this Mac's sound is arriving.")
             }
 
             // 12. Play to the end.
@@ -884,6 +910,8 @@ enum FakeMeeting {
                 } else {
                     crossCheck(score, folder: o.folder, turns: turns)
                 }
+                summaryAndQuestions(score: score, turns: turns, folder: o.folder, dryRun: o.dryRun,
+                                    withSummary: o.withSummary, switchOn: notesSwitchOn)
             } else {
                 say("The transcript could not be read back.")
             }
@@ -939,5 +967,82 @@ enum FakeMeeting {
         }
         let mismatches = FMPython.compare(score, result)
         say(mismatches.isEmpty ? "score.py agrees with the Swift scorer" : "score.py disagrees: " + mismatches.joined(separator: "; "))
+    }
+
+    private static func tmpFile(_ name: String) -> URL {
+        URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+    }
+
+    private static func writeJSON(_ value: Any, to url: URL) {
+        guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+
+    /// Informational only, like crossCheck: the transcript thresholds are the PASS gate, and summary quality
+    /// depends on a paid model run, so nothing here changes RESULT or the exit code. Lines carry counts, scores and
+    /// categories only, never transcript, summary or answer text.
+    private static func summaryAndQuestions(score: FMScore, turns: [FMTurn], folder: URL, dryRun: Bool,
+                                            withSummary: Bool, switchOn: Bool) {
+        // The scored transcript and the speaker names, as made-up meeting files for --notesasktest. Left in
+        // $TMPDIR on purpose: FMCleanup only removes this run's own temp folder, and the orchestrator reads these after.
+        func speakerName(_ label: String) -> String { label == "You" ? "You" : NotesLogic.defaultName(label) }
+        var names: [String: String] = [:]
+        for m in score.mapping {
+            guard m.label != "You", let person = m.mappedTo, person != "samir" else { continue }
+            names[speakerName(m.label)] = person.prefix(1).uppercased() + person.dropFirst()
+        }
+        let transcriptFile = "talkflow-fakemeeting-transcript.json"
+        let namesFile = "talkflow-fakemeeting-names.json"
+        writeJSON(["turns": turns.map { ["speaker": speakerName($0.speaker), "start": $0.start, "end": $0.end, "text": $0.text] as [String: Any] }],
+                  to: tmpFile(transcriptFile))
+        writeJSON(names, to: tmpFile(namesFile))
+        say("transcript and speaker names for --notesasktest written to $TMPDIR (\(transcriptFile), \(namesFile))")
+
+        if dryRun && !withSummary {
+            say("summary and questions: skipped in a dry run (add --with-summary to run them)")
+            return
+        }
+        // With the switch off resolve returns nil before any Keychain read.
+        guard let access = NotesAccess.resolve(switchOn: switchOn, hasAnthropic: { APIKeys.hasKey(.anthropic) },
+                                               hasOpenAI: { APIKeys.hasKey(.openAI) }, anthropicModel: nil, openAIModel: nil) else {
+            say("summary and questions: not run. To run them, turn on Settings > Models and API keys > Use my key for meeting notes and add an Anthropic or OpenAI key, then run this again.")
+            return
+        }
+        let truthPath = folder.appendingPathComponent("truth.json")
+        guard let truthData = try? Data(contentsOf: truthPath), let questions = NotesAskRun.truthQuestions(truthData) else {
+            say("summary and questions: truth has no ask_questions")
+            return
+        }
+        let aiTurns = turns.map { TranscriptTurn(speaker: NotesAskRun.key(forLabel: $0.speaker), start: $0.start, end: $0.end, text: $0.text) }
+        // Renamed the way a user would, so the model sees "Bob" and not "Speaker 2".
+        let speakers = NotesAskRun.applyNames(names, to: NotesLogic.speakers(for: aiTurns, keeping: [])).speakers
+        let out = NotesAskRun.perform(client: .live(), access: access, transcript: Transcript(turns: aiTurns), speakers: speakers,
+                                      mode: .questions(truth: truthPath.path), truth: questions)
+
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        enc.dateEncodingStrategy = .iso8601
+        if let d = try? enc.encode(out) { try? d.write(to: tmpFile("talkflow-fakemeeting-ask.json"), options: .atomic) }
+        let summaryFile = "talkflow-fakemeeting-summary.json"
+        if let ss = out.scoreSummary, let d = try? enc.encode(ss) { try? d.write(to: tmpFile(summaryFile), options: .atomic) }
+
+        say(String(format: "summary: %@, model %@, %d call(s), %.1f s",
+                   out.summary != nil ? "ok" : "failed (\(out.error?.category ?? "unknown"))",
+                   out.model, out.calls, out.elapsedSeconds))
+        if let ss = out.scoreSummary, let sc = NotesAskRun.summaryScore(ss, truthData: truthData) {
+            say("summary score: action items \(sc.actionsMatched)/\(sc.actionsTruth) matched (\(sc.actionsPredicted) listed, owners right \(sc.ownersRight)), "
+                + "decisions \(sc.decisionsMatched)/\(sc.decisionsTruth) matched (\(sc.decisionsPredicted) listed)")
+        }
+        let answers = out.answers ?? []
+        say("questions: \(out.questionsCorrect ?? 0)/\(answers.count) correct, \(out.questionsCited ?? 0)/\(answers.count) cited, "
+            + "\(answers.filter { !$0.ok }.count) failed")
+        for a in answers {
+            let s = a.score
+            let recall = Int(((s?.wordRecall ?? 0) * 100).rounded())
+            say("  \(a.id ?? "?"): \(s?.correct == true ? "correct" : "wrong"), words \(recall)%, "
+                + "numbers \(s?.numbersFound ?? 0)/\(s?.numbers ?? 0), \(s?.cited == true ? "cited" : "not cited")")
+        }
+        say("score.py: python3 score.py \(transcriptFile) --mic speakers --summary \(summaryFile) (files in $TMPDIR)")
+        appLog("summary and questions: \(out.ok ? "ok" : "not ok"), \(out.calls) call(s)")
     }
 }

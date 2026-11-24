@@ -33,6 +33,15 @@ enum FakeMeetingChecks {
         report(p3.folder.standardizedFileURL.path == "/fixture" && p3.notesModel?.path == "/m.bin",
                "FG1d a folder and a path flag are both kept", "")
 
+        // FM-S1 --with-summary
+        let w1 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--with-summary"])
+        let w2 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "/fixture", "--with-summary", "--dry-run"])
+        report(!a.withSummary && !b.withSummary && !c.withSummary && w1.withSummary && w1.dryRun
+               && w1.folder.standardizedFileURL.path == d,
+               "FM-S1 --with-summary is off unless given", "")
+        report(w2.withSummary && w2.dryRun && w2.folder.standardizedFileURL.path == "/fixture",
+               "FM-S2 a folder is still parsed when --with-summary follows it", "")
+
         // G1e --misaligned
         let mis = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--misaligned"])
         report(mis.misaligned && mis.dryRun && !a.misaligned, "FG1e --misaligned is parsed", "")
@@ -79,17 +88,17 @@ enum FakeMeetingChecks {
                "FG4 muted, zero and low volume are judged", "")
 
         // G5 before play
-        let w121 = FMPreflight.beforePlay(status: .waitingForPermission, sinceStart: 121)
-        var w121ok = false
-        if case .refuse(let m) = w121, m.hasSuffix(perm) { w121ok = true }
-        var s16ok = false
-        if case .refuse = FMPreflight.beforePlay(status: .starting, sinceStart: 16) { s16ok = true }
-        report(FMPreflight.beforePlay(status: .notAuthorised, sinceStart: 0.5) == .refuse(perm)
-               && FMPreflight.beforePlay(status: .notArriving, sinceStart: 5) == .refuse(perm)
-               && FMPreflight.beforePlay(status: .waitingForPermission, sinceStart: 10) == .wait
-               && w121ok
-               && FMPreflight.beforePlay(status: .starting, sinceStart: 3) == .wait
-               && s16ok
+        func refusesWithPerm(_ g: FMGate) -> Bool {
+            if case .refuse(let m) = g, m.hasSuffix(perm) { return true }
+            return false
+        }
+        report(FMPreflight.beforePlay(status: .waitingForPermission, sinceStart: 89.9) == .wait
+               && refusesWithPerm(FMPreflight.beforePlay(status: .waitingForPermission, sinceStart: 90))
+               && FMPreflight.beforePlay(status: .notAuthorised, sinceStart: 0.5) == .wait
+               && FMPreflight.beforePlay(status: .notAuthorised, sinceStart: 3.0) == .go
+               && FMPreflight.beforePlay(status: .notArriving, sinceStart: 2.9) == .wait
+               && FMPreflight.beforePlay(status: .notArriving, sinceStart: 3.0) == .go
+               && FMPreflight.beforePlay(status: .starting, sinceStart: 16) == .go
                && FMPreflight.beforePlay(status: .nothingPlaying, sinceStart: 1.0) == .wait
                && FMPreflight.beforePlay(status: .nothingPlaying, sinceStart: 3.2) == .go
                && FMPreflight.beforePlay(status: .receiving, sinceStart: 2) == .go,
@@ -97,13 +106,52 @@ enum FakeMeetingChecks {
 
         // G6 after play
         report(FMPreflight.afterPlay(status: .receiving, sincePlay: 0.3) == .go
-               && FMPreflight.afterPlay(status: .notArriving, sincePlay: 4) == .refuse(perm)
-               && FMPreflight.afterPlay(status: .notAuthorised, sincePlay: 1) == .refuse(perm)
-               && FMPreflight.afterPlay(status: .nothingPlaying, sincePlay: 5) == .wait
-               && FMPreflight.afterPlay(status: .nothingPlaying, sincePlay: 8.0) == .refuse(perm)
-               && FMPreflight.afterPlay(status: .starting, sincePlay: 7.9) == .wait
-               && FMPreflight.afterPlay(status: .waitingForPermission, sincePlay: 9) == .refuse(perm),
+               && FMPreflight.afterPlay(status: .notArriving, sincePlay: 4) == .wait
+               && FMPreflight.afterPlay(status: .notAuthorised, sincePlay: 1) == .wait
+               && FMPreflight.afterPlay(status: .nothingPlaying, sincePlay: 4.9) == .wait
+               && FMPreflight.afterPlay(status: .nothingPlaying, sincePlay: 5) == .refuse(perm)
+               && FMPreflight.afterPlay(status: .waitingForPermission, sincePlay: 5) == .refuse(perm),
                "FG6 the gate after playing", "")
+
+        // G11 the live wait before playing, with a fake capture and a tick clock (no float drift)
+        func driveBefore(_ statusAt: @escaping (Int) -> ComputerAudioStatus) -> (FMGate, Double, Int) {
+            var ticks = 0
+            var notices = 0
+            let g = FMPreflight.waitBeforePlay(
+                status: { statusAt(ticks) },
+                elapsed: { Double(ticks) / 10 },
+                pump: { _ in ticks += 1 },
+                say: { if $0 == "waiting for you to click Allow" { notices += 1 } })
+            return (g, Double(ticks) / 10, notices)
+        }
+        let ba = driveBefore { $0 >= 370 ? .nothingPlaying : .waitingForPermission }
+        let bb = driveBefore { _ in .waitingForPermission }
+        let bc = driveBefore { _ in .notAuthorised }
+        let bd = driveBefore { _ in .receiving }
+        let be = driveBefore { _ in .notArriving }
+        let bf = driveBefore { $0 < 20 ? .starting : .nothingPlaying }
+        report(ba.0 == .go && ba.1 == 37.0 && ba.2 == 3
+               && refusesWithPerm(bb.0) && bb.1 == 90.0 && bb.2 == 8
+               && bc.0 == .go && bc.1 == 3.0 && bc.2 == 0
+               && bd.0 == .go && bd.1 == 1.5 && bd.2 == 0
+               && be.0 == .go && be.1 == 3.0 && be.2 == 0
+               && bf.0 == .go && bf.1 == 2.0 && bf.2 == 0,
+               "FG11 the wait for Allow", "A \(ba.1)s/\(ba.2) B \(bb.1)s/\(bb.2) C \(bc.1)s D \(bd.1)s E \(be.1)s F \(bf.1)s")
+
+        // G12 the live wait after playing
+        func driveAfter(_ statusAt: @escaping (Int) -> ComputerAudioStatus) -> (FMGate, Double) {
+            var ticks = 0
+            let g = FMPreflight.waitAfterPlay(status: { statusAt(ticks) }, elapsed: { Double(ticks) / 10 },
+                                              pump: { _ in ticks += 1 })
+            return (g, Double(ticks) / 10)
+        }
+        let aa = driveAfter { _ in .receiving }
+        let ab = driveAfter { $0 >= 20 ? .receiving : .notAuthorised }
+        let ac = driveAfter { _ in .nothingPlaying }
+        report(aa.0 == .go && aa.1 == 0.1
+               && ab.0 == .go && ab.1 == 2.0
+               && refusesWithPerm(ac.0) && ac.1 == 5.0,
+               "FG12 the wait after playing", "A \(aa.1)s B \(ab.1)s C \(ac.1)s")
 
         // G7 permission text
         report(perm.contains("Privacy & Security > Screen & System Audio Recording"),

@@ -69,7 +69,7 @@ final class DashboardController: NSWindowController, NSWindowDelegate {
     init(mode: Mode = .live, notes: NotesModel? = nil) {
         self.mode = mode
         let settings = SettingsModel(environment: mode == .live ? .live : .preview())
-        let notesModel = notes ?? (mode == .live ? NotesModel.live() : NotesModel.preview())
+        let notesModel = notes ?? (mode == .live ? NotesModel.live() : NotesModel.preview(aiOn: true))
         model = AppWindowModel(settings: settings, updatesEnabled: mode == .live, notes: notesModel)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: AppMetrics.defaultSize),

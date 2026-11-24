@@ -246,9 +246,9 @@ final class Resampler {
 /// The "is computer audio arriving" verdict. macOS has no call that says whether System Audio Recording is
 /// allowed, so it is read from what the tap delivers.
 struct ComputerAudioWatch {
-    /// capture spike, 2026-11-23: granted, IO always runs our own aggregate, so callbacks arrive every 10.67 ms;
-    /// denied with the output idle, the IOProc was never called (run1 vs run6). So none within 1 s of a completed
-    /// start = not authorised.
+    /// No callbacks within 1 s of a completed start. Denied, the IOProc is never called; but with the output idle a
+    /// granted tap also delivers nothing at first (real run with the permission granted), so this means "not
+    /// allowed" only while another app is playing.
     static let noCallbacksAfter = 1.0
     /// capture spike recommendation: decide on exact zeros only after 3 s.
     static let zerosDecideAfter = 3.0
@@ -271,12 +271,16 @@ struct ComputerAudioWatch {
         }
     }
 
-    func status(startCompleted: Bool, sinceStartRequested: Double, sinceStartCompleted: Double, callbacks: Int) -> ComputerAudioStatus {
+    func status(startCompleted: Bool, sinceStartRequested: Double, sinceStartCompleted: Double, callbacks: Int,
+                othersPlaying: Bool) -> ComputerAudioStatus {
         if !startCompleted {
             return sinceStartRequested < Self.noCallbacksAfter ? .starting : .waitingForPermission
         }
         if callbacks == 0 {
-            return sinceStartCompleted < Self.noCallbacksAfter ? .starting : .notAuthorised
+            // With the output idle a granted tap delivers nothing at first either, so no callbacks mean "not
+            // allowed" only while something is playing.
+            if sinceStartCompleted < Self.noCallbacksAfter { return .starting }
+            return othersPlaying ? .notAuthorised : .nothingPlaying
         }
         if nonZeroEver { return .receiving }
         if zeroSecondsWhileOthersPlay >= Self.zerosDecideAfter { return .notArriving }

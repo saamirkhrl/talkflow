@@ -110,6 +110,35 @@ enum Preferences {
         set { defaults.set(newValue.rawValue, forKey: "claudeModel") }
     }
 
+    /// "Use my key for meeting notes": summaries and Ask send a meeting's
+    /// transcript to Anthropic (if that key exists) or OpenAI. Off by default,
+    /// and nothing in Notes touches the network while it is off (NotesAccess).
+    static var notesUseKey: Bool {
+        get { defaults.bool(forKey: "notesUseKey") }
+        set { defaults.set(newValue, forKey: "notesUseKey") }
+    }
+
+    /// The model picked for meeting notes, one per provider, so switching key
+    /// keeps each choice. Nil (or an unknown id) means the cheapest
+    /// (NotesAIModel.defaultModel).
+    static var notesAnthropicModel: String? {
+        get { defaults.string(forKey: "notesAnthropicModel") }
+        set { defaults.set(newValue, forKey: "notesAnthropicModel") }
+    }
+
+    static var notesOpenAIModel: String? {
+        get { defaults.string(forKey: "notesOpenAIModel") }
+        set { defaults.set(newValue, forKey: "notesOpenAIModel") }
+    }
+
+    /// The provider ("anthropic" or "openai") the user agreed to send
+    /// transcripts to, in the one-time confirmation. Asked again if the
+    /// provider in use changes (a key removed or added).
+    static var notesConfirmedProvider: String? {
+        get { defaults.string(forKey: "notesConfirmedProvider") }
+        set { defaults.set(newValue, forKey: "notesConfirmedProvider") }
+    }
+
     /// The keys held to dictate, from the Settings page. Fn by default.
     /// "macHotkey" because the keycodes are the Mac's own; the Windows app
     /// keeps its shortcut in windows.json and leaves this key alone.

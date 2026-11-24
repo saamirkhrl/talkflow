@@ -280,9 +280,9 @@ enum NotesLogic {
     }
 }
 
-/// Whether a key is switched on for meeting notes, and whose. The switch in Settings > Models and API keys
-/// arrives with the summary part; until then nothing in Notes uses a key or the network.
+/// Whether a key is switched on for meeting notes, and whose (NotesAccess.current: the switch in Settings > Models
+/// and API keys is read first, and the Keychain only when it is on).
 enum NotesKeys {
-    static func inUse() -> Bool { false }
-    static func provider() -> String? { nil }   // "Anthropic" or "OpenAI" once the switch exists
+    static func inUse() -> Bool { NotesAccess.current() != nil }
+    static func provider() -> String? { NotesAccess.current()?.provider.name }
 }

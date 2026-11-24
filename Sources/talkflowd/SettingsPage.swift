@@ -49,6 +49,30 @@ final class SettingsModel: ObservableObject {
     @Published var claudeModel = Preferences.claudeModel {
         didSet { Preferences.claudeModel = claudeModel }
     }
+    /// "Use my key for meeting notes". Off until the user flips it: saving a key
+    /// does not turn it on, because sending a transcript away is its own decision.
+    @Published var useKeyForNotes = Preferences.notesUseKey {
+        didSet {
+            Preferences.notesUseKey = useKeyForNotes
+            // Lets a running summary or question stop now, not only refuse its next send.
+            NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
+        }
+    }
+    @Published var notesAnthropicModel = SettingsModel.storedNotesModel(Preferences.notesAnthropicModel, .anthropic) {
+        didSet { Preferences.notesAnthropicModel = notesAnthropicModel.rawValue }
+    }
+    @Published var notesOpenAIModel = SettingsModel.storedNotesModel(Preferences.notesOpenAIModel, .openAI) {
+        didSet { Preferences.notesOpenAIModel = notesOpenAIModel.rawValue }
+    }
+    /// Anthropic when that key is saved, otherwise OpenAI (the same rule as NotesAccess.resolve).
+    var notesProvider: NotesProvider? { hasAnthropicKey ? .anthropic : (hasOpenAIKey ? .openAI : nil) }
+
+    /// The stored model id when it belongs to this provider, else that provider's default.
+    static func storedNotesModel(_ id: String?, _ p: NotesProvider) -> NotesAIModel {
+        if let id, let m = NotesAIModel(rawValue: id), m.provider == p { return m }
+        return NotesAIModel.defaultModel(for: p)
+    }
+
     /// The keys held to dictate. Takes effect from the next hold.
     @Published var hotkey = Preferences.hotkey {
         didSet { if Preferences.hotkey != hotkey { Preferences.hotkey = hotkey } }
@@ -136,7 +160,12 @@ final class SettingsModel: ObservableObject {
         else if polishAvailable { corrections = "Apple Intelligence, on this Mac" }
         else if correctionsUseClaude { corrections = "\(CorrectionModel.claudeModelTitle), your key" }
         else { corrections = "Built-in rules only" }
-        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections)]
+        let notes: String
+        if useKeyForNotes, let provider = notesProvider {
+            let picked = provider == .anthropic ? notesAnthropicModel : notesOpenAIModel
+            notes = "\(picked.shortTitle), your key"
+        } else { notes = "Transcript only, on this Mac" }
+        return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections), ("Meeting notes", notes)]
     }
 
     /// Checks the key with the provider, and keeps it only if it works.
@@ -174,6 +203,7 @@ final class SettingsModel: ObservableObject {
             // sending the words to Anthropic for corrections again.
             if !polishAvailable { aiCorrections = false }
         }
+        NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
     }
 
     func uninstall() {
@@ -264,6 +294,14 @@ struct SettingsPage: View {
                         if model.useClaude && model.hasAnthropicKey {
                             RowDivider()
                             claudeModelRow
+                        }
+                        RowDivider()
+                        jobHeader("Meeting notes", detail: "Writes a summary and action items for each meeting, and answers questions about it. Uses the Anthropic key above if there is one, otherwise the OpenAI key.")
+                        toggleRow("Use my key for meeting notes", medium: false, help: notesHelp, isOn: $model.useKeyForNotes)
+                            .disabled(model.notesProvider == nil)
+                        if model.useKeyForNotes, let provider = model.notesProvider {
+                            RowDivider()
+                            notesModelRow(provider)
                         }
                     }
                     group(.about) {
@@ -454,7 +492,7 @@ struct SettingsPage: View {
     /// Heads the key and switch for one job, so it is clear each key does a
     /// different one: OpenAI's turns speech into words, Anthropic's punctuates
     /// them (and, on a Mac without Apple Intelligence, also does AI corrections
-    /// when that is on).
+    /// when that is on). The third, meeting notes, uses whichever key is saved.
     private func jobHeader(_ name: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(name).font(AppFont.bodyMedium).foregroundColor(Palette.ink)
@@ -511,6 +549,26 @@ struct SettingsPage: View {
             .labelsHidden()
             .fixedSize()
             .accessibilityLabel("Claude model")
+        })
+    }
+
+    private var notesHelp: String {
+        guard let p = model.notesProvider else { return "Add an Anthropic or OpenAI key above to turn this on." }
+        return "Each summary and question sends the meeting's transcript to \(p.name), billed to your account. The audio never leaves this Mac."
+    }
+
+    private func notesModelRow(_ p: NotesProvider) -> some View {
+        let selection = Binding<NotesAIModel>(
+            get: { p == .anthropic ? model.notesAnthropicModel : model.notesOpenAIModel },
+            set: { if p == .anthropic { model.notesAnthropicModel = $0 } else { model.notesOpenAIModel = $0 } })
+        return row("Notes model", lines: { EmptyView() }, control: {
+            Picker("", selection: selection) {
+                ForEach(NotesAIModel.models(for: p), id: \.self) { Text($0.pickerTitle).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
+            .accessibilityLabel("Model for meeting notes")
         })
     }
 
