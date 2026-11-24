@@ -270,9 +270,9 @@ export default function PrivacyPage() {
           <strong>The audio is saved only until the notes are written.</strong> While you record,
           the two tracks are saved in the notes folder (below). When you stop, talkflow removes
           echo, tells the voices apart and turns the speech into text, all on your Mac, with the
-          speech engine at 127.0.0.1. The audio is deleted as soon as the transcript is saved. If
-          writing the notes fails, the audio is kept so you can try again; deleting the note
-          deletes it.
+          speech engine at 127.0.0.1. The audio is deleted as soon as the transcript is saved. It is
+          kept only if writing the notes or deleting the audio fails; the note then says so and
+          offers Delete.
         </li>
         <li>
           <strong>What is kept.</strong> The transcript and the note&apos;s details (its title,

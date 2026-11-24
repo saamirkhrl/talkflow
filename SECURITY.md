@@ -14,8 +14,8 @@ Meeting notes (Mac only) work differently. A meeting the user records is written
 the microphone and the sound the Mac plays, as two tracks in
 `~/Library/Application Support/talkflow/notes/<id>/audio/`. After Stop, the notes are
 written on the Mac by a second Whisper server, also only on `127.0.0.1`, and the audio is
-deleted as soon as the transcript is saved. If writing fails, the audio is kept so the user
-can try again or delete the note. The transcript and the note's details stay in that folder
+deleted as soon as the transcript is saved. It is kept only if writing the notes or deleting
+the audio fails; the note then says so and offers Delete. The transcript and the note's details stay in that folder
 (talkflow's first stored text of what was said, apart from learned words); logs hold counts
 and durations, never transcript text. Notes use the network only for two downloads the user
 clicks (a larger speech model, about 574 MB, and speaker models, about 21 MB, both from

@@ -28,8 +28,9 @@ are in [notes-measurements.md](notes-measurements.md).
 4. **Transcription** by whisper.cpp on a private `whisper-server`, started for notes and
    listening only on `127.0.0.1`. It uses large-v3-turbo when that model is on disk,
    otherwise the dictation model.
-5. **Save**: the transcript is written, then the audio is deleted. If writing fails, the
-   audio is kept so the user can press **Try again**, and the note shows **Delete...**.
+5. **Save**: the transcript is written, then the audio is deleted. Audio is kept only if
+   writing the notes or deleting the audio fails; the note then shows as failed, never as
+   finished, with **Delete audio** and **Delete**.
 
 ## Where the data lives
 
@@ -82,7 +83,7 @@ skips with one line.
 | `--echotest [folder]` | the echo canceller on the digital echo fixtures (default `test-fixtures/echo/digital`) | `$TMPDIR/talkflow-echotest.log` |
 | `--diarizetest [--helper PATH] [--models DIR]` | the speaker helper on the diarization fixtures (`test-fixtures/spikes/diarization/fixtures`): error rate, voices found, time | `$TMPDIR/talkflow-diarizetest.log` |
 | `--notespipeline <mic.wav> <system.wav> [options]` | the whole after-Stop pipeline on two WAV files, with a transcript JSON out (`--out`); options include `--headphones` or `--speakers`, `--model`, `--server`, `--helper`, `--speaker-models`, `--no-speakers`, `--check` | numbers on stdout |
-| `--fakemeeting [folder] [--dry-run] [--fake-pipeline]` | end to end on a made-up meeting (`test-fixtures/fakemeeting`), scored against its truth. **Plays sound** unless `--dry-run`, so no build script runs it | terminal and `$TMPDIR/talkflow-fakemeeting.log` |
+| `--fakemeeting [folder] [--dry-run [--misaligned]] [--fake-pipeline]` | end to end on a made-up meeting (`test-fixtures/fakemeeting`), scored against its truth; `--dry-run` copies the fixture instead of recording, and `--dry-run --misaligned` writes the tracks as a bad first meeting leaves them. **Plays sound** unless `--dry-run`, so no build script runs it | terminal and `$TMPDIR/talkflow-fakemeeting.log` |
 | `--notesasktest <transcript.json> [summary \| ask "<question>"] [anthropic \| openai]` | one real Summary or Ask request with the key in the Keychain. **Billed** to that key; run it from the installed app | `$TMPDIR/talkflow-notesasktest.json` |
 
 ## Licences
