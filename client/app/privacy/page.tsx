@@ -15,7 +15,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="October 18, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="November 24, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -30,14 +30,23 @@ export default function PrivacyPage() {
           <strong>Optional cloud features send your words to the company you pick.</strong> If you
           add your own OpenAI key and turn on OpenAI transcription, your recorded audio goes to
           OpenAI. If you add your own Anthropic key and turn on Claude punctuation, the text of your
-          dictation goes to Anthropic. Both are off unless you turn them on (see{" "}
+          dictation goes to Anthropic. If you turn on Use my key for meeting notes, a meeting&apos;s
+          transcript text goes to Anthropic or OpenAI for a summary, action items or answers. All
+          of these are off unless you turn them on (see{" "}
           <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
         </li>
         <li>
           <strong>The app has no accounts and doesn&apos;t track how you use it.</strong> The first
           time it runs, it tells us once so we can count installs. talkflow puts no ID, no device
           information and no usage data in that request, and we store only a total number. It checks GitHub for
-          updates, and an update installs only when you click. Audio is never saved to disk.
+          updates, and an update installs only when you click. Dictation audio is never saved to
+          disk.
+        </li>
+        <li>
+          <strong>Meeting notes, on a Mac, stay on your Mac.</strong> If you record a meeting, the
+          recording is saved until its notes are written and then deleted, and the transcript is
+          kept on your computer. We never receive either. Telling the other people that they are
+          being recorded is your responsibility (see <a href="#app-notes">Meeting notes</a>).
         </li>
         <li>
           <strong>The website has no cookies and no forms, and uses only basic, cookieless
@@ -202,7 +211,7 @@ export default function PrivacyPage() {
 
       <p>
         talkflow has a Mac app and a Windows app. They handle your information the same way; where
-        they differ, this part says so.
+        they differ, this part says so. Meeting notes are in the Mac app only, for now.
       </p>
 
       <h3 id="app-how">How dictation works</h3>
@@ -225,8 +234,9 @@ export default function PrivacyPage() {
         <li>types the text into the app you&apos;re using.</li>
       </ol>
       <p>
-        <strong>Audio is never saved to disk.</strong> It stays in memory only, until your next
-        dictation or until you quit talkflow.
+        <strong>Dictation audio is never saved to disk.</strong> It stays in memory only, until
+        your next dictation or until you quit talkflow. Meeting notes work differently; see{" "}
+        <a href="#app-notes">Meeting notes</a>.
       </p>
       <p>
         The speech engine is a program on your computer. It is not a cloud server, and your audio
@@ -235,9 +245,52 @@ export default function PrivacyPage() {
       </p>
       <p>
         <strong>No voiceprints.</strong> talkflow uses your voice only to turn it into text. It
-        doesn&apos;t create a voiceprint or any other biometric identifier, and it doesn&apos;t try
-        to recognize who is speaking.
+        doesn&apos;t keep a voiceprint or any other biometric identifier, and it doesn&apos;t try
+        to recognize who anyone is. Meeting notes tell the voices in one recording apart, on your
+        Mac, so the transcript can label them &quot;Speaker 1&quot;, &quot;Speaker 2&quot; and so
+        on. To do that, the speaker helper works out features of each voice in memory, for that
+        recording only. They are never saved or sent, and voices aren&apos;t remembered from one
+        meeting to the next.
       </p>
+
+      <h3 id="app-notes">Meeting notes (Mac)</h3>
+      <p>
+        In the Mac app&apos;s Notes section, you can record a meeting and get notes written on your
+        Mac. Nothing is recorded until you click <strong>Start recording</strong>: talkflow
+        doesn&apos;t detect meetings or start by itself.
+      </p>
+      <ul>
+        <li>
+          <strong>What is recorded.</strong> Your microphone and, separately, the sound your Mac
+          plays (the other people on the call), through macOS&apos;s system audio recording. This
+          needs macOS 14.2 or later and the System Audio Recording permission. talkflow doesn&apos;t
+          record your screen and doesn&apos;t connect to the meeting app.
+        </li>
+        <li>
+          <strong>The audio is saved only until the notes are written.</strong> While you record,
+          the two tracks are saved in the notes folder (below). When you stop, talkflow removes
+          echo, tells the voices apart and turns the speech into text, all on your Mac, with the
+          speech engine at 127.0.0.1. The audio is deleted as soon as the transcript is saved. It is
+          kept only if writing the notes or deleting the audio fails; the note then says so and
+          offers Delete.
+        </li>
+        <li>
+          <strong>What is kept.</strong> The transcript and the note&apos;s details (its title,
+          date, length and the speaker names you give), plus a summary and your questions if you
+          make them, in <code>~/Library/Application Support/talkflow/notes/</code>. They stay until
+          you delete the note.
+        </li>
+        <li>
+          <strong>What goes online.</strong> Nothing, unless you click to download the two
+          optional models (see <a href="#app-setup">Setting up the app</a>) or turn on Use my key
+          for meeting notes (see <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
+        </li>
+        <li>
+          <strong>Recording other people.</strong> talkflow doesn&apos;t tell anyone that a meeting
+          is being recorded. Telling the other people that they are being recorded is your
+          responsibility, and the law on recording conversations differs from place to place.
+        </li>
+      </ul>
 
       <h3 id="app-receive">What we receive from the app</h3>
       <p>
@@ -274,7 +327,8 @@ export default function PrivacyPage() {
         Apart from that, the app doesn&apos;t send your audio, your text, your stats or any other
         information to us. There are no accounts, no usage analytics and no crash reports sent to
         us. Besides the speech engine on your own computer and this one-time request, the app connects
-        only to GitHub to check for updates (below), and to OpenAI or Anthropic if you add your own
+        only to GitHub to check for updates (below), to Hugging Face for speech models (see{" "}
+        <a href="#app-setup">Setting up the app</a>), and to OpenAI or Anthropic if you add your own
         API key in Settings.
       </p>
 
@@ -320,6 +374,13 @@ export default function PrivacyPage() {
           dictation to Anthropic, which adds punctuation and capitals. talkflow keeps your original
           words and only takes the punctuation from the reply.
         </li>
+        <li>
+          <strong>Meeting notes: summary, action items and Ask</strong> (Mac). Only while{" "}
+          <strong>Use my key for meeting notes</strong> is on. When you ask for a summary or ask a
+          question, talkflow sends the meeting&apos;s transcript text, with the speakers&apos;
+          names, to Anthropic, or to OpenAI if you only have an OpenAI key, and keeps the answer
+          in the note. Audio is never sent.
+        </li>
       </ul>
       <p>
         Each request carries your key and the technical details any web request has, such
@@ -334,8 +395,8 @@ export default function PrivacyPage() {
         <a href="https://www.anthropic.com/legal/privacy">Anthropic privacy policy</a>. We don&apos;t
         control them, and we aren&apos;t responsible for how they handle it. Don&apos;t turn these
         features on for dictation you aren&apos;t allowed to share with them, for example
-        confidential work or health information. If a request fails, talkflow transcribes or
-        punctuates on your computer instead.
+        confidential work or health information. If a dictation request fails, talkflow transcribes
+        or punctuates on your computer instead. Summaries and Ask have no on-device fallback.
       </p>
 
       <h3 id="app-setup">Setting up the app</h3>
@@ -344,7 +405,10 @@ export default function PrivacyPage() {
         be installed. The Whisper speech models are downloaded from Hugging Face: small.en (English
         only) during setup, and large-v3-turbo in the background on computers that use it. Hugging
         Face sees your IP address when you download them and handles it under the{" "}
-        <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>.
+        <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>. On a Mac, meeting
+        notes offer two optional downloads from Hugging Face, which start only when you click: the
+        larger large-v3-turbo model (about 574 MB) and speaker models for telling voices apart
+        (about 21 MB).
       </p>
 
       <h3 id="app-local">What stays on your computer</h3>
@@ -370,7 +434,13 @@ export default function PrivacyPage() {
           <code>~/Library/Logs/talkflow/talkflow.log</code>, which grows until you delete it. On
           Windows, at <code>%LOCALAPPDATA%\talkflow\logs\talkflow.log</code>, which starts over at
           2 MB. For each dictation it records technical details, such as its length and timing and
-          the name of the app you dictated into. It does not record your words.
+          the name of the app you dictated into. It does not record your words. For meeting notes
+          it records counts and durations, never what was said.
+        </li>
+        <li>
+          <strong>Meeting notes</strong>, on a Mac, if you record any (see{" "}
+          <a href="#app-notes">Meeting notes</a>). Each note has its own folder in{" "}
+          <code>notes/</code>, with the transcript and, until the notes are written, the audio.
         </li>
         <li>
           <strong>Whether this copy has been counted.</strong> A yes/no flag (in the app&apos;s
@@ -424,9 +494,9 @@ export default function PrivacyPage() {
 
       <h3 id="app-permissions">Permissions the app asks for</h3>
       <p>
-        <strong>On a Mac.</strong> You can turn either of these off at any time in{" "}
+        <strong>On a Mac.</strong> You can turn any of these off at any time in{" "}
         <strong>System Settings &gt; Privacy &amp; Security</strong>, but talkflow won&apos;t work
-        without them.
+        without the first two.
       </p>
       <ul>
         <li>
@@ -440,6 +510,13 @@ export default function PrivacyPage() {
           Command + C, not dictating), without looking at which key it was. It doesn&apos;t record,
           store or send what you type. Because Accessibility covers this, talkflow doesn&apos;t ask
           for Input Monitoring.
+        </li>
+        <li>
+          <strong>System Audio Recording</strong>, for meeting notes only (macOS 14.2 or later).
+          macOS asks the first time you record a meeting. talkflow uses it to record the sound your
+          Mac plays during a meeting you chose to record. It is listed under Screen &amp; System
+          Audio Recording, but talkflow doesn&apos;t record your screen. Dictation works without
+          it.
         </li>
       </ul>
       <p>
@@ -601,8 +678,8 @@ export default function PrivacyPage() {
           speech engine so that it listens only on your own computer, not on your network.
         </li>
         <li>
-          The app&apos;s other connections (update checks, the one-time install count, and OpenAI or
-          Anthropic if you add a key) use encrypted HTTPS.
+          The app&apos;s other connections (update checks, the one-time install count, model
+          downloads, and OpenAI or Anthropic if you add a key) use encrypted HTTPS.
         </li>
       </ul>
       <p>

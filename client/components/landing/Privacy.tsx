@@ -6,7 +6,7 @@ const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
 const FACTS: [React.ReactNode, string][] = [
   [<>Runs on your {YOUR_COMPUTER}</>, "Whisper recognizes your speech on your own processor."],
   ["No cloud, no account", "No sign-in or analytics, and it works offline. Online, it only checks for updates and counts installs, anonymously."],
-  ["Audio is never saved", "Held in memory, never written to disk."],
+  ["Dictation audio is never saved", "Held in memory, never written to disk. Meeting recordings on a Mac are deleted once their notes are written, and kept only if that fails, with a Delete button."],
   ["Open source", "Every line is public, MIT licensed."],
 ];
 

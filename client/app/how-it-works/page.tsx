@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
           for English, but it doesn&apos;t transcribe other languages.
         </li>
         <li>It doesn&apos;t run on phones or tablets: there is a Mac app and a Windows app.</li>
-        <li>It doesn&apos;t rewrite, summarize or &quot;improve&quot; what you said.</li>
+        <li>It doesn&apos;t rewrite, summarize or &quot;improve&quot; what you dictate.</li>
       </ul>
 
       <h2 id="source">Check it yourself</h2>
