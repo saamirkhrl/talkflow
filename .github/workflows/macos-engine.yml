@@ -11,6 +11,8 @@ on:
     paths:
       - "scripts/build-whisper-macos.sh"
       - "scripts/smoke-whisper-macos.sh"
+      - "scripts/build-diarize-macos.sh"
+      - "Helpers/**"
       - ".github/workflows/macos-engine.yml"
       - "release.sh"
       - "deploy.sh"
@@ -118,7 +120,26 @@ jobs:
           grep -E '^FAIL' "$LOG" || true
           tail -1 "$LOG"
           test "$(tail -1 "$LOG")" = "ALL PASS"
+      - name: Swift toolchain for the speaker helper (needs 6.2 or newer)
+        # macos-latest's default Xcode may be older than 6.2; pick the newest
+        # installed Xcode whose Swift is 6.2+. The build script skips itself
+        # (and the asserts below then fail) if none is.
+        run: |
+          swift --version
+          for x in $(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V -r); do
+            DEVELOPER_DIR="$x/Contents/Developer" swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9]|[1-9][0-9])' \
+              && { echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"; echo "using $x"; break; }
+          done
+      - name: Cache the speaker helper's Swift packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            Helpers/talkflow-diarize/.build/checkouts
+            Helpers/talkflow-diarize/.build/artifacts
+            ~/Library/Caches/org.swift.swiftpm
+          key: diarize-spm-${{ hashFiles('Helpers/talkflow-diarize/Package.resolved') }}
       - name: Assemble the app (release.sh --dry-run, publishes nothing)
+        # Also builds the speaker helper (scripts/build-diarize-macos.sh).
         run: ./release.sh 0.0.0 --dry-run
       - name: Signature and contents
         run: |
@@ -127,6 +148,10 @@ jobs:
           codesign -dv "$APP/Contents/Helpers/whisper-server"
           scripts/build-whisper-macos.sh --check "$APP/Contents/Helpers/whisper-server"
           test -f "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+          test -x "$APP/Contents/Helpers/talkflow-diarize"
+          test -f "$APP/Contents/Resources/talkflow-diarize-NOTICES.txt"
+          codesign -dv "$APP/Contents/Helpers/talkflow-diarize"
+          scripts/build-diarize-macos.sh --check "$APP/Contents/Helpers/talkflow-diarize"
       - name: Fetch a small test model
         run: curl -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
       - name: Transcribe with the engine inside the app

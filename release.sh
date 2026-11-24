@@ -81,6 +81,12 @@ fi
 # First, so a missing cmake stops the release before anything is changed.
 ENGINE="$PROJECT_DIR/.build/whisper-engine"
 "$PROJECT_DIR/scripts/build-whisper-macos.sh" "$ENGINE"
+# NEEDS THE OWNER'S APPROVAL before this release.sh change is used: it adds the
+# speaker helper (Contents/Helpers/talkflow-diarize) to the signed bundle.
+# The script skips itself (exit 0, no binary) off Apple Silicon or below Swift
+# 6.2; the app then ships without the helper.
+DIARIZE="$PROJECT_DIR/.build/diarize-helper"
+"$PROJECT_DIR/scripts/build-diarize-macos.sh" "$DIARIZE"
 
 echo "==> Version $VERSION"
 BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
@@ -111,6 +117,10 @@ fi
 cp Packaging/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server"
 cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+if [ -x "$DIARIZE/talkflow-diarize" ]; then
+    cp "$DIARIZE/talkflow-diarize" "$APP/Contents/Helpers/talkflow-diarize"
+    cp "$DIARIZE/talkflow-diarize-NOTICES.txt" "$APP/Contents/Resources/talkflow-diarize-NOTICES.txt"
+fi
 # Inside out: the engine first, then the app, whose signature seals it. The
 # updater installs a download that satisfies RELEASE_DR as it is, so these
 # signatures are the ones users run.
@@ -120,6 +130,9 @@ else
     echo "    signing with the release certificate"
 fi
 codesign --force --sign "$SIGN_WITH" --identifier com.samir.talkflow.whisper-server "$APP/Contents/Helpers/whisper-server"
+if [ -x "$APP/Contents/Helpers/talkflow-diarize" ]; then
+    codesign --force --sign "$SIGN_WITH" --identifier com.samir.talkflow.diarize "$APP/Contents/Helpers/talkflow-diarize"
+fi
 codesign --force --sign "$SIGN_WITH" "$APP"
 codesign --verify --deep --strict "$APP" || { echo "error: $APP does not verify" >&2; exit 1; }
 if [ "$SIGN_WITH" != "-" ]; then
@@ -128,6 +141,9 @@ if [ "$SIGN_WITH" != "-" ]; then
 fi
 "$APP/Contents/Helpers/whisper-server" --help >/dev/null 2>&1 || { echo "error: the bundled whisper-server does not run" >&2; exit 1; }
 "$PROJECT_DIR/scripts/build-whisper-macos.sh" --check "$APP/Contents/Helpers/whisper-server"
+if [ -x "$APP/Contents/Helpers/talkflow-diarize" ]; then
+    "$PROJECT_DIR/scripts/build-diarize-macos.sh" --check "$APP/Contents/Helpers/talkflow-diarize"
+fi
 ditto -c -k --norsrc --noextattr --keepParent "$APP" "$ZIP"
 echo "    $(du -h "$ZIP" | cut -f1)  $ZIP"
 
