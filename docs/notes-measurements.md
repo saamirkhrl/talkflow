@@ -157,6 +157,27 @@ What turned out different from the plan:
 - whisper.cpp's built-in voice detection needs its own model at startup and cannot say where to
   cut. It is not used.
 
+Speed on a dense meeting (the 8.9 minute fake meeting, 23 November 2026, turbo, this M-series Mac):
+
+- The whole pipeline took 0.19x real time on headphones (100 s; transcription 93 s of it), against
+  0.066x on the spike's hour. The difference is the number of pieces, not the speed of a piece:
+  77 requests for 502 s of speech, a mean of 6.5 s each, against 167 requests of 19.8 s for an hour.
+- Every request costs about 1.1 s whatever its length (fit over the 77 requests: 1.11 s + 0.0135 s
+  per second of audio). The server's own timings put 1.02 s of that in one encoder pass: whisper
+  always encodes a full 30 s window, so a 3 s piece costs the same as a 20 s one. Decoding is
+  about 2.5 ms per token.
+- `no_language_probabilities` matters: without it the server runs the encoder a second time per
+  request to detect the language (2.1 s per request measured). The pipeline already sends it.
+- `audio_ctx` sent with a request is ignored by the server (same 1.02 s encode); setting it for the
+  whole server would shorten the window for every piece, which whisper is known to transcribe less
+  reliably, so it was not tried.
+- Merging neighbouring pieces of the same speaker: only 3 of 73 turns qualify, each across a 3.8 to
+  10.7 s pause the cutter drops on purpose (silence is where whisper invents words). At most 3 s
+  saved. Not done.
+- The pieces are short because the turns are: they are cut at every speaker change so that each
+  piece has one speaker. Joining different speakers' pieces into one request would need the reply
+  split back by word times; not done without a measurement that the scores hold.
+
 ## 5. Summary and Ask
 
 No measurement, but the choices rest on the provider documentation as read on 23 November 2026:
