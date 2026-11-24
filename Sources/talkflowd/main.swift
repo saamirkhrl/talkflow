@@ -38,6 +38,12 @@ if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
     CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
 }
 
+// The real Summary or Ask request on a made-up transcript, with the key in the Keychain (billed). Run from the
+// installed app: a build can't read the Keychain without a prompt. Result in $TMPDIR/talkflow-notesasktest.json.
+if let index = CommandLine.arguments.firstIndex(of: "--notesasktest") {
+    NotesAskTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // The on-demand final-pass server, timed against the real engine. Run from
 // the installed app; stops its final-pass server, which the next hold restarts.
 if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {

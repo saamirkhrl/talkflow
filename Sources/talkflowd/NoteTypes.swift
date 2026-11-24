@@ -144,27 +144,40 @@ struct Transcript: Codable, Equatable {
     var turns: [TranscriptTurn]
 }
 
-/// summary.json. Written by the summary part; defined now so the folder
-/// layout is settled.
+/// summary.json, written by NoteAssistant once a reply has passed
+/// NotesAI.validateSummary: every time in it is the start of a transcript turn.
 struct NoteSummary: Codable, Equatable {
     struct ActionItem: Codable, Equatable {
-        /// A NoteSpeaker key, or a name the model gave.
+        /// A NoteSpeaker key when the owner matched a speaker's name (so a
+        /// rename follows), otherwise the name the model gave; "" for nobody.
         var owner: String
         var task: String
-        /// The transcript time it points back to, in seconds.
+        /// The start of the transcript turn it points back to, in seconds.
         var time: Double
         var done: Bool
     }
 
+    /// A decision or an open question, and the turn it points back to.
+    struct Point: Codable, Equatable {
+        var text: String
+        var time: Double
+    }
+
     var schemaVersion: Int = NotesSchema.version
     var summary: String
+    /// Turn starts the summary paragraph relies on most.
+    var summaryTimes: [Double]
     var actionItems: [ActionItem]
-    var decisions: [String]
-    var openQuestions: [String]
+    var decisions: [Point]
+    var openQuestions: [Point]
     /// "Anthropic" or "OpenAI".
     var provider: String
+    /// The API model id, such as "claude-haiku-5-5".
     var model: String
     var written: Date
+    /// 1 when written in one request; more when a long meeting was
+    /// summarised in parts and then combined (NotesAI.split).
+    var parts: Int
 }
 
 /// questions.json: the Ask history for one meeting. Written by the Ask part.

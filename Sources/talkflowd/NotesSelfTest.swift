@@ -237,7 +237,10 @@ enum NotesSelfTest {
                      "Writing the summary with your Anthropic key, then deleting the audio",
                      "Saving the transcript and deleting the audio"], "W3 stepLabel", "\(w3)")
 
-        check(!NotesKeys.inUse() && NotesKeys.provider() == nil, "W4 no key is in use yet")
+        // Pure: the live NotesKeys would read the Keychain once the switch is on, and a test never does.
+        check(NotesAccess.resolve(switchOn: false, hasAnthropic: { true }, hasOpenAI: { true },
+                                  anthropicModel: nil, openAIModel: nil) == nil,
+              "W4 with the switch off no key is in use")
 
         // MARK: Availability
 
@@ -310,10 +313,11 @@ enum NotesSelfTest {
             check(store.summary(s6.id) == nil && store.questions(s6.id) == nil && store.transcript(s6.id) == nil,
                   "S6 absent files read as nil")
             let tr = NotesLogic.transcript(from: [p("you", 0, 1, "Hello"), p("A", 2, 3, "Hi")])
-            let sum = NoteSummary(summary: "A short talk.",
+            let sum = NoteSummary(summary: "A short talk.", summaryTimes: [12.5],
                                   actionItems: [NoteSummary.ActionItem(owner: "s1", task: "Send notes", time: 12.5, done: false)],
-                                  decisions: ["Ship"], openQuestions: ["When?"], provider: "Anthropic", model: "test",
-                                  written: d("2026-11-23 10:00"))
+                                  decisions: [NoteSummary.Point(text: "Ship", time: 12.5)],
+                                  openQuestions: [NoteSummary.Point(text: "When?", time: 12.5)], provider: "Anthropic", model: "test",
+                                  written: d("2026-11-23 10:00"), parts: 1)
             let qs = NoteQuestions(entries: [NoteQuestions.Entry(question: "Q", answer: "A", citations: [1.5],
                                                                  asked: d("2026-11-23 10:05"), provider: "Anthropic", model: "test")])
             try store.save(tr, for: s6.id)
@@ -401,6 +405,12 @@ enum NotesSelfTest {
 
         try? fm.removeItem(at: rootURL)
         check(!fm.fileExists(atPath: rootURL.path), "S14 cleanup leaves no folder behind")
+
+        // MARK: Summary and Ask
+        // Canned replies only: these never touch the network, the Keychain or the real settings.
+        NotesAISelfTest.run(check: check)
+        NotesAIClientSelfTest.run(check: check)
+        NoteAssistantSelfTest.run(check: check)
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
