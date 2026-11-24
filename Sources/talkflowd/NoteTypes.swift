@@ -19,10 +19,12 @@ enum NotesSchema {
 enum WritingStep: String, Codable, CaseIterable, Equatable {
     /// Closing the two audio files (NotesModel, at Stop).
     case saving
+    /// Telling the other voices apart (the pipeline). Runs before transcribing: the speaker turns must be known
+    /// before the computer-audio track is cut, so that every piece stays inside one speaker's turn. (Raw values
+    /// are unchanged, so notes saved by an earlier build still decode.)
+    case speakers
     /// Speech to text, on this Mac (the pipeline).
     case transcribing
-    /// Telling the other voices apart (the pipeline).
-    case speakers
     /// Saving the transcript and deleting the audio (NotesModel); later
     /// also the summary.
     case finishing

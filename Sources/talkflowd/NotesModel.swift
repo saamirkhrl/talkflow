@@ -55,7 +55,7 @@ final class NotesModel: ObservableObject {
     }
 
     static func live() -> NotesModel {
-        NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: UnbuiltCapture(), pipeline: UnbuiltPipeline())
+        NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: UnbuiltCapture(), pipeline: LocalNotesPipeline())
     }
 
     static let previewRoot = FileManager.default.temporaryDirectory

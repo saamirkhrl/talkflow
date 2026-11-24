@@ -162,6 +162,12 @@ if CommandLine.arguments.contains("--diarizetest") {
     DiarizeSelfTest.run(arguments: CommandLine.arguments)
 }
 
+// The whole after-Stop pipeline on two WAV files (mic, system), with a transcript JSON out. Numbers only on
+// stdout; takes the shared bench lock. See NotesPipelineHarness for the options (--check, --headphones, ...).
+if let index = CommandLine.arguments.firstIndex(of: "--notespipeline") {
+    NotesPipelineHarness.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // The offline echo canceller on the digital echo fixtures (folder optional). Numbers only, in
 // $TMPDIR/talkflow-echotest.log; skips with one line when the fixtures are absent.
 if let index = CommandLine.arguments.firstIndex(of: "--echotest") {
