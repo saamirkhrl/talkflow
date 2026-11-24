@@ -106,8 +106,9 @@ enum PauseCutter {
         return out
     }
 
-    private static func analyze(_ db: [Double]) -> (regions: [(Int, Int)], thr: Double?) {
-        guard let thr = threshold(frameDB: db) else { return ([], nil) }
+    private static func analyze(_ db: [Double], minThreshold: Double? = nil) -> (regions: [(Int, Int)], thr: Double?) {
+        guard var thr = threshold(frameDB: db) else { return ([], nil) }
+        if let m = minThreshold { thr = max(thr, m) }
         var speech = db.map { $0 > thr }
         let n = speech.count
         let minPauseF = Int((minPauseSeconds / frameSeconds).rounded(.toNearestOrEven))
@@ -125,11 +126,14 @@ enum PauseCutter {
     // MARK: Cut
 
     /// Cut one whole track into pieces. `forcedCuts` are times in seconds (speaker turn changes) that must be a piece
-    /// boundary: inside speech they split the region, inside a pause they pin the boundary there.
-    static func cut(_ samples: [Int16], sampleRate: Int = 16000, forcedCuts: [Double] = []) -> [CutPiece] {
+    /// boundary: inside speech they split the region, inside a pause they pin the boundary there. `minThreshold`
+    /// (dBFS), when given, is a floor under the computed threshold: threshold = max(computed, minThreshold). The notes
+    /// pipeline passes the measured residual-echo level plus a margin for the echo-cancelled microphone track.
+    static func cut(_ samples: [Int16], sampleRate: Int = 16000, forcedCuts: [Double] = [],
+                    minThreshold: Double? = nil) -> [CutPiece] {
         let fs = frameSeconds
         let db = frameDB(samples[...], sampleRate: sampleRate)
-        let base = analyze(db).regions
+        let base = analyze(db, minThreshold: minThreshold).regions
         if base.isEmpty { return [] }
         let nframes = db.count
 

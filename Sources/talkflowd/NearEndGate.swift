@@ -11,6 +11,42 @@ enum NearEndGate {
     static let removedDB = 10.0
     static let frame = 160            // 10 ms at 16 kHz, the cutter's frame
 
+    /// Speech on the microphone must be this far above the residual level. Measured on the fake meeting (laptop
+    /// speakers): after cancellation and this gate the mic still holds residual echo and canceller artefacts between
+    /// -70 and -60 dBFS while the user is silent; the mic noise floor there is about -83 dBFS, so the cutter's threshold
+    /// sat at its -70 clamp and those frames became "You" pieces that whisper answered with "Thank you." (11 pieces).
+    /// The residual level (90th percentile of the cleaned frame dB over echo-only frames) was -66.7 dBFS; requiring
+    /// speech 6 dB above it left 2 non-user runs of 0.12 s or more (from 66) and kept 98% of the user's frames above
+    /// -70 dBFS (the lost ones are faint edges the cutter's padding covers). In a normal room the noise floor
+    /// (about -60) already puts the threshold above the residual, so this changes nothing there.
+    static let residualMarginDB = 6.0
+
+    /// 20*log10(max(rms, 1e-3) / 32768) of 10 ms frame `f` of `x` (the cutter's formula); samples past the end count as 0.
+    private static func frameDB(_ x: [Int16], _ f: Int) -> Double {
+        var acc = 0
+        let base = f * frame
+        for k in base..<(base + frame) where k < x.count {
+            let v = Int(x[k])
+            acc += v * v
+        }
+        let rms = (Double(acc) / Double(frame)).squareRoot()
+        return 20.0 * log10(max(rms, 1e-3) / 32768.0)
+    }
+
+    /// The cleaned mic's residual-echo level: the 90th percentile of the cleaned frame dB over the frames whose
+    /// removal is at least removedDB (unsmoothed), or nil when fewer than 100 such frames exist (too little echo to measure).
+    static func residualLevel(raw: [Int16], cleaned: [Int16]) -> Double? {
+        let frames = cleaned.count / frame
+        var values: [Double] = []
+        for f in 0..<frames {
+            let c = frameDB(cleaned, f)
+            if frameDB(raw, f) - c >= removedDB { values.append(c) }
+        }
+        if values.count < 100 { return nil }
+        values.sort()
+        return values[Int((Double(values.count - 1) * 0.9).rounded())]
+    }
+
     /// Returns `cleaned` with every echo-only frame set to zero, and the seconds zeroed. A frame's dB is
     /// 20*log10(max(rms, 1e-3) / 32768) on the Int16 scale (the cutter's formula). echoOnly[f] = dbRaw[f] - dbClean[f]
     /// >= removedDB. Smoothing: frame f is zeroed when at least 3 of the 5 frames f-2...f+2 (those that exist) are echo
@@ -21,20 +57,9 @@ enum NearEndGate {
         let frames = n / frame
         if frames == 0 { return (cleaned, 0) }
 
-        func db(_ x: [Int16], _ f: Int) -> Double {
-            var acc = 0
-            let base = f * frame
-            for k in base..<(base + frame) where k < x.count {
-                let v = Int(x[k])
-                acc += v * v
-            }
-            let rms = (Double(acc) / Double(frame)).squareRoot()
-            return 20.0 * log10(max(rms, 1e-3) / 32768.0)
-        }
-
         var echoOnly = [Bool](repeating: false, count: frames)
         for f in 0..<frames {
-            echoOnly[f] = db(raw, f) - db(cleaned, f) >= removedDB
+            echoOnly[f] = frameDB(raw, f) - frameDB(cleaned, f) >= removedDB
         }
 
         var out = cleaned

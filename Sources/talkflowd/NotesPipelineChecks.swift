@@ -81,6 +81,12 @@ enum NotesPipelineChecks {
         p = PauseCutter.cut(signal(5, [(1.0, 3.0)]))
         rec(matches(p, [(0.8, 3.2)]) && abs(p[0].speech - 2.0) < 0.011, "PC T2 single burst padded 0.2 s", p, "[(0.8, 3.2)] speech 2.0")
 
+        let sigM1 = signal(5, [(1.0, 3.0)])
+        p = PauseCutter.cut(sigM1, minThreshold: -10)
+        rec(p.isEmpty, "PC M1 minThreshold -10 gives no pieces", p, "[]")
+        p = PauseCutter.cut(sigM1, minThreshold: -50)
+        rec(matches(p, [(0.8, 3.2)]) && abs(p[0].speech - 2.0) < 0.011, "PC M1 minThreshold -50 keeps the T2 piece", p, "[(0.8, 3.2)] speech 2.0")
+
         p = PauseCutter.cut(signal(5, [(1.0, 2.0), (2.2, 3.0)]))
         rec(matches(p, [(0.8, 3.2)]) && abs(p[0].speech - 2.0) < 0.011, "PC T3 0.2 s gap is closed", p, "[(0.8, 3.2)] speech 2.0")
 

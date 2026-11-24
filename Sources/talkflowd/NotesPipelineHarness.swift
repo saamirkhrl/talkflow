@@ -226,6 +226,7 @@ enum NotesPipelineHarness {
             "retries": stats.retries,
             "splits": stats.splits,
             "near_end_gate_seconds": stats.nearEndZeroedSeconds,
+            "residual_db": stats.residualDB ?? NSNull(),
             "prompt_echoes": stats.promptEchoes,
             "dropped": stats.dropped,
             "inaudible": stats.inaudible,

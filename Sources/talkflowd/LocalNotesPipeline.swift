@@ -35,6 +35,8 @@ struct NotesJobStats {
     var inaudible = 0
     /// Seconds the near-end gate zeroed (0 when it was not applied).
     var nearEndZeroedSeconds = 0.0
+    /// The cleaned mic's residual-echo level in dBFS (nil when the gate was closed or too little echo to measure).
+    var residualDB: Double?
     /// Whisper replies where the initial prompt was repeated and stripped.
     var promptEchoes = 0
     var ruleRemovedWords = 0
@@ -151,10 +153,14 @@ final class NotesJob {
         // 3. Echo.
         let echoStart = Date()
         var mic = micRaw
+        var micMinThreshold: Double?
         if !micRaw.isEmpty && !sys.isEmpty {
             let result = EchoStage.run(mic: micRaw, system: sys, headphones: headphones)
             mic = result.samples
             if result.bypass == nil {
+                let residual = NearEndGate.residualLevel(raw: micRaw, cleaned: result.samples)
+                stats.residualDB = residual
+                micMinThreshold = residual.map { $0 + NearEndGate.residualMarginDB }
                 let gated = NearEndGate.apply(raw: micRaw, cleaned: result.samples)
                 mic = gated.samples
                 stats.nearEndZeroedSeconds = gated.zeroedSeconds
@@ -212,7 +218,7 @@ final class NotesJob {
 
         // 5. Cut. The computer-audio track is cut at the speaker changes, so a piece stays inside one turn.
         let cutStart = Date()
-        let youPieces = PauseCutter.cut(mic)
+        let youPieces = PauseCutter.cut(mic, minThreshold: micMinThreshold)
         let othersPieces = runs != nil ? PauseCutter.cut(sys, forcedCuts: SpeakerTurns.forcedCuts(runs!)) : sysPlain
         let dbYou = PauseCutter.frameDB(mic[...])
         let dbOthers = PauseCutter.frameDB(sys[...])
@@ -458,7 +464,7 @@ final class NotesJob {
 
     private static func log(_ s: NotesJobStats) {
         func f(_ v: Double?) -> String { v.map { String(format: "%.2f", $0) } ?? "-" }
-        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, near_end_gate_seconds \(f(s.nearEndZeroedSeconds)), \(f(s.timings["echo"])) s")
+        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, near_end_gate_seconds \(f(s.nearEndZeroedSeconds)), residual \(f(s.residualDB)) dBFS, \(f(s.timings["echo"])) s")
         print("talkflowd: notes: speakers engine \(s.speakerEngine), count \(s.speakerCount), reason \(s.speakerReason ?? "-"), \(f(s.timings["speakers"])) s")
         print("talkflowd: notes: pieces you \(s.piecesYou), others \(s.piecesOthers), cut \(f(s.timings["cut"])) s, audio \(f(s.audioSeconds)) s, speech \(f(s.speechSeconds)) s")
         print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), prompt echoes \(s.promptEchoes), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")

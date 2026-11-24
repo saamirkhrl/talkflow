@@ -183,6 +183,21 @@ enum EchoChecks {
               "EC G3 echo then speech: the first second is zeroed, the speech kept (\(f(g3.zeroedSeconds, 2)) s)", "\(g3.zeroedSeconds)")
         let g4 = NearEndGate.apply(raw: rawG, cleaned: scaled(rawG, 0.5))
         check(g4.samples == scaled(rawG, 0.5) && g4.zeroedSeconds == 0, "EC G4 -6 dB removed: unchanged", "\(g4.zeroedSeconds)")
+        // R1-R2 the residual level.
+        let cleanedR = scaled(rawG, 0.01)
+        let res1 = NearEndGate.residualLevel(raw: rawG, cleaned: cleanedR)
+        var dbsR: [Double] = []
+        for k in 0..<(cleanedR.count / 160) {
+            var acc = 0
+            for v in cleanedR[(k * 160)..<((k + 1) * 160)] { acc += Int(v) * Int(v) }
+            dbsR.append(20.0 * log10(max((Double(acc) / 160.0).squareRoot(), 1e-3) / 32768.0))
+        }
+        dbsR.sort()
+        let expectR = dbsR[Int((Double(dbsR.count - 1) * 0.9).rounded())]
+        check(res1 != nil && abs(res1! - expectR) < 1e-9 && res1! >= -70 && res1! <= -62,
+              "EC R1 residual level of a -40 dB cleaned signal (\(f(res1 ?? 0)) dB)", "\(String(describing: res1)) expected \(expectR)")
+        let res2 = NearEndGate.residualLevel(raw: rawG, cleaned: rawG)
+        check(res2 == nil, "EC R2 nothing removed: no residual level", "\(String(describing: res2))")
         let silence = [Int16](repeating: 0, count: 2 * fs)
         let g5 = NearEndGate.apply(raw: silence, cleaned: silence)
         check(g5.samples == silence && g5.zeroedSeconds == 0, "EC G5 digital silence: unchanged", "\(g5.zeroedSeconds)")
