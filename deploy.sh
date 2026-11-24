@@ -35,6 +35,9 @@ fi
 # binary) on a toolchain older than Swift 6.2.
 "$PROJECT_DIR/scripts/build-diarize-macos.sh" "$DIARIZE" \
     || echo "warning: the speaker helper did not build; installing without a new one" >&2
+if [ ! -x "$DIARIZE/talkflow-diarize" ]; then
+    echo "warning: the speaker helper was not built (needs Apple Silicon and Swift 6.2 or newer); this install keeps the old helper or has none, so notes show one speaker for everyone" >&2
+fi
 
 echo "==> Stopping running instance"
 launchctl bootout "gui/$UID_NUM/com.samir.talkflow" 2>/dev/null || true

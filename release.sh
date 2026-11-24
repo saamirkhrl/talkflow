@@ -83,10 +83,10 @@ ENGINE="$PROJECT_DIR/.build/whisper-engine"
 "$PROJECT_DIR/scripts/build-whisper-macos.sh" "$ENGINE"
 # NEEDS THE OWNER'S APPROVAL before this release.sh change is used: it adds the
 # speaker helper (Contents/Helpers/talkflow-diarize) to the signed bundle.
-# The script skips itself (exit 0, no binary) off Apple Silicon or below Swift
-# 6.2; the app then ships without the helper.
+# --require: the release stops if the helper cannot be built (not Apple
+# Silicon, Swift older than 6.2, no toolchain); it never ships without it.
 DIARIZE="$PROJECT_DIR/.build/diarize-helper"
-"$PROJECT_DIR/scripts/build-diarize-macos.sh" "$DIARIZE"
+"$PROJECT_DIR/scripts/build-diarize-macos.sh" --require "$DIARIZE"
 
 echo "==> Version $VERSION"
 BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
