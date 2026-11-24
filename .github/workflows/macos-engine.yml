@@ -11,6 +11,8 @@ on:
     paths:
       - "scripts/build-whisper-macos.sh"
       - "scripts/smoke-whisper-macos.sh"
+      - "scripts/build-diarize-macos.sh"
+      - "Helpers/**"
       - ".github/workflows/macos-engine.yml"
       - "release.sh"
       - "deploy.sh"
@@ -22,6 +24,13 @@ on:
       - "Sources/talkflowd/Uninstaller.swift"
       - "Sources/talkflowd/Onboarding.swift"
       - "Sources/talkflowd/StreamSelfTest.swift"
+      - "Sources/talkflowd/Note*.swift"
+      - "Sources/talkflowd/*Notes*.swift"
+      - "Sources/talkflowd/Speaker*.swift"
+      - "Sources/talkflowd/Echo*.swift"
+      - "Sources/talkflowd/Capture*.swift"
+      - "Sources/talkflowd/MeetingRecorder.swift"
+      - "Sources/talkflowd/DictionarySelfTest.swift"
   workflow_dispatch:
 
 permissions:
@@ -110,15 +119,55 @@ jobs:
           path: dist
       - name: Reuse the engine built above
         run: mkdir -p .build && tar -C .build -xzf dist/whisper-engine.tgz
-      - name: Self-tests
+      - name: Self-tests (the runner's default toolchain)
+        # Pure logic and temporary folders only: no microphone, no sound, no
+        # keystrokes, no network. --notestest skips its fixture-based checks
+        # when the fixtures are not on the machine, as here.
         run: |
           swift build
-          "$(swift build --show-bin-path)/talkflowd" --streamtest || true
-          LOG="$(getconf DARWIN_USER_TEMP_DIR)talkflow-streamtest.log"
-          grep -E '^FAIL' "$LOG" || true
-          tail -1 "$LOG"
-          test "$(tail -1 "$LOG")" = "ALL PASS"
+          BIN="$(swift build --show-bin-path)/talkflowd"
+          TMP="$(getconf DARWIN_USER_TEMP_DIR)"
+          status=0
+          for t in streamtest dictionarytest notestest; do
+            "$BIN" --$t >/dev/null 2>&1 || true
+            LOG="${TMP}talkflow-$t.log"
+            echo "--- $t"
+            grep -E '^FAIL' "$LOG" || true
+            tail -1 "$LOG"
+            [ "$(tail -1 "$LOG")" = "ALL PASS" ] || status=1
+          done
+          exit $status
+      - name: The app still targets macOS 13
+        run: |
+          otool -l "$(swift build --show-bin-path)/talkflowd" | grep -A4 LC_BUILD_VERSION | grep -q 'minos 13.0' \
+            || { echo "talkflowd's minos is not 13.0"; exit 1; }
+      - name: Swift toolchain for the speaker helper (needs 6.2 or newer, macOS 14+)
+        # The helper package needs Swift 6.2; macos-latest's default Xcode may
+        # be older. Pick the newest installed Xcode whose Swift is 6.2+, and
+        # fail here, plainly, when there is none: the build script would
+        # otherwise skip itself and the asserts below fail less clearly.
+        run: |
+          sw_vers
+          swift --version
+          found=""
+          for x in $(ls -d /Applications/Xcode_*.app /Applications/Xcode.app 2>/dev/null | sort -V -r); do
+            if DEVELOPER_DIR="$x/Contents/Developer" swift --version 2>&1 | grep -Eq 'Swift version (6\.([2-9]|[1-9][0-9])|[7-9]|[1-9][0-9])'; then
+              echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"; echo "using $x"; found=1; break
+            fi
+          done
+          [ -n "$found" ] || { echo "no Xcode with Swift 6.2 or newer on this runner"; ls -d /Applications/Xcode* || true; exit 1; }
+      - name: Cache the speaker helper's Swift packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            Helpers/talkflow-diarize/.build/checkouts
+            Helpers/talkflow-diarize/.build/artifacts
+            ~/Library/Caches/org.swift.swiftpm
+          key: diarize-spm-${{ hashFiles('Helpers/talkflow-diarize/Package.resolved') }}
+      - name: Build the speaker helper package (fails here, not later, when it does not build)
+        run: swift build -c release --arch arm64 --package-path Helpers/talkflow-diarize
       - name: Assemble the app (release.sh --dry-run, publishes nothing)
+        # Also builds the speaker helper (scripts/build-diarize-macos.sh).
         run: ./release.sh 0.0.0 --dry-run
       - name: Signature and contents
         run: |
@@ -127,6 +176,10 @@ jobs:
           codesign -dv "$APP/Contents/Helpers/whisper-server"
           scripts/build-whisper-macos.sh --check "$APP/Contents/Helpers/whisper-server"
           test -f "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+          test -x "$APP/Contents/Helpers/talkflow-diarize"
+          test -f "$APP/Contents/Resources/talkflow-diarize-NOTICES.txt"
+          codesign -dv "$APP/Contents/Helpers/talkflow-diarize"
+          scripts/build-diarize-macos.sh --check "$APP/Contents/Helpers/talkflow-diarize"
       - name: Fetch a small test model
         run: curl -sSL --fail -o ggml-tiny.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
       - name: Transcribe with the engine inside the app

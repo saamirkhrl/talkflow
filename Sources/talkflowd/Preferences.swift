@@ -76,6 +76,12 @@ enum Preferences {
         }
     }
 
+    /// The user clicked "Not now" on the Notes downloads offer. A link under the Notes list brings it back.
+    static var notesDownloadsDeclined: Bool {
+        get { defaults.bool(forKey: "notesDownloadsDeclined") }
+        set { defaults.set(newValue, forKey: "notesDownloadsDeclined") }
+    }
+
     /// The language dictated in. English by default, which is how talkflow
     /// behaved before there was a choice. Changing it may download the
     /// multilingual live model (`LiveModel`).

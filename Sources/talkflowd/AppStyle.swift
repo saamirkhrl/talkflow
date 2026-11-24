@@ -29,6 +29,11 @@ enum Palette {
     static let line = ink.opacity(0.12)
     static let hairline = ink.opacity(0.08)
     static let edge = ink.opacity(0.10)
+    /// The recording dot on the page and on cards (the Notes mockups' red).
+    static let record = dynamic(light: 0xD92D20, dark: 0xFF6B61)
+    /// The dot on the filled Start recording button: that fill is ink, so the
+    /// bright red sits on dark ink and the deep red on paper.
+    static let recordOnFill = dynamic(light: 0xFF6B61, dark: 0xD92D20)
 }
 
 /// Serif (the system's New York) for the wordmark, page titles and big
@@ -45,6 +50,12 @@ enum AppFont {
     static let caption = Font.system(size: 12)
     static let groupLabel = Font.system(size: 12, weight: .semibold)
     static let small = Font.system(size: 11)
+    /// The meeting name field on the Recording screen.
+    static let nameField = Font.system(size: 24, weight: .regular, design: .serif)
+    /// The recording timer.
+    static let timer = Font.system(size: 52, weight: .regular, design: .serif)
+    /// Who spoke, beside each transcript turn.
+    static let speaker = Font.system(size: 14, weight: .semibold)
 }
 
 enum AppMetrics {
@@ -186,6 +197,102 @@ struct AppLinkButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.55 : 1)
             .contentShape(Rectangle())
             .pointerCursor()
+    }
+}
+
+/// The two big actions in Notes (Start recording, Stop and write notes): a
+/// filled capsule, as the mockups draw them, at the app's control heights.
+struct AppCapsuleButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+    var height: CGFloat = 36
+    var weight: Font.Weight = .medium
+
+    init(height: CGFloat = 36, weight: Font.Weight = .medium) {
+        self.height = height
+        self.weight = weight
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: weight))
+            .foregroundColor(isEnabled ? Palette.window : Palette.muted)
+            .padding(.horizontal, 20)
+            .frame(minHeight: height)
+            .background(Capsule().fill(isEnabled ? Palette.ink.opacity(configuration.isPressed ? 0.75 : 1) : Color.clear))
+            .overlay(Capsule().strokeBorder(isEnabled ? Color.clear : Palette.line, lineWidth: 1))
+            .contentShape(Capsule())
+            .pointerCursor()
+    }
+}
+
+/// A level or progress bar: an 8pt track with an ink fill. `value` is 0...1.
+struct AppMeter: View {
+    let value: Double
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.ink.opacity(0.10))
+                Capsule().fill(Palette.ink)
+                    .frame(width: CGFloat(max(0, min(1, value.isFinite ? value : 0))) * geo.size.width)
+            }
+        }
+        .frame(height: 8)
+    }
+}
+
+/// "< Notes": back from a meeting to the list, as the mockups draw it.
+struct AppBackLink: View {
+    let title: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
+                Text(title).font(AppFont.body)
+            }
+            .foregroundColor(Palette.muted)
+            .frame(minHeight: 28)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .accessibilityLabel("Back to \(title)")
+    }
+}
+
+/// A bordered notice with no fill: the key banner, an interrupted recording,
+/// a note that couldn't be finished. Text on the left, buttons on the right.
+struct AppNotice<Content: View>: View {
+    let content: Content
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) { content }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.ink.opacity(0.14), lineWidth: 1))
+    }
+}
+
+/// The big card of the Recording and Writing screens: rounder and roomier
+/// than AppCard, as in the mockup.
+struct AppStageCard<Content: View>: View {
+    let spacing: CGFloat
+    let content: Content
+    init(spacing: CGFloat, @ViewBuilder content: () -> Content) {
+        self.spacing = spacing
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing) { content }
+            .padding(28)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 16).fill(Palette.card))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Palette.cardStroke, lineWidth: 1))
     }
 }
 
