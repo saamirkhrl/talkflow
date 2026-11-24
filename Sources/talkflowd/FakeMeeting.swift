@@ -3,10 +3,12 @@ import AudioToolbox
 import CoreAudio
 import Foundation
 
-// `talkflowd --fakemeeting [folder] [--dry-run] [--fake-pipeline]`: records a made-up meeting for real (played
+// `talkflowd --fakemeeting [folder] [--dry-run] [--fake-pipeline] [--notes-model PATH] [--speaker-helper PATH]
+// [--speaker-models DIR] [--server PATH]`: records a made-up meeting for real (played
 // through the Mac's speakers), writes notes through the app's real pipeline seam, then scores them against the
 // truth. --dry-run plays nothing and copies the fixture's 16 kHz files in place of captured audio. Exit codes:
-// 0 PASS, 1 FAIL or refused, 2 fixture missing or bad, 130 interrupted.
+// 0 PASS, 1 FAIL or refused, 2 fixture missing or bad, 130 interrupted. The four path flags override what the app
+// would use, so a test can run the real pipeline on test copies of the models and leave the user's models folder alone.
 
 // MARK: - Options
 
@@ -14,6 +16,10 @@ struct FakeMeetingOptions: Equatable {
     var folder: URL
     var dryRun: Bool
     var fakePipeline: Bool
+    var notesModel: URL?
+    var speakerHelper: URL?
+    var speakerModels: URL?
+    var server: String?
 
     static let defaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/talkflow/test-fixtures/fakemeeting", isDirectory: true)
@@ -25,8 +31,17 @@ struct FakeMeetingOptions: Equatable {
         if let i = arguments.firstIndex(of: "--fakemeeting"), i + 1 < arguments.count, !arguments[i + 1].hasPrefix("--") {
             folder = URL(fileURLWithPath: arguments[i + 1], isDirectory: true)
         }
+        // A flag with no value, or whose next argument is another flag, counts as not given.
+        func value(_ flag: String) -> String? {
+            guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count, !arguments[i + 1].hasPrefix("--") else { return nil }
+            return arguments[i + 1]
+        }
         return FakeMeetingOptions(folder: folder, dryRun: arguments.contains("--dry-run"),
-                                  fakePipeline: arguments.contains("--fake-pipeline"))
+                                  fakePipeline: arguments.contains("--fake-pipeline"),
+                                  notesModel: value("--notes-model").map { URL(fileURLWithPath: $0) },
+                                  speakerHelper: value("--speaker-helper").map { URL(fileURLWithPath: $0) },
+                                  speakerModels: value("--speaker-models").map { URL(fileURLWithPath: $0, isDirectory: true) },
+                                  server: value("--server"))
     }
 }
 
@@ -448,6 +463,12 @@ enum FakeMeeting {
         let o = FakeMeetingOptions.parse(arguments)
         say("--- fakemeeting (\(o.dryRun ? "dry run" : "live")), pipeline: \(o.fakePipeline ? "fake: the truth word for word" : "the app's") ---")
         let mode = o.dryRun ? "dry run" : "live"
+        // Refuse before anything else when the given model is not there (same style as a missing fixture).
+        if let m = o.notesModel, !FileManager.default.fileExists(atPath: m.path) {
+            say("The notes model given with --notes-model is not there.")
+            appLog("notes model missing")
+            finish(2)
+        }
 
         // 2. The fixture.
         let fm = FileManager.default
@@ -522,8 +543,23 @@ enum FakeMeeting {
         // 6. Pipeline and capture. Not setting TALKFLOW_DATA_DIR: the real pipeline may need the speech model, which
         // lives outside it.
         let truthPipeline: TruthPipeline? = o.fakePipeline ? TruthPipeline(turns: FMScorer.perfectTurns(truth.utterances)) : nil
-        // Whatever the app itself uses, so once the real pipeline lands this test runs it unchanged.
-        let pipeline: NotesPipeline = truthPipeline ?? NotesModel.live().pipeline
+        // The same pipeline class and config the app uses, with only the file locations swapped.
+        let pipeline: NotesPipeline = truthPipeline ?? LocalNotesPipeline(makeConfig: {
+            var c = LocalNotesPipeline.liveConfig()
+            if let m = o.notesModel { c.model = m }
+            if let h = o.speakerHelper { c.speakerHelper = h }
+            if let d = o.speakerModels { c.speakerModels = d }
+            if let s = o.server { c.serverBinary = s }
+            return c
+        })
+        if !o.fakePipeline {
+            // File names only, so the line says what is in use without printing paths.
+            let m = o.notesModel?.lastPathComponent ?? "app default"
+            let h = o.speakerHelper?.lastPathComponent ?? "app default"
+            let d = o.speakerModels?.lastPathComponent ?? "app default"
+            let sv = o.server.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "app default"
+            say("pipeline files: model \(m), speaker helper \(h), speaker models \(d), server \(sv)")
+        }
         let capture: MeetingCapture = o.dryRun ? FixtureCapture(fixture: o.folder) : MeetingRecorder()
         let store = NoteStore(root: notesRoot)
         let model = NotesModel(store: store, capture: capture, pipeline: pipeline)

@@ -17,6 +17,22 @@ enum FakeMeetingChecks {
                && c.folder.standardizedFileURL.path == d && c.dryRun && c.fakePipeline,
                "FG1 --fakemeeting arguments are parsed", "")
 
+        // G1b path flags
+        let p1 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--notes-model", "/m.bin",
+                                           "--speaker-helper", "/h", "--speaker-models", "/d", "--server", "/s"])
+        let p2 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--notes-model"])
+        let p3 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "/fixture", "--notes-model", "/m.bin"])
+        let p4 = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--notes-model", "--dry-run"])
+        report(p1.folder.standardizedFileURL.path == d && p1.dryRun
+               && p1.notesModel?.path == "/m.bin" && p1.speakerHelper?.path == "/h"
+               && p1.speakerModels?.path == "/d" && p1.server == "/s",
+               "FG1b all four pipeline path flags are parsed", "")
+        report(p2.notesModel == nil && p2.dryRun && p4.notesModel == nil && p4.dryRun
+               && a.notesModel == nil && a.speakerHelper == nil && a.speakerModels == nil && a.server == nil,
+               "FG1c a path flag without a value is left unset", "")
+        report(p3.folder.standardizedFileURL.path == "/fixture" && p3.notesModel?.path == "/m.bin",
+               "FG1d a folder and a path flag are both kept", "")
+
         // G2 missing files
         let none = FMPreflight.missingFiles { _ in true }
         let some = FMPreflight.missingFiles { $0 == "truth.json" || $0 == "system.wav" }
