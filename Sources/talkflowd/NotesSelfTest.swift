@@ -415,6 +415,7 @@ enum NotesSelfTest {
         NotesPipelineChecks.run { check($0, $1, $2) }
         TrackAlignChecks.run { check($0, $1, $2) }
         EchoChecks.run { check($0, $1, $2) }
+        PhantomChecks.run { check($0, $1, $2) }
         TranscribeChecks.run { check($0, $1, $2) }
         SpeakerChecks.run { check($0, $1, $2) }
         NotesFlowChecks.run { check($0, $1, $2) }
