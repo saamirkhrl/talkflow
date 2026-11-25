@@ -2,7 +2,7 @@ import Foundation
 
 /// The Summary and Ask tabs' state for the meeting on screen, and the summary jobs (which keep going for a note
 /// that is not on screen). Owned by NotesModel; used from the main thread. Every request goes through
-/// `access`, which is nil while "Use my key for meeting notes" is off, so with the switch off nothing here sends
+/// `access`, which is nil while no Anthropic or OpenAI key is saved, so without a key nothing here sends
 /// anything. Before the first request to a provider the user confirms once (`pending`), and again if the provider
 /// changes. Failures never touch the transcript or the note's state: the note stays ready, and the tab shows what
 /// happened with Try again.
@@ -64,7 +64,7 @@ final class NoteAssistant: ObservableObject {
     private var accessObserver: NSObjectProtocol?
     private var highlightToken = 0
 
-    init(store: NoteStore, client: NotesAIClient = .live(), access: @escaping () -> NotesAccess? = NotesAccess.current,
+    init(store: NoteStore, client: NotesAIClient = .live(), access: @escaping () -> NotesAccess? = { NotesAccess.current() },
          confirmedProvider: @escaping () -> String? = { Preferences.notesConfirmedProvider },
          setConfirmedProvider: @escaping (String) -> Void = { Preferences.notesConfirmedProvider = $0 }) {
         self.store = store
@@ -72,7 +72,7 @@ final class NoteAssistant: ObservableObject {
         self.access = access
         self.confirmedProvider = confirmedProvider
         self.setConfirmedProvider = setConfirmedProvider
-        // The client asks this before every send, so a switch turned off (or a key removed) stops the next send
+        // The client asks this before every send, so a key removed (or replaced by another provider's) stops the next send
         // and any retry; accessChanged() below stops the request already in flight.
         self.client.allowed = { [weak self] provider in self?.access()?.provider == provider }
         accessObserver = NotificationCenter.default.addObserver(forName: NotesAccess.changed, object: nil, queue: .main) { [weak self] _ in
@@ -84,7 +84,7 @@ final class NoteAssistant: ObservableObject {
         if let accessObserver { NotificationCenter.default.removeObserver(accessObserver) }
     }
 
-    /// The switch or a key changed: stop every job that was started with a provider that is no longer the one in
+    /// A key was saved or removed: stop every job that was started with a provider that is no longer the one in
     /// use, and drop a waiting confirmation when nothing may be sent at all.
     func accessChanged() {
         let now = access()?.provider
@@ -107,7 +107,7 @@ final class NoteAssistant: ObservableObject {
             stopped += 1
         }
         if now == nil, pending != nil { cancelPending() }
-        if stopped > 0 { Self.log("\(stopped) request(s) stopped, key switch off or key removed") }
+        if stopped > 0 { Self.log("\(stopped) request(s) stopped, key removed or changed") }
     }
 
     var currentAccess: NotesAccess? { access() }
@@ -146,7 +146,7 @@ final class NoteAssistant: ObservableObject {
     }
 
     func transcriptSaved(_ id: String) {
-        // Switch off or no key: nothing is sent.
+        // No key: nothing is sent.
         guard let a = access() else { return }
         if needsConfirmation(a) {
             Self.log("summary waits for the one-time confirmation")

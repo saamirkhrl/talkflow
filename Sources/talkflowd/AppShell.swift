@@ -27,23 +27,24 @@ enum AppSection: String, CaseIterable {
     var keyEquivalent: String { String((AppSection.allCases.firstIndex(of: self) ?? 0) + 1) }
 }
 
-/// The four groups of the Settings page, which its jump links and
-/// `DashboardController.show(_:anchor:)` scroll to.
+/// The Settings pages, in the order of the row at the top of Settings. `DashboardController.show(_:anchor:)`
+/// and the Notes "Add a key" button open one.
 enum SettingsGroup: String, CaseIterable, Hashable {
-    case general, dictation, models, about
+    case general, dictation, models, apiKeys, notes, about
 
     var title: String {
         switch self {
         case .general: return "General"
         case .dictation: return "Dictation"
-        case .models: return "Models and API keys"
+        case .models: return "Models"
+        case .apiKeys: return "API keys"
+        case .notes: return "Meeting notes"
         case .about: return "About"
         }
     }
 }
 
-/// The window's state: which section is showing, where Settings should
-/// scroll, and what the sidebar and Home's status pill say. The pages'
+/// The window's state: which section and which Settings page is showing, and what the sidebar and Home's status pill say. The pages'
 /// own state lives in their models.
 final class AppWindowModel: ObservableObject {
     /// The last section shown, so the window reopens where the user left
@@ -55,8 +56,12 @@ final class AppWindowModel: ObservableObject {
     @Published var section: AppSection {
         didSet { Preferences.defaults.set(section.rawValue, forKey: Self.sectionKey) }
     }
-    /// Set to scroll Settings to a group; the page clears it once done.
-    @Published var settingsAnchor: SettingsGroup?
+    static let settingsGroupKey = "settingsGroup"
+
+    /// The Settings page showing, remembered like `section` (and, like it, not in UserData.settingKeys).
+    @Published var settingsGroup: SettingsGroup {
+        didSet { Preferences.defaults.set(settingsGroup.rawValue, forKey: Self.settingsGroupKey) }
+    }
     /// Whether setup has anything left to do (same test as the menu bar's
     /// "Finish setup..."). Re-read by `refresh`.
     @Published var setupNeeded = false
@@ -88,10 +93,11 @@ final class AppWindowModel: ObservableObject {
         dashboard = DashboardModel()
         dictionary = DictionaryModel()
         section = AppSection(rawValue: Preferences.defaults.string(forKey: Self.sectionKey) ?? "") ?? .home
+        settingsGroup = SettingsGroup(rawValue: Preferences.defaults.string(forKey: Self.settingsGroupKey) ?? "") ?? .general
         hotkeyObserver = NotificationCenter.default.addObserver(forName: .hotkeyChanged, object: nil, queue: .main) { [weak self] _ in
             self?.hotkeyName = Preferences.hotkey.name
         }
-        notes.openKeySettings = { [weak self] in self?.go(to: .settings, anchor: .models) }
+        notes.openKeySettings = { [weak self] in self?.go(to: .settings, anchor: .apiKeys) }
     }
 
     deinit {
@@ -102,7 +108,7 @@ final class AppWindowModel: ObservableObject {
         // Notes again from Notes: back to the list, as a sidebar click does on the web.
         if section == .notes && self.section == .notes { notes.backToList() }
         self.section = section
-        if let anchor { settingsAnchor = anchor }
+        if let anchor { settingsGroup = anchor }
     }
 
     /// When the window opens or becomes key: stats, settings and words may

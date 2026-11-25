@@ -237,10 +237,10 @@ enum NotesSelfTest {
                      "Writing the summary with your Anthropic key, then deleting the audio",
                      "Saving the transcript and deleting the audio"], "W3 stepLabel", "\(w3)")
 
-        // Pure: the live NotesKeys would read the Keychain once the switch is on, and a test never does.
-        check(NotesAccess.resolve(switchOn: false, hasAnthropic: { true }, hasOpenAI: { true },
+        // Pure: the live NotesKeys would read the Keychain, and a test never does.
+        check(NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { false },
                                   anthropicModel: nil, openAIModel: nil) == nil,
-              "W4 with the switch off no key is in use")
+              "W4 with no key saved no key is in use")
 
         // MARK: Availability
 

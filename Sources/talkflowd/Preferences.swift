@@ -110,12 +110,14 @@ enum Preferences {
         set { defaults.set(newValue.rawValue, forKey: "claudeModel") }
     }
 
-    /// "Use my key for meeting notes": summaries and Ask send a meeting's
-    /// transcript to Anthropic (if that key exists) or OpenAI. Off by default,
-    /// and nothing in Notes touches the network while it is off (NotesAccess).
-    static var notesUseKey: Bool {
-        get { defaults.bool(forKey: "notesUseKey") }
-        set { defaults.set(newValue, forKey: "notesUseKey") }
+    /// Retires the "Use my key for meeting notes" switch (0.1.13 and earlier). Meeting notes now use a saved
+    /// Anthropic or OpenAI key with no switch, so the old value is removed at launch and never read. Where the
+    /// user had turned the switch off, the one-time confirmation is cleared too, so talkflow asks again before
+    /// it first sends a transcript instead of starting without asking. The keys themselves are never touched.
+    static func retireNotesSwitch(_ d: UserDefaults = defaults) {
+        guard let old = d.object(forKey: "notesUseKey") else { return }
+        if (old as? Bool) == false { d.removeObject(forKey: "notesConfirmedProvider") }
+        d.removeObject(forKey: "notesUseKey")
     }
 
     /// The model picked for meeting notes, one per provider, so switching key

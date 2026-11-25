@@ -48,12 +48,11 @@ enum NotesAskTest {
         let outURL = args.out.map { URL(fileURLWithPath: $0) } ?? NotesAskRun.defaultOut
         let scoreURL = args.scoreOut.map { URL(fileURLWithPath: $0) } ?? NotesAskRun.defaultScoreOut
 
-        // The switch is on because running this flag is the opt-in: the orchestrator tests from the installed app
-        // before the switch exists in the owner's settings, and only ever with made-up transcripts. The model is
+        // Running this flag is the opt-in: the orchestrator tests from the installed app with the owner's saved
+        // key, and only ever with made-up transcripts. The model is
         // the cheapest of the provider (or --model); Settings' model choice is deliberately not used, so a test
         // never bills the dearer model the owner picked for real notes.
         guard let access = NotesAccess.resolve(
-            switchOn: true,
             hasAnthropic: args.provider == .openAI ? { false } : { APIKeys.hasKey(.anthropic) },
             hasOpenAI: args.provider == .anthropic ? { false } : { APIKeys.hasKey(.openAI) },
             anthropicModel: args.model?.rawValue, openAIModel: args.model?.rawValue) else {

@@ -57,9 +57,10 @@ None for notes, except:
 - two optional downloads the user starts from the Notes list: the large-v3-turbo speech model
   (about 574 MB, shared with Accurate final pass) and the speaker models (about 21 MB, from
   Hugging Face, `FluidInference/speaker-diarization-coreml`);
-- Summary, action items and Ask, only while **Use my key for meeting notes** is on (off by
-  default). They send the transcript text, with the speakers' names, never audio, to Anthropic
-  (if an Anthropic key is saved) or OpenAI, with the user's key and billed to them.
+- Summary, action items and Ask, once an Anthropic or OpenAI key is saved in Settings > API keys
+  (talkflow asks once before the first request to a provider; without a key nothing is sent).
+  They send the transcript text, with the speakers' names, never audio, to Anthropic (if an
+  Anthropic key is saved) or OpenAI, with the user's key and billed to them.
 
 ## Not in this version
 

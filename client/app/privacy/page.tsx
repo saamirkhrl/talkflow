@@ -30,9 +30,9 @@ export default function PrivacyPage() {
           <strong>Optional cloud features send your words to the company you pick.</strong> If you
           add your own OpenAI key and turn on OpenAI transcription, your recorded audio goes to
           OpenAI. If you add your own Anthropic key and turn on Claude punctuation, the text of your
-          dictation goes to Anthropic. If you turn on Use my key for meeting notes, a meeting&apos;s
-          transcript text goes to Anthropic or OpenAI for a summary, action items or answers. All
-          of these are off unless you turn them on (see{" "}
+          dictation goes to Anthropic. If you save an Anthropic or OpenAI key, a meeting&apos;s
+          transcript text goes to that provider for a summary, action items or answers, after
+          talkflow asks once. Nothing is sent unless you add a key (see{" "}
           <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
         </li>
         <li>
@@ -282,8 +282,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>What goes online.</strong> Nothing, unless you click to download the two
-          optional models (see <a href="#app-setup">Setting up the app</a>) or turn on Use my key
-          for meeting notes (see <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
+          optional models (see <a href="#app-setup">Setting up the app</a>) or save an Anthropic or
+          OpenAI key for meeting notes (see <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
         </li>
         <li>
           <strong>Recording other people.</strong> talkflow doesn&apos;t tell anyone that a meeting
@@ -357,7 +357,8 @@ export default function PrivacyPage() {
       <h3 id="app-keys">Your own OpenAI or Anthropic key</h3>
       <p>
         In Settings you can add your own API key for OpenAI or Anthropic and turn on a feature that
-        uses it. These features are off by default. When one is on, talkflow sends data directly from
+        uses it. Transcription and punctuation are off by default, and meeting notes send nothing
+        until a key is saved. When one is in use, talkflow sends data directly from
         your computer to that company, using your key. It doesn&apos;t pass through us, and we
         don&apos;t receive it.
       </p>
@@ -375,8 +376,9 @@ export default function PrivacyPage() {
           words and only takes the punctuation from the reply.
         </li>
         <li>
-          <strong>Meeting notes: summary, action items and Ask</strong> (Mac). Only while{" "}
-          <strong>Use my key for meeting notes</strong> is on. When you ask for a summary or ask a
+          <strong>Meeting notes: summary, action items and Ask</strong> (Mac). Only with an
+          Anthropic or OpenAI key saved in <strong>Settings &gt; API keys</strong>, and talkflow
+          asks once before the first request. When you ask for a summary or ask a
           question, talkflow sends the meeting&apos;s transcript text, with the speakers&apos;
           names, to Anthropic, or to OpenAI if you only have an OpenAI key, and keeps the answer
           in the note. Audio is never sent.

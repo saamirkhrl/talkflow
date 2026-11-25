@@ -60,15 +60,30 @@ extension DashboardController {
         Preferences.learnedWords = SampleData.words
         model.dictionary.refresh()
 
-        shoot(8, "settings", .settings, fullHeight: true)
+        // Every Settings page, with no key saved.
+        for (i, g) in SettingsGroup.allCases.enumerated() {
+            model.settingsGroup = g
+            shoot(30 + i, "settings-\(g.rawValue)", .settings, fullHeight: true)
+        }
 
+        // API keys with one key saved and the other being added (and refused), then About with an update waiting.
         model.settings.hasAnthropicKey = true
         model.settings.useClaude = true
+        model.settings.keySuffix["anthropic"] = "7Q2x"
         model.settings.keyStatus["openai"] = (true, "That key was not accepted.")
-        model.updateOverride = update
-        shoot(9, "settings-keys", .settings, fullHeight: true)
-        model.updateOverride = nil
+        model.settings.editingKey = "openai"
+        model.settingsGroup = .apiKeys
+        shoot(36, "settings-keys", .settings, fullHeight: true)
+        model.settings.editingKey = nil
         model.settings.keyStatus["openai"] = nil
+        model.updateOverride = update
+        model.settingsGroup = .about
+        shoot(38, "settings-about-update", .settings, fullHeight: true)
+        model.updateOverride = nil
+        model.settings.hasAnthropicKey = false
+        model.settings.useClaude = false
+        model.settings.keySuffix = [:]
+        model.settingsGroup = .general
 
         // Notes: every screen, from the made-up meetings NotesModel.preview() seeded. `stage` sets each state
         // without timers or a microphone.
@@ -100,9 +115,9 @@ extension DashboardController {
         n.stage(route: .detail(failed))
         shoot(17, "note-failed", .notes, fullHeight: true)
         // Summary and Ask with a key in use, from the made-up summary and answers NotesModel.preview() seeded and canned states.
-        // The access is resolved with the switch on in memory; nothing is sent anywhere.
+        // The access is resolved with a key in memory; nothing is sent anywhere.
         let a = n.assistant
-        a.access = { NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil) }
+        a.access = { NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil) }
         n.stage(route: .detail(launch)); n.detailTab = .summary
         shoot(21, "note-summary", .notes, fullHeight: true)
         a.stageSummaryPhase(.writing(step: 2, total: 3), for: launch)
@@ -139,9 +154,10 @@ extension DashboardController {
         shoot(20, "notes-unsupported", .notes, fullHeight: true)
 
         model.settings.hasAnthropicKey = true
-        model.settings.useKeyForNotes = true
-        shoot(28, "settings-notes-key", .settings, fullHeight: true)
-        model.settings.useKeyForNotes = false
+        model.settingsGroup = .notes
+        shoot(37, "settings-notes-key", .settings, fullHeight: true)
+        model.settings.hasAnthropicKey = false
+        model.settingsGroup = .general
 
         return written
     }

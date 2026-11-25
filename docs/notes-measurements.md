@@ -201,4 +201,4 @@ No measurement, but the choices rest on the provider documentation as read on 23
 Anthropic Messages API (version 2026-10-21, structured output through `output_config.format`,
 prompt caching with a 512 token minimum) and the OpenAI Responses API (`text.format` with a strict
 JSON schema, `store: false`, automatic caching). Defaults are the cheapest suitable model of each
-provider. Nothing is sent unless the user has a key and has switched on its use for meeting notes.
+provider. Nothing is sent unless the user has saved a key (Settings > API keys) and has agreed once to the first request.

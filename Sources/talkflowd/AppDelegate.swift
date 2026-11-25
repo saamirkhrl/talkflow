@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First, so a reinstall has the user's settings before anything reads them.
         UserData.start()
+        // Drops the retired meeting-notes switch before anything reads the notes settings.
+        Preferences.retireNotesSwitch()
         installEditMenu()
         statusBar = StatusBar()
         statusBar.onDashboardClicked = { [weak self] in self?.dashboard.show() }

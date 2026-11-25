@@ -49,15 +49,6 @@ final class SettingsModel: ObservableObject {
     @Published var claudeModel = Preferences.claudeModel {
         didSet { Preferences.claudeModel = claudeModel }
     }
-    /// "Use my key for meeting notes". Off until the user flips it: saving a key
-    /// does not turn it on, because sending a transcript away is its own decision.
-    @Published var useKeyForNotes = Preferences.notesUseKey {
-        didSet {
-            Preferences.notesUseKey = useKeyForNotes
-            // Lets a running summary or question stop now, not only refuse its next send.
-            NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
-        }
-    }
     @Published var notesAnthropicModel = SettingsModel.storedNotesModel(Preferences.notesAnthropicModel, .anthropic) {
         didSet { Preferences.notesAnthropicModel = notesAnthropicModel.rawValue }
     }
@@ -83,6 +74,10 @@ final class SettingsModel: ObservableObject {
     @Published var hasAnthropicKey: Bool
     @Published var openAIDraft = ""
     @Published var anthropicDraft = ""
+    /// The last four characters of each saved key (provider.rawValue -> suffix), so the page shows which key it is.
+    @Published var keySuffix: [String: String] = [:]
+    /// The provider (rawValue) whose key field is open.
+    @Published var editingKey: String?
     /// What happened the last time a key was saved, per provider: nil while
     /// nothing has, otherwise (is it an error, message).
     @Published var keyStatus: [String: (error: Bool, text: String)] = [:]
@@ -99,6 +94,8 @@ final class SettingsModel: ObservableObject {
         self.environment = environment
         hasOpenAIKey = environment.hasKey(.openAI)
         hasAnthropicKey = environment.hasKey(.anthropic)
+        keySuffix[APIKeys.Provider.openAI.rawValue] = environment.keySuffix(.openAI)
+        keySuffix[APIKeys.Provider.anthropic.rawValue] = environment.keySuffix(.anthropic)
         // Turned off by talkflow itself when the large model proves too slow.
         finalPassObserver = NotificationCenter.default.addObserver(forName: .accurateFinalPassChanged, object: nil, queue: .main) { [weak self] _ in
             guard let self, self.accurateFinalPass != Preferences.accurateFinalPass else { return }
@@ -161,11 +158,25 @@ final class SettingsModel: ObservableObject {
         else if correctionsUseClaude { corrections = "\(CorrectionModel.claudeModelTitle), your key" }
         else { corrections = "Built-in rules only" }
         let notes: String
-        if useKeyForNotes, let provider = notesProvider {
+        if let provider = notesProvider {
             let picked = provider == .anthropic ? notesAnthropicModel : notesOpenAIModel
             notes = "\(picked.shortTitle), your key"
         } else { notes = "Transcript only, on this Mac" }
         return [("Live caption", live), ("Final text", final), ("Punctuation", punctuation), ("Corrections", corrections), ("Meeting notes", notes)]
+    }
+
+    /// Opens the key field for a provider, empty.
+    func beginEditingKey(_ p: APIKeys.Provider) {
+        if p == .openAI { openAIDraft = "" } else { anthropicDraft = "" }
+        keyStatus[p.rawValue] = nil
+        editingKey = p.rawValue
+    }
+
+    /// Closes the open key field and drops what was typed.
+    func cancelEditingKey() {
+        if editingKey == APIKeys.Provider.openAI.rawValue { openAIDraft = "" }
+        if editingKey == APIKeys.Provider.anthropic.rawValue { anthropicDraft = "" }
+        editingKey = nil
     }
 
     /// Checks the key with the provider, and keeps it only if it works.
@@ -188,6 +199,10 @@ final class SettingsModel: ObservableObject {
                 self.keyStatus[provider.rawValue] = (false, self.environment.isPreview ? "Saved for this preview only. Not in your Keychain." : "Saved.")
                 if provider == .openAI { self.openAIDraft = ""; self.hasOpenAIKey = true; self.useOpenAI = true }
                 else { self.anthropicDraft = ""; self.hasAnthropicKey = true; self.useClaude = true }
+                self.keySuffix[provider.rawValue] = self.environment.keySuffix(provider)
+                self.editingKey = nil
+                // Lets the Notes pages notice a new key (and a replaced one) now.
+                NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
             }
         }
     }
@@ -195,6 +210,8 @@ final class SettingsModel: ObservableObject {
     func removeKey(_ provider: APIKeys.Provider) {
         environment.removeKey(provider)
         keyStatus[provider.rawValue] = (false, "Key removed.")
+        keySuffix[provider.rawValue] = nil
+        if editingKey == provider.rawValue { editingKey = nil }
         if provider == .openAI { hasOpenAIKey = false; useOpenAI = false }
         else {
             hasAnthropicKey = false; useClaude = false
@@ -220,8 +237,8 @@ final class SettingsModel: ObservableObject {
     func revealData() { NSWorkspace.shared.activateFileViewerSelecting([UserData.directory]) }
 }
 
-/// The Settings page: how dictation is written, in four groups of rows.
-/// Every setting takes effect from the next hold. Each row is a title and
+/// The Settings page: six pages (General, Dictation, Models, API keys, Meeting notes, About), one showing at a
+/// time, chosen from the row at the top. Every setting takes effect from the next hold. Each row is a title and
 /// its control, with a line under the title saying what it does, then
 /// another for anything the user must know before changing it (a download,
 /// a missing requirement). Side effects all go through `model.environment`.
@@ -232,139 +249,95 @@ struct SettingsPage: View {
     var scrolls = true
 
     var body: some View {
-        ScrollViewReader { proxy in
-            AppPage(maxWidth: 760, scrolls: scrolls) {
-                VStack(alignment: .leading, spacing: 26) {
-                    Text("Settings").font(AppFont.pageTitle).foregroundColor(Palette.ink)
-                    jumpLinks(proxy)
-                    group(.general) {
-                        shortcutRow
-                        RowDivider()
-                        languageRow
-                        RowDivider()
-                        styleRow
-                    }
-                    group(.dictation) {
-                        // Experimental and off by default: the binding reads off while
-                        // no model is available, so the switch never looks on when it
-                        // cannot run.
-                        // Says where the words go: on this Mac, or to Anthropic with the user's key, and which Claude model.
-                        toggleRow("AI corrections (experimental)",
-                                  help: "When you change your mind mid-sentence, tries to remove the words you took back. Never adds or changes a word, but can sometimes remove one you meant."
-                                      + (model.polishAvailable ? " Runs on this Mac with Apple Intelligence."
-                                         : model.correctionsUseClaude ? " Uses \(CorrectionModel.claudeModelTitle) with your Anthropic key, whichever model punctuation uses: your words are sent to Anthropic and billed to your account."
-                                         : " Needs Apple Intelligence."),
-                                  isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
-                                                set: { model.aiCorrections = $0 }))
-                            .disabled(!model.correctionsAvailable)
-                        RowDivider()
-                        toggleRow("Type while speaking",
-                                  help: "Type words as you speak instead of when you let go.",
-                                  isOn: $model.typeWhileSpeaking)
-                        RowDivider()
-                        toggleRow("Accurate final pass",
-                                  help: "More accurate, a little slower. Uses about 800 MB more memory while you dictate."
-                                      + (FinalPassEngine.modelIsComplete ? "" : " Downloads 574 MB once."),
-                                  isOn: $model.accurateFinalPass)
-                        RowDivider()
-                        toggleRow("AI punctuation",
-                                  help: "Apple Intelligence fixes punctuation on this Mac. Never changes your words."
-                                      + (model.polishAvailable ? "" : " Needs Apple Intelligence."),
-                                  isOn: $model.aiPolish)
-                            .disabled(!model.polishAvailable)
-                    }
-                    group(.models) {
-                        modelsInUseRow
-                        RowDivider()
-                        jobHeader("Transcription", detail: "Turns your voice into words.")
-                        keyRow(.openAI, placeholder: "sk-...", draft: $model.openAIDraft, saved: model.hasOpenAIKey)
-                        RowDivider()
-                        toggleRow("Use my OpenAI key for transcription", medium: false,
-                                  help: "Audio for the final text goes to OpenAI. Billed to your account.",
-                                  isOn: $model.useOpenAI)
-                            .disabled(!model.hasOpenAIKey)
-                        RowDivider()
-                        jobHeader("Punctuation", detail: "Adds commas, periods and capitals. Never changes your words.")
-                        keyRow(.anthropic, placeholder: "sk-ant-...", draft: $model.anthropicDraft, saved: model.hasAnthropicKey)
-                        RowDivider()
-                        toggleRow("Use my Anthropic key for punctuation", medium: false,
-                                  help: "Claude does this in place of AI punctuation. Billed to your account." + (!model.polishAvailable && model.aiCorrections ? " With AI corrections on, \(CorrectionModel.claudeModelTitle) also does those, in a second billed request." : ""),
-                                  isOn: $model.useClaude)
-                            .disabled(!model.hasAnthropicKey)
-                        if model.useClaude && model.hasAnthropicKey {
-                            RowDivider()
-                            claudeModelRow
-                        }
-                        RowDivider()
-                        jobHeader("Meeting notes", detail: "Writes a summary and action items for each meeting, and answers questions about it. Uses the Anthropic key above if there is one, otherwise the OpenAI key.")
-                        toggleRow("Use my key for meeting notes", medium: false, help: notesHelp, isOn: $model.useKeyForNotes)
-                            .disabled(model.notesProvider == nil)
-                        if model.useKeyForNotes, let provider = model.notesProvider {
-                            RowDivider()
-                            notesModelRow(provider)
-                        }
-                    }
-                    group(.about) {
-                        updatesRow
-                        RowDivider()
-                        dataRow
-                        RowDivider()
-                        uninstallRow
-                    }
-                }
-            }
-            // Opened on a group (the update notice opens About). Published
-            // values arrive on subscribe too, so this also covers opening
-            // straight onto Settings. Async: the first layout must exist.
-            .onReceive(window.$settingsAnchor) { anchor in
-                guard let anchor else { return }
-                DispatchQueue.main.async {
-                    scroll(proxy, to: anchor)
-                    window.settingsAnchor = nil
-                }
+        AppPage(maxWidth: 760, scrolls: scrolls) {
+            VStack(alignment: .leading, spacing: 26) {
+                Text("Settings").font(AppFont.pageTitle).foregroundColor(Palette.ink)
+                AppSegmented(label: "Settings page", options: SettingsGroup.allCases, title: { $0.title }, selection: $window.settingsGroup)
+                page(window.settingsGroup)
             }
         }
+        .onReceive(window.$settingsGroup) { _ in model.cancelHotkeyRecording() }
         .onDisappear { model.cancelHotkeyRecording() }
     }
 
-    // MARK: - Layout pieces
+    // MARK: - Pages
 
-    private func scroll(_ proxy: ScrollViewProxy, to group: SettingsGroup) {
-        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            proxy.scrollTo(group, anchor: .top)
-        } else {
-            withAnimation(.easeInOut(duration: 0.25)) { proxy.scrollTo(group, anchor: .top) }
-        }
-    }
-
-    private func jumpLinks(_ proxy: ScrollViewProxy) -> some View {
-        HStack(spacing: 8) {
-            ForEach(SettingsGroup.allCases, id: \.self) { group in
-                Button(group.title) { scroll(proxy, to: group) }
-                    .buttonStyle(.plain)
-                    .pointerCursor()
-                    .font(AppFont.control)
-                    .foregroundColor(Palette.ink)
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 32)
-                    .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.16), lineWidth: 1))
-                    .contentShape(Capsule())
-                    .accessibilityHint("Scrolls to \(group.title)")
+    @ViewBuilder
+    private func page(_ g: SettingsGroup) -> some View {
+        switch g {
+        case .general:
+            AppCard {
+                shortcutRow
+                RowDivider()
+                languageRow
+                RowDivider()
+                styleRow
+            }
+        case .dictation:
+            AppCard {
+                toggleRow("Type while speaking",
+                          help: "Type words as you speak instead of when you let go.",
+                          isOn: $model.typeWhileSpeaking)
+                RowDivider()
+                toggleRow("AI punctuation",
+                          help: model.polishAvailable ? "Fixes punctuation on this Mac. Never changes your words." : "Needs Apple Intelligence.",
+                          isOn: $model.aiPolish)
+                    .disabled(!model.polishAvailable)
+                RowDivider()
+                // Experimental and off by default: the binding reads off while
+                // no model is available, so the switch never looks on when it
+                // cannot run.
+                // Says where the words go: on this Mac, or to Anthropic with the user's key, and which Claude model.
+                toggleRow("AI corrections (experimental)",
+                          help: correctionsHelp,
+                          isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
+                                        set: { model.aiCorrections = $0 }))
+                    .disabled(!model.correctionsAvailable)
+            }
+        case .models:
+            VStack(alignment: .leading, spacing: 16) {
+                AppCard { modelsInUseRow }
+                AppCard {
+                    toggleRow("Accurate final pass",
+                              help: "More accurate, a little slower. Uses about 800 MB more memory."
+                                  + (FinalPassEngine.modelIsComplete ? "" : " Downloads 574 MB once."),
+                              isOn: $model.accurateFinalPass)
+                    RowDivider()
+                    openAIToggle
+                    RowDivider()
+                    anthropicToggle
+                    if model.useClaude && model.hasAnthropicKey {
+                        RowDivider()
+                        claudeModelRow
+                    }
+                }
+            }
+        case .apiKeys:
+            AppCard {
+                keyCard(.anthropic)
+                RowDivider()
+                keyCard(.openAI)
+            }
+        case .notes:
+            AppCard {
+                notesKeyRow
+                if let p = model.notesProvider {
+                    RowDivider()
+                    notesModelRow(p)
+                }
+            }
+        case .about:
+            AppCard {
+                updatesRow
+                RowDivider()
+                dataRow
+                RowDivider()
+                uninstallRow
             }
         }
     }
 
-    private func group<Content: View>(_ group: SettingsGroup, @ViewBuilder rows: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(group.title.uppercased())
-                .font(AppFont.groupLabel)
-                .tracking(0.72)
-                .foregroundColor(Palette.muted)
-                .accessibilityAddTraits(.isHeader)
-            AppCard { rows() }
-        }
-        .id(group)
-    }
+    // MARK: - Layout pieces
 
     /// `medium: false` gives the regular weight used by the key-switch rows,
     /// whose titles sit under the heavier key fields.
@@ -404,7 +377,6 @@ struct SettingsPage: View {
 
     private var shortcutRow: some View {
         row("Shortcut", lines: {
-            note("Hold these keys, speak, let go.")
             if model.recordingHotkey {
                 note("Hold the new keys, then let go. Esc cancels.")
             } else if model.hotkey.usesFn && Permissions.fnKeyHasSystemAction {
@@ -439,7 +411,6 @@ struct SettingsPage: View {
 
     private var languageRow: some View {
         row("Language", lines: {
-            note(model.language.detail)
             if let progress = model.liveModelProgress {
                 note("Downloading the speech model for this language, \(Int(progress * 100))%.")
             } else if model.language.needsMultilingualModel, !SpeechEngine.multilingualModelIsComplete {
@@ -451,7 +422,6 @@ struct SettingsPage: View {
                     note("Downloads 190 MB once.")
                 }
             }
-            note(DictationLanguage.moreComing)
         }, control: {
             AppSegmented(label: "Language", options: DictationLanguage.allCases, title: { $0.title }, selection: $model.language)
                 .help(model.language.detail)
@@ -472,7 +442,7 @@ struct SettingsPage: View {
         "\(style.title): \(style.detail.prefix(1).lowercased())\(style.detail.dropFirst())"
     }
 
-    // MARK: - Models and API keys
+    // MARK: - Models
 
     private var modelsInUseRow: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -489,55 +459,104 @@ struct SettingsPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Heads the key and switch for one job, so it is clear each key does a
-    /// different one: OpenAI's turns speech into words, Anthropic's punctuates
-    /// them (and, on a Mac without Apple Intelligence, also does AI corrections
-    /// when that is on). The third, meeting notes, uses whichever key is saved.
-    private func jobHeader(_ name: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(name).font(AppFont.bodyMedium).foregroundColor(Palette.ink)
-            note(detail)
-        }
-        .padding(.horizontal, AppMetrics.rowH)
-        .padding(.top, AppMetrics.rowV)
-        .padding(.bottom, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
+    /// Where the words go is the part to read: nothing on a Mac with Apple Intelligence, Anthropic with the key otherwise.
+    private var correctionsHelp: String {
+        let base = "Removes words you take back mid-sentence. Can sometimes remove one you meant."
+        let sends = " Sends your words to Anthropic with your key, billed to you."
+        let needs = " Needs Apple Intelligence."
+        let tail = model.polishAvailable ? "" : (model.correctionsUseClaude ? sends : needs)
+        return base + tail
     }
 
-    /// The key stays a real SecureField so Cmd+V pastes through the Edit menu.
-    private func keyRow(_ provider: APIKeys.Provider, placeholder: String, draft: Binding<String>, saved: Bool) -> some View {
+    private var openAIToggle: some View {
+        toggleRow("Use my OpenAI key for transcription",
+                  help: model.hasOpenAIKey ? "Audio for the final text goes to OpenAI. Billed to your account." : "Add an OpenAI key in API keys to turn this on.",
+                  isOn: $model.useOpenAI)
+            .disabled(!model.hasOpenAIKey)
+    }
+
+    private var anthropicToggle: some View {
+        let onHelp = "Claude does this in place of AI punctuation. Billed to your account."
+        let help = model.hasAnthropicKey ? onHelp : "Add an Anthropic key in API keys to turn this on."
+        return toggleRow("Use my Anthropic key for punctuation", help: help, isOn: $model.useClaude)
+            .disabled(!model.hasAnthropicKey)
+    }
+
+    // MARK: - API keys
+
+    /// One provider: its name, whether a key is saved (by its last four characters), one line on what the key is
+    /// used for, and Add key, or Replace and Remove. Add key and Replace open the field; the key is checked with the
+    /// provider before it is saved (SettingsModel.saveKey). A real SecureField so Cmd+V pastes through the Edit menu.
+    private func keyCard(_ provider: APIKeys.Provider) -> some View {
+        let saved = provider == .openAI ? model.hasOpenAIKey : model.hasAnthropicKey
         let busy = model.checking.contains(provider.rawValue)
+        let editing = model.editingKey == provider.rawValue
         let status = model.keyStatus[provider.rawValue]
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text(provider.name).font(.system(size: 12, weight: .medium)).foregroundColor(Palette.ink).frame(width: 70, alignment: .leading)
-                SecureField(saved ? "Saved" : placeholder, text: draft)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .padding(.horizontal, 10)
-                    .frame(height: AppMetrics.controlHeight)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
-                    .onSubmit { model.saveKey(provider) }
-                    .help("Optional. Stored in your Keychain.")
-                    .accessibilityLabel("\(provider.name) API key")
-                Button(busy ? "Checking..." : "Use key") { model.saveKey(provider) }
-                    .buttonStyle(AppSecondaryButtonStyle())
-                    .disabled(busy || draft.wrappedValue.trimmingCharacters(in: .whitespaces).isEmpty)
-                if saved {
-                    Button("Remove") { model.removeKey(provider) }
+        let draft = provider == .openAI ? $model.openAIDraft : $model.anthropicDraft
+        let draftEmpty = draft.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let savedText = model.keySuffix[provider.rawValue].map { "Key saved, ending in \($0)" } ?? "Key saved"
+        let keyState = saved ? savedText : "No key"
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    title(provider.name)
+                    Text(keyState).font(AppFont.caption).foregroundColor(saved ? Palette.ink : Palette.muted)
+                    note(keyUse(provider))
+                }
+                Spacer(minLength: 12)
+                if !editing {
+                    if saved {
+                        HStack(spacing: 8) {
+                            Button("Replace") { model.beginEditingKey(provider) }
+                                .buttonStyle(AppSecondaryButtonStyle())
+                            Button("Remove") { model.removeKey(provider) }
+                                .buttonStyle(AppSecondaryButtonStyle())
+                        }
+                    } else {
+                        Button("Add key") { model.beginEditingKey(provider) }
+                            .buttonStyle(AppSecondaryButtonStyle())
+                    }
+                }
+            }
+            if editing {
+                HStack(spacing: 8) {
+                    SecureField(provider == .openAI ? "sk-..." : "sk-ant-...", text: draft)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .padding(.horizontal, 10)
+                        .frame(height: AppMetrics.controlHeight)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
+                        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
+                        .onSubmit { model.saveKey(provider) }
+                        .help("Stored in your Keychain.")
+                        .accessibilityLabel("\(provider.name) API key")
+                    Button(busy ? "Checking..." : "Save") { model.saveKey(provider) }
                         .buttonStyle(AppSecondaryButtonStyle())
+                        .disabled(busy || draftEmpty)
+                    Button("Cancel") { model.cancelEditingKey() }
+                        .buttonStyle(AppSecondaryButtonStyle())
+                        .disabled(busy)
                 }
             }
             if let status {
                 Text(status.text)
                     .font(AppFont.small)
                     .foregroundColor(status.error ? Palette.warn : Palette.muted)
-                    .padding(.leading, 78)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .padding(.horizontal, AppMetrics.rowH)
+        .padding(.vertical, AppMetrics.rowV)
+    }
+
+    private func keyUse(_ provider: APIKeys.Provider) -> String {
+        switch provider {
+        case .anthropic:
+            return model.polishAvailable ? "Used for punctuation and meeting notes."
+                : "Used for punctuation, AI corrections and meeting notes."
+        case .openAI:
+            return model.hasAnthropicKey ? "Used for transcription. Meeting notes use the Anthropic key."
+                : "Used for transcription and meeting notes."
+        }
     }
 
     private var claudeModelRow: some View {
@@ -552,9 +571,23 @@ struct SettingsPage: View {
         })
     }
 
+    // MARK: - Meeting notes
+
+    private var notesKeyRow: some View {
+        row("Summaries and questions", lines: { note(notesHelp) }, control: {
+            if model.notesProvider == nil {
+                Button("Add key") { window.settingsGroup = .apiKeys }.buttonStyle(AppSecondaryButtonStyle())
+            }
+        })
+    }
+
     private var notesHelp: String {
-        guard let p = model.notesProvider else { return "Add an Anthropic or OpenAI key above to turn this on." }
-        return "Each summary and question sends the meeting's transcript to \(p.name), billed to your account. The audio never leaves this Mac."
+        guard let p = model.notesProvider else {
+            return "Add an Anthropic or OpenAI key to get summaries and answers."
+        }
+        let both = model.hasAnthropicKey && model.hasOpenAIKey
+        let which = both ? " (Anthropic is used when both keys are saved)" : ""
+        return "On, with your \(p.name) key\(which). Each summary and question sends the meeting's transcript to \(p.name), billed to your account. The audio never leaves this Mac."
     }
 
     private func notesModelRow(_ p: NotesProvider) -> some View {
@@ -630,9 +663,7 @@ struct SettingsPage: View {
     }
 
     private var dataRow: some View {
-        row("Your data", lines: {
-            note("Stats, settings and meeting notes live in one folder on this Mac. Meeting audio is deleted as soon as its transcript is ready.")
-        }, control: {
+        row("Your data", lines: { EmptyView() }, control: {
             Button("Show in Finder") { model.revealData() }
                 .buttonStyle(AppSecondaryButtonStyle())
                 .help("Stats, settings, learned words and meeting notes. Kept if you uninstall.")

@@ -37,13 +37,13 @@ enum NoteAssistantSelfTest {
     }
 
     private static let off: () -> NotesAccess? = {
-        NotesAccess.resolve(switchOn: false, hasAnthropic: { true }, hasOpenAI: { true }, anthropicModel: nil, openAIModel: nil)
+        NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
     }
     private static let on: () -> NotesAccess? = {
-        NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
+        NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
     }
     private static let onOpenAI: () -> NotesAccess? = {
-        NotesAccess.resolve(switchOn: true, hasAnthropic: { false }, hasOpenAI: { true }, anthropicModel: nil, openAIModel: nil)
+        NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { true }, anthropicModel: nil, openAIModel: nil)
     }
 
     private static func spin(_ seconds: Double, until done: () -> Bool) {
@@ -65,7 +65,7 @@ enum NoteAssistantSelfTest {
         let assistant: NoteAssistant
         var confirmed: String?
         var saved: [String] = []
-        /// What the assistant sees as its access; a case switches it to model the key switch going off.
+        /// What the assistant sees as its access; a case switches it to model the key being removed.
         var accessNow: () -> NotesAccess? = { nil }
         /// Retry bodies the client handed to `sleep` while `holdRetries` is on.
         var heldRetries: [() -> Void] = []
@@ -96,7 +96,7 @@ enum NoteAssistantSelfTest {
             assistant.client.sleep = { [weak self] _, body in self?.heldRetries.append(body) }
         }
 
-        /// Models the switch going off (or the key leaving) and tells the assistant, as Settings does.
+        /// Models the key leaving and tells the assistant, as Settings does.
         func switchAccess(to next: @escaping () -> NotesAccess?) {
             accessNow = next
             NotificationCenter.default.post(name: NotesAccess.changed, object: nil)
@@ -124,7 +124,7 @@ enum NoteAssistantSelfTest {
     }
 
     static func run(check: (Bool, String, String) -> Void) {
-        // AS01 with the switch off nothing is sent, whatever is called.
+        // AS01 with no key nothing is sent, whatever is called.
         do {
             let e = Env(replies: [goodReply, goodReply], access: off, confirmed: "anthropic")
             let id = e.makeNote()
@@ -138,7 +138,7 @@ enum NoteAssistantSelfTest {
             spinFor(0.2)
             check(e.transport.requests.isEmpty && e.assistant.phase(for: id) == .idle && e.assistant.pending == nil
                     && e.assistant.asking == nil && e.store.summary(id) == nil,
-                  "AS01 switch off sends nothing", "requests \(e.transport.requests.count) pending \(String(describing: e.assistant.pending))")
+                  "AS01 no key sends nothing", "requests \(e.transport.requests.count) pending \(String(describing: e.assistant.pending))")
             gone(e, "AS01", check: check)
         }
 
@@ -318,7 +318,7 @@ enum NoteAssistantSelfTest {
             status: 429, headers: ["Retry-After": "5"],
             body: #"{"type":"error","error":{"type":"rate_limit_error","message":"x"}}"#)
 
-        // AS13 a summary waiting in a retry stops when the switch goes off, and the retry sends nothing.
+        // AS13 a summary waiting in a retry stops when the key is removed, and the retry sends nothing.
         do {
             let e = Env(replies: [limited, goodReply], access: on, confirmed: "anthropic")
             e.holdRetries()
@@ -333,7 +333,7 @@ enum NoteAssistantSelfTest {
             spinFor(0.2)
             check(waiting && stopped && e.transport.requests.count == 1 && e.store.summary(id) == nil
                     && e.assistant.phase(for: id) == .failed(.noKey, retryAt: nil) && e.saved.isEmpty,
-                  "AS13 summary in a retry stops when the switch goes off",
+                  "AS13 summary in a retry stops when the key is removed",
                   "waiting \(waiting) stopped \(stopped) requests \(e.transport.requests.count) phase \(e.assistant.phase(for: id))")
             gone(e, "AS13", check: check)
         }
@@ -356,7 +356,7 @@ enum NoteAssistantSelfTest {
             spinFor(0.2)
             check(waiting && stopped && e.transport.requests.count == 1 && e.assistant.questions.isEmpty
                     && e.store.questions(id) == nil && e.assistant.asking == nil,
-                  "AS14 question in a retry stops when the switch goes off",
+                  "AS14 question in a retry stops when the key is removed",
                   "waiting \(waiting) stopped \(stopped) requests \(e.transport.requests.count)")
             gone(e, "AS14", check: check)
         }

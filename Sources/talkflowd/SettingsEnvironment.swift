@@ -12,6 +12,9 @@ struct SettingsEnvironment {
     var validateKey: (APIKeys.Provider, String, @escaping (String?) -> Void) -> Void
     var saveKey: (String, APIKeys.Provider) -> Bool
     var removeKey: (APIKeys.Provider) -> Void
+    /// The last four characters of a saved key, so Settings can show which key it is. Nil without a key or for
+    /// a key shorter than 12 characters. Never logged.
+    var keySuffix: (APIKeys.Provider) -> String?
     var accurateFinalPassChanged: (Bool) -> Void
     /// The language changed, or the user asked to retry its download.
     var languageChanged: () -> Void
@@ -27,6 +30,10 @@ struct SettingsEnvironment {
         },
         saveKey: { APIKeys.save($0, for: $1) },
         removeKey: { APIKeys.remove($0) },
+        keySuffix: { p in
+            guard let k = APIKeys.key(for: p), k.count >= 12 else { return nil }
+            return String(k.suffix(4))
+        },
         accurateFinalPassChanged: { on in if on { FinalPassEngine.prepare() } else { FinalPassEngine.stop() } },
         languageChanged: { LiveModel.prepare() },
         uninstall: { progress in Uninstaller.confirmAndRun(progress: progress) },
@@ -42,6 +49,10 @@ struct SettingsEnvironment {
             validateKey: { _, _, done in done(nil) },
             saveKey: { value, provider in keys.saved[provider] = value; return true },
             removeKey: { keys.saved[$0] = nil },
+            keySuffix: { p in
+                guard let k = keys.saved[p], k.count >= 12 else { return nil }
+                return String(k.suffix(4))
+            },
             accurateFinalPassChanged: { _ in },
             languageChanged: {},
             uninstall: nil,

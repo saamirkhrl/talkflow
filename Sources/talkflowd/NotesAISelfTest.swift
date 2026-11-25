@@ -90,33 +90,55 @@ enum NotesAISelfTest {
         // The caller's closure has no default for the detail text; most cases pass none.
         func check(_ condition: Bool, _ label: String, _ detail: String = "") { raw(condition, label, detail) }
 
-        let aH = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        let aH = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                      anthropicModel: nil, openAIModel: nil)!
-        let aS = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        let aS = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                      anthropicModel: "claude-sonnet-5-5", openAIModel: nil)!
-        let oL = NotesAccess.resolve(switchOn: true, hasAnthropic: { false }, hasOpenAI: { true },
+        let oL = NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { true },
                                      anthropicModel: nil, openAIModel: nil)!
 
-        // MARK: Gate
-
-        var calls = 0
-        let off = NotesAccess.resolve(switchOn: false, hasAnthropic: { calls += 1; return true },
-                                      hasOpenAI: { calls += 1; return true }, anthropicModel: nil, openAIModel: nil)
-        check(off == nil && calls == 0, "NA01 switch off gives nil and never asks for a key", "\(describe(off)) calls \(calls)")
+        // MARK: Gate (no switch: a saved key is enough)
+        let gateSuite = "talkflow-notestest-gate-\(UUID().uuidString)"
+        let savedDefaults = Preferences.defaults
+        if let d = UserDefaults(suiteName: gateSuite) {
+            Preferences.defaults = d
+            let a1 = NotesAccess.current(hasKey: { $0 == .anthropic })
+            check(a1?.provider == .anthropic && a1?.model == .claudeHaiku, "NA01 a saved key allows notes with no switch value stored", describe(a1))
+            d.set(true, forKey: "notesUseKey")
+            let n1 = NotesAccess.current(hasKey: { _ in false })
+            check(n1 == nil, "NA07 no key gives nil, even with the old switch stored on", describe(n1))
+            d.set(false, forKey: "notesUseKey")
+            let o1 = NotesAccess.current(hasKey: { $0 == .openAI })
+            check(o1?.provider == .openAI, "NA08 a stale old switch value of off does not block notes", describe(o1))
+            d.set(false, forKey: "notesUseKey"); d.set("anthropic", forKey: "notesConfirmedProvider")
+            Preferences.retireNotesSwitch(d)
+            let offGone = d.object(forKey: "notesUseKey") == nil && d.string(forKey: "notesConfirmedProvider") == nil
+            d.set(true, forKey: "notesUseKey"); d.set("openai", forKey: "notesConfirmedProvider")
+            Preferences.retireNotesSwitch(d)
+            let onKept = d.object(forKey: "notesUseKey") == nil && d.string(forKey: "notesConfirmedProvider") == "openai"
+            Preferences.retireNotesSwitch(d)
+            let absentKept = d.string(forKey: "notesConfirmedProvider") == "openai"
+            check(offGone && onKept && absentKept, "NA09 the old switch is removed; stored off asks for the confirmation again",
+                  "off \(offGone) on \(onKept) absent \(absentKept)")
+            Preferences.defaults = savedDefaults
+            d.removePersistentDomain(forName: gateSuite)
+        } else {
+            check(false, "NA01 test settings suite could not be made", "")
+        }
 
         check(aH.provider == .anthropic && aH.model == .claudeHaiku, "NA02 Anthropic key gives Haiku", describe(aH))
         check(oL.provider == .openAI && oL.model == .gptLuna, "NA03 OpenAI key gives Luna", describe(oL))
-        let none = NotesAccess.resolve(switchOn: true, hasAnthropic: { false }, hasOpenAI: { false },
+        let none = NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { false },
                                        anthropicModel: nil, openAIModel: nil)
         check(none == nil, "NA04 no key gives nil", describe(none))
 
-        let stored1 = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        let stored1 = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                           anthropicModel: "claude-sonnet-5-5", openAIModel: nil)
-        let stored2 = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        let stored2 = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                           anthropicModel: "gpt-6-luna", openAIModel: nil)
-        let stored3 = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        let stored3 = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                           anthropicModel: "garbage", openAIModel: nil)
-        let stored4 = NotesAccess.resolve(switchOn: true, hasAnthropic: { false }, hasOpenAI: { true },
+        let stored4 = NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { true },
                                           anthropicModel: nil, openAIModel: "gpt-6.2-sol")
         check(stored1?.model == .claudeSonnet && stored2?.model == .claudeHaiku && stored3?.model == .claudeHaiku
               && stored4?.model == .gptSol, "NA05 stored model ids are honoured only for their own provider",
