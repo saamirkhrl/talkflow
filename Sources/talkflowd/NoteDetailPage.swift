@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-/// One meeting: header with Copy and Delete, then Transcript, Summary and Ask. With "Use my key for meeting
-/// notes" off, Summary and Ask only say how to turn it on; with it on they show the summary and the questions
+/// One meeting: header with Copy and Delete, then Transcript, Summary and Ask. Without a key,
+/// Summary and Ask only say how to add one; with it on they show the summary and the questions
 /// (NoteSummaryView, NoteAskView), and a time in either jumps to its row in the transcript.
 struct NoteDetailPage: View {
     @ObservedObject var model: NotesModel
@@ -61,15 +61,15 @@ struct NoteDetailPage: View {
             if model.keyInUse {
                 NoteSummaryView(assistant: assistant, meta: meta, turns: turns)
             } else {
-                offCard(title: "Summaries are off",
-                        body: "Turn on 'Use my key for meeting notes' in Settings > Models and API keys and talkflow writes a summary, action items and decisions for each meeting. The transcript is sent to your provider to write them; the audio never leaves this Mac.")
+                offCard(title: "Summaries need a key",
+                        body: "Add an Anthropic or OpenAI key in Settings > API keys and talkflow writes a summary, action items and decisions for each meeting. The transcript is sent to your provider to write them; the audio never leaves this Mac.")
             }
         case .ask:
             if model.keyInUse {
                 NoteAskView(assistant: assistant, meta: meta, turns: turns)
             } else {
-                offCard(title: "Questions are off",
-                        body: "Turn on 'Use my key for meeting notes' in Settings > Models and API keys to ask questions about this meeting. Each question sends the transcript to your provider; the audio never leaves this Mac.")
+                offCard(title: "Questions need a key",
+                        body: "Add an Anthropic or OpenAI key in Settings > API keys to ask questions about this meeting. Each question sends the transcript to your provider; the audio never leaves this Mac.")
             }
         }
     }

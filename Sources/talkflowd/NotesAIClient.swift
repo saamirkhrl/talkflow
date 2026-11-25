@@ -156,8 +156,8 @@ final class NotesAIClient {
     /// 0...1 s added to every automatic wait, so many Macs do not retry in step.
     var jitter: () -> Double = { Double.random(in: 0...1) }
     var now: () -> Date = Date.init
-    /// Asked right before every send, retries included: false once "Use my key for meeting notes" is off or the
-    /// provider's key is gone, so a running job stops instead of reusing the request it built at the start.
+    /// Asked right before every send, retries included: false once the provider's key is removed or another
+    /// provider's key takes over, so a running job stops instead of reusing the request it built at the start.
     /// NoteAssistant sets it from the real access check; tests and the test flags keep the default.
     var allowed: (NotesProvider) -> Bool = { _ in true }
 

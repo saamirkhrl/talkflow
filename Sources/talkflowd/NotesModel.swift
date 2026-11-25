@@ -31,11 +31,11 @@ final class NotesModel: ObservableObject {
     let store: NoteStore
     let capture: MeetingCapture
     let pipeline: NotesPipeline
-    /// Summary and Ask (off unless "Use my key for meeting notes" is on).
+    /// Summary and Ask (off until an Anthropic or OpenAI key is saved).
     let assistant: NoteAssistant
     /// true when a meeting starts recording, false when it stops (the menu bar icon).
     var onRecordingChange: ((Bool) -> Void)?
-    /// Opens Settings at Models and API keys (key banner, Summary and Ask tabs). Set by AppWindowModel.
+    /// Opens Settings at API keys (key banner, Summary and Ask tabs). Set by AppWindowModel.
     var openKeySettings: (() -> Void)?
     /// Asks before deleting; replaced in tests. Default: NSAlert (see below).
     var confirmDelete: () -> Bool = NotesModel.askBeforeDeleting
@@ -56,7 +56,8 @@ final class NotesModel: ObservableObject {
         self.store = store
         self.capture = capture
         self.pipeline = pipeline
-        self.assistant = assistant ?? NoteAssistant(store: store)
+        // Without one, no key is ever looked up: only `live()` builds the assistant that reads the Keychain.
+        self.assistant = assistant ?? NoteAssistant(store: store, access: { nil })
         self.downloads = downloads
         supportsRecording = NotesLogic.supportsRecording(os)
         unsupportedMessage = NotesLogic.unsupportedMessage(os)
@@ -65,7 +66,9 @@ final class NotesModel: ObservableObject {
     }
 
     static func live() -> NotesModel {
-        let model = NotesModel(store: NoteStore(root: NoteStore.defaultRoot), capture: MeetingRecorder(), pipeline: LocalNotesPipeline(),
+        let store = NoteStore(root: NoteStore.defaultRoot)
+        let model = NotesModel(store: store, capture: MeetingRecorder(), pipeline: LocalNotesPipeline(),
+                           assistant: NoteAssistant(store: store),
                            downloads: NoteDownloads(environment: .live()))
         model.repairAudio = { folder in
             let fixed = WavRepair.repairAll(in: folder)
@@ -79,7 +82,7 @@ final class NotesModel: ObservableObject {
 
     /// Never the user's folder, whatever TALKFLOW_DATA_DIR says: previews seed made-up meetings and wipe them.
     /// Summary and Ask run on canned replies only (nothing is ever sent), with the confirmation kept in memory;
-    /// `aiOn` (the window preview) shows them as if a key were switched on.
+    /// `aiOn` (the window preview) shows them as if a key were saved.
     static func preview(aiOn: Bool = false) -> NotesModel {
         try? FileManager.default.removeItem(at: previewRoot)
         let store = NoteStore(root: previewRoot)
@@ -89,7 +92,7 @@ final class NotesModel: ObservableObject {
         let assistant = NoteAssistant(
             store: store,
             client: NotesAIClient(transport: CannedNotesTransport.preview(), keyFor: { _ in "preview" }),
-            access: aiOn ? { NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+            access: aiOn ? { NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                                  anthropicModel: nil, openAIModel: nil) } : { nil },
             confirmedProvider: { confirmed }, setConfirmedProvider: { confirmed = $0 })
         let model = NotesModel(store: store, capture: FakeCapture(), pipeline: FakePipeline(), assistant: assistant)

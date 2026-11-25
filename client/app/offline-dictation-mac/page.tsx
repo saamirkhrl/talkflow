@@ -98,7 +98,7 @@ export default function OfflineDictationMacPage() {
         </li>
         <li>
           <strong>Only if you use meeting notes:</strong> two optional model downloads from Hugging
-          Face, when you click, and, with Use my key for meeting notes on, a meeting&apos;s
+          Face, when you click, and, with an Anthropic or OpenAI key saved, a meeting&apos;s
           transcript text (never audio) to Anthropic or OpenAI for a summary or answers.
         </li>
       </ul>

@@ -12,8 +12,8 @@ import Foundation
 // shifted. Exit codes:
 // 0 PASS, 1 FAIL or refused, 2 fixture missing or bad, 130 interrupted. The four path flags override what the app
 // would use, so a test can run the real pipeline on test copies of the models and leave the user's models folder alone.
-// After the transcript scores, a live run also writes the Summary and asks the five questions when "Use my key for
-// meeting notes" is on and a key exists; --with-summary makes a dry run do the same. These scores are informational.
+// After the transcript scores, a live run also writes the Summary and asks the five questions when an Anthropic or
+// OpenAI key is saved; --with-summary makes a dry run do the same. These scores are informational.
 
 // MARK: - Options
 
@@ -25,7 +25,7 @@ struct FakeMeetingOptions: Equatable {
     var speakerHelper: URL?
     var speakerModels: URL?
     var server: String?
-    /// Run the Summary and the five questions even in a dry run (a live run does when the key switch is on).
+    /// Run the Summary and the five questions even in a dry run (a live run does when a key is saved).
     var withSummary: Bool = false
     var misaligned = false
 
@@ -593,8 +593,6 @@ enum FakeMeeting {
     // MARK: The flow
 
     static func run(_ arguments: [String]) -> Never {
-        // Before step 5 swaps in the sandbox settings suite (which is empty, so it would always read off). Read only.
-        let notesSwitchOn = Preferences.notesUseKey
         resetLog()
         FMCleanup.install()
         // The run loop must always have a source, or RunLoop.run(until:) returns at once and the loops below spin.
@@ -911,7 +909,7 @@ enum FakeMeeting {
                     crossCheck(score, folder: o.folder, turns: turns)
                 }
                 summaryAndQuestions(score: score, turns: turns, folder: o.folder, dryRun: o.dryRun,
-                                    withSummary: o.withSummary, switchOn: notesSwitchOn)
+                                    withSummary: o.withSummary)
             } else {
                 say("The transcript could not be read back.")
             }
@@ -982,7 +980,7 @@ enum FakeMeeting {
     /// depends on a paid model run, so nothing here changes RESULT or the exit code. Lines carry counts, scores and
     /// categories only, never transcript, summary or answer text.
     private static func summaryAndQuestions(score: FMScore, turns: [FMTurn], folder: URL, dryRun: Bool,
-                                            withSummary: Bool, switchOn: Bool) {
+                                            withSummary: Bool) {
         // The scored transcript and the speaker names, as made-up meeting files for --notesasktest. Left in
         // $TMPDIR on purpose: FMCleanup only removes this run's own temp folder, and the orchestrator reads these after.
         func speakerName(_ label: String) -> String { label == "You" ? "You" : NotesLogic.defaultName(label) }
@@ -1002,10 +1000,10 @@ enum FakeMeeting {
             say("summary and questions: skipped in a dry run (add --with-summary to run them)")
             return
         }
-        // With the switch off resolve returns nil before any Keychain read.
-        guard let access = NotesAccess.resolve(switchOn: switchOn, hasAnthropic: { APIKeys.hasKey(.anthropic) },
+        // No key: nil, and nothing is sent.
+        guard let access = NotesAccess.resolve(hasAnthropic: { APIKeys.hasKey(.anthropic) },
                                                hasOpenAI: { APIKeys.hasKey(.openAI) }, anthropicModel: nil, openAIModel: nil) else {
-            say("summary and questions: not run. To run them, turn on Settings > Models and API keys > Use my key for meeting notes and add an Anthropic or OpenAI key, then run this again.")
+            say("summary and questions: not run. To run them, add an Anthropic or OpenAI key in Settings > API keys, then run this again.")
             return
         }
         let truthPath = folder.appendingPathComponent("truth.json")

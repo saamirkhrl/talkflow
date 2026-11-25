@@ -60,7 +60,7 @@ enum NotesAskChecks {
         let client = NotesAIClient(transport: transport, keyFor: { _ in "k-test" })
         client.sleep = { _, body in body() }
         client.jitter = { 0 }
-        guard let access = NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false },
+        guard let access = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false },
                                                anthropicModel: nil, openAIModel: nil) else { return nil }
         let out = NotesAskRun.perform(client: client, access: access, transcript: transcript, speakers: speakers,
                                       mode: mode, truth: truth, timeout: 10)

@@ -19,9 +19,10 @@ the audio fails; the note then says so and offers Delete. The transcript and the
 (talkflow's first stored text of what was said, apart from learned words); logs hold counts
 and durations, never transcript text. Notes use the network only for two downloads the user
 clicks (a larger speech model, about 574 MB, and speaker models, about 21 MB, both from
-Hugging Face) and, with **Use my key for meeting notes** on (off by default), to send a
-transcript's text, never audio, to Anthropic or OpenAI with the user's own key for the
-summary, action items and Ask.
+Hugging Face) and, once the user saves an Anthropic or OpenAI key in Settings > API keys
+(talkflow asks once before the first request), to send a transcript's text, never audio, to
+that provider with the user's own key for the summary, action items and Ask. Without a key
+nothing is sent.
 
 ## Reporting a vulnerability
 

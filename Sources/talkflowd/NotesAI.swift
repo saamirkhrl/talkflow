@@ -82,9 +82,10 @@ enum NotesAIModel: String, CaseIterable, Equatable {
     }
 }
 
-/// Proof that the user switched on "Use my key for meeting notes" and has a key: every request builder takes
-/// one, and the only way to get one is `resolve` with `switchOn` true. That is what makes "no request can be
-/// built with the switch off" a property of the types, not of each caller.
+/// Proof that the user has a saved Anthropic or OpenAI key: every request builder takes one, and the only way
+/// to get one is `resolve`, which returns nil without a key. That makes "no request can be built without a
+/// key" a property of the types, not of each caller. There is no separate switch: a saved key is enough
+/// (NoteAssistant still asks once before the first send to a provider).
 struct NotesAccess: Equatable {
     let provider: NotesProvider
     let model: NotesAIModel
@@ -94,13 +95,10 @@ struct NotesAccess: Equatable {
         self.model = model
     }
 
-    /// Nil when the switch is off (and then neither key closure is called, so the Keychain is never read), or
-    /// when there is no key. Anthropic when that key exists, otherwise OpenAI. A stored model id that is unknown
-    /// or belongs to the other provider falls back to the cheapest model.
-    static func resolve(switchOn: Bool, hasAnthropic: () -> Bool, hasOpenAI: () -> Bool,
+    /// Nil when there is no key. Anthropic when that key exists, otherwise OpenAI. A stored model id that is
+    /// unknown or belongs to the other provider falls back to the cheapest model.
+    static func resolve(hasAnthropic: () -> Bool, hasOpenAI: () -> Bool,
                         anthropicModel: String?, openAIModel: String?) -> NotesAccess? {
-        // First, so that with the switch off the Keychain is never even asked.
-        guard switchOn else { return nil }
         func pick(_ stored: String?, _ provider: NotesProvider) -> NotesAIModel {
             if let model = NotesAIModel(rawValue: stored ?? ""), model.provider == provider { return model }
             return NotesAIModel.defaultModel(for: provider)
@@ -110,16 +108,16 @@ struct NotesAccess: Equatable {
         return nil
     }
 
-    /// The app's own settings and Keychain.
-    static func current() -> NotesAccess? {
-        resolve(switchOn: Preferences.notesUseKey,
-                hasAnthropic: { APIKeys.hasKey(.anthropic) }, hasOpenAI: { APIKeys.hasKey(.openAI) },
+    /// The app's own settings and Keychain; tests pass `hasKey`. Reads no switch: the retired "notesUseKey"
+    /// value is never read (Preferences.retireNotesSwitch).
+    static func current(hasKey: (APIKeys.Provider) -> Bool = { APIKeys.hasKey($0) }) -> NotesAccess? {
+        resolve(hasAnthropic: { hasKey(.anthropic) }, hasOpenAI: { hasKey(.openAI) },
                 anthropicModel: Preferences.notesAnthropicModel, openAIModel: Preferences.notesOpenAIModel)
     }
 }
 
 extension NotesAccess {
-    /// Posted when "Use my key for meeting notes" changes or a key is removed.
+    /// Posted when a key is saved or removed.
     static let changed = Notification.Name("talkflow.notesAccessChanged")
 }
 
@@ -175,9 +173,9 @@ enum NotesAIError: Error, Equatable {
         }
         switch self {
         case .noKey:
-            return "No API key is saved for meeting notes. Add one in Settings > Models and API keys."
+            return "No API key is saved for meeting notes. Add one in Settings > API keys."
         case .badKey:
-            return "\(p) didn't accept your API key. Check it in Settings > Models and API keys."
+            return "\(p) didn't accept your API key. Check it in Settings > API keys."
         case .rateLimited(let s):
             return "\(p) is limiting requests right now. " + wait(s)
         case .spendCap:
@@ -202,7 +200,7 @@ enum NotesAIError: Error, Equatable {
         case .badTimes(let n):
             return "The reply pointed at \(n) transcript time\(n == 1 ? "" : "s") that don't exist in this meeting, so it wasn't saved. Try again."
         case .modelUnavailable:
-            return "\(p) doesn't offer " + (model?.shortTitle ?? "this model") + " to your key. Pick another model in Settings > Models and API keys."
+            return "\(p) doesn't offer " + (model?.shortTitle ?? "this model") + " to your key. Pick another model in Settings > Meeting notes."
         case .request(let c):
             return c == 413 ? "This meeting is too long to send to \(p) in one request."
                 : "\(p) turned down the request (error \(c))."
@@ -353,7 +351,7 @@ enum NotesAI {
     }
 
     static func confirmBody(_ provider: NotesProvider) -> String {
-        "To write summaries and answer questions, talkflow sends the transcript (the words and the speakers' names) to \(provider.name) with your key, billed to your account. The audio never leaves this Mac. talkflow asks once, then does this for every meeting while 'Use my key for meeting notes' is on."
+        "To write summaries and answer questions, talkflow sends the transcript (the words and the speakers' names) to \(provider.name) with your key, billed to your account. The audio never leaves this Mac. talkflow asks once, then does this for every meeting while your key is saved."
     }
 
     // MARK: Transcript text and sizes

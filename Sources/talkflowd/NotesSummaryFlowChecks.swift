@@ -31,10 +31,10 @@ enum NotesSummaryFlowChecks {
     private static let unauthorized = CannedNotesTransport.Reply.http(status: 401, headers: [:], body: "{}")
 
     private static let on: () -> NotesAccess? = {
-        NotesAccess.resolve(switchOn: true, hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
+        NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
     }
     private static let off: () -> NotesAccess? = {
-        NotesAccess.resolve(switchOn: false, hasAnthropic: { true }, hasOpenAI: { true }, anthropicModel: nil, openAIModel: nil)
+        NotesAccess.resolve(hasAnthropic: { false }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil)
     }
 
     private static func spin(_ seconds: Double, until done: () -> Bool) {
@@ -165,18 +165,18 @@ enum NotesSummaryFlowChecks {
             gone(e, "SF03", check: check)
         }
 
-        // SF04 switch off: nothing is sent and the Notes list shows the key banner (it shows when !keyInUse).
+        // SF04 no key: nothing is sent and the Notes list shows the key banner (it shows when !keyInUse).
         do {
             let e = Env(replies: [goodReply], access: off, confirmed: "anthropic")
             e.recordAndFinish()
             let id = e.noteID
             check(e.transport.requests.isEmpty && e.store.summary(id) == nil && e.assistant.phase(for: id) == .idle
                     && !e.model.keyInUse && e.store.meta(id)?.state == .ready,
-                  "SF04 switch off sends nothing", "requests \(e.transport.requests.count) keyInUse \(e.model.keyInUse)")
+                  "SF04 no key sends nothing", "requests \(e.transport.requests.count) keyInUse \(e.model.keyInUse)")
             gone(e, "SF04", check: check)
         }
 
-        // SF05 switch on but the provider was never confirmed: it waits for the one-time confirmation.
+        // SF05 key saved but the provider was never confirmed: it waits for the one-time confirmation.
         do {
             let e = Env(replies: [goodReply], access: on, confirmed: nil)
             e.recordAndFinish()
@@ -200,7 +200,7 @@ enum NotesSummaryFlowChecks {
             gone(e, "SF06", check: check)
         }
 
-        // SF07 switch on but no key in the Keychain: nothing reaches the transport, the note stays ready.
+        // SF07 key saved but missing from the Keychain: nothing reaches the transport, the note stays ready.
         do {
             let e = Env(replies: [goodReply], access: on, confirmed: "anthropic", key: nil)
             e.recordAndFinish()

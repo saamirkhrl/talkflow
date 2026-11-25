@@ -47,7 +47,7 @@ enum NotesAIClientSelfTest {
     private static let overloadedEvent = "data: " + #"{"type":"error","error":{"type":"overloaded_error","message":"x"}}"#
 
     private static func access(openAI: Bool = false) -> NotesAccess? {
-        NotesAccess.resolve(switchOn: true, hasAnthropic: { !openAI }, hasOpenAI: { openAI },
+        NotesAccess.resolve(hasAnthropic: { !openAI }, hasOpenAI: { openAI },
                             anthropicModel: nil, openAIModel: nil)
     }
 
@@ -220,7 +220,7 @@ enum NotesAIClientSelfTest {
         check(e16?.answer == "Hello [19]" && e16?.citations == [19] && t16.requests.first?.url == NotesAI.openAIURL,
               "NC16 OpenAI ask", "\(String(describing: failure(r16))) url \(String(describing: t16.requests.first?.url?.host))")
 
-        // NC17 the switch goes off between the parts of a long summary: nothing more is sent.
+        // NC17 the key is removed between the parts of a long summary: nothing more is sent.
         do {
             var on = true
             let (client, transport, _) = client([])
@@ -235,7 +235,7 @@ enum NotesAIClientSelfTest {
                   "NC17 access lost between parts", "requests \(transport.requests.count) \(String(describing: failure(result)))")
         }
 
-        // NC18 the switch goes off during a retry wait of a summary.
+        // NC18 the key is removed during a retry wait of a summary.
         do {
             var on = true
             let slow = CannedNotesTransport.Reply.http(status: 429, headers: ["Retry-After": "5"],
@@ -251,7 +251,7 @@ enum NotesAIClientSelfTest {
                   "NC18 access lost during summary retry", "requests \(transport.requests.count) \(String(describing: failure(result)))")
         }
 
-        // NC19 the switch goes off during a retry wait of a question.
+        // NC19 the key is removed during a retry wait of a question.
         do {
             var on = true
             let slow = CannedNotesTransport.Reply.http(status: 429, headers: ["Retry-After": "5"],
