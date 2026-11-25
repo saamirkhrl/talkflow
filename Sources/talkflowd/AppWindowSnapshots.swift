@@ -39,7 +39,7 @@ extension DashboardController {
         shoot(1, "home", .home, fullHeight: true)
 
         model.dashboard.chartStyle = .bars
-        model.dashboard.hovered = DashboardModel.chartWeeks - 1
+        model.dashboard.hovered = DashboardModel.barWeeks - 1
         shoot(2, "home-bars", .home, fullHeight: true)
 
         model.dashboard.hovered = nil
