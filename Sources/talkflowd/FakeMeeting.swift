@@ -14,6 +14,9 @@ import Foundation
 // would use, so a test can run the real pipeline on test copies of the models and leave the user's models folder alone.
 // After the transcript scores, a live run also writes the Summary and asks the five questions when an Anthropic or
 // OpenAI key is saved; --with-summary makes a dry run do the same. These scores are informational.
+// --keep-note: the run still works in a temporary folder; at the end the finished note is moved into the app's own
+// notes folder, titled "Test meeting (made up)", so it shows in Notes (relaunch the app to be sure). Audio is still
+// deleted. Nothing already in the app's notes folder is touched.
 
 // MARK: - Options
 
@@ -28,6 +31,8 @@ struct FakeMeetingOptions: Equatable {
     /// Run the Summary and the five questions even in a dry run (a live run does when a key is saved).
     var withSummary: Bool = false
     var misaligned = false
+    /// Move the finished note into the app's own notes folder at the end instead of deleting it with the temporary folder.
+    var keepNote = false
 
     static let defaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/talkflow/test-fixtures/fakemeeting", isDirectory: true)
@@ -51,7 +56,8 @@ struct FakeMeetingOptions: Equatable {
                                   speakerModels: value("--speaker-models").map { URL(fileURLWithPath: $0, isDirectory: true) },
                                   server: value("--server"),
                                   withSummary: arguments.contains("--with-summary"),
-                                  misaligned: arguments.contains("--misaligned"))
+                                  misaligned: arguments.contains("--misaligned"),
+                                  keepNote: arguments.contains("--keep-note"))
     }
 }
 
@@ -191,19 +197,19 @@ enum FMThresholds {
     /// One plain line per failed threshold, in a fixed order. Empty = PASS. Lines hold numbers and person names only.
     static func failures(_ o: FMOutcome) -> [String] {
         var out: [String] = []
-        if !o.notesReady { out.append("the notes were not ready") }
-        if !o.audioGone { out.append("the audio was not deleted") }
+        if !o.notesReady { out.append("notes ready: no, needs yes") }
+        if !o.audioGone { out.append("audio deleted: no, needs yes") }
         if let w = o.werOverall {
             if w > werOverallMax { out.append("overall word error rate \(pct(w)) is over \(limit(werOverallMax))") }
         } else {
-            out.append("overall word error rate could not be measured")
+            out.append("overall word error rate: not measured, needs <= \(limit(werOverallMax))")
         }
         for name in o.werPerPerson.keys.sorted() {
             if let value = o.werPerPerson[name] {
                 if let w = value {
                     if w > werPerPersonMax { out.append("\(name) word error rate \(pct(w)) is over \(limit(werPerPersonMax))") }
                 } else {
-                    out.append("\(name) word error rate could not be measured")
+                    out.append("\(name) word error rate: not measured, needs <= \(limit(werPerPersonMax))")
                 }
             }
         }
@@ -215,7 +221,7 @@ enum FMThresholds {
         if let k = o.samirKeep {
             if k < samirKeepMin { out.append("your words kept \(pct(k)) is under \(limit(samirKeepMin))") }
         } else {
-            out.append("your words kept could not be measured")
+            out.append("your words kept: not measured, needs >= \(limit(samirKeepMin))")
         }
         if o.invented > inventedMax { out.append("\(o.invented) invented words, allowed \(inventedMax)") }
         if o.writeSeconds > o.meetingSeconds {
@@ -223,6 +229,49 @@ enum FMThresholds {
         }
         if o.peakMB > peakMBMax { out.append(String(format: "peak memory %.0f MB is over %.0f MB", o.peakMB, peakMBMax)) }
         return out
+    }
+}
+
+// MARK: - Keep the note
+
+/// --keep-note: the run always works in its own temporary notes folder. At the end the finished note's folder is
+/// moved into the app's notes folder; nothing already there is listed, read, renamed or deleted.
+enum FMKeepNote {
+    static let title = "Test meeting (made up)"
+
+    /// Retitles the run's finished note in the run's own (temporary) store and saves its summary when one was
+    /// written (with the action item count, as NoteAssistant does). False when the note is missing or not ready.
+    @discardableResult
+    static func finish(_ id: String, in store: NoteStore, summary: NoteSummary?) -> Bool {
+        guard var meta = store.meta(id), case .ready = meta.state else { return false }
+        meta.title = title
+        if let summary {
+            guard (try? store.save(summary, for: id)) != nil else { return false }
+            meta.actionItemCount = summary.actionItems.count
+        }
+        return (try? store.save(meta)) != nil
+    }
+
+    /// Moves the finished note's folder from the run's store into `appRoot`, the app's notes folder. Only this one
+    /// folder is written: nothing in `appRoot` is listed, read, renamed or deleted. The folder goes in under a name
+    /// the notes list ignores (".incoming-<id>", not a valid note id) and is then renamed to <id> inside `appRoot`,
+    /// so the app never sees a half-copied note. Refuses (false) when the id is invalid, the note still has audio,
+    /// or `appRoot/<id>` already exists.
+    static func export(_ id: String, from store: NoteStore, to appRoot: URL) -> Bool {
+        let fm = FileManager.default
+        guard NoteStore.isValidID(id), !store.hasAudio(id), !fm.fileExists(atPath: store.audioFolder(for: id).path) else { return false }
+        let dest = appRoot.appendingPathComponent(id, isDirectory: true)
+        let staging = appRoot.appendingPathComponent(".incoming-\(id)", isDirectory: true)
+        guard !fm.fileExists(atPath: dest.path), !fm.fileExists(atPath: staging.path) else { return false }
+        do {
+            try fm.createDirectory(at: appRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+            try fm.moveItem(at: store.folder(for: id), to: staging)
+            try fm.moveItem(at: staging, to: dest)
+            return true
+        } catch {
+            try? fm.removeItem(at: staging)   // only our own staging folder
+            return false
+        }
     }
 }
 
@@ -492,6 +541,8 @@ struct FMOutputDevice {
 enum FakeMeeting {
     private static let logURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-fakemeeting.log")
     private static var logHandle: FileHandle?
+    private static var copyHandle: FileHandle?
+    private static var copyURL: URL?
     private static let tty: FileHandle? = FileHandle(forWritingAtPath: "/dev/tty")
 
     // MARK: Output
@@ -502,6 +553,7 @@ enum FakeMeeting {
         // The throwing write: the non-throwing one raises an exception when the terminal is gone.
         if let tty { try? tty.write(contentsOf: data) }
         if let logHandle { try? logHandle.write(contentsOf: data) }
+        if let copyHandle { try? copyHandle.write(contentsOf: data) }
     }
 
     /// For the app log: counts, durations, states and fixed category words only.
@@ -513,6 +565,17 @@ enum FakeMeeting {
         try? FileManager.default.removeItem(at: logURL)
         FileManager.default.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
         logHandle = FileHandle(forWritingAtPath: logURL.path)
+
+        // A copy that later runs do not overwrite, named by the start time.
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        f.dateFormat = "yyyyMMdd-HHmmss"
+        let name = "talkflow-fakemeeting-\(f.string(from: Date())).log"
+        let copy = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+        FileManager.default.createFile(atPath: copy.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        copyHandle = FileHandle(forWritingAtPath: copy.path)
+        copyURL = copy
     }
 
     // MARK: Small helpers
@@ -600,6 +663,7 @@ enum FakeMeeting {
 
         let o = FakeMeetingOptions.parse(arguments)
         say("--- fakemeeting (\(o.dryRun ? "dry run" : "live")), pipeline: \(o.fakePipeline ? "fake: the truth word for word" : "the app's") ---")
+        if let copyURL { say("log copy: \(copyURL.path)") }
         let mode = o.dryRun ? "dry run" : "live"
         if o.misaligned && !o.dryRun {
             say("--misaligned needs --dry-run.")
@@ -673,6 +737,8 @@ enum FakeMeeting {
 
         // 5. Sandbox: a temporary notes folder and a settings suite of its own, never the user's. Registered with the
         // cleanup before anything is created.
+        // The app's own notes folder, read before the settings suite below replaces Preferences.defaults.
+        let appNotesRoot = NoteStore.defaultRoot
         let temp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-fakemeeting-\(UUID().uuidString)", isDirectory: true)
         FMCleanup.temp = temp
         let suiteName = "com.samir.talkflow.fakemeeting"
@@ -685,6 +751,9 @@ enum FakeMeeting {
             finish(1)
         }
         let notesRoot = temp.appendingPathComponent("notes", isDirectory: true)
+        if o.keepNote {
+            say("keep note: the finished note moves to the app's notes folder as \"\(FMKeepNote.title)\" at the end")
+        }
         if let suite = UserDefaults(suiteName: suiteName) {
             suite.removePersistentDomain(forName: suiteName)
             Preferences.defaults = suite
@@ -733,7 +802,9 @@ enum FakeMeeting {
         let capture: MeetingCapture = o.dryRun
             ? FixtureCapture(fixture: o.folder, misaligned: o.misaligned, breakAt: breakTime) : MeetingRecorder()
         let store = NoteStore(root: notesRoot)
-        let model = NotesModel(store: store, capture: capture, pipeline: pipeline)
+        // The in-run assistant never has access, so it sends nothing; the summary is made only by summaryAndQuestions.
+        let quietAssistant = NoteAssistant(store: store, access: { nil })
+        let model = NotesModel(store: store, capture: capture, pipeline: pipeline, assistant: quietAssistant)
         model.confirmDelete = { false }
         FMCleanup.model = model
 
@@ -885,6 +956,7 @@ enum FakeMeeting {
                                 wrongShare: 0, echoLeakRate: nil, samirKeep: nil, invented: 0, writeSeconds: writeSeconds,
                                 meetingSeconds: meetingSeconds, peakMB: peakMB)
         var turnCount = 0
+        var writtenSummary: NoteSummary?
         let audioGone = !store.hasAudio(noteID) && !fm.fileExists(atPath: store.audioFolder(for: noteID).path)
         outcome.audioGone = audioGone
         switch meta.state {
@@ -908,13 +980,24 @@ enum FakeMeeting {
                 } else {
                     crossCheck(score, folder: o.folder, turns: turns)
                 }
-                summaryAndQuestions(score: score, turns: turns, folder: o.folder, dryRun: o.dryRun,
-                                    withSummary: o.withSummary)
+                writtenSummary = summaryAndQuestions(score: score, turns: turns, folder: o.folder, dryRun: o.dryRun,
+                                                     withSummary: o.withSummary)
             } else {
                 say("The transcript could not be read back.")
             }
         default:
             say("The note was left in an unexpected state.")
+        }
+
+        // 14b. --keep-note: retitle the run's own note and save its summary, after the notes are written.
+        if o.keepNote {
+            let finished = FMKeepNote.finish(noteID, in: store, summary: writtenSummary)
+            let moved = finished && FMKeepNote.export(noteID, from: store, to: appNotesRoot)
+            if moved {
+                say("note kept in Notes as \"\(FMKeepNote.title)\" (relaunch talkflow if it is open to see it)")
+            } else {
+                say("note not kept: it was not ready, or could not be moved")
+            }
         }
 
         // 15. The verdict.
@@ -979,8 +1062,9 @@ enum FakeMeeting {
     /// Informational only, like crossCheck: the transcript thresholds are the PASS gate, and summary quality
     /// depends on a paid model run, so nothing here changes RESULT or the exit code. Lines carry counts, scores and
     /// categories only, never transcript, summary or answer text.
+    @discardableResult
     private static func summaryAndQuestions(score: FMScore, turns: [FMTurn], folder: URL, dryRun: Bool,
-                                            withSummary: Bool) {
+                                            withSummary: Bool) -> NoteSummary? {
         // The scored transcript and the speaker names, as made-up meeting files for --notesasktest. Left in
         // $TMPDIR on purpose: FMCleanup only removes this run's own temp folder, and the orchestrator reads these after.
         func speakerName(_ label: String) -> String { label == "You" ? "You" : NotesLogic.defaultName(label) }
@@ -998,18 +1082,18 @@ enum FakeMeeting {
 
         if dryRun && !withSummary {
             say("summary and questions: skipped in a dry run (add --with-summary to run them)")
-            return
+            return nil
         }
         // No key: nil, and nothing is sent.
         guard let access = NotesAccess.resolve(hasAnthropic: { APIKeys.hasKey(.anthropic) },
                                                hasOpenAI: { APIKeys.hasKey(.openAI) }, anthropicModel: nil, openAIModel: nil) else {
             say("summary and questions: not run. To run them, add an Anthropic or OpenAI key in Settings > API keys, then run this again.")
-            return
+            return nil
         }
         let truthPath = folder.appendingPathComponent("truth.json")
         guard let truthData = try? Data(contentsOf: truthPath), let questions = NotesAskRun.truthQuestions(truthData) else {
             say("summary and questions: truth has no ask_questions")
-            return
+            return nil
         }
         let aiTurns = turns.map { TranscriptTurn(speaker: NotesAskRun.key(forLabel: $0.speaker), start: $0.start, end: $0.end, text: $0.text) }
         // Renamed the way a user would, so the model sees "Bob" and not "Speaker 2".
@@ -1042,5 +1126,6 @@ enum FakeMeeting {
         }
         say("score.py: python3 score.py \(transcriptFile) --mic speakers --summary \(summaryFile) (files in $TMPDIR)")
         appLog("summary and questions: \(out.ok ? "ok" : "not ok"), \(out.calls) call(s)")
+        return out.summary
     }
 }

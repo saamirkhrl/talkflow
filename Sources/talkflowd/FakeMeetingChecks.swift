@@ -269,5 +269,98 @@ enum FakeMeetingChecks {
         try? fm.removeItem(at: emptyFolder)
         report(failedOK && finishedOK && progressCalls >= 2, "FG10 the truth pipeline fails without audio and returns the truth with it",
                "failed \(failedOK), finished \(finishedOK), progress calls \(progressCalls)")
+
+        keepNoteChecks(report, parsedDefault: a)
+    }
+
+    /// --keep-note: parsing, folder choice, and keep/discard on a temporary folder only (never the app's notes folder).
+    private static func keepNoteChecks(_ report: (Bool, String, String) -> Void, parsedDefault: FakeMeetingOptions) {
+        let fm = FileManager.default
+
+        // FG13 parse
+        let kept = FakeMeetingOptions.parse(["talkflowd", "--fakemeeting", "--dry-run", "--keep-note"])
+        report(kept.keepNote && kept.dryRun && !parsedDefault.keepNote, "FG13 --keep-note is parsed", "")
+
+        // FG14 finish and export, on temporary roots only (never the app's notes folder)
+        let base = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("talkflow-fgkeep-\(UUID().uuidString)", isDirectory: true)
+        let runRoot = base.appendingPathComponent("run", isDirectory: true)
+        let appRoot = base.appendingPathComponent("app", isDirectory: true)
+        let runStore = NoteStore(root: runRoot)
+        let appStore = NoteStore(root: appRoot)
+        var ok = true
+        var detail = ""
+        do {
+            let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+            // (a) an "Other" note already in the app root, its note.json bytes snapshotted.
+            var other = try appStore.create(title: "Other", started: t0)
+            other.state = .ready
+            try appStore.save(other)
+            try fm.removeItem(at: appStore.audioFolder(for: other.id))
+            let otherFile = appStore.folder(for: other.id).appendingPathComponent("note.json")
+            let otherBefore = try Data(contentsOf: otherFile)
+
+            // (b) a ready run note with a one-item summary.
+            var run = try runStore.create(title: "Run", started: t0.addingTimeInterval(10))
+            run.state = .ready
+            try runStore.save(run)
+            try fm.removeItem(at: runStore.audioFolder(for: run.id))
+            let item = NoteSummary.ActionItem(owner: "you", task: "Do it", time: 0, done: false)
+            let summary = NoteSummary(summary: "x", summaryTimes: [], actionItems: [item], decisions: [], openQuestions: [],
+                                      provider: "Anthropic", model: "m", written: Date(timeIntervalSince1970: 0), parts: 1)
+            let finished = FMKeepNote.finish(run.id, in: runStore, summary: summary)
+            let exported = FMKeepNote.export(run.id, from: runStore, to: appRoot)
+            let moved = appStore.meta(run.id)
+            let titleOK = moved?.title == FMKeepNote.title
+            let countOK = moved?.actionItemCount == 1
+            let summaryOK = appStore.summary(run.id) == summary
+            let leftBehind = runStore.meta(run.id) != nil
+            let names = (try? fm.contentsOfDirectory(atPath: appRoot.path)) ?? []
+            let noStaging = !names.contains { $0.hasPrefix(".incoming-") }
+            let otherSame = (try? Data(contentsOf: otherFile)) == otherBefore
+            let stepB = finished && exported && titleOK && countOK && summaryOK && !leftBehind && noStaging && otherSame
+            detail = "finish \(finished), export \(exported), title \(titleOK), count \(countOK), summary \(summaryOK), left \(leftBehind), staging \(!noStaging), other same \(otherSame)"
+
+            // (c) a note that is not ready is not finished.
+            let third = try runStore.create(title: "Third", started: t0.addingTimeInterval(20))
+            let notFinished = !FMKeepNote.finish(third.id, in: runStore, summary: nil)
+
+            // (d) a ready note that still has audio is not exported, and nothing new appears.
+            var fourth = try runStore.create(title: "Fourth", started: t0.addingTimeInterval(30))
+            fourth.state = .ready
+            try runStore.save(fourth)
+            let namesBefore = Set((try? fm.contentsOfDirectory(atPath: appRoot.path)) ?? [])
+            let audioRefused = !FMKeepNote.export(fourth.id, from: runStore, to: appRoot)
+            let namesAfter = Set((try? fm.contentsOfDirectory(atPath: appRoot.path)) ?? [])
+
+            // (e) an id that already exists in the app root is not overwritten.
+            try fm.removeItem(at: runStore.audioFolder(for: fourth.id))
+            let dup = appRoot.appendingPathComponent(fourth.id, isDirectory: true)
+            try fm.createDirectory(at: dup, withIntermediateDirectories: true)
+            let marker = dup.appendingPathComponent("marker.txt")
+            try Data("keep".utf8).write(to: marker)
+            let dupRefused = !FMKeepNote.export(fourth.id, from: runStore, to: appRoot)
+            let dupSame = (try? Data(contentsOf: marker)) == Data("keep".utf8) && runStore.meta(fourth.id) != nil
+
+            ok = stepB && notFinished && audioRefused && namesBefore == namesAfter && dupRefused && dupSame
+            detail += "; not ready finished \(!notFinished), audio refused \(audioRefused), unchanged \(namesBefore == namesAfter), duplicate refused \(dupRefused), duplicate same \(dupSame)"
+        } catch {
+            ok = false
+            detail = "setup failed (\(type(of: error)))"
+        }
+        try? fm.removeItem(at: base)
+        report(ok && !fm.fileExists(atPath: base.path), "FG14 --keep-note moves only the run's finished note into the app folder", detail)
+
+        // FG16 the failure lines name the limit
+        let bad = FMOutcome(notesReady: false, audioGone: false, werOverall: nil, werPerPerson: ["bob": nil],
+                            voicesSubstantive: 5, wrongShare: 0, echoLeakRate: nil, samirKeep: nil, invented: 0,
+                            writeSeconds: 1, meetingSeconds: 10, peakMB: 1)
+        let lines = FMThresholds.failures(bad)
+        let hasNotes = lines.contains("notes ready: no, needs yes")
+        let hasAudio = lines.contains("audio deleted: no, needs yes")
+        let hasOverall = lines.contains("overall word error rate: not measured, needs <= 15%")
+        let hasPerson = lines.contains("bob word error rate: not measured, needs <= 30%")
+        let hasKeep = lines.contains("your words kept: not measured, needs >= 85%")
+        report(hasNotes && hasAudio && hasOverall && hasPerson && hasKeep, "FG16 failed thresholds say the measured value and the limit",
+               "\(lines.count) lines")
     }
 }
