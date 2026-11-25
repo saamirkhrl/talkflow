@@ -175,9 +175,6 @@ struct NoteSummaryView: View {
                     .font(AppFont.caption)
                     .foregroundColor(Palette.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("The transcript is saved.")
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
             }
             Spacer(minLength: 12)
             TimelineView(.periodic(from: .now, by: 1)) { context in

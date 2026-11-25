@@ -95,10 +95,6 @@ struct NoteSessionPage: View {
                             .foregroundColor(Palette.muted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    Text("The audio is deleted as soon as the transcript is ready.")
-                        .font(AppFont.caption)
-                        .foregroundColor(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.top, 16)
             }

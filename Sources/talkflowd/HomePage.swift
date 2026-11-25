@@ -89,7 +89,7 @@ struct HomePage: View {
     private var updateBanner: some View {
         let state = updateState
         return HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
+            Group {
                 if case .available(let r) = state {
                     Text("talkflow \(r.version) is available")
                         .font(AppFont.bodyMedium)
@@ -99,9 +99,6 @@ struct HomePage: View {
                         .font(AppFont.bodyMedium)
                         .foregroundColor(Palette.ink)
                 }
-                Text("Nothing installs until you click Update.")
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
             }
             Spacer()
             switch state {
@@ -265,9 +262,6 @@ struct HomePage: View {
                     .font(AppFont.bodyMedium)
                     .foregroundColor(Palette.ink)
                 Spacer()
-                Text("Last \(DashboardModel.chartWeeks) weeks")
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
                 Menu {
                     ForEach(ChartStyle.allCases, id: \.self) { style in
                         Button(style.rawValue) {

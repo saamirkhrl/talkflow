@@ -45,17 +45,12 @@ private struct NotesDownloadsCard: View {
         if enabled && downloads.showsCard {
             let listed = items
             AppCard {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(listed.count == 1 ? "Better notes with one download" : "Better notes with two downloads")
-                        .font(AppFont.bodyMedium)
-                        .foregroundColor(Palette.ink)
-                    Text("talkflow can download these once. They stay on this Mac. Without them, notes use the speech model you already have and label the other voices Everyone else.")
-                        .font(AppFont.caption)
-                        .foregroundColor(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, AppMetrics.rowH)
-                .padding(.vertical, AppMetrics.rowV)
+                Text(listed.count == 1 ? "Better notes with one download" : "Better notes with two downloads")
+                    .font(AppFont.bodyMedium)
+                    .foregroundColor(Palette.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, AppMetrics.rowH)
+                    .padding(.vertical, AppMetrics.rowV)
                 ForEach(Array(listed.enumerated()), id: \.offset) { _, item in
                     RowDivider()
                     row(item)
@@ -157,10 +152,6 @@ private struct NotesListPage: View {
                 NotesDownloadsCard(downloads: model.downloads, enabled: model.supportsRecording)
                 if !model.keyInUse { keyBanner }
                 meetings(now: now)
-                Text("Notes are saved in your talkflow folder on this Mac. The audio is deleted as soon as the transcript is ready.")
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
                 if model.supportsRecording { NotesDownloadsReoffer(downloads: model.downloads) }
             }
         }
@@ -174,13 +165,7 @@ private struct NotesListPage: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Notes").font(AppFont.pageTitle).foregroundColor(Palette.ink)
-                Text("Record a meeting and get the transcript, with who said what.")
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text("Notes").font(AppFont.pageTitle).foregroundColor(Palette.ink)
             Spacer(minLength: 12)
             if model.supportsRecording { actionButton }
         }
@@ -216,13 +201,15 @@ private struct NotesListPage: View {
 
     // MARK: - Notices
 
-    private func noticeText(_ title: String, _ body: String) -> some View {
+    private func noticeText(_ title: String, _ body: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(AppFont.bodyMedium).foregroundColor(Palette.ink)
-            Text(body)
-                .font(AppFont.caption)
-                .foregroundColor(Palette.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            if let body {
+                Text(body)
+                    .font(AppFont.caption)
+                    .foregroundColor(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -255,8 +242,7 @@ private struct NotesListPage: View {
 
     private var keyBanner: some View {
         AppNotice {
-            noticeText("Summaries and questions need your API key",
-                       "Transcripts are made on this Mac. Add an Anthropic or OpenAI key and talkflow can also write a summary and action items, and answer questions about a meeting.")
+            noticeText("Summaries and questions need your API key")
             Spacer(minLength: 12)
             Button("Add a key") { model.openKeySettings?() }
                 .buttonStyle(AppSecondaryButtonStyle())

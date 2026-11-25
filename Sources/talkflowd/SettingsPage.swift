@@ -280,8 +280,7 @@ struct SettingsPage: View {
                           isOn: $model.typeWhileSpeaking)
                 RowDivider()
                 toggleRow("AI punctuation",
-                          help: "Apple Intelligence fixes punctuation on this Mac. Never changes your words."
-                              + (model.polishAvailable ? "" : " Needs Apple Intelligence."),
+                          help: model.polishAvailable ? "Fixes punctuation on this Mac. Never changes your words." : "Needs Apple Intelligence.",
                           isOn: $model.aiPolish)
                     .disabled(!model.polishAvailable)
                 RowDivider()
@@ -290,10 +289,7 @@ struct SettingsPage: View {
                 // cannot run.
                 // Says where the words go: on this Mac, or to Anthropic with the user's key, and which Claude model.
                 toggleRow("AI corrections (experimental)",
-                          help: "When you change your mind mid-sentence, tries to remove the words you took back. Never adds or changes a word, but can sometimes remove one you meant."
-                              + (model.polishAvailable ? " Runs on this Mac with Apple Intelligence."
-                                 : model.correctionsUseClaude ? " Uses \(CorrectionModel.claudeModelTitle) with your Anthropic key, whichever model punctuation uses: your words are sent to Anthropic and billed to your account."
-                                 : " Needs Apple Intelligence."),
+                          help: correctionsHelp,
                           isOn: Binding(get: { model.aiCorrections && model.correctionsAvailable },
                                         set: { model.aiCorrections = $0 }))
                     .disabled(!model.correctionsAvailable)
@@ -303,7 +299,7 @@ struct SettingsPage: View {
                 AppCard { modelsInUseRow }
                 AppCard {
                     toggleRow("Accurate final pass",
-                              help: "More accurate, a little slower. Uses about 800 MB more memory while you dictate."
+                              help: "More accurate, a little slower. Uses about 800 MB more memory."
                                   + (FinalPassEngine.modelIsComplete ? "" : " Downloads 574 MB once."),
                               isOn: $model.accurateFinalPass)
                     RowDivider()
@@ -317,13 +313,10 @@ struct SettingsPage: View {
                 }
             }
         case .apiKeys:
-            VStack(alignment: .leading, spacing: 10) {
-                AppCard {
-                    keyCard(.anthropic)
-                    RowDivider()
-                    keyCard(.openAI)
-                }
-                note("Keys stay in your Keychain on this Mac.")
+            AppCard {
+                keyCard(.anthropic)
+                RowDivider()
+                keyCard(.openAI)
             }
         case .notes:
             AppCard {
@@ -384,7 +377,6 @@ struct SettingsPage: View {
 
     private var shortcutRow: some View {
         row("Shortcut", lines: {
-            note("Hold these keys, speak, let go.")
             if model.recordingHotkey {
                 note("Hold the new keys, then let go. Esc cancels.")
             } else if model.hotkey.usesFn && Permissions.fnKeyHasSystemAction {
@@ -419,7 +411,6 @@ struct SettingsPage: View {
 
     private var languageRow: some View {
         row("Language", lines: {
-            note(model.language.detail)
             if let progress = model.liveModelProgress {
                 note("Downloading the speech model for this language, \(Int(progress * 100))%.")
             } else if model.language.needsMultilingualModel, !SpeechEngine.multilingualModelIsComplete {
@@ -431,7 +422,6 @@ struct SettingsPage: View {
                     note("Downloads 190 MB once.")
                 }
             }
-            note(DictationLanguage.moreComing)
         }, control: {
             AppSegmented(label: "Language", options: DictationLanguage.allCases, title: { $0.title }, selection: $model.language)
                 .help(model.language.detail)
@@ -469,6 +459,15 @@ struct SettingsPage: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Where the words go is the part to read: nothing on a Mac with Apple Intelligence, Anthropic with the key otherwise.
+    private var correctionsHelp: String {
+        let base = "Removes words you take back mid-sentence. Can sometimes remove one you meant."
+        let sends = " Sends your words to Anthropic with your key, billed to you."
+        let needs = " Needs Apple Intelligence."
+        let tail = model.polishAvailable ? "" : (model.correctionsUseClaude ? sends : needs)
+        return base + tail
+    }
+
     private var openAIToggle: some View {
         toggleRow("Use my OpenAI key for transcription",
                   help: model.hasOpenAIKey ? "Audio for the final text goes to OpenAI. Billed to your account." : "Add an OpenAI key in API keys to turn this on.",
@@ -477,9 +476,7 @@ struct SettingsPage: View {
     }
 
     private var anthropicToggle: some View {
-        let corrections = !model.polishAvailable && model.aiCorrections
-        let extra = corrections ? " With AI corrections on, \(CorrectionModel.claudeModelTitle) also does those, in a second billed request." : ""
-        let onHelp = "Claude does this in place of AI punctuation. Billed to your account." + extra
+        let onHelp = "Claude does this in place of AI punctuation. Billed to your account."
         let help = model.hasAnthropicKey ? onHelp : "Add an Anthropic key in API keys to turn this on."
         return toggleRow("Use my Anthropic key for punctuation", help: help, isOn: $model.useClaude)
             .disabled(!model.hasAnthropicKey)
@@ -586,7 +583,7 @@ struct SettingsPage: View {
 
     private var notesHelp: String {
         guard let p = model.notesProvider else {
-            return "Add an Anthropic or OpenAI key to get a summary, action items and answers for each meeting. Without a key, notes keep the transcript only, on this Mac."
+            return "Add an Anthropic or OpenAI key to get summaries and answers."
         }
         let both = model.hasAnthropicKey && model.hasOpenAIKey
         let which = both ? " (Anthropic is used when both keys are saved)" : ""
@@ -666,9 +663,7 @@ struct SettingsPage: View {
     }
 
     private var dataRow: some View {
-        row("Your data", lines: {
-            note("Stats, settings and meeting notes live in one folder on this Mac. Meeting audio is deleted as soon as its transcript is ready.")
-        }, control: {
+        row("Your data", lines: { EmptyView() }, control: {
             Button("Show in Finder") { model.revealData() }
                 .buttonStyle(AppSecondaryButtonStyle())
                 .help("Stats, settings, learned words and meeting notes. Kept if you uninstall.")

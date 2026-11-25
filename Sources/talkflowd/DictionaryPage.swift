@@ -58,15 +58,9 @@ struct DictionaryPage: View {
     var body: some View {
         AppPage(maxWidth: 760, scrolls: scrolls) {
             VStack(alignment: .leading, spacing: 24) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Dictionary")
-                        .font(AppFont.pageTitle)
-                        .foregroundColor(Palette.ink)
-                    Text("Names and terms talkflow listens for. Words you fix after a dictation are added here on their own.")
-                        .font(AppFont.body)
-                        .foregroundColor(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text("Dictionary")
+                    .font(AppFont.pageTitle)
+                    .foregroundColor(Palette.ink)
                 addRow
                 list
             }
