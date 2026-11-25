@@ -84,8 +84,22 @@ skips with one line.
 | `--echotest [folder]` | the echo canceller on the digital echo fixtures (default `test-fixtures/echo/digital`) | `$TMPDIR/talkflow-echotest.log` |
 | `--diarizetest [--helper PATH] [--models DIR]` | the speaker helper on the diarization fixtures (`test-fixtures/spikes/diarization/fixtures`): error rate, voices found, time | `$TMPDIR/talkflow-diarizetest.log` |
 | `--notespipeline <mic.wav> <system.wav> [options]` | the whole after-Stop pipeline on two WAV files, with a transcript JSON out (`--out`); options include `--headphones` or `--speakers`, `--model`, `--server`, `--helper`, `--speaker-models`, `--no-speakers`, `--check` | numbers on stdout |
-| `--fakemeeting [folder] [--dry-run [--misaligned]] [--fake-pipeline]` | end to end on a made-up meeting (`test-fixtures/fakemeeting`), scored against its truth; `--dry-run` copies the fixture instead of recording, and `--dry-run --misaligned` writes the tracks as a bad first meeting leaves them. **Plays sound** unless `--dry-run`, so no build script runs it | terminal and `$TMPDIR/talkflow-fakemeeting.log` |
+| `--fakemeeting [folder] [--dry-run [--misaligned \| --headphones \| --silent-user]] [--dictionary] [--keep-debug DIR] [--fake-pipeline]` | end to end on a made-up meeting (`test-fixtures/fakemeeting`), scored against its truth; `--dry-run` copies the fixture instead of recording, and `--dry-run --misaligned` writes the tracks as a bad first meeting leaves them. `--headphones` uses the headphones microphone (echo stage bypassed). `--silent-user` uses `mic_speakers_silent.wav` (built by the fixture's `tools/build_silent.py`: the user says nothing while the meeting plays through laptop speakers that leave real-room residue) with a placeholder dictionary, and is scored on the words in "You" (at most 5) and on prompt text in the transcript (none). `--dictionary` sends the placeholder dictionary on any run; `--keep-debug DIR` keeps the debug data below in DIR. **Plays sound** unless `--dry-run`, so no build script runs it | terminal and `$TMPDIR/talkflow-fakemeeting.log` |
+| `--notesprobe <mic.wav> <system.wav> [--dump DIR] [--no-residue]` | the audio stages only (echo canceller, near-end gate, echo residue rule, cutter), no speech engine: leakage, regions dropped, pieces | `$TMPDIR/talkflow-notesprobe.log` |
 | `--notesasktest <transcript.json> [summary \| ask "<question>"] [anthropic \| openai]` | one real Summary or Ask request with the key in the Keychain. **Billed** to that key; run it from the installed app | `$TMPDIR/talkflow-notesasktest.json` |
+
+## Debug data (local test builds only)
+
+A hidden preference, off by default and with no switch in the app, keeps a copy of each meeting's
+audio and the pipeline's numbers before the audio is deleted:
+`defaults write com.samir.talkflow notesKeepDebugData -bool true` (quit and reopen talkflow), and
+`defaults delete com.samir.talkflow notesKeepDebugData` to stop. Each note then leaves
+`~/Library/Application Support/talkflow/debug-runs/<note id>/` with both tracks, the timelines,
+`session.json`, the aligned and echo-cancelled microphone tracks when they exist, and
+`pipeline.json`: stage times, piece counts, the echo stage's estimates, every speech region of the
+microphone with its level and the echo residue rule's decision, and every transcribed piece with
+its level, word count, the engine's probabilities and what happened to it. No transcript text. The
+notes folder still deletes its own audio as usual; the copies stay until removed by hand.
 
 ## Licences
 

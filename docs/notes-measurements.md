@@ -104,6 +104,38 @@ Shortfalls and dead ends:
 - WebRTC AEC3 was not built: meson, abseil and C++17 for a stage that the table shows is not
   needed, and its patent grant was not confirmed. Apple voice processing was not evaluated.
 
+### Echo residue on laptop speakers (25 November 2026)
+
+The owner's first real meeting on a MacBook's speakers (13 minutes, the user silent) put 59 turns
+and 275 words in "You": stock phrases on near-silence ("Thank you." about 30 times), the
+vocabulary label repeated ("Names and words: <word>." about 15 times) and garbled far-end speech.
+The synthetic echo fixtures had predicted 0%: their echo path is linear and fixed, which the
+Wiener canceller removes almost completely. A real laptop speaker distorts and the room changes.
+
+- The log's `near_end_gate_seconds` (now `echo_only_zeroed_seconds`) is the time the gate zeroed
+  as echo only, not time judged as the user. 317 of about 670 s zeroed meant that on more than
+  half of the far-end speech the canceller removed under 10 dB, and those frames went to the
+  cutter, whose threshold is relative to the noise floor.
+- New fixture: `tools/build_silent.py` in the fake meeting folder builds `mic_speakers_silent.wav`
+  (user silent; speaker band limit 280 Hz to 6.5 kHz with a resonance, soft clipping and rattle,
+  two room responses cross-faded every 23 s, +-1.5 dB level wobble and a +3 dB step, 50 ms delay,
+  room noise; echo -30 dBFS) and a quieter variant (echo -42 dBFS, milder distortion). The old
+  code put 45 words (11 turns) and 17 words (7 turns) in "You" on them, with every kind seen in
+  the owner's run.
+- Rule chosen (`EchoResidue`): per recording, the leakage L is the median of cleaned minus echo
+  estimate (dB) over frames where the estimate is active. A microphone speech region is dropped
+  when its energy-weighted cleaned/estimate ratio is less than 10 dB above L. Measured (`--notesprobe`):
+  the user's pieces sit 50.8 to 68.9 dB above L; residue pieces -3.6 to +5.7 dB.
+- `you` pieces below -60 dBFS are not sent (the user's pieces: -36.5 to -28.5; keyboard noise
+  pieces -67.9 to -64.8, each answered with a stock phrase, the prompt or invented words), and a
+  piece of at most 1.5 s under -45 dBFS whose whole reply is a stock phrase is dropped.
+- whisper-server's `no_speech_prob` is useless here: 1e-11 to 1e-5 on phantoms and speech alike.
+  `avg_logprob` of phantoms (-0.34 to -0.66) overlaps too little with speech to be a safe rule.
+- The vocabulary label is stripped when repeated (label words, then ":" or "here", through the end
+  of the sentence). The 4-word prompt rule could not see it.
+- Unchanged: the transcript rule (no residue reaches it on the fixtures), headphones (bit for bit),
+  echo fixtures `--echotest --words` (leak 0.0% and keep identical on all 19 word fixtures).
+
 ## 3. Telling voices apart
 
 Run on the system track only, in a separate helper so the main app keeps its macOS 13 minimum.

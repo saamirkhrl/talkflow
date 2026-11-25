@@ -4,7 +4,7 @@ import CoreAudio
 import Foundation
 
 // `talkflowd --fakemeeting [folder] [--dry-run] [--fake-pipeline] [--notes-model PATH] [--speaker-helper PATH]
-// [--speaker-models DIR] [--server PATH] [--with-summary] [--misaligned]`: records a made-up meeting for real (played
+// [--speaker-models DIR] [--server PATH] [--with-summary] [--misaligned] [--keep-debug DIR]`: records a made-up meeting for real (played
 // through the Mac's speakers), writes notes through the app's real pipeline seam, then scores them against the
 // truth. --dry-run plays nothing and copies the fixture's 16 kHz files in place of captured audio. With --dry-run,
 // --misaligned instead writes them the way a bad first meeting leaves them: the computer's sound starts 12 s after the
@@ -33,6 +33,16 @@ struct FakeMeetingOptions: Equatable {
     var misaligned = false
     /// Move the finished note into the app's own notes folder at the end instead of deleting it with the temporary folder.
     var keepNote = false
+    /// --dry-run only: the microphone of a user who says nothing while the meeting plays through laptop speakers
+    /// (mic_speakers_silent.wav, built by tools/build_silent.py), with a placeholder dictionary so the vocabulary
+    /// prompt is sent. Scored on the words in "You" and on prompt text in the transcript.
+    var silentUser = false
+    /// --dry-run only: the headphones microphone (mic_headphones.wav) with a headphones route, so the echo stage is bypassed.
+    var headphones = false
+    /// --dry-run: the placeholder dictionary (FMSilent.dictionary) without the silent microphone; --silent-user implies it.
+    var dictionary = false
+    /// Keep each note's audio copies and pipeline numbers under this folder (NotesDebugKeeper).
+    var keepDebug: URL?
 
     static let defaultFolder: URL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/talkflow/test-fixtures/fakemeeting", isDirectory: true)
@@ -57,7 +67,11 @@ struct FakeMeetingOptions: Equatable {
                                   server: value("--server"),
                                   withSummary: arguments.contains("--with-summary"),
                                   misaligned: arguments.contains("--misaligned"),
-                                  keepNote: arguments.contains("--keep-note"))
+                                  keepNote: arguments.contains("--keep-note"),
+                                  silentUser: arguments.contains("--silent-user"),
+                                  headphones: arguments.contains("--headphones"),
+                                  dictionary: arguments.contains("--dictionary"),
+                                  keepDebug: value("--keep-debug").map { URL(fileURLWithPath: $0, isDirectory: true) })
     }
 }
 
@@ -314,12 +328,17 @@ final class FixtureCapture: MeetingCapture {
     private var duration = 0.0
     private let misaligned: Bool
     private let breakAt: Double
+    private let micFile: String
+    private let route: OutputRoute
 
-    /// `breakAt` (fixture seconds) matters only when `misaligned`.
-    init(fixture: URL, misaligned: Bool = false, breakAt: Double = 0) {
+    /// `breakAt` (fixture seconds) matters only when `misaligned`. `micFile` and `route` apply to the plain dry run.
+    init(fixture: URL, misaligned: Bool = false, breakAt: Double = 0, micFile: String = "mic_speakers.wav",
+         route: OutputRoute = .speakers) {
         self.fixture = fixture
         self.misaligned = misaligned
         self.breakAt = breakAt
+        self.micFile = micFile
+        self.route = route
     }
 
     var unavailableReason: String? { nil }
@@ -334,7 +353,7 @@ final class FixtureCapture: MeetingCapture {
         let hostStart = CaptureClock.nowSeconds()
         let fm = FileManager.default
         var samples: [Int64] = []
-        for (source, dest, timeline) in [("mic_speakers.wav", CaptureFolder.mic, CaptureFolder.micTimeline),
+        for (source, dest, timeline) in [(micFile, CaptureFolder.mic, CaptureFolder.micTimeline),
                                          ("system.wav", CaptureFolder.system, CaptureFolder.systemTimeline)] {
             let target = folder.appendingPathComponent(dest)
             do {
@@ -354,7 +373,7 @@ final class FixtureCapture: MeetingCapture {
             tl.close()
         }
         let info = CaptureSessionInfo(started: Date(), hostStart: hostStart,
-                                      routes: [.init(atSeconds: 0, route: .speakers)], systemAudioMode: "fixture",
+                                      routes: [.init(atSeconds: 0, route: route)], systemAudioMode: "fixture",
                                       micSamples: samples[0], systemSamples: samples[1], finalComputerAudio: "receiving")
         do { try info.write(to: folder) } catch { throw NotesError(message: "The fake meeting files couldn't be copied.") }
         duration = Double(max(samples[0], samples[1])) / 16000
@@ -670,6 +689,11 @@ enum FakeMeeting {
             appLog("usage: misaligned without dry run")
             finish(2)
         }
+        if (o.silentUser || o.headphones) && (!o.dryRun || o.misaligned || o.fakePipeline || (o.silentUser && o.headphones)) {
+            say("--silent-user and --headphones each need --dry-run with the real pipeline, without --misaligned, and not together.")
+            appLog("usage: silent user or headphones")
+            finish(2)
+        }
         // Refuse before anything else when the given model is not there (same style as a missing fixture).
         if let m = o.notesModel, !FileManager.default.fileExists(atPath: m.path) {
             say("The notes model given with --notes-model is not there.")
@@ -700,8 +724,11 @@ enum FakeMeeting {
             appLog("fixture bad: truth")
             finish(2)
         }
-        for (file, rate) in [("system_48k.wav", UInt32(48000)), ("samir_48k.wav", 48000),
-                             ("mic_speakers.wav", 16000), ("system.wav", 16000)] {
+        var formatFiles: [(String, UInt32)] = [("system_48k.wav", UInt32(48000)), ("samir_48k.wav", 48000),
+                                               ("mic_speakers.wav", 16000), ("system.wav", 16000)]
+        if o.silentUser { formatFiles.append((FMSilent.micFile, 16000)) }
+        if o.headphones { formatFiles.append(("mic_headphones.wav", 16000)) }
+        for (file, rate) in formatFiles {
             guard let w = WavInfo.read(o.folder.appendingPathComponent(file)),
                   w.sampleRate == rate, w.channels == 1, w.bits == 16, w.headerMatchesFile else {
                 say("The fixture audio isn't in the expected format: \(file).")
@@ -758,6 +785,17 @@ enum FakeMeeting {
             suite.removePersistentDomain(forName: suiteName)
             Preferences.defaults = suite
         }
+        if o.silentUser { say("silent user: \(FMSilent.micFile)") }
+        if o.silentUser || o.dictionary {
+            Preferences.learnedWords = FMSilent.dictionary
+            say("placeholder dictionary of \(FMSilent.dictionary.count) made-up words")
+        }
+        if o.headphones { say("headphones: mic_headphones.wav, route headphones") }
+        if let dir = o.keepDebug {
+            Preferences.defaults.set(true, forKey: NotesDebugKeeper.defaultsKey)
+            NotesDebugKeeper.root = dir
+            say("debug data: kept under the given folder")
+        }
 
         // 6. Pipeline and capture. Not setting TALKFLOW_DATA_DIR: the real pipeline may need the speech model, which
         // lives outside it.
@@ -793,14 +831,17 @@ enum FakeMeeting {
                        FMMisalign.lateStart, FMMisalign.breakSeconds, b))
         }
         var scoredTruth = truth.utterances
+        if o.silentUser { scoredTruth = scoredTruth.filter { $0.speaker != "samir" } }
         if o.misaligned {
             for i in scoredTruth.indices {
                 scoredTruth[i].start = FMMisalign.shift(scoredTruth[i].start, breakAt: breakTime)
                 scoredTruth[i].end = FMMisalign.shift(scoredTruth[i].end, breakAt: breakTime)
             }
         }
+        let micFile = o.silentUser ? FMSilent.micFile : (o.headphones ? "mic_headphones.wav" : "mic_speakers.wav")
         let capture: MeetingCapture = o.dryRun
-            ? FixtureCapture(fixture: o.folder, misaligned: o.misaligned, breakAt: breakTime) : MeetingRecorder()
+            ? FixtureCapture(fixture: o.folder, misaligned: o.misaligned, breakAt: breakTime, micFile: micFile,
+                             route: o.headphones ? .headphones : .speakers) : MeetingRecorder()
         let store = NoteStore(root: notesRoot)
         // The in-run assistant never has access, so it sends nothing; the summary is made only by summaryAndQuestions.
         let quietAssistant = NoteAssistant(store: store, access: { nil })
@@ -956,6 +997,7 @@ enum FakeMeeting {
                                 wrongShare: 0, echoLeakRate: nil, samirKeep: nil, invented: 0, writeSeconds: writeSeconds,
                                 meetingSeconds: meetingSeconds, peakMB: peakMB)
         var turnCount = 0
+        var silentFailures: [String] = []
         var writtenSummary: NoteSummary?
         let audioGone = !store.hasAudio(noteID) && !fm.fileExists(atPath: store.audioFolder(for: noteID).path)
         outcome.audioGone = audioGone
@@ -970,8 +1012,12 @@ enum FakeMeeting {
                            end: $0.end - offset, text: $0.text)
                 }
                 turnCount = turns.count
-                let score = FMScorer.score(turns: turns, truth: scoredTruth, mic: "speakers")
+                let score = FMScorer.score(turns: turns, truth: scoredTruth, mic: o.headphones ? "headphones" : "speakers")
                 for line in FMReport.lines(score) { say(line) }
+                let you = FMSilent.youWords(turns)
+                let promptHits = FMSilent.promptHits(turns, prompt: LocalNotesPipeline.liveConfig().prompt)
+                say("you: \(you.words) words in \(you.turns) turns; prompt text in the transcript: \(promptHits)")
+                if o.silentUser { silentFailures = FMSilent.failures(youWords: you.words, promptHits: promptHits) }
                 outcome = FMThresholds.outcome(score, notesReady: true, audioGone: audioGone, writeSeconds: writeSeconds,
                                                meetingSeconds: meetingSeconds, peakMB: peakMB)
                 summary(score, outcome: outcome, skew: skew)
@@ -1001,7 +1047,12 @@ enum FakeMeeting {
         }
 
         // 15. The verdict.
-        let failures = FMThresholds.failures(outcome)
+        var failures = FMThresholds.failures(outcome)
+        if o.silentUser {
+            // Nothing of the user's is in the truth, so "your words kept" cannot be measured; the silent checks replace it.
+            failures = failures.filter { !$0.hasPrefix("your words kept") } + silentFailures
+            say("silent user PASS needs: at most \(FMSilent.maxYouWords) words in You, no prompt text anywhere")
+        }
         say("PASS needs: overall WER <= 15%, each person <= 30%, 4 to 6 system voices, wrong speaker <= 25%, echo leak <= 5%, your words kept >= 85%, invented words <= 2, writing <= meeting length, peak memory <= 2048 MB, notes ready, audio deleted")
         say(failures.isEmpty ? "RESULT: PASS" : "RESULT: FAIL - " + failures.joined(separator: "; "))
         appLog("finished: \(turnCount) turns, result \(failures.isEmpty ? "PASS" : "FAIL"), writing \(Int(writeSeconds)) s, \(mode)")
@@ -1127,5 +1178,47 @@ enum FakeMeeting {
         say("score.py: python3 score.py \(transcriptFile) --mic speakers --summary \(summaryFile) (files in $TMPDIR)")
         appLog("summary and questions: \(out.ok ? "ok" : "not ok"), \(out.calls) call(s)")
         return out.summary
+    }
+}
+
+// MARK: - Silent user
+
+/// --dry-run --silent-user: the user says nothing, so every word in "You" is wrong. Pure.
+enum FMSilent {
+    static let micFile = "mic_speakers_silent.wav"
+    /// Made-up words only (names from the fictional meeting and two invented ones), never a real dictionary.
+    static let dictionary = ["Pedalpoint", "Halvorsen", "Port Ellery", "Quillmere", "Tarrowby"]
+    /// The brief's hard limit for a 9 minute meeting.
+    static let maxYouWords = 5
+
+    /// Words (whitespace tokens with a letter or digit) and turns in "You".
+    static func youWords(_ turns: [FMTurn]) -> (words: Int, turns: Int) {
+        var words = 0
+        var count = 0
+        for t in turns where t.speaker == "You" {
+            count += 1
+            words += t.text.split(whereSeparator: { $0.isWhitespace }).filter { $0.contains(where: { $0.isLetter || $0.isNumber }) }.count
+        }
+        return (words, count)
+    }
+
+    /// Turns holding prompt text: the vocabulary label's first three words, or a run the prompt-echo rule would strip.
+    static func promptHits(_ turns: [FMTurn], prompt: String) -> Int {
+        var hits = 0
+        for t in turns {
+            let lower = t.text.lowercased()
+            let label = lower.contains("names and words") || lower.contains("namen und w")
+            let segment = WhisperSegment(start: 0, end: 0, text: t.text, words: [], avgLogprob: nil, noSpeechProb: nil)
+            let run = HallucinationGuard.stripPrompt([segment], prompt: prompt).removed > 0
+            if label || run { hits += 1 }
+        }
+        return hits
+    }
+
+    static func failures(youWords: Int, promptHits: Int) -> [String] {
+        var out: [String] = []
+        if youWords > maxYouWords { out.append("\(youWords) words in You with a silent user, allowed \(maxYouWords)") }
+        if promptHits > 0 { out.append("prompt text in \(promptHits) turns, needs none") }
+        return out
     }
 }

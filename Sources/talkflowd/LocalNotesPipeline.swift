@@ -16,6 +16,8 @@ struct NotesJobConfig {
     /// True while a dictation hold or its final pass is under way: no new piece is started then (transcription
     /// spike RESULTS.md 4: a dictation during notes is 2.7x slower otherwise). Called from the job's thread.
     var shouldPause: () -> Bool
+    /// Keep copies of the tracks for NotesDebugKeeper (the hidden notesKeepDebugData preference).
+    var keepDebug = false
 }
 
 struct NotesJobStats {
@@ -33,8 +35,20 @@ struct NotesJobStats {
     var splits = 0
     var dropped = 0
     var inaudible = 0
-    /// Seconds the near-end gate zeroed (0 when it was not applied).
+    /// Seconds the near-end gate zeroed as echo only (0 when it was not applied). Not seconds of near-end speech.
     var nearEndZeroedSeconds = 0.0
+    /// The recording's echo leakage (EchoResidue.leakage) in dB, and the frames it was measured on (10 ms each).
+    var leakageDB: Double?
+    var echoActiveSeconds = 0.0
+    /// Speech regions of the microphone track and the residue rule's decision for each (empty when it did not run).
+    var regions: [EchoRegionDecision] = []
+    var residueDroppedSeconds = 0.0
+    /// One record per transcribed piece, in the order sent.
+    var pieceRecords: [NotesPieceRecord] = []
+    /// "You" pieces whose whole text was a stock phrase on a quiet piece (PhantomRule).
+    var phantoms = 0
+    /// "You" pieces below PhantomRule.minSendLevelDB, not sent to the engine.
+    var quietSkipped = 0
     /// The cleaned mic's residual-echo level in dBFS (nil when the gate was closed or too little echo to measure).
     var residualDB: Double?
     /// Whisper replies where the initial prompt was repeated and stripped.
@@ -58,6 +72,25 @@ struct NotesJobStats {
 
 enum NotesJobError: Error, Equatable {
     case unreadable, engineMissing, modelMissing, engineStart, engineStopped, cancelled
+}
+
+/// What happened to one transcribed piece: numbers only, never text.
+struct NotesPieceRecord: Equatable {
+    var track: String
+    var start: Double
+    var end: Double
+    var speech: Double
+    /// Mean energy of the samples sent, dBFS.
+    var levelDB: Double
+    /// Words kept after the guards.
+    var words: Int
+    /// Highest no-speech probability and lowest average log-probability over the reply's segments.
+    var noSpeechProb: Double?
+    var avgLogprob: Double?
+    var promptEchoes: Int
+    /// "kept" | "empty" | "phantom" | "quiet" (not sent)
+    var outcome: String
+    var seconds: Double
 }
 
 /// One transcription result per cut piece.
@@ -104,6 +137,9 @@ final class NotesJob {
     private var cancelledFlag = false
     private var speakerRun: SpeakerRun?
     private var engine: NotesEngine?
+    private var debugEnabled: Bool { config.keepDebug }
+    /// File name -> samples of the intermediate tracks, filled only when config.keepDebug (read after run returns).
+    private(set) var debugTracks: [String: [Int16]] = [:]
 
     init(config: NotesJobConfig) {
         self.config = config
@@ -168,6 +204,10 @@ final class NotesJob {
             stats.micDriftFitPPM = p.micDriftPPM
             stats.systemDriftFitPPM = p.systemDriftPPM
         }
+        if debugEnabled && usedPlan != nil {
+            debugTracks["you_aligned.wav"] = micRaw
+            debugTracks["others_aligned.wav"] = sys
+        }
         let expansions: [(at: Double, add: Double)] = usedPlan?.expansions ?? []
         let duration = Double(max(micRaw.count, sys.count)) / 16000
         // The time the caller sees is the true time since the recording started, removed breaks put back.
@@ -196,8 +236,18 @@ final class NotesJob {
                 stats.residualDB = residual
                 micMinThreshold = residual.map { $0 + NearEndGate.residualMarginDB }
                 let gated = NearEndGate.apply(raw: micRaw, cleaned: result.samples)
-                mic = gated.samples
                 stats.nearEndZeroedSeconds = gated.zeroedSeconds
+                let residue = EchoResidue.apply(track: gated.samples, raw: micRaw, cleaned: result.samples,
+                                                minThreshold: micMinThreshold)
+                mic = residue.samples
+                stats.leakageDB = residue.leakDB
+                stats.echoActiveSeconds = residue.activeSeconds
+                stats.regions = residue.decisions
+                stats.residueDroppedSeconds = residue.droppedSeconds
+                if debugEnabled {
+                    debugTracks["you_cleaned.wav"] = result.samples
+                    debugTracks["you_gated.wav"] = mic
+                }
             }
             switch result.bypass {
             case .headphones?: stats.echoGate = "headphones"
@@ -364,12 +414,28 @@ final class NotesJob {
             let db = item.track == "you" ? dbYou : dbOthers
             let thr = item.track == "you" ? thrYou : thrOthers
             let length = piece.end - piece.start
-            let reply = try send(slice(track, piece.start, piece.end), seconds: length, temperature: nil)
+            let pieceStart = Date()
+            let sent = slice(track, piece.start, piece.end)
+            let level = PhantomRule.levelDB(sent)
+            if !PhantomRule.shouldSend(track: item.track, levelDB: level) {
+                // Too quiet to be the user talking: not sent, so whisper cannot answer it with a stock phrase or the prompt.
+                stats.quietSkipped += 1
+                stats.pieceRecords.append(NotesPieceRecord(
+                    track: item.track, start: piece.start, end: piece.end, speech: piece.speech, levelDB: level, words: 0,
+                    noSpeechProb: nil, avgLogprob: nil, promptEchoes: 0, outcome: "quiet", seconds: 0))
+                piecesDone += 1
+                doneSpeech += piece.speech
+                continue
+            }
+            let reply = try send(sent, seconds: length, temperature: nil)
+            var piecePromptEchoes = 0
             func cleanReply(_ replySegments: [WhisperSegment], fromRetry: Bool) -> HallucinationGuard.Cleaned {
                 var c = HallucinationGuard.clean(replySegments, fromRetry: fromRetry)
                 let stripped = HallucinationGuard.stripPrompt(c.segments, prompt: config.prompt)
-                c.segments = stripped.segments
-                stats.promptEchoes += stripped.removed
+                let label = HallucinationGuard.stripPromptLabel(stripped.segments, prompt: config.prompt)
+                c.segments = label.segments
+                stats.promptEchoes += stripped.removed + label.removed
+                piecePromptEchoes += stripped.removed + label.removed
                 return c
             }
             let c0 = cleanReply(reply, fromRetry: false)
@@ -395,9 +461,23 @@ final class NotesJob {
                     candidates.append(cleanReply(first + second, fromRetry: false))
                 }
             }
-            let chosen = candidates[HallucinationGuard.best(candidates)]
+            var chosen = candidates[HallucinationGuard.best(candidates)]
             stats.dropped += chosen.dropped
             stats.inaudible += chosen.inaudible
+            let nsp = reply.compactMap { $0.noSpeechProb }.max()
+            let logprob = reply.compactMap { $0.avgLogprob }.min()
+            var outcome = "kept"
+            if item.track == "you" && PhantomRule.isPhantom(chosen.segments, speech: piece.speech, levelDB: level) {
+                chosen.segments = []
+                stats.phantoms += 1
+                outcome = "phantom"
+            }
+            let kept = HallucinationGuard.wordCount(chosen.segments)
+            if kept == 0 && outcome == "kept" { outcome = "empty" }
+            stats.pieceRecords.append(NotesPieceRecord(
+                track: item.track, start: piece.start, end: piece.end, speech: piece.speech, levelDB: level, words: kept,
+                noSpeechProb: nsp, avgLogprob: logprob, promptEchoes: piecePromptEchoes, outcome: outcome,
+                seconds: seconds(since: pieceStart)))
             results.append(PieceResult(track: item.track, start: piece.start, end: piece.end,
                                        segments: Self.timed(chosen.segments, piece: piece)))
 
@@ -541,10 +621,12 @@ final class NotesJob {
 
     private static func log(_ s: NotesJobStats) {
         func f(_ v: Double?) -> String { v.map { String(format: "%.2f", $0) } ?? "-" }
-        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, near_end_gate_seconds \(f(s.nearEndZeroedSeconds)), residual \(f(s.residualDB)) dBFS, \(f(s.timings["echo"])) s")
+        print("talkflowd: notes: echo gate \(s.echoGate), lag \(f(s.lagSamples)) samples, drift \(f(s.driftPPM)) ppm, echo_only_zeroed_seconds \(f(s.nearEndZeroedSeconds)), residual \(f(s.residualDB)) dBFS, \(f(s.timings["echo"])) s")
+        let droppedRegions = s.regions.filter { !$0.kept }.count
+        print("talkflowd: notes: echo residue: leakage \(f(s.leakageDB)) dB over \(f(s.echoActiveSeconds)) s of echo, regions dropped \(droppedRegions) of \(s.regions.count) (\(f(s.residueDroppedSeconds)) s)")
         print("talkflowd: notes: speakers engine \(s.speakerEngine), count \(s.speakerCount), reason \(s.speakerReason ?? "-"), \(f(s.timings["speakers"])) s")
         print("talkflowd: notes: pieces you \(s.piecesYou), others \(s.piecesOthers), cut \(f(s.timings["cut"])) s, audio \(f(s.audioSeconds)) s, speech \(f(s.speechSeconds)) s")
-        print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), prompt echoes \(s.promptEchoes), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")
+        print("talkflowd: notes: retries \(s.retries), splits \(s.splits), dropped \(s.dropped), prompt echoes \(s.promptEchoes), phantoms \(s.phantoms), quiet skipped \(s.quietSkipped), inaudible \(s.inaudible), paused \(f(s.pausedSeconds)) s")
         print("talkflowd: notes: align \(s.aligned ? "yes" : "no"), you starts \(f(s.micStartSeconds)) s, others starts \(f(s.systemStartSeconds)) s, breaks \(s.alignBreaks), removed \(f(s.alignRemovedSeconds)) s, drift fit you \(f(s.micDriftFitPPM)) others \(f(s.systemDriftFitPPM)) ppm")
         print("talkflowd: notes: engine start \(f(s.timings["engine_start"])) s, transcribe \(f(s.timings["transcribe"])) s, rule removed \(s.ruleRemovedWords) words, \(f(s.timings["rule"])) s, total \(f(s.timings["total"])) s")
     }
@@ -578,7 +660,8 @@ final class LocalNotesPipeline: NotesPipeline {
             language: Preferences.language.whisperCode,
             englishRules: Preferences.language == .english,
             // The job's thread asks the main thread; the main thread never waits on the job, so this cannot deadlock.
-            shouldPause: { DispatchQueue.main.sync { FinalPassEngine.holding || FinalPassEngine.passesInFlight > 0 } })
+            shouldPause: { DispatchQueue.main.sync { FinalPassEngine.holding || FinalPassEngine.passesInFlight > 0 } },
+            keepDebug: NotesDebugKeeper.enabled)
     }
 
     func run(audioFolder: URL, progress: @escaping (WritingProgress) -> Void,
@@ -603,6 +686,11 @@ final class LocalNotesPipeline: NotesPipeline {
                 let result = try job.run(mic: micURL, system: sysURL, headphones: headphones, progress: { p in
                     DispatchQueue.main.async { if !token.cancelled { progress(p) } }
                 })
+                // Before the completion: NotesModel deletes the audio as soon as the transcript is saved.
+                if config.keepDebug {
+                    NotesDebugKeeper.keep(audioFolder: audioFolder, stats: result.stats, tracks: job.debugTracks,
+                                          turns: result.pieces.count, duration: result.duration)
+                }
                 outcome = .finished(pieces: result.pieces, duration: result.duration)
             } catch NotesJobError.cancelled {
                 outcome = nil

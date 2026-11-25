@@ -180,6 +180,11 @@ if CommandLine.arguments.contains("--fakemeeting") {
     FakeMeeting.run(CommandLine.arguments)
 }
 
+// The notes pipeline's audio stages (echo, near-end gate, cutter) on two files, no speech engine. NotesProbe.swift.
+if CommandLine.arguments.contains("--notesprobe") {
+    NotesProbe.run(CommandLine.arguments)
+}
+
 // The speaker helper on the diarization spike's fixtures: error rate, speakers found and wall time.
 // Optional --helper <path> and --models <dir>. Results in $TMPDIR/talkflow-diarizetest.log; skips
 // with one line when the fixtures or the helper are absent.
