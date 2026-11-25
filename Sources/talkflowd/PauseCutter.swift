@@ -85,8 +85,9 @@ enum PauseCutter {
 
     /// Speech regions as [start, end) frame pairs after closing short pauses and dropping short blips.
     /// Exposed (internal) so the self-test can check "every speech frame lands in exactly one piece".
-    static func speechRegions(_ samples: [Int16], sampleRate: Int = 16000) -> [(Int, Int)] {
-        analyze(frameDB(samples[...], sampleRate: sampleRate)).regions
+    /// `minThreshold` as in cut().
+    static func speechRegions(_ samples: [Int16], sampleRate: Int = 16000, minThreshold: Double? = nil) -> [(Int, Int)] {
+        analyze(frameDB(samples[...], sampleRate: sampleRate), minThreshold: minThreshold).regions
     }
 
     private static func runs(_ mask: [Bool], value: Bool) -> [(Int, Int)] {
