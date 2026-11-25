@@ -33,15 +33,21 @@ final class DashboardModel: ObservableObject {
     /// The day (grid) or week (bars) under the pointer, for the tooltip.
     @Published var hovered: Int?
 
-    static let chartWeeks = 26
+    /// The weekly bars keep their half year; the grid shows a year.
+    static let barWeeks = 26
 
-    /// Enough days to fill `chartWeeks` columns, the last one running up to today,
-    /// so the first day always lands on the first row of its column.
-    static var chartDays: Int {
+    /// Enough days to fill the grid's year of columns, the last one running up
+    /// to today, so the first day always lands on the first row of its column.
+    static var chartDays: Int { days(weeks: ActivityGrid.weeks) }
+
+    /// The days the weekly bars cover (the last `barWeeks` columns).
+    static var barDays: Int { days(weeks: barWeeks) }
+
+    private static func days(weeks: Int) -> Int {
         let calendar = Calendar.current
         let weekday = calendar.component(.weekday, from: Date())
         let sinceWeekStart = (weekday - calendar.firstWeekday + 7) % 7
-        return (chartWeeks - 1) * 7 + sinceWeekStart + 1
+        return (weeks - 1) * 7 + sinceWeekStart + 1
     }
 
     func refresh() {
@@ -242,17 +248,18 @@ struct HomePage: View {
 
     // MARK: - Activity chart
 
-    /// One cell of the grid: a 14pt tile plus the 4pt gap, which is part of
-    /// the hover target so the pointer is never between tiles.
+    /// One column of the weekly bars: a bar plus its gap, which is part of the
+    /// hover target so the pointer is never between bars.
     private let cell: CGFloat = 18
-    private let tile: CGFloat = 14
-    /// Room for the weekday (grid) or value (bars) labels on the left.
+    /// Room for the value labels on the left of the bars.
     private let axisWidth: CGFloat = 30
     /// Room for the month labels.
     private let monthHeight: CGFloat = 16
 
+    /// The bars' weeks: the last `barWeeks` columns of the year.
     private var weeks: [[(date: Date, words: Int)]] {
-        stride(from: 0, to: model.days.count, by: 7).map { Array(model.days[$0..<min($0 + 7, model.days.count)]) }
+        let all = stride(from: 0, to: model.days.count, by: 7).map { Array(model.days[$0..<min($0 + 7, model.days.count)]) }
+        return Array(all.suffix(DashboardModel.barWeeks))
     }
 
     private var activity: some View {
@@ -294,21 +301,21 @@ struct HomePage: View {
                 }
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Words dictated per day over the last \(DashboardModel.chartWeeks) weeks. Today: \(model.snapshot.todayWords.formatted()) words.")
+            .accessibilityLabel("Words dictated per day over the last \(model.chartStyle == .grid ? "year" : "\(DashboardModel.barWeeks) weeks"). Today: \(model.snapshot.todayWords.formatted()) words.")
             if model.chartStyle == .grid { legend }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, ActivityGrid.cardPadding)
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).fill(Palette.card))
         .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.cardStroke, lineWidth: 1))
     }
 
-    /// The grid's own five shades (see `shade`), so the key matches the tiles.
+    /// The grid's own five shades, so the key matches the tiles.
     private var legend: some View {
         HStack(spacing: 6) {
             Text("Less")
-            ForEach([0.07, 0.3625, 0.575, 0.7875, 1.0], id: \.self) { opacity in
+            ForEach(ActivityGrid.levelOpacity, id: \.self) { opacity in
                 RoundedRectangle(cornerRadius: 3)
                     .fill(Palette.ink.opacity(opacity))
                     .frame(width: 12, height: 12)
@@ -320,50 +327,90 @@ struct HomePage: View {
         .accessibilityHidden(true)
     }
 
-    /// GitHub-style: a column per week, a row per weekday, darker for more
-    /// words. Month names along the top, weekdays down the side, today
-    /// outlined, and the day's count above the tile under the pointer.
+    /// GitHub-style: a year of weeks, a column per week, a row per weekday,
+    /// darker for more words, sized to fill the card. Month names along the
+    /// top, weekdays down the side, today outlined, and the day's count above
+    /// the tile under the pointer.
     private var contributionGrid: some View {
-        let peak = max(model.days.map(\.words).max() ?? 0, 1)
-        let weeks = self.weeks
-        let width = axisWidth + CGFloat(weeks.count) * cell
-        let height = monthHeight + 7 * cell
+        ActivityGridFrame {
+            GeometryReader { proxy in
+                gridBody(width: proxy.size.width)
+            }
+        }
+    }
+
+    /// One drawn day: `index` is its place in `model.days` (column * 7 + row),
+    /// the key `hovered` uses.
+    private struct GridDay {
+        let index: Int
+        let column: Int
+        let row: Int
+        let date: Date
+        let level: Int
+    }
+
+    private func gridDays(_ layout: ActivityGrid.Layout, words: [Date: Int]) -> [GridDay] {
+        let levels = ActivityGrid.levels(columns: layout.columns, words: words)
+        var out: [GridDay] = []
+        for (column, days) in layout.columns.enumerated() {
+            for (row, date) in days.enumerated() {
+                out.append(GridDay(index: column * 7 + row, column: column, row: row, date: date, level: levels[column][row]))
+            }
+        }
+        return out
+    }
+
+    private func gridBody(width: CGFloat) -> some View {
+        let calendar = Calendar.current
+        let today = model.days.last?.date ?? Date()
+        let layout = ActivityGrid.layout(today: today, calendar: calendar, width: width)
+        var words: [Date: Int] = [:]
+        for day in model.days { words[calendar.startOfDay(for: day.date), default: 0] += day.words }
+        let days = gridDays(layout, words: words)
         return ZStack(alignment: .topLeading) {
-            ForEach(monthLabels(weeks), id: \.column) { label in
+            ForEach(layout.months, id: \.column) { label in
                 Text(label.name)
                     .font(.system(size: 10))
                     .foregroundColor(Palette.muted)
-                    .offset(x: axisWidth + CGFloat(label.column) * cell + 2, y: 0)
+                    .fixedSize()
+                    .offset(x: label.x, y: 0)
             }
             ForEach(weekdayLabels, id: \.row) { label in
                 Text(label.name)
                     .font(.system(size: 10))
                     .foregroundColor(Palette.muted)
-                    .offset(x: 0, y: monthHeight + CGFloat(label.row) * cell + 2)
+                    .fixedSize()
+                    .frame(height: layout.cell)
+                    .offset(x: layout.inset, y: layout.y(row: label.row))
             }
-            ForEach(Array(model.days.enumerated()), id: \.offset) { index, day in
-                let isToday = Calendar.current.isDateInToday(day.date)
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Palette.ink.opacity(shade(day.words, peak: peak)))
-                    .overlay(RoundedRectangle(cornerRadius: 3).stroke(Palette.ink.opacity(isToday ? 1 : 0), lineWidth: 1.5))
-                    .opacity(model.hovered == nil || model.hovered == index ? 1 : 0.55)
-                    .frame(width: tile, height: tile)
-                    .frame(width: cell, height: cell)
-                    .contentShape(Rectangle())
-                    .onHover { inside in hover(index, inside) }
-                    .offset(x: axisWidth + CGFloat(index / 7) * cell, y: monthHeight + CGFloat(index % 7) * cell)
+            ForEach(days, id: \.index) { day in
+                gridTile(day, layout: layout)
             }
-            if let index = model.hovered, model.days.indices.contains(index) {
-                let day = model.days[index]
-                tooltip("\(dayName(day.date)): \(day.words.formatted()) \(day.words == 1 ? "word" : "words")",
-                        x: axisWidth + CGFloat(index / 7) * cell + cell / 2, y: monthHeight + CGFloat(index % 7) * cell - 4,
+            if let index = model.hovered, let day = days.first(where: { $0.index == index }) {
+                let count = words[day.date] ?? 0
+                tooltip("\(dayName(day.date)): \(count.formatted()) \(count == 1 ? "word" : "words")",
+                        x: layout.x(column: day.column) + layout.cell / 2, y: layout.y(row: day.row) - 4,
                         width: width)
             }
         }
-        .frame(width: width, height: height, alignment: .topLeading)
+        .frame(width: width, height: layout.height, alignment: .topLeading)
     }
 
-    /// One bar per week, on the same 26 weeks: easier to compare totals than
+    private func gridTile(_ day: GridDay, layout: ActivityGrid.Layout) -> some View {
+        let isToday = Calendar.current.isDateInToday(day.date)
+        let shape = RoundedRectangle(cornerRadius: layout.radius)
+        return shape
+            .fill(Palette.ink.opacity(ActivityGrid.levelOpacity[day.level]))
+            .overlay(shape.stroke(Palette.ink.opacity(isToday ? 1 : 0), lineWidth: 1.5))
+            .opacity(model.hovered == nil || model.hovered == day.index ? 1 : 0.55)
+            .frame(width: layout.cell, height: layout.cell)
+            .frame(width: layout.pitch, height: layout.pitch, alignment: .topLeading)
+            .contentShape(Rectangle())
+            .onHover { inside in hover(day.index, inside) }
+            .offset(x: layout.x(column: day.column), y: layout.y(row: day.row))
+    }
+
+    /// One bar per week, on the last 26 weeks: easier to compare totals than
     /// shades. One series, so no legend; the axis shows 0 and the peak.
     private var weeklyBars: some View {
         let weeks = self.weeks
@@ -469,12 +516,24 @@ struct HomePage: View {
     private func compact(_ value: Int) -> String {
         value >= 1000 ? String(format: "%.1fk", Double(value) / 1000) : String(value)
     }
+}
 
-    /// Empty days stay faint; the rest step up in four shades relative to the busiest day.
-    private func shade(_ words: Int, peak: Int) -> Double {
-        guard words > 0 else { return 0.07 }
-        let level = min(4, Int((Double(words) / Double(peak) * 4).rounded(.up)))
-        return 0.15 + 0.85 * Double(level) / 4
+/// Takes the width it is offered and asks for the height the activity grid
+/// needs at that width, so the grid can size its tiles to fill the card.
+private struct ActivityGridFrame: Layout {
+    /// Used only when no width is offered (an ideal-size pass).
+    private let fallbackWidth: CGFloat = 640
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        var width = proposal.width ?? fallbackWidth
+        if !width.isFinite { width = fallbackWidth }
+        return CGSize(width: width, height: ActivityGrid.height(width: width))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for subview in subviews {
+            subview.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+        }
     }
 }
 

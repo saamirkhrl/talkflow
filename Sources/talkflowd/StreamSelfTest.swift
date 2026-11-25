@@ -129,6 +129,7 @@ enum StreamSelfTest {
         runPermissionGrantCases()
         runOnboardingProgressCases()
         runEffortlessSetupCases()
+        runActivityGridCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -2255,6 +2256,87 @@ enum StreamSelfTest {
         check(InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd", "--onboarding"], environment: [:]),
               "opening setup (--onboarding) is a real launch and may send")
         check(!UserData.settingKeys.contains(InstallCounter.countedKey), "the flag is not in the settings backup")
+    }
+
+    /// The Home page's activity grid (ActivityGrid.swift): a year of weeks
+    /// ending today, every day drawn, sized to the card.
+    private static func runActivityGridCases() {
+        report("case: the activity grid shows a year, ends today and fills the card")
+        var sunday = Calendar(identifier: .gregorian)
+        sunday.timeZone = TimeZone(identifier: "Europe/London") ?? .current
+        sunday.locale = Locale(identifier: "en_US_POSIX")
+        sunday.firstWeekday = 1
+        var monday = sunday
+        monday.firstWeekday = 2
+        // Tuesday 24 Nov 2026, midday London time.
+        let today = Date(timeIntervalSince1970: 1_795_521_600)
+
+        for (name, cal) in [("Sunday", sunday), ("Monday", monday)] {
+            let cols = ActivityGrid.columns(today: today, calendar: cal)
+            let flat = cols.flatMap { $0 }
+            let end = cal.startOfDay(for: today)
+            let start = ActivityGrid.weekStart(today, calendar: cal)
+            let expectedFirst = cal.date(byAdding: .weekOfYear, value: -52, to: start)
+            check(cols.count == 53, "\(name) start: 53 columns", "\(cols.count)")
+            check(cols.last?.contains(end) == true, "\(name) start: the last column holds today")
+            check(flat.allSatisfy { $0 <= end }, "\(name) start: no day after today")
+            check(cols.first?.first == expectedFirst, "\(name) start: the first column starts 52 weeks before this week",
+                  "\(String(describing: cols.first?.first))")
+            check(cols.dropLast().allSatisfy { $0.count == 7 }, "\(name) start: every earlier column has 7 days")
+            let steps = zip(flat, flat.dropFirst()).allSatisfy { cal.dateComponents([.day], from: $0, to: $1).day == 1 }
+            check(steps, "\(name) start: one day after another, no holes")
+            check(flat.count == 52 * 7 + (cols.last?.count ?? 0), "\(name) start: day count", "\(flat.count)")
+        }
+        let mondayLast = ActivityGrid.columns(today: today, calendar: monday).last?.count
+        check(mondayLast == 2, "Monday start: a Tuesday ends the last column on its second row", "\(String(describing: mondayLast))")
+
+        // A brand-new user: nothing stored, so a full year of level 0.
+        let cols = ActivityGrid.columns(today: today, calendar: sunday)
+        let empty = ActivityGrid.levels(columns: cols, words: [:])
+        check(empty.count == 53 && empty.dropLast().allSatisfy { $0.count == 7 }, "new user: a full grid is drawn")
+        check(empty.allSatisfy { $0.allSatisfy { $0 == 0 } }, "new user: every day is level 0")
+        let end = sunday.startOfDay(for: today)
+        let firstDay = ActivityGrid.levels(columns: cols, words: [end: 40])
+        let earlier = firstDay.dropLast().allSatisfy { $0.allSatisfy { $0 == 0 } }
+        check(earlier && firstDay.last?.last == 4, "first day of use: today is the top level, every day before it level 0")
+        check(ActivityGrid.level(words: 1, peak: 100) == 1 && ActivityGrid.level(words: 51, peak: 100) == 3,
+              "levels keep their old steps relative to the busiest day")
+        check(ActivityGrid.levelOpacity.count == 5, "five levels: empty plus four")
+        let rising = zip(ActivityGrid.levelOpacity, ActivityGrid.levelOpacity.dropFirst()).allSatisfy { $1 - $0 >= 0.15 }
+        check(rising && ActivityGrid.levelOpacity[0] >= 0.1, "each level is a clear step up, and empty is visible")
+
+        // Month labels: each month once, over the column holding its 1st.
+        let wide = ActivityGrid.layout(today: today, calendar: sunday, width: 800)
+        let names = wide.months.map(\.name)
+        check(names.count == 12 && Set(names).count == 12, "12 month labels, each once", "\(names)")
+        let dec = wide.months.first { $0.name == "Dec" }
+        let decHasFirst = dec.map { wide.columns[$0.column].contains { sunday.component(.day, from: $0) == 1 } } ?? false
+        check(decHasFirst, "a month's label sits over the column holding its 1st")
+        var repeats: [String] = []
+        for offset in 0..<40 {
+            guard let day = sunday.date(byAdding: .day, value: offset, to: today) else { continue }
+            let labels = ActivityGrid.layout(today: day, calendar: monday, width: 560).months
+            let spaced = zip(labels, labels.dropFirst()).allSatisfy { $1.x >= $0.x + ActivityGrid.labelWidth($0.name) }
+            if Set(labels.map(\.name)).count != labels.count || !spaced { repeats.append("+\(offset)") }
+        }
+        check(repeats.isEmpty, "over 40 days around a new month, no label repeats or overlaps", repeats.joined(separator: " "))
+
+        // Cell size: from the card's width, clamped, never wider than the card.
+        let side = ActivityGrid.cardPadding * 2 + AppMetrics.pageSide * 2
+        let narrowest = AppMetrics.minSize.width - AppMetrics.sidebarWidth - side
+        let small = ActivityGrid.layout(today: today, calendar: sunday, width: narrowest)
+        check(small.cell >= ActivityGrid.minCell && small.cell <= ActivityGrid.maxCell, "minimum window: cell within the clamp",
+              "\(small.cell)")
+        check(small.gridWidth <= narrowest + 0.01, "minimum window: the grid fits the card", "\(small.gridWidth) > \(narrowest)")
+        let widest = 880 - ActivityGrid.cardPadding * 2
+        let big = ActivityGrid.layout(today: today, calendar: sunday, width: widest)
+        check(abs(big.gridWidth - widest) < 0.5 && big.inset == 0, "widest page: the grid fills the card", "\(big.gridWidth)")
+        check(ActivityGrid.cellSize(width: 200) == ActivityGrid.minCell, "a tiny width clamps to the smallest cell")
+        let huge = ActivityGrid.layout(today: today, calendar: sunday, width: 2000)
+        let centred = abs(huge.inset * 2 + huge.gridWidth - 2000) < 0.5
+        check(huge.cell == ActivityGrid.maxCell && centred, "a huge width clamps to the largest cell and centres the grid")
+        let ratio = small.gap / small.cell
+        check(ratio >= 0.15 && ratio <= 0.2, "the gap is 15 to 20 percent of the cell", "\(ratio)")
     }
 
     private static func check(_ condition: Bool, _ label: String, _ detail: String = "") {
