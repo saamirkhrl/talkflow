@@ -5,6 +5,7 @@ import Foundation
 ///   note.json        NoteMeta
 ///   transcript.json  Transcript, once written
 ///   summary.json     NoteSummary (optional; the summary part writes it)
+///   document.json    NoteDocument (optional; the Summary tab writes it after the user's first edit)
 ///   questions.json   NoteQuestions (optional; the Ask part writes it)
 ///   audio/           the two recorded tracks, only until the transcript is saved
 /// The root is injected so tests and previews use a temporary folder.
@@ -103,6 +104,11 @@ struct NoteStore {
         return read(NoteSummary.self, from: file("summary.json", for: id))
     }
 
+    func document(_ id: String) -> NoteDocument? {
+        guard Self.isValidID(id) else { return nil }
+        return read(NoteDocument.self, from: file("document.json", for: id))
+    }
+
     func questions(_ id: String) -> NoteQuestions? {
         guard Self.isValidID(id) else { return nil }
         return read(NoteQuestions.self, from: file("questions.json", for: id))
@@ -120,6 +126,10 @@ struct NoteStore {
 
     func save(_ summary: NoteSummary, for id: String) throws {
         try write(summary, name: "summary.json", id: id)
+    }
+
+    func save(_ document: NoteDocument, for id: String) throws {
+        try write(document, name: "document.json", id: id)
     }
 
     func save(_ questions: NoteQuestions, for id: String) throws {

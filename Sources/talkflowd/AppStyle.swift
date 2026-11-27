@@ -5,8 +5,8 @@ import SwiftUI
 /// already use (paper, ink, graphite). Separate names from setup's private
 /// Color extension so the two never clash.
 enum Palette {
-    static func dynamic(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
+    static func dynamicNS(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> NSColor {
+        NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
             let hex = isDark ? dark : light
             return NSColor(
@@ -15,7 +15,11 @@ enum Palette {
                 blue: CGFloat(hex & 0xFF) / 255,
                 alpha: isDark ? darkAlpha : lightAlpha
             )
-        })
+        }
+    }
+
+    static func dynamic(light: UInt32, dark: UInt32, lightAlpha: CGFloat = 1, darkAlpha: CGFloat = 1) -> Color {
+        Color(nsColor: dynamicNS(light: light, dark: dark, lightAlpha: lightAlpha, darkAlpha: darkAlpha))
     }
 
     static let window = dynamic(light: 0xF5F5F3, dark: 0x1F1E22)
@@ -221,6 +225,80 @@ struct AppQuietButtonStyle: ButtonStyle {
             .background(RoundedRectangle(cornerRadius: 7).fill(Palette.ink.opacity(configuration.isPressed ? 0.06 : 0)))
             .contentShape(RoundedRectangle(cornerRadius: 7))
             .pointerCursor()
+    }
+}
+
+/// Hover state for a drawn control. A class under @StateObject rather than @State (see PointerCursor).
+final class AppHoverState: ObservableObject {
+    @Published var on = false
+}
+
+/// An icon-only action (Copy and Delete on a meeting): a muted symbol in a 28pt square, a faint fill on hover and
+/// press, the ink color while hovered. Give each one an accessibility label and a tooltip.
+struct AppIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        AppIconButtonBody(configuration: configuration)
+    }
+}
+
+private struct AppIconButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+    @Environment(\.isEnabled) private var isEnabled
+    @StateObject private var hover = AppHoverState()
+
+    var body: some View {
+        let active = isEnabled && (hover.on || configuration.isPressed)
+        configuration.label
+            .font(.system(size: 14, weight: .regular))
+            .foregroundColor(isEnabled ? (active ? Palette.ink : Palette.muted) : Palette.muted.opacity(0.45))
+            .frame(width: 28, height: 28)
+            .background(RoundedRectangle(cornerRadius: 7)
+                .fill(Palette.ink.opacity(configuration.isPressed ? 0.10 : (active ? 0.06 : 0))))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
+            .onHover { hover.on = $0 }
+            .pointerCursor()
+    }
+}
+
+/// Quiet text tabs: plain labels, the selected one in ink with a 2pt underline, the others muted, over a hairline
+/// across the whole row. No fills.
+struct AppTextTabs<Value: Hashable>: View {
+    let label: String
+    let options: [Value]
+    let title: (Value) -> String
+    @Binding var selection: Value
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 22) {
+            ForEach(options, id: \.self) { option in
+                let selected = option == selection
+                Button {
+                    selection = option
+                } label: {
+                    VStack(spacing: 0) {
+                        Text(title(option))
+                            .font(AppFont.body)
+                            .foregroundColor(selected ? Palette.ink : Palette.muted)
+                            .padding(.bottom, 9)
+                        Rectangle()
+                            .fill(selected ? Palette.ink : Color.clear)
+                            .frame(height: 2)
+                    }
+                    .fixedSize()
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointerCursor()
+                .accessibilityLabel(title(option))
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+            Spacer(minLength: 0)
+        }
+        .background(alignment: .bottom) {
+            Rectangle().fill(Palette.line).frame(height: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(label)
     }
 }
 

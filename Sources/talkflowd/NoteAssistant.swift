@@ -1,11 +1,12 @@
-import Foundation
+import AppKit
 
 /// The Summary and Ask tabs' state for the meeting on screen, and the summary jobs (which keep going for a note
 /// that is not on screen). Owned by NotesModel; used from the main thread. Every request goes through
 /// `access`, which is nil while no Anthropic or OpenAI key is saved, so without a key nothing here sends
 /// anything. Before the first request to a provider the user confirms once (`pending`), and again if the provider
 /// changes. Failures never touch the transcript or the note's state: the note stays ready, and the tab shows what
-/// happened with Try again.
+/// happened with Try again. It also keeps the open note's edited document (the Summary
+/// tab) and saves it a moment after each edit.
 final class NoteAssistant: ObservableObject {
     enum SummaryPhase: Equatable {
         case idle
@@ -64,6 +65,18 @@ final class NoteAssistant: ObservableObject {
     private var accessObserver: NSObjectProtocol?
     private var highlightToken = 0
 
+    /// The open note's document as last edited (or as read from document.json). Not published: while the editor
+    /// is on screen it owns the text, and a re-render must not reload it.
+    private(set) var savedDocument: NoteDocument?
+    /// The edit waiting to be written, and for which note.
+    private var pendingSave: (id: String, document: NoteDocument)?
+    private var saveWork: DispatchWorkItem?
+    /// Seconds after the last edit before document.json is written.
+    static let documentSaveDelay: TimeInterval = 0.8
+    /// Asks before Write again replaces an edited document. Replaced in tests.
+    var confirmReplaceEdits: () -> Bool = NoteAssistant.askBeforeReplacingEdits
+    private var terminateObserver: NSObjectProtocol?
+
     init(store: NoteStore, client: NotesAIClient = .live(), access: @escaping () -> NotesAccess? = { NotesAccess.current() },
          confirmedProvider: @escaping () -> String? = { Preferences.notesConfirmedProvider },
          setConfirmedProvider: @escaping (String) -> Void = { Preferences.notesConfirmedProvider = $0 }) {
@@ -78,10 +91,14 @@ final class NoteAssistant: ObservableObject {
         accessObserver = NotificationCenter.default.addObserver(forName: NotesAccess.changed, object: nil, queue: .main) { [weak self] _ in
             self?.accessChanged()
         }
+        terminateObserver = NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.flushDocument()
+        }
     }
 
     deinit {
         if let accessObserver { NotificationCenter.default.removeObserver(accessObserver) }
+        if let terminateObserver { NotificationCenter.default.removeObserver(terminateObserver) }
     }
 
     /// A key was saved or removed: stop every job that was started with a provider that is no longer the one in
@@ -122,9 +139,11 @@ final class NoteAssistant: ObservableObject {
             if let id {
                 summary = store.summary(id)
                 questions = store.questions(id)?.entries ?? []
+                if pendingSave?.id != id { savedDocument = store.document(id) }
             }
             return
         }
+        flushDocument()
         askJob?.cancel()
         askJob = nil
         askNoteID = nil
@@ -132,6 +151,7 @@ final class NoteAssistant: ObservableObject {
         openID = id
         summary = id.flatMap { store.summary($0) }
         questions = id.flatMap { store.questions($0)?.entries } ?? []
+        savedDocument = id.flatMap { store.document($0) }
         askDraft = ""
         asking = nil
         partialAnswer = ""
@@ -321,7 +341,71 @@ final class NoteAssistant: ObservableObject {
             partialAnswer = ""
         }
         if case .summary(let x)? = pending, x == id { pending = nil }
+        if pendingSave?.id == id {
+            pendingSave = nil
+            saveWork?.cancel()
+            saveWork = nil
+        }
         if openID == id { load(nil) }
+    }
+
+    // MARK: - Document
+
+    /// The Summary tab's document for the open note: the saved one when it was made from this summary, otherwise
+    /// a fresh conversion (so speaker renames show until the first edit). Nil without a summary.
+    func document(for meta: NoteMeta) -> NoteDocument? {
+        guard let s = summary else { return nil }
+        if let d = savedDocument, NoteDocument.matches(d, s) { return d }
+        return NoteDocument(basedOn: s.written.timeIntervalSince1970, blocks: NoteDocument.converting(s, speakers: meta.speakers))
+    }
+
+    /// True when the open note's document differs from a fresh conversion of its summary.
+    var documentEdited: Bool {
+        guard let id = openID, let d = savedDocument, let s = summary, NoteDocument.matches(d, s),
+              let meta = store.meta(id) else { return false }
+        return d.blocks != NoteDocument.converting(s, speakers: meta.speakers)
+    }
+
+    /// The editor changed the document: keep it in memory now, write it a moment later.
+    func editDocument(_ blocks: [NoteDocument.Block]) {
+        guard let id = openID, let s = summary else { return }
+        let d = NoteDocument(basedOn: s.written.timeIntervalSince1970, blocks: blocks)
+        savedDocument = d
+        pendingSave = (id, d)
+        saveWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.flushDocument() }
+        saveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.documentSaveDelay, execute: work)
+    }
+
+    /// Writes a waiting edit now (leaving the tab or note, closing the window, quitting).
+    func flushDocument() {
+        saveWork?.cancel()
+        saveWork = nil
+        guard let p = pendingSave else { return }
+        pendingSave = nil
+        do {
+            try store.save(p.document, for: p.id)
+        } catch {
+            Self.log("notes not saved: the note is gone")
+        }
+    }
+
+    /// Write again: asks first when the user has edited the document, since the new summary replaces it.
+    func writeAgain(_ id: String) {
+        flushDocument()
+        if openID == id, documentEdited, !confirmReplaceEdits() { return }
+        writeSummary(id)
+    }
+
+    static func askBeforeReplacingEdits() -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Write the summary again?"
+        alert.informativeText = "The new summary replaces your edits to these notes."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Write again")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     // MARK: - Snapshots only

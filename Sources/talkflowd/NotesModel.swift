@@ -16,7 +16,9 @@ final class NotesModel: ObservableObject {
     @Published private(set) var sessionDuration: Double = 0
     /// A plain-words problem for the current screen; cleared when the screen changes.
     @Published var problem: String?
-    @Published var detailTab: NoteTab = .transcript
+    @Published var detailTab: NoteTab = .transcript {
+        didSet { if oldValue == .summary && detailTab != .summary { assistant.flushDocument() } }
+    }
     /// The meeting title is being edited on the meeting page, and what has been typed.
     @Published var editingTitle = false
     @Published var titleDraft = ""
@@ -422,15 +424,15 @@ final class NotesModel: ObservableObject {
         Self.log("copied a transcript (\(transcript.turns.count) turns)")
     }
 
-    /// Copy on the Summary tab: the notes as Markdown (NotesDoc.markdown).
+    /// Copy on the Summary tab: the document as plain text (NoteDocument.plainText).
     func copyNotes(_ id: String) {
-        guard let meta = store.meta(id), let s = store.summary(id) else { return }
-        let text = NotesDoc.markdown(meta: meta, summary: s, calendar: .current)
+        guard let meta = store.meta(id), let doc = assistant.document(for: meta) else { return }
+        let text = NoteDocument.plainText(doc.blocks)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         justCopied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.justCopied = false }
-        Self.log("copied notes (\(NotesDoc.details(s).count) details)")
+        Self.log("copied notes (\(doc.blocks.count) blocks)")
     }
 
     static func askBeforeDeleting() -> Bool {

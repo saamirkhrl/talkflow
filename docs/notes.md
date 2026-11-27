@@ -39,6 +39,7 @@ are in [notes-measurements.md](notes-measurements.md).
   note.json        the note's details (title, start, length, state, speaker names)
   transcript.json  once written
   summary.json     only if the user made a summary
+  document.json    the Summary tab's notes as edited, once the user edits them
   questions.json   only if the user used Ask
   audio/           the two recorded tracks, only until the transcript is saved
 ```
@@ -110,10 +111,16 @@ comes from that single request, never a second one.
   and prints one counts line: `names: proposed N, applied M, rejected K (reason xC, ...)`, then
   `local names: N vote(s) counted, M name(s)` for the local pass (its votes and names are also in the
   result file).
-- **Layout.** The Summary tab reads as a document: Summary, Decisions (each with a status:
-  aligned, needs further discussion, disagreed or shelved), Details (topics, each with time links
-  into the transcript) and Suggested next steps. Copy on the Summary tab writes the same
-  structure as Markdown (`NotesDoc.markdown`).
+- **Layout.** A meeting's header (back, the Copy and Delete icons, the title, the date line and
+  the Summary, Ask and Transcript tabs) stays put; only the tab under it scrolls. The Summary tab
+  is an editable document: the summary becomes headings, paragraphs, bullets and to-dos (Summary;
+  Decisions; Open questions for points that need further discussion, were disagreed or shelved;
+  Details; Action items as to-dos), with the time links kept. Typing "/" in an empty block opens
+  a menu (Text, Heading, Bullet list, To-do); "[] ", "- " and "# " at the start of a block make a
+  to-do, a bullet or a heading. Edits save on their own to `document.json`; `summary.json` is
+  never changed. Write again asks first when the notes were edited, then replaces them with the
+  new summary. Copy on the Summary tab copies the document as plain text
+  (`NoteDocument.plainText`).
 - **Ask** is its own tab: the conversation fills the page under the header and answers read like
   the Summary, without a bubble; the question field stays pinned at the bottom. Before the first
   question the tab shows one line saying each question sends the transcript to the provider with
@@ -123,7 +130,8 @@ comes from that single request, never a second one.
   `title`, `subtitle`, `suggestedNames` and a decision's `status` in `summary.json`. A missing
   source is read from the old rule (an empty or placeholder title is a placeholder, a name is the
   user's). An old summary shows its decisions as aligned and its open questions as needing
-  further discussion, and has no Details.
+  further discussion, and has no Details. A note without `document.json` shows its summary as a
+  fresh document, as before.
 - Logs carry counts only (details, names suggested, whether a title was set), never the text.
 
 ## Not in this version

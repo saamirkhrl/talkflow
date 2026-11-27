@@ -149,17 +149,37 @@ extension DashboardController {
         n.editingTitle = false
         n.titleDraft = ""
         // The meeting page at the window's default and smallest sizes, laid out and scrolling as in the app.
-        func shootLive(_ name: String) {
+        func shootLive(_ name: String, scroll: LiveScroll = .top) {
             model.section = .notes
             for (sizeName, size) in [("default", AppMetrics.defaultSize), ("min", AppMetrics.minSize)] {
                 for (look, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                     let url = folder.appendingPathComponent("50-\(name)-\(sizeName)-\(look).png")
-                    if renderLive(model, appearance: appearance, size: size, to: url) { written.append(url) }
+                    if renderLive(model, appearance: appearance, size: size, scroll: scroll, to: url) { written.append(url) }
                 }
             }
         }
         n.stage(route: .detail(launch)); n.detailTab = .summary
         shootLive("detail-summary")
+        // The document after editing: the sample's ticked and unticked to-dos, and an empty last block with the
+        // caret (its placeholder); then the slash menu open on a "/" block under the summary paragraph. Written
+        // to the preview sandbox's note only, and removed after.
+        if let sum = n.store.summary(launch), let meta = n.store.meta(launch) {
+            let base = NoteDocument.converting(sum, speakers: meta.speakers)
+            let basedOn = sum.written.timeIntervalSince1970
+            try? n.store.save(NoteDocument(basedOn: basedOn, blocks: base + [NoteDocument.Block(.paragraph)]), for: launch)
+            n.stage(route: .detail(launch)); n.detailTab = .summary
+            NoteDocumentEditor.snapshotStage = DocEditorStage(focusBlock: base.count, slash: false)
+            shootLive("detail-summary-edited", scroll: .bottom)
+            var slashBlocks = base
+            slashBlocks.insert(NoteDocument.Block(.paragraph, [NoteDocument.Span("/")]), at: 2)
+            try? n.store.save(NoteDocument(basedOn: basedOn, blocks: slashBlocks), for: launch)
+            n.stage(route: .detail(launch)); n.detailTab = .summary
+            NoteDocumentEditor.snapshotStage = DocEditorStage(focusBlock: 2, slash: true)
+            shootLive("detail-summary-slash")
+            NoteDocumentEditor.snapshotStage = nil
+            try? FileManager.default.removeItem(at: n.store.folder(for: launch).appendingPathComponent("document.json"))
+            n.stage(route: .detail(launch))
+        }
         n.stage(route: .detail(robotics)); n.detailTab = .ask
         shootLive("detail-ask-empty")
         // The two made-up answers, then a long one.
@@ -187,6 +207,7 @@ extension DashboardController {
         shootLive("detail-ask")
         n.detailTab = .transcript
         shootLive("detail-transcript")
+        shootLive("detail-transcript-scrolled", scroll: .middle)
         try? n.store.save(NotesAISamples.questions(now: Date()), for: launch)
         n.stage(route: .detail(launch))
         a.access = { nil }
@@ -231,6 +252,9 @@ extension DashboardController {
         if fullHeight {
             host.frame = NSRect(x: 0, y: 0, width: width, height: height)
             host.layoutSubtreeIfNeeded()
+            // Lets the document editor report its height (it does so a moment after it is made).
+            RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+            host.layoutSubtreeIfNeeded()
             height = max(height, host.fittingSize.height)
         }
         // A real (off-screen) window, so AppKit controls (pickers, fields,
@@ -256,9 +280,30 @@ extension DashboardController {
         return (try? png.write(to: url)) != nil
     }
 
+    /// Where a live render's tab is scrolled to.
+    enum LiveScroll { case top, middle, bottom }
+
+    /// The tallest scroll view whose content is taller than it: the tab's content.
+    @MainActor
+    private static func tabScrollView(in root: NSView) -> NSScrollView? {
+        var best: NSScrollView?
+        var bestHeight: CGFloat = 0
+        func walk(_ v: NSView) {
+            if let sv = v as? NSScrollView, let doc = sv.documentView,
+               doc.frame.height > sv.contentView.bounds.height + 1, doc.frame.height > bestHeight {
+                best = sv
+                bestHeight = doc.frame.height
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(root)
+        return best
+    }
+
     /// The window at a fixed size, laid out as in the app (pages scroll), for the meeting page's tabs.
     @MainActor
-    private static func renderLive(_ model: AppWindowModel, appearance: NSAppearance.Name, size: NSSize, to url: URL) -> Bool {
+    private static func renderLive(_ model: AppWindowModel, appearance: NSAppearance.Name, size: NSSize,
+                                   scroll: LiveScroll = .top, to url: URL) -> Bool {
         guard let look = NSAppearance(named: appearance) else { return false }
         let root = AppShellView(model: model, snapshot: false)
             .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light)
@@ -275,6 +320,18 @@ extension DashboardController {
         // Lets the Ask tab's scroll to the newest question run, as it does a moment after the page opens.
         RunLoop.main.run(until: Date().addingTimeInterval(0.3))
         host.layoutSubtreeIfNeeded()
+        if scroll != .top {
+            if let sv = tabScrollView(in: host), let doc = sv.documentView {
+                let maxY = max(0, doc.frame.height - sv.contentView.bounds.height)
+                let y = scroll == .middle ? (maxY * 0.5).rounded() : maxY
+                sv.contentView.scroll(to: NSPoint(x: 0, y: doc.isFlipped ? y : maxY - y))
+                sv.reflectScrolledClipView(sv.contentView)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+                host.layoutSubtreeIfNeeded()
+            } else {
+                print("talkflowd: snapshot: no scroll view to scroll in \(url.lastPathComponent)")
+            }
+        }
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return false }

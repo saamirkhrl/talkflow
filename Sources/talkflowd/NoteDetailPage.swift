@@ -15,18 +15,21 @@ enum NoteDetailMetrics {
     static let tabsGap: CGFloat = 16
     /// Tabs to the first line of a tab's content.
     static let bodyGap: CGFloat = 20
-    /// On the Ask tab, the part of `bodyGap` above the conversation's scroll view; the rest is inside it.
+    /// On the Summary, Ask and Transcript tabs, the part of `bodyGap` above the content's scroll view; the rest is inside it.
     static let askClip: CGFloat = 8
     /// The transcript's speaker and time column.
     static let speakerColumn: CGFloat = 112
     /// Between transcript turns.
     static let turnSpacing: CGFloat = 16
+    /// Transcript text: the document's body size and line height (DocStyle), so the tabs read as one design.
+    static let transcriptSize: CGFloat = 15
+    static let transcriptLineSpacing: CGFloat = 5
 }
 
-/// One meeting: a compact header (back, Copy and Delete; the title and date; the tabs), then Summary, Ask or Transcript. Ask is its own page:
-/// the header stays and the conversation fills the rest of the window, with the input pinned under it. Without a
-/// key the Summary tab shows saved notes read only, or how to add a key; a time in the notes or in an answer
-/// jumps to its row in the transcript.
+/// One meeting: a header that never scrolls (back, the Copy and Delete icons; the title and date; the tabs), then
+/// Summary, Ask or Transcript, each scrolling on its own under it. The Summary tab is an editable document (or how
+/// to add a key, or its writing and failure states); Ask keeps its question field pinned at the bottom; a time in
+/// the notes or in an answer jumps to its row in the transcript.
 struct NoteDetailPage: View {
     @ObservedObject var model: NotesModel
     @ObservedObject private var assistant: NoteAssistant
@@ -39,14 +42,17 @@ struct NoteDetailPage: View {
     }
 
     var body: some View {
-        // One reader around both layouts, so a citation clicked on the Ask page can scroll the transcript that
+        // One reader around every tab, so a citation clicked on Summary or Ask scrolls the transcript that
         // replaces it.
         ScrollViewReader { proxy in
             Group {
-                if model.detailTab == .ask, let meta = model.detailMeta {
-                    askLayout(meta)
+                if let meta = model.detailMeta {
+                    detailLayout(meta)
                 } else {
-                    page
+                    AppPage(maxWidth: NoteDetailMetrics.maxWidth, scrolls: scrolls,
+                            top: AppMetrics.titlebar + NoteDetailMetrics.top) {
+                        topRow(nil)
+                    }
                 }
             }
             .onChange(of: assistant.jump) { jump in
@@ -58,32 +64,42 @@ struct NoteDetailPage: View {
         }
     }
 
-    private var page: some View {
-        AppPage(maxWidth: NoteDetailMetrics.maxWidth, scrolls: scrolls, top: AppMetrics.titlebar + NoteDetailMetrics.top) {
-            VStack(alignment: .leading, spacing: 0) {
-                if let meta = model.detailMeta {
-                    headerBlock(meta)
-                    tabBody(meta)
-                        .padding(.top, NoteDetailMetrics.bodyGap)
-                } else {
-                    topRow(nil)
-                }
-            }
-        }
-    }
-
-    /// The Ask tab: the header as on every tab, but not inside a scroll view, so the Ask page gets the height that
-    /// is left and scrolls only its conversation.
-    private func askLayout(_ meta: NoteMeta) -> some View {
+    /// The header, not in a scroll view, over the tab, which gets the height that is left.
+    private func detailLayout(_ meta: NoteMeta) -> some View {
         VStack(spacing: 0) {
             headerBlock(meta)
                 .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
                 .padding(.top, AppMetrics.titlebar + NoteDetailMetrics.top)
                 .padding(.horizontal, AppMetrics.pageSide)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            NoteAskPage(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
+            switch model.detailTab {
+            case .ask:
+                NoteAskPage(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
+            case .summary:
+                tabScroll { summaryTab(meta) }
+            case .transcript:
+                tabScroll { transcript(meta) }
+            }
         }
         .frame(maxHeight: scrolls ? .infinity : nil, alignment: .top)
+    }
+
+    /// A tab's content in the page's column, in its own scroll view (in the app) under the fixed header.
+    @ViewBuilder
+    private func tabScroll<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        let inner = content()
+            .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
+            .padding(.horizontal, AppMetrics.pageSide)
+            .padding(.top, NoteDetailMetrics.bodyGap - NoteDetailMetrics.askClip)
+            .padding(.bottom, AppMetrics.pageBottom)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        if scrolls {
+            ScrollView { inner }
+                .padding(.top, NoteDetailMetrics.askClip)
+                .frame(maxHeight: .infinity)
+        } else {
+            inner.padding(.top, NoteDetailMetrics.askClip)
+        }
     }
 
     private func scroll(_ proxy: ScrollViewProxy, to turn: Int) {
@@ -115,35 +131,27 @@ struct NoteDetailPage: View {
                 failedNotice(meta, f)
                     .padding(.top, 14)
             }
-            AppSegmented(label: "View", options: NoteTab.allCases, title: { $0.rawValue }, selection: $model.detailTab)
+            AppTextTabs(label: "View", options: NoteTab.allCases, title: { $0.rawValue }, selection: $model.detailTab)
                 .padding(.top, NoteDetailMetrics.tabsGap)
         }
     }
 
-    /// The first row: back to the list on the left, Copy and Delete on the right.
+    /// The first row: back to the list on the left, the Copy and Delete icons on the right.
     private func topRow(_ meta: NoteMeta?) -> some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 4) {
             AppBackLink(title: "Notes") { model.backToList() }
             Spacer(minLength: 12)
             if let meta {
                 copyButton(meta)
-                Button("Delete") { model.askAndDelete(meta.id) }
-                    .buttonStyle(AppQuietButtonStyle())
-                    .help("Deletes this note from this Mac")
-                    .padding(.trailing, -10)
+                Button { model.askAndDelete(meta.id) } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(AppIconButtonStyle())
+                .help("Delete")
+                .accessibilityLabel("Delete")
+                // The symbol, not its square, lines up with the column's right edge.
+                .padding(.trailing, -7)
             }
-        }
-    }
-
-    @ViewBuilder
-    private func tabBody(_ meta: NoteMeta) -> some View {
-        switch model.detailTab {
-        case .transcript:
-            transcript(meta)
-        case .summary:
-            summaryTab(meta)
-        case .ask:
-            EmptyView()
         }
     }
 
@@ -210,12 +218,15 @@ struct NoteDetailPage: View {
     @ViewBuilder
     private func copyButton(_ meta: NoteMeta) -> some View {
         let notes = model.detailTab == .summary && assistant.summary != nil
-        Button(model.justCopied ? "Copied" : "Copy") {
+        Button {
             if notes { model.copyNotes(meta.id) } else { model.copy(meta.id) }
+        } label: {
+            Image(systemName: model.justCopied ? "checkmark" : "doc.on.doc")
         }
-        .buttonStyle(AppQuietButtonStyle())
+        .buttonStyle(AppIconButtonStyle())
         .disabled(model.detailTab == .summary ? assistant.summary == nil : turns.isEmpty)
-        .help(notes ? "Copies the notes" : "Copies the transcript with speakers and times")
+        .help("Copy")
+        .accessibilityLabel(model.justCopied ? "Copied" : "Copy")
     }
 
     // MARK: Failure
@@ -304,7 +315,8 @@ struct NoteDetailPage: View {
             }
             .frame(width: NoteDetailMetrics.speakerColumn, alignment: .leading)
             Text(t.text)
-                .font(AppFont.body)
+                .font(.system(size: NoteDetailMetrics.transcriptSize))
+                .lineSpacing(NoteDetailMetrics.transcriptLineSpacing)
                 .foregroundColor(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
