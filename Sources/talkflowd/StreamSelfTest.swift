@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import CoreGraphics
 import Security
@@ -130,6 +131,7 @@ enum StreamSelfTest {
         runOnboardingProgressCases()
         runEffortlessSetupCases()
         runActivityGridCases()
+        runOverlayCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -2256,6 +2258,14 @@ enum StreamSelfTest {
         check(InstallCounter.shouldSend(url: url, counted: false, arguments: ["talkflowd", "--onboarding"], environment: [:]),
               "opening setup (--onboarding) is a real launch and may send")
         check(!UserData.settingKeys.contains(InstallCounter.countedKey), "the flag is not in the settings backup")
+    }
+
+    /// The pill, caption and notice must show over a full-screen app's Space.
+    private static func runOverlayCases() {
+        let b = OverlayController.overlayBehavior
+        check(b.contains(.canJoinAllSpaces) && b.contains(.fullScreenAuxiliary), "overlay panels join all Spaces and full screen")
+        check(!b.contains(.moveToActiveSpace), "overlay panels do not move to the active Space")
+        check(OverlayController.overlayLevel.rawValue >= NSWindow.Level.statusBar.rawValue, "overlay panels sit at or above the status bar level")
     }
 
     /// The Home page's activity grid (ActivityGrid.swift): a year of weeks
