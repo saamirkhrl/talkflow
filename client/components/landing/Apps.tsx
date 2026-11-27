@@ -52,7 +52,7 @@ export function Apps() {
   const { app, typed } = useTypedApp(reduced);
 
   return (
-    <section id="features" className="pt-[clamp(88px,12vw,160px)]">
+    <section id="features" className="pt-[clamp(56px,7vw,96px)]">
       <div className="mx-auto max-w-[1200px] px-gutter text-center">
         <h2 className="font-serif text-[clamp(38px,5.6vw,72px)] leading-[1.05] font-normal tracking-[-0.02em]">
           Speak, and it appears in

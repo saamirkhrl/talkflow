@@ -33,7 +33,7 @@ export function Nav({ stars }: { stars: number | null }) {
       <nav
         aria-label="Main"
         className={cn(
-          "pointer-events-auto flex w-full items-center gap-1 rounded-full border pr-3 pl-3 text-white transition-[max-width,height,background-color,box-shadow,border-color] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
+          "pointer-events-auto flex w-full items-center gap-1 rounded-full border pr-3 pl-3 text-white [text-shadow:0_1px_10px_rgb(8_36_140/0.55)] transition-[max-width,height,background-color,box-shadow,border-color] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
           scrolled
             ? "h-12 max-w-[700px] border-white/15 bg-[#0a2a8c]/55 shadow-[0_16px_40px_-18px_rgba(3,12,60,0.8)] backdrop-blur-xl backdrop-saturate-150"
             : "h-14 max-w-[1120px] border-transparent bg-transparent",

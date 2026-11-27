@@ -5,7 +5,7 @@ export function Footer() {
   return (
     <footer className="overflow-hidden">
       <div className="mx-auto max-w-[1200px] px-gutter pt-10">
-        <div className="rounded-[28px] bg-white/10 px-[clamp(20px,3vw,36px)] py-8 ring-1 ring-white/20 backdrop-blur-md">
+        <div className="glass px-[clamp(20px,3vw,36px)] py-8">
         <nav aria-labelledby="footer-guides" className="mb-10 border-b border-line pb-10">
           <h2 id="footer-guides" className="text-[13px] tracking-[0.01em] text-graphite">
             Guides
@@ -39,8 +39,10 @@ export function Footer() {
           * talkflow is an independent, open-source project. It is not affiliated with, endorsed
           by or sponsored by Wispr AI, Inc. Wispr Flow is a trademark of Wispr AI, Inc.
         </p>
-        {/* The plush "talkflow" in the scene shows through here. */}
-        <div aria-hidden="true" className="h-[clamp(300px,52svh,560px)]" />
+        {/* The wordmark rests on the coral and cloud bed at the foot of the scene. */}
+        <p aria-hidden="true" className="mt-[clamp(80px,14svh,180px)] pb-[clamp(120px,22svh,260px)] text-center font-serif text-[clamp(72px,22.5vw,290px)] leading-[0.8] tracking-[-0.04em] whitespace-nowrap text-white select-none [text-shadow:0_10px_40px_rgb(10_40_150/0.45),0_2px_0_rgb(190_180_240/0.9)]">
+          talkflow
+        </p>
       </div>
     </footer>
   );
