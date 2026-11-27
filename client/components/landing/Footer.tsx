@@ -34,7 +34,7 @@ export function Footer() {
         {/* The wordmark, solid white with a soft glow, resting on the scene. */}
         <p
           aria-hidden="true"
-          className="mt-[clamp(40px,7svh,96px)] text-center font-serif text-[clamp(88px,22vw,480px)] leading-[0.9] font-normal tracking-[-0.03em] whitespace-nowrap text-white select-none [text-shadow:0_0_40px_rgb(200_190_255/0.6),0_14px_40px_rgb(6_30_130/0.45)]"
+          className="relative left-1/2 mt-[clamp(40px,7svh,96px)] flex w-screen -translate-x-1/2 justify-center font-serif text-[clamp(88px,22vw,480px)] leading-[0.9] font-normal tracking-[-0.03em] whitespace-nowrap text-white select-none [text-shadow:0_0_40px_rgb(200_190_255/0.6),0_14px_40px_rgb(6_30_130/0.45)]"
         >
           talkflow
         </p>
