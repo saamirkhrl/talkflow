@@ -124,6 +124,7 @@ enum NotesDocChecks {
         runCopy(check)
         runFlows(check)
         runNameFix(check)
+        runLocalPass(check)
     }
 
     private static func runRules(_ check: (Bool, String, String) -> Void) {
@@ -316,7 +317,7 @@ enum NotesDocChecks {
         let late = accepted([suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 9999, "high")])
         var v24 = "not a success"
         if case .success(let s) = validate(newReply(names: far)) {
-            v24 = s.suggestedNames == nil ? "ok" : "names kept"
+            v24 = (s.suggestedNames ?? [:]) == NotesAI.localNames(turns: turns, speakers: defaultSpeakers) ? "ok" : "names kept"
         }
         check(g24.isEmpty && v24 == "ok" && late == ["s1": "Priya"],
               "DOC24 a name without its quote is dropped and the reply still succeeds", "\(v24) \(describe(late))")
@@ -344,7 +345,8 @@ enum NotesDocChecks {
             let detailTimes = (s.details ?? []).map { $0.times }
             check(s.title == "Budget and hiring update" && words(s.subtitle) <= 10 && s.subtitle != nil
                   && detailTimes == [[14, 6], [14]] && statuses == ["needs_discussion", "aligned"]
-                  && s.suggestedNames == nil && s.openQuestions.isEmpty && (s.details ?? []).count == 2,
+                  && (s.suggestedNames ?? [:]) == NotesAI.localNames(turns: turns, speakers: defaultSpeakers)
+                  && s.openQuestions.isEmpty && (s.details ?? []).count == 2,
                   "DOC13 a new-format reply is validated and cleaned",
                   "title \(s.title ?? "nil") sub \(s.subtitle ?? "nil") details \(detailTimes) statuses \(statuses)")
         } else {
@@ -363,13 +365,13 @@ enum NotesDocChecks {
         check(i15a == nil && i15b == 2, "DOC15 turnIndex", "\(describe(i15a as Any)) \(describe(i15b as Any))")
 
         // DOC28 the schema
-        let all = ["title", "description", "summary", "summary_times", "decisions", "details", "action_items"]
+        let all = ["decisions", "description", "details", "next_steps", "summary", "summary_times", "title"]
         let with = NotesAI.summarySchema(speakers: true)
         let without = NotesAI.summarySchema(speakers: false)
         let reqWith = with["required"] as? [String] ?? []
         let reqWithout = without["required"] as? [String] ?? []
         let propsWithout = (without["properties"] as? [String: Any]) ?? [:]
-        check(reqWith == all + ["speakers"] && reqWithout == all && propsWithout["speakers"] == nil
+        check(reqWith == ["attendees"] + all && reqWithout == all && propsWithout["attendees"] == nil
               && propsWithout["open_questions"] == nil,
               "DOC28 summarySchema required lists", "\(reqWith) \(reqWithout)")
 
@@ -388,7 +390,7 @@ enum NotesDocChecks {
             }
             let sProps = props(sReq)
             let cProps = props(cReq)
-            check(sProps["speakers"] != nil && !cProps.isEmpty && cProps["speakers"] == nil,
+            check(sProps["attendees"] != nil && !cProps.isEmpty && cProps["attendees"] == nil,
                   "DOC28 the summary request asks for names, the combine request does not",
                   "summary \(sProps.keys.sorted()) combine \(cProps.keys.sorted())")
         } else {
@@ -750,13 +752,18 @@ extension NotesDocChecks {
             let lines = NotesAI.transcriptLines(meeting, speakers: meetingSpeakers)
             let req = NotesAI.summaryRequest(access, key: "k", lines: lines, part: 1, of: 1)
             var itemRequired: [String] = []
+            var strengthEnum: [String] = []
             if let body = req.httpBody, let obj = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
                let outCfg = obj["output_config"] as? [String: Any], let format = outCfg["format"] as? [String: Any],
                let schema = format["schema"] as? [String: Any], let props = schema["properties"] as? [String: Any],
-               let sp = props["speakers"] as? [String: Any], let item = sp["items"] as? [String: Any] {
+               let sp = props["attendees"] as? [String: Any], let item = sp["items"] as? [String: Any] {
                 itemRequired = item["required"] as? [String] ?? []
+                let ip = item["properties"] as? [String: Any]
+                let st = ip?["strength"] as? [String: Any]
+                strengthEnum = st?["enum"] as? [String] ?? []
             }
-            check(itemRequired.contains("kind") && NotesAI.summaryRules.contains("is not Bob"),
+            check(itemRequired.contains("relation") && strengthEnum.contains("medium")
+                  && NotesAI.summaryRules.contains("Speaker 2 is not Marcus"),
                   "DOC44 the summary request asks for a kind and the prompt names the direction",
                   "required \(itemRequired)")
         } else {
@@ -767,5 +774,174 @@ extension NotesDocChecks {
     private static func emptySummary() -> NoteSummary {
         NoteSummary(summary: "", summaryTimes: [], actionItems: [], decisions: [], openQuestions: [],
                     provider: "", model: "", written: Date(timeIntervalSince1970: 0), parts: 1)
+    }
+}
+
+// MARK: - Local vocative pass, field names and medium strength
+
+extension NotesDocChecks {
+    private static func lt(_ speaker: String, _ start: Double, _ text: String) -> TranscriptTurn {
+        TranscriptTurn(speaker: speaker, start: start, end: start + 5, text: text)
+    }
+
+    private static let threeSpeakers: [NoteSpeaker] = [NoteSpeaker(key: "you"), NoteSpeaker(key: "s1"), NoteSpeaker(key: "s2")]
+
+    private static let basic: [TranscriptTurn] = [
+        lt("you", 0, "Priya, can you walk us through the numbers?"),
+        lt("s1", 10, "Sure. We are ten percent under."),
+        lt("s2", 20, "Thanks, Priya. That helps."),
+        lt("you", 30, "Marcus, anything on hiring?"),
+        lt("s2", 40, "Yes, two offers went out."),
+    ]
+
+    /// The made-up fixture meeting's excerpt (turns as the real check saw them), embedded inline.
+    private static let excerpt: [TranscriptTurn] = [
+        lt("you", 13.51, "Okay, I think we can start. Thanks everyone for joining. Dave said he might be a few minutes late, so let's not wait for him."),
+        lt("s2", 29.21, "We can hear you, Bob, very clearly. Maybe a little too clearly."),
+        lt("you", 34.42, "Right. So the plan for today is the version 2 launch of Ped alPoint. We need to settle the launch date, the price of the annual pass, and what we do about the onboarding redesign. Jason, are you there?"),
+        lt("s3", 48.06, "Yeah, I'm here. I'm on my phone in the car park, so the line might be a bit rough. Sorry about that."),
+        lt("you", 55.58, "No problem. Bob, do you want to start with the beta numbers"),
+        lt("s1", 59.89, "Sure. So the beta closed on Friday. We had 4200 signups in total, which is way more than we expected, and about 60% of them took at least one ride."),
+        lt("s2", 71.82, "That's great. Do we know how many of those were in the new East Side Zone?"),
+        lt("s1", 76.04, "Not yet. Lusha has the breakdown, I think."),
+        lt("s4", 87.76, "I do, but I haven't finished cleaning it. Some of the rides were test accounts from our own team, so I want to remove those first."),
+        lt("you", 92.03, "MMHM."),
+        lt("you", 96.6, "Okay, let's come back to that. The bigger question is the launch date. Right now the plan says March 3rd. Emily, you had concerns about that."),
+        lt("s2", 106.09, "I did. The onboarding screens are still the old design, and the feedback from the beta was pretty clear. People got lost on the second screen, the one where you pick a pass. If we launch on March 3rd, we launch with the confusing version."),
+        lt("s3", 119.77, "Apparently the payment crash isn't fixed yet either, so I'd rather..."),
+        lt("s1", 123.48, "If we slip, we miss the spring weather. March is when people start riding again."),
+        lt("you", 128.71, "Hang on, Bob, let Jason finish. Jason, you were saying?"),
+        lt("s3", 133.72, "I was saying I'd rather have two extra weeks. The crash only happened on older android phones, but that's still about 1 in 10 of our riders."),
+        lt("you", 145.7, "Two weeks would put us at March 17th. Does anyone object to that?"),
+        lt("s5", 159.16, "Hi, sorry, sorry. I'm here now. The meeting link kept sending me to the wrong room. Did I miss anything important"),
+        lt("you", 167.68, "Hi Dave, we were just about to decide on moving the launch from March 3rd to March 17th."),
+        lt("s5", 173.85, "Oh, from my side that's fine. Marketing hasn't booked anything yet. Actually, two more weeks helps me."),
+        lt("s1", 181.91, "Okay, fine. I can live with March 17th. Spring is long enough."),
+        lt("you", 187.58, "Great. So that's decided. The launch moves to March 17th. Dave, can you update the release plan with the new date?"),
+        lt("s5", 195.67, "Sure, I'll have it done by Friday, December 4th."),
+        lt("you", 199.54, "Perfect. Next, the onboarding redesign. Emily, you talked to the contractor?"),
+        lt("s2", 205.52, "Yes, I spoke with Halverson Design last week. They can start on December 9th, and they quoted $14,000 for the full flow. I pushed back, and they said they could do it for $12,000 if we drop the animated tutorial."),
+        lt("s4", 219.91, "Do we actually need the animated tutorial? Nobody in the beta watched the video one."),
+        lt("s2", 225.59, "That's exactly what I thought, Lucia."),
+        lt("you", 228.36, "Then let's do that. We hire Halverson design for the onboarding redesign, without the tutorial, with a cap of $ 12,000. Emily, can you send them the contract?"),
+        lt("s2", 239.49, "Yes, I'll send it by Wednesday, December 2nd."),
+    ]
+
+    private static let fiveSpeakers: [NoteSpeaker] = [
+        NoteSpeaker(key: "you"), NoteSpeaker(key: "s1"), NoteSpeaker(key: "s2"), NoteSpeaker(key: "s3"),
+        NoteSpeaker(key: "s4"), NoteSpeaker(key: "s5"),
+    ]
+
+    private static func names(_ turns: [TranscriptTurn], _ speakers: [NoteSpeaker]? = nil) -> [String: String] {
+        NotesAI.localNames(turns: turns, speakers: speakers ?? threeSpeakers)
+    }
+
+    private static func jsonText(_ object: [String: Any]) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])) ?? Data()
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    static func runLocalPass(_ check: (Bool, String, String) -> Void) {
+        // DOC45 / DOC46 two votes name a speaker, one does not
+        let n45 = names(basic)
+        check(n45 == ["s1": "Priya"], "DOC45 two vocative votes name a speaker", "\(n45)")
+        check(n45["s2"] == nil, "DOC46 one vote is not enough", "\(n45)")
+
+        // DOC47 two names with two votes each for one speaker: none
+        let more = basic + [lt("you", 50, "Dana, one more thing?"), lt("s1", 60, "Go on."),
+                            lt("s2", 70, "Thanks, Dana."), lt("s1", 80, "Sure.")]
+        let n47 = names(more)
+        check(n47["s1"] == nil, "DOC47 a speaker with two strong names gets none", "\(n47)")
+
+        // DOC48 stopwords
+        let stop = [lt("you", 0, "Sorry, I was on mute."), lt("s1", 10, "Everyone, and legal hasn't."),
+                    lt("you", 20, "Thanks, everyone."), lt("s1", 30, "Monday, then."), lt("you", 40, "Hi guys.")]
+        let v48 = NotesAI.localVotes(turns: stop, speakers: threeSpeakers)
+        check(v48.isEmpty, "DOC48 stopwords are not names", "\(v48)")
+
+        // DOC49 said to You
+        let toYou = [lt("you", 0, "Anything else?"), lt("s1", 10, "Thanks, Sam."), lt("you", 20, "Okay."),
+                     lt("s1", 30, "Thanks, Sam.")]
+        let v49 = NotesAI.localVotes(turns: toYou, speakers: threeSpeakers)
+        check(v49.count == 2 && v49.allSatisfy { $0.reason == "said to You" && !$0.counted }
+              && names(toYou).isEmpty, "DOC49 a name said to You names nobody", "\(v49.map { $0.reason })")
+
+        // DOC50 a name claimed by two speakers
+        let claimed = [lt("you", 0, "Priya, can you start?"), lt("s1", 10, "Sure."), lt("you", 20, "Priya, and the chart?"),
+                       lt("s1", 30, "Yes."), lt("you", 40, "Priya, one more."), lt("s2", 50, "Okay.")]
+        check(names(claimed).isEmpty, "DOC50 a name another speaker also has votes for is dropped", "\(names(claimed))")
+
+        // DOC51 a list of names
+        let list = [lt("you", 0, "Actions. Priya, the chart. Marcus, the plan."), lt("s1", 10, "Fine.")]
+        let v51 = NotesAI.localVotes(turns: list, speakers: threeSpeakers)
+        check(v51.count == 2 && v51.allSatisfy { $0.reason == "list of names" && !$0.counted },
+              "DOC51 a list of names counts for nobody", "\(v51.map { $0.reason })")
+
+        // DOC52 combining
+        let c1 = NotesAI.combinedNames(model: ["s2": "Emily"], local: ["s1": "Bob"])
+        let c2 = NotesAI.combinedNames(model: ["s1": "Rob"], local: ["s1": "Bob"])
+        let c3 = NotesAI.combinedNames(model: ["s2": "Bob"], local: ["s1": "Bob"])
+        check(c1 == ["s1": "Bob", "s2": "Emily"] && c2.isEmpty && c3.isEmpty, "DOC52 combining the model and the local names",
+              "\(c1) \(c2) \(c3)")
+
+        // DOC53 the fixture excerpt, and a reply whose attendees are all none
+        let want53 = ["s1": "Bob", "s2": "Emily", "s3": "Jason", "s5": "Dave"]
+        let n53 = names(excerpt, fiveSpeakers)
+        func none(_ label: String) -> [String: Any] {
+            ["label": label, "quote": "", "quote_time": 0, "relation": "none", "speaker_name": "", "strength": "low"]
+        }
+        let reply53: [String: Any] = [
+            "title": "Launch date and onboarding", "description": "Moving the launch and the onboarding redesign",
+            "summary": "The launch moves.", "summary_times": [13], "decisions": [[String: Any]](),
+            "details": [[String: Any]](),
+            "next_steps": [["owner": "Speaker 5", "task": "Update the release plan", "time": 195]],
+            "attendees": ["Speaker 1", "Speaker 2", "Speaker 3", "Speaker 4", "Speaker 5"].map(none),
+        ]
+        let r53 = NotesAI.validateSummary(jsonText(reply53), turns: excerpt, speakers: fiveSpeakers, provider: .anthropic,
+                                          model: .claudeHaiku, written: Date(timeIntervalSince1970: 0), parts: 1)
+        var ownerOK = false
+        var namesOK = false
+        if case .success(let s) = r53 {
+            namesOK = s.suggestedNames == want53
+            let named = NotesDoc.applyingSuggestedNames(s.suggestedNames ?? [:], to: fiveSpeakers)
+            let owner = s.actionItems.first?.owner ?? ""
+            ownerOK = owner == "s5" && NotesAI.ownerName(owner, speakers: named) == "Dave"
+        }
+        check(n53 == want53 && namesOK && ownerOK, "DOC53 the excerpt is named locally even when the model names nobody",
+              "\(n53) names \(namesOK) owner \(ownerOK)")
+
+        // DOC54 medium strength
+        let q54 = "Jason, are you there?"
+        let r54 = NotesAI.nameReview([
+            Suggestion(label: "Speaker 3", name: "Jason", kind: "addressed", evidence: q54, time: 34.42, confidence: "medium"),
+            Suggestion(label: "Speaker 3", name: "Jason", kind: "addressed", evidence: q54, time: 34.42, confidence: "low"),
+        ], turns: excerpt, speakers: fiveSpeakers)
+        check(r54.map { $0.accepted } == [true, false] && r54[1].reason == "low confidence",
+              "DOC54 medium strength is accepted, low is refused", "\(r54.map { $0.reason })")
+
+        // DOC55 both reply shapes decode
+        let base: [String: Any] = ["summary": "S.", "summary_times": [13], "decisions": [[String: Any]]()]
+        var oldShape = base
+        oldShape["action_items"] = [["owner": "", "task": "Do it", "time": 13]]
+        oldShape["speakers"] = [["label": "Speaker 3", "name": "Jason", "kind": "addressed", "evidence": q54,
+                                 "time": 34, "confidence": "high"]]
+        var newShape = base
+        newShape["next_steps"] = [["owner": "", "task": "Do it", "time": 13]]
+        newShape["attendees"] = [["label": "Speaker 3", "quote": "Jason, are you there?", "quote_time": 34,
+                                  "relation": "addressed", "speaker_name": "Jason", "strength": "high"]]
+        func run(_ o: [String: Any]) -> Result<NoteSummary, NotesAIError> {
+            NotesAI.validateSummary(jsonText(o), turns: excerpt, speakers: fiveSpeakers, provider: .anthropic,
+                                    model: .claudeHaiku, written: Date(timeIntervalSince1970: 0), parts: 1)
+        }
+        var oldNames: [String: String]?
+        var newNames: [String: String]?
+        if case .success(let s) = run(oldShape) { oldNames = s.suggestedNames }
+        if case .success(let s) = run(newShape) { newNames = s.suggestedNames }
+        let neither = run(base)
+        var neitherMalformed = false
+        if case .failure(let e) = neither { neitherMalformed = e == .malformed }
+        check(oldNames?["s3"] == "Jason" && newNames?["s3"] == "Jason" && neitherMalformed,
+              "DOC55 old and new reply shapes both validate, neither step list is malformed",
+              "\(describe(oldNames as Any)) \(describe(newNames as Any)) \(neitherMalformed)")
     }
 }

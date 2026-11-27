@@ -72,28 +72,44 @@ comes from that single request, never a second one.
   periods, generic words such as "Meeting" are refused). A new summary refreshes the description
   and replaces the title only while the title is the placeholder or an earlier auto title. A title
   the user typed is never changed. Emptying the title in the editor returns it to the placeholder.
-- **Speaker names.** The reply has one entry for every "Speaker N" label (never "You"). An entry
-  that names someone says how: `kind` is "addressed" (another person says the name to that speaker
-  just before they speak or just after they spoke, so the person saying "Thanks, Bob" is not Bob) or
-  "introduced" (the speaker says their own name), with the quote and its time. Entries with no name
-  use kind "none" and empty strings. `NotesAI.nameReview` checks each entry and gives a verdict with
-  a fixed reason when refused ("no name", "not a speaker label", "speaker already named", "generic
-  name", "too long", "low confidence", "unknown kind", "quote not found", "name not in quote",
-  "introduced by someone else", "named speaker said it", "not next to the named speaker", "two
-  names for one speaker", "name on two speakers", "name already used"). The quote is searched in the
-  whole transcript and the turn nearest the cited time is used, so a slightly wrong time does not
-  matter; for "addressed", the speaker before or after the quoting turn must be the named one.
-  `acceptedNames` keeps the accepted ones. Invalid names are dropped and never fail the reply. A
-  name the user typed is never replaced, and **Clear** on a suggested name returns the speaker to
-  "Speaker N" and marks it user-set, so it is not suggested again. A long meeting merges the names
-  of its parts (`NotesAI.mergedNames`).
+- **Speaker names.** The request is serialized with sorted keys, so the model writes the fields in
+  alphabetical order. The reply fields are named so that this order is the one we want: `attendees`
+  comes first (the model looks for names before it writes anything else), then `decisions`,
+  `description`, `details`, `next_steps`, `summary`, `summary_times`, `title`; inside an attendee,
+  `label`, `quote`, `quote_time`, `relation`, `speaker_name`, `strength`. Older field spellings
+  (`speakers`, `action_items`, `name`, `kind`, `evidence`, `time`, `confidence`) still decode.
+  The prompt gives a positive procedure for each label: look at the line before the speaker talks and
+  the line after they finish for a name said to them (relation "addressed", with the direction
+  spelled out: the person who says "Thanks, Marcus" is not Marcus), otherwise a self-introduction
+  ("introduced"). `strength` is high, medium or low. `NotesAI.nameReview` checks each entry and gives
+  a verdict with a fixed reason when refused ("no name", "not a speaker label", "speaker already
+  named", "generic name", "too long", "low confidence", "unknown kind", "quote not found", "name not
+  in quote", "introduced by someone else", "named speaker said it", "not next to the named speaker",
+  "two names for one speaker", "name on two speakers", "name already used"). High and medium pass,
+  low is refused. The quote is searched in the whole transcript and the turn nearest the cited time
+  is used; for "addressed", the speaker before or after the quoting turn must be the named one.
+  Invalid names are dropped and never fail the reply. A name the user typed is never replaced, and
+  **Clear** on a suggested name returns the speaker to "Speaker N" and marks it user-set, so it is
+  not suggested again. A long meeting merges the names of its parts (`NotesAI.mergedNames`).
+- **Local vocative pass.** Without any model, `NotesAI.localVotes` reads the transcript for names
+  said to a speaker: a sentence that starts with "Name," or says "over to Name" names whoever speaks
+  next; "Thanks, Name", "Hi Name", or a trailing or enclosed ", Name" names whoever spoke before.
+  A name is two capitalised words at most and never a stopword (okay, sorry, everyone, weekdays,
+  months and similar). A turn with two or more different names in one direction is a list and counts
+  for nobody. A vote is not counted when it points at You, at a speaker that already has a name, or
+  when the name is too long. `NotesAI.localNames` names a speaker only when exactly one name has two
+  or more counted votes for them, nobody else has a counted vote for that name, and no other speaker
+  already shows it. `NotesAI.combinedNames` merges these with the model's accepted names; a speaker
+  the two name differently, or one name on two speakers, gets none.
 - **Stored references follow renames.** In stored summary text, a speaker's label or name is saved
   as a `{{s2}}` token (`NotesDoc.tokenizing`) and turned into the current display name when shown,
   copied or sent on (`NotesDoc.resolving`), so renaming or clearing a speaker updates the notes.
   Old summaries have no tokens and show as saved.
 - **Diagnostics.** `--notesasktest` also writes the raw reply texts, the review of every proposed
   name and the number of speakers it would rename into the result file (meeting text, local only),
-  and prints one counts line: `names: proposed N, applied M, rejected K (reason xC, ...)`.
+  and prints one counts line: `names: proposed N, applied M, rejected K (reason xC, ...)`, then
+  `local names: N vote(s) counted, M name(s)` for the local pass (its votes and names are also in the
+  result file).
 - **Layout.** The Summary tab reads as a document: Summary, Decisions (each with a status:
   aligned, needs further discussion, disagreed or shelved), Details (topics, each with time links
   into the transcript) and Suggested next steps. Copy on the Summary tab writes the same

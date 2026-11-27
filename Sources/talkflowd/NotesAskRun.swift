@@ -387,6 +387,9 @@ enum NotesAskRun {
         var rawReplies: [String]?
         var nameReview: [NotesAI.NameVerdict]?
         var autoNamesApplied: Int?
+        /// The local vocative pass over the transcript (NotesAI.localVotes / localNames).
+        var localVotes: [NotesAI.LocalVote]?
+        var localNames: [String: String]?
         var error: Failure?
         var summary: NoteSummary?
         /// The summary in score.py's --summary shape (also written to its own file).
@@ -476,6 +479,8 @@ enum NotesAskRun {
                     var proposals: [NotesAI.NameSuggestion] = []
                     for text in rawReplies { proposals += NotesAI.speakerProposals(fromReply: text) }
                     out.nameReview = NotesAI.nameReview(proposals, turns: transcript.turns, speakers: speakers)
+                    out.localVotes = NotesAI.localVotes(turns: transcript.turns, speakers: speakers)
+                    out.localNames = NotesAI.localNames(turns: transcript.turns, speakers: speakers)
                     let renamed = NotesDoc.applyingSuggestedNames(s.suggestedNames ?? [:], to: speakers)
                     out.autoNamesApplied = zip(speakers, renamed).filter { $0.name != $1.name }.count
                 case .failure(let err):
@@ -526,6 +531,10 @@ enum NotesAskRun {
             l.append("notesasktest: summary failed, \(o.error?.category ?? "unknown")")
         }
         if let review = o.nameReview { l.append(namesLine(review, applied: o.autoNamesApplied ?? 0)) }
+        if let votes = o.localVotes {
+            let counted = votes.filter { $0.counted }.count
+            l.append("notesasktest: local names: \(counted) vote(s) counted, \((o.localNames ?? [:]).count) name(s)")
+        }
         if o.mode == "ask" {
             l.append(o.ok ? "notesasktest: ask ok, \(o.citations?.count ?? 0) citation(s), \(o.model)"
                           : "notesasktest: ask failed, \(o.error?.category ?? "unknown")")
