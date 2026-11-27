@@ -430,6 +430,7 @@ enum NotesSelfTest {
         // --notesasktest's arguments, names, result shape and scores, and the real flow's one summary request.
         NotesAskChecks.run { check($0, $1, $2) }
         NotesSummaryFlowChecks.run { check($0, $1, $2) }
+        NotesDocChecks.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)

@@ -193,7 +193,13 @@ final class NoteAssistant: ObservableObject {
             }
             if var meta = store.meta(id) {
                 meta.actionItemCount = s.actionItems.count
+                let before = meta
+                meta = NotesDoc.applyingAuto(title: s.title, subtitle: s.subtitle, to: meta)
+                meta.speakers = NotesDoc.applyingSuggestedNames(s.suggestedNames ?? [:], to: meta.speakers)
                 try? store.save(meta)
+                let titleSet = meta.title != before.title ? "auto" : "kept"
+                let autoNames = zip(before.speakers, meta.speakers).filter { $0.name != $1.name }.count
+                Self.log("summary applied: title \(titleSet), \(autoNames) auto name(s)")
             }
             summaryPhases[id] = nil
             if openID == id { summary = s }

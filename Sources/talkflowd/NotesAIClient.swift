@@ -319,7 +319,11 @@ final class NotesAIClient {
                 }
                 switch parsed {
                 case .failure(let error): failSummary(job, error)
-                case .success(let summary): succeed(job, summary)
+                case .success(var summary):
+                    // The combine reply has no speakers: the names come from the parts.
+                    let merged = NotesAI.mergedNames(job.partSummaries.compactMap { $0.suggestedNames })
+                    summary.suggestedNames = merged.isEmpty ? nil : merged
+                    succeed(job, summary)
                 }
             }
         }
@@ -328,8 +332,12 @@ final class NotesAIClient {
     private func succeed(_ job: SummaryJob, _ summary: NoteSummary) {
         guard job.live else { return }
         job.finished = true
+        let details = (summary.details ?? []).count
+        let names = (summary.suggestedNames ?? [:]).count
+        let hasTitle = summary.title == nil ? "no" : "yes"
         print("talkflowd: notes: summary written: \(summary.parts) part(s), \(summary.actionItems.count) action items, "
               + "\(summary.decisions.count) decisions, \(summary.openQuestions.count) open questions, "
+              + "\(details) details, \(names) name(s) suggested, title \(hasTitle), "
               + "\(NotesAIClient.seconds(since: job.started)) s, \(job.access.model.rawValue)")
         job.completion(.success(summary))
     }

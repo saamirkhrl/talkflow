@@ -9,49 +9,59 @@ struct CitedText: View {
     let segments: [NotesAI.AnswerSegment]
     var font: Font = AppFont.body
     var prefixFont: Font = AppFont.bodyMedium
+    /// Times in a run are written as " (0:19, 0:27)" after the text, in muted punctuation.
+    var parenthesized = false
 
     init(assistant: NoteAssistant, prefix: String? = nil, _ segments: [NotesAI.AnswerSegment],
-         font: Font = AppFont.body, prefixFont: Font = AppFont.bodyMedium) {
+         font: Font = AppFont.body, prefixFont: Font = AppFont.bodyMedium, parenthesized: Bool = false) {
         self.assistant = assistant
         self.prefix = prefix
         self.segments = segments
         self.font = font
         self.prefixFont = prefixFont
+        self.parenthesized = parenthesized
+    }
+
+    private func run(_ s: String, _ color: Color) -> AttributedString {
+        var out = AttributedString(s)
+        out.font = font
+        out.foregroundColor = color
+        return out
+    }
+
+    private func cite(_ t: Double) -> AttributedString {
+        var out = run(NotesLogic.timestamp(t), Palette.muted)
+        out.underlineStyle = .single
+        out.link = URL(string: "talkflow-cite://t/\(t)")
+        return out
     }
 
     private var attributed: AttributedString {
         var out = AttributedString()
         if let prefix, !prefix.isEmpty {
-            var run = AttributedString(prefix)
-            run.font = prefixFont
-            run.foregroundColor = Palette.ink
-            out += run
+            var lead = AttributedString(prefix)
+            lead.font = prefixFont
+            lead.foregroundColor = Palette.ink
+            out += lead
         }
         var previousWasCite = false
         for segment in segments {
             switch segment {
             case .text(let s):
-                var run = AttributedString(s)
-                run.font = font
-                run.foregroundColor = Palette.ink
-                out += run
+                if previousWasCite && parenthesized { out += run(")", Palette.muted) }
+                out += run(s, Palette.ink)
                 previousWasCite = false
             case .cite(let t):
                 if previousWasCite {
-                    var comma = AttributedString(", ")
-                    comma.font = font
-                    comma.foregroundColor = Palette.ink
-                    out += comma
+                    out += parenthesized ? run(", ", Palette.muted) : run(", ", Palette.ink)
+                } else if parenthesized {
+                    out += run(" (", Palette.muted)
                 }
-                var run = AttributedString(NotesLogic.timestamp(t))
-                run.font = font
-                run.foregroundColor = Palette.muted
-                run.underlineStyle = .single
-                run.link = URL(string: "talkflow-cite://t/\(t)")
-                out += run
+                out += cite(t)
                 previousWasCite = true
             }
         }
+        if previousWasCite && parenthesized { out += run(")", Palette.muted) }
         return out
     }
 
@@ -206,75 +216,144 @@ struct NoteSummaryView: View {
             if case .writing = assistant.phase(for: meta.id) { return true }
             return false
         }()
-        return VStack(alignment: .leading, spacing: 22) {
-            section("Summary") {
-                CitedText(assistant: assistant, [.text(summary.summary + " ")] + summary.summaryTimes.map { .cite($0) })
-            }
-            section("Action items") {
-                if summary.actionItems.isEmpty {
-                    Text("No action items.")
-                        .font(AppFont.body)
-                        .foregroundColor(Palette.muted)
-                } else {
-                    AppCard {
-                        ForEach(Array(summary.actionItems.enumerated()), id: \.offset) { i, item in
-                            if i > 0 { RowDivider() }
-                            actionRow(i, item)
-                        }
-                    }
-                }
-            }
-            if !summary.decisions.isEmpty {
-                section("Decisions") { bullets(summary.decisions) }
-            }
-            if !summary.openQuestions.isEmpty {
-                section("Open questions") { bullets(summary.openQuestions) }
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                Text(NotesAI.disclosure(provider: summary.provider, modelID: summary.model))
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Write again") { assistant.writeSummary(meta.id) }
-                    .buttonStyle(AppLinkButtonStyle())
-                    .disabled(writing)
-                    .help("Writes a new summary, sending the transcript again")
-            }
+        return NotesDocumentView(assistant: assistant, meta: meta, summary: summary, writing: writing,
+                                 onWriteAgain: { assistant.writeSummary(meta.id) })
+    }
+}
+
+/// The meeting's written notes as a document: Summary, Decisions, Details, Suggested next steps, then who wrote
+/// them. Shown with a key (with Write again) and without one (saved notes, read only).
+struct NotesDocumentView: View {
+    @ObservedObject var assistant: NoteAssistant
+    let meta: NoteMeta
+    let summary: NoteSummary
+    var writing = false
+    var onWriteAgain: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 26) {
+            summarySection
+            decisionsSection
+            detailsSection
+            stepsSection
+            footer
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func section<C: View>(_ title: String, @ViewBuilder _ body: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            NoteSectionHeading(title)
+    private func docSection<C: View>(_ title: String, @ViewBuilder _ body: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(AppFont.docHeading)
+                .foregroundColor(Palette.ink)
+                .accessibilityAddTraits(.isHeader)
             body()
         }
     }
 
-    private func actionRow(_ index: Int, _ item: NoteSummary.ActionItem) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+    private func statusTag(_ label: String) -> some View {
+        Text(label)
+            .font(AppFont.small)
+            .foregroundColor(Palette.muted)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.18), lineWidth: 1))
+            .fixedSize()
+    }
+
+    private var summarySection: some View {
+        docSection("Summary") {
+            CitedText(assistant: assistant, [.text(summary.summary)] + summary.summaryTimes.map { .cite($0) },
+                      parenthesized: true)
+        }
+    }
+
+    @ViewBuilder
+    private var decisionsSection: some View {
+        let decisions = NotesDoc.decisions(summary)
+        if !decisions.isEmpty {
+            docSection("Decisions") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(decisions.enumerated()), id: \.offset) { _, p in
+                        decisionRow(p)
+                    }
+                }
+            }
+        }
+    }
+
+    private func decisionRow(_ p: NoteSummary.Point) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            statusTag(DecisionStatus.of(p.status).label)
+            CitedText(assistant: assistant, [.text(p.text), .cite(p.time)], parenthesized: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var detailsSection: some View {
+        let details = NotesDoc.details(summary)
+        if !details.isEmpty {
+            docSection("Details") {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(details.enumerated()), id: \.offset) { _, d in
+                        detailRow(d)
+                    }
+                }
+            }
+        }
+    }
+
+    private func detailRow(_ d: NoteSummary.Detail) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\u{2022}")
+                .font(AppFont.body)
+                .foregroundColor(Palette.ink)
+            CitedText(assistant: assistant, prefix: d.topic + ": ",
+                      [.text(d.text)] + d.times.map { .cite($0) }, parenthesized: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var stepsSection: some View {
+        docSection("Suggested next steps") {
+            if summary.actionItems.isEmpty {
+                Text("No suggested next steps.")
+                    .font(AppFont.body)
+                    .foregroundColor(Palette.muted)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(summary.actionItems.enumerated()), id: \.offset) { i, item in
+                        stepRow(i, item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func stepRow(_ index: Int, _ item: NoteSummary.ActionItem) -> some View {
+        let owner = item.owner.isEmpty ? nil : NotesAI.ownerName(item.owner, speakers: meta.speakers) + ": "
+        return HStack(alignment: .top, spacing: 10) {
             Toggle("", isOn: Binding(get: { item.done }, set: { assistant.setDone(index, $0) }))
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .accessibilityLabel("Done: \(item.task)")
-            CitedText(assistant: assistant, prefix: NotesAI.ownerName(item.owner, speakers: meta.speakers) + ": ",
-                      [.text(item.task + " "), .cite(item.time)])
+            CitedText(assistant: assistant, prefix: owner, [.text(item.task), .cite(item.time)], parenthesized: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minHeight: 44, alignment: .top)
     }
 
-    private func bullets(_ points: [NoteSummary.Point]) -> some View {
+    private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(points.enumerated()), id: \.offset) { _, p in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text("\u{2022}")
-                        .font(AppFont.body)
-                        .foregroundColor(Palette.ink)
-                    CitedText(assistant: assistant, [.text(p.text + " "), .cite(p.time)])
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+            Text(NotesAI.disclosure(provider: summary.provider, modelID: summary.model))
+                .font(AppFont.caption)
+                .foregroundColor(Palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            if let onWriteAgain {
+                Button("Write again", action: onWriteAgain)
+                    .buttonStyle(AppLinkButtonStyle())
+                    .disabled(writing)
+                    .help("Writes a new summary, sending the transcript again")
             }
         }
     }

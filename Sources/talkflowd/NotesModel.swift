@@ -17,6 +17,11 @@ final class NotesModel: ObservableObject {
     /// A plain-words problem for the current screen; cleared when the screen changes.
     @Published var problem: String?
     @Published var detailTab: NoteTab = .transcript
+    /// The Ask bar's answers drawer is open (the bar itself is always there on a meeting with a transcript).
+    @Published var askExpanded = false
+    /// The meeting title is being edited on the meeting page, and what has been typed.
+    @Published var editingTitle = false
+    @Published var titleDraft = ""
     @Published private(set) var detailMeta: NoteMeta?
     @Published private(set) var detailTranscript: Transcript?
     /// The speaker being renamed on the meeting screen, and what has been typed.
@@ -309,13 +314,18 @@ final class NotesModel: ObservableObject {
     func open(_ id: String) {
         if session?.noteID == id { showSession(); return }
         route = .detail(id)
-        detailTab = .transcript
         renamingKey = nil
         renameDraft = ""
         problem = nil
         justCopied = false
         loadDetail(id)
-        if detailMeta == nil { route = .list }
+        if detailMeta == nil { route = .list; return }
+        let hasTranscript = !(detailTranscript?.turns.isEmpty ?? true)
+        detailTab = NotesDoc.defaultTab(hasTranscript: hasTranscript, hasSummary: assistant.summary != nil,
+                                        keyInUse: keyInUse)
+        askExpanded = false
+        editingTitle = false
+        titleDraft = ""
     }
 
     func backToList() {
@@ -323,6 +333,9 @@ final class NotesModel: ObservableObject {
         assistant.load(nil)
         problem = nil
         renamingKey = nil
+        askExpanded = false
+        editingTitle = false
+        titleDraft = ""
         refresh()
     }
 
@@ -334,7 +347,9 @@ final class NotesModel: ObservableObject {
 
     func saveSessionTitle() {
         guard let id = session?.noteID, var meta = store.meta(id) else { return }
-        meta.title = sessionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = sessionTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        meta.title = trimmed
+        meta.titleSource = trimmed.isEmpty ? .placeholder : .user
         try? store.save(meta)
     }
 
@@ -362,6 +377,42 @@ final class NotesModel: ObservableObject {
         renameDraft = ""
     }
 
+    /// "Clear" in the rename editor of an auto-named speaker: back to "Speaker N", never suggested again.
+    func clearSuggestedName(_ key: String) {
+        guard var meta = detailMeta else { return }
+        meta.speakers = NotesDoc.clearingName(key, in: meta.speakers)
+        try? store.save(meta)
+        detailMeta = meta
+        renamingKey = nil
+        renameDraft = ""
+        refresh()
+        // No log: names are private.
+    }
+
+    // MARK: - Title
+
+    /// The meeting page's title editor.
+    func beginTitleEdit() {
+        guard let meta = detailMeta else { return }
+        titleDraft = NotesDoc.titleSource(meta) == .placeholder ? "" : meta.title
+        editingTitle = true
+    }
+
+    func commitTitle() {
+        guard editingTitle, var meta = detailMeta else { return }
+        meta = NotesDoc.retitled(meta, to: titleDraft)
+        try? store.save(meta)
+        detailMeta = meta
+        editingTitle = false
+        titleDraft = ""
+        refresh()
+    }
+
+    func cancelTitleEdit() {
+        editingTitle = false
+        titleDraft = ""
+    }
+
     // MARK: - Copy and delete
 
     func copy(_ id: String) {
@@ -373,6 +424,17 @@ final class NotesModel: ObservableObject {
         justCopied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.justCopied = false }
         Self.log("copied a transcript (\(transcript.turns.count) turns)")
+    }
+
+    /// Copy on the Summary tab: the notes as Markdown (NotesDoc.markdown).
+    func copyNotes(_ id: String) {
+        guard let meta = store.meta(id), let s = store.summary(id) else { return }
+        let text = NotesDoc.markdown(meta: meta, summary: s, calendar: .current)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        justCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.justCopied = false }
+        Self.log("copied notes (\(NotesDoc.details(s).count) details)")
     }
 
     static func askBeforeDeleting() -> Bool {

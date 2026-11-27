@@ -148,13 +148,43 @@ enum NotesAISamples {
                 NoteSummary.ActionItem(owner: "you", task: "Set up Thursday's check-in", time: 92, done: false),
             ],
             decisions: [
-                NoteSummary.Point(text: "The correction fix and the app window launch together.", time: 4),
-                NoteSummary.Point(text: "The launch post leads with the privacy angle.", time: 36),
-                NoteSummary.Point(text: "The note taker waits until the summary part is in.", time: 61),
+                NoteSummary.Point(text: "The correction fix and the new app window launch together.", time: 4, status: "aligned"),
+                NoteSummary.Point(text: "The launch post leads with the privacy angle.", time: 36, status: "aligned"),
+                NoteSummary.Point(text: "The note taker waits until the summary part is in.", time: 61, status: "aligned"),
+                NoteSummary.Point(text: "When the Settings page will be final.", time: 27, status: "needs_discussion"),
             ],
-            openQuestions: [NoteSummary.Point(text: "When will the Settings page be final?", time: 27)],
-            provider: "Anthropic", model: model, written: now, parts: 1)
+            openQuestions: [],
+            provider: "Anthropic", model: model, written: now, parts: 1,
+            details: sampleDetails,
+            title: "Launch order and post plan",
+            subtitle: sampleSubtitle,
+            suggestedNames: nil)
     }
+
+    private static let sampleSubtitle = "Ship order, privacy-first launch post and Thursday check-in"
+
+    private static let sampleDetails: [NoteSummary.Detail] = [
+        NoteSummary.Detail(
+            topic: "Launch order",
+            text: "You want the correction fix and the new app window out together, with the note taker right after. Maya asked whether the window's demo video is ready.",
+            times: [4, 19]),
+        NoteSummary.Detail(
+            topic: "Demo video",
+            text: "It is still a screen recording. You will cut a proper one once the Settings page is final.",
+            times: [27]),
+        NoteSummary.Detail(
+            topic: "Launch post",
+            text: "Speaker 2 suggested leading with the privacy angle, and Maya will draft the post tonight for edits.",
+            times: [36, 48]),
+        NoteSummary.Detail(
+            topic: "Note taker timing",
+            text: "The note taker waits until the summary part is in, so the first impression is the whole thing. Speaker 2 will line up the screenshots for that day.",
+            times: [61, 75]),
+        NoteSummary.Detail(
+            topic: "Next check-in",
+            text: "Everyone meets again on Thursday to check where things stand.",
+            times: [92]),
+    ]
 
     static func questions(now: Date) -> NoteQuestions {
         NoteQuestions(entries: [
@@ -176,6 +206,7 @@ enum NotesAISamples {
         try? store.save(questions(now: now), for: launchID)
         guard var meta = store.meta(launchID) else { return }
         meta.actionItemCount = 4
+        meta.subtitle = sampleSubtitle
         try? store.save(meta)
     }
 
@@ -208,22 +239,31 @@ enum NotesAISamples {
 
     /// An Anthropic Messages reply whose text is the sample summary in the schema's own shape.
     static func summaryResponseBody() -> String {
-        func point(_ text: String, _ time: Int) -> [String: Any] { ["text": text, "time": time] }
+        func decision(_ p: NoteSummary.Point) -> [String: Any] {
+            ["text": p.text, "status": p.status ?? "aligned", "time": Int(p.time)]
+        }
+        func detail(_ d: NoteSummary.Detail) -> [String: Any] {
+            ["topic": d.topic, "text": d.text, "times": d.times.map { Int($0) }]
+        }
         func action(_ owner: String, _ task: String, _ time: Int) -> [String: Any] {
             ["owner": owner, "task": task, "time": time]
         }
         let sample = summary(now: Date(timeIntervalSince1970: 0))
+        let actions: [[String: Any]] = [
+            action("You", sample.actionItems[0].task, 27),
+            action("Maya", sample.actionItems[1].task, 48),
+            action("Speaker 2", sample.actionItems[2].task, 75),
+            action("You", sample.actionItems[3].task, 92),
+        ]
         let raw: [String: Any] = [
+            "title": sample.title ?? "",
+            "description": sample.subtitle ?? "",
             "summary": sample.summary,
             "summary_times": sample.summaryTimes.map { Int($0) },
-            "action_items": [
-                action("You", sample.actionItems[0].task, 27),
-                action("Maya", sample.actionItems[1].task, 48),
-                action("Speaker 2", sample.actionItems[2].task, 75),
-                action("You", sample.actionItems[3].task, 92),
-            ],
-            "decisions": sample.decisions.map { point($0.text, Int($0.time)) },
-            "open_questions": sample.openQuestions.map { point($0.text, Int($0.time)) },
+            "decisions": sample.decisions.map(decision),
+            "details": NotesDoc.details(sample).map(detail),
+            "action_items": actions,
+            "speakers": [Any](),
         ]
         return json(["type": "message", "role": "assistant",
                      "content": [["type": "text", "text": json(raw)]],

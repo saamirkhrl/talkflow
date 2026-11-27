@@ -56,6 +56,8 @@ enum AppFont {
     static let timer = Font.system(size: 52, weight: .regular, design: .serif)
     /// Who spoke, beside each transcript turn.
     static let speaker = Font.system(size: 14, weight: .semibold)
+    /// A section heading in the meeting's written notes.
+    static let docHeading = Font.system(size: 20, weight: .regular, design: .serif)
 }
 
 enum AppMetrics {
@@ -249,16 +251,26 @@ struct AppBackLink: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold))
-                Text(title).font(AppFont.body)
+                Image(systemName: "chevron.left").font(.system(size: 15, weight: .semibold))
+                Text(title).font(.system(size: 16, weight: .medium))
             }
-            .foregroundColor(Palette.muted)
-            .frame(minHeight: 28)
-            .contentShape(Rectangle())
+            .foregroundColor(Palette.ink)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 34)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BackLinkButtonStyle())
         .pointerCursor()
+        .padding(.leading, -10)
         .accessibilityLabel("Back to \(title)")
+    }
+}
+
+/// The back link's pressed fill, like the secondary button's.
+private struct BackLinkButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(RoundedRectangle(cornerRadius: 8).fill(Palette.ink.opacity(configuration.isPressed ? 0.06 : 0)))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
