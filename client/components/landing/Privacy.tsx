@@ -19,7 +19,7 @@ const STEPS: { icon: typeof Mic; label: React.ReactNode }[] = [
 export function Privacy() {
   return (
     <section id="privacy" className="px-3 sm:px-4">
-      <div className="mx-auto max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-ink px-gutter py-[clamp(56px,7vw,96px)] text-paper">
+      <div className="mx-auto max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-sky px-gutter py-[clamp(56px,7vw,96px)] text-paper">
         <h2 className="max-w-[13ch] font-serif text-[clamp(40px,6vw,80px)] leading-[0.98] font-normal tracking-[-0.025em]">
           Your voice never leaves your {YOUR_COMPUTER}.
         </h2>
