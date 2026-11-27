@@ -1,38 +1,147 @@
 import SwiftUI
 
-/// The Ask tab with a key in use: the questions asked so far, the one being answered, and the input.
-struct NoteAskView: View {
+/// The Ask bar pinned under a meeting that has a transcript: one input line, and above it a drawer with the
+/// questions asked so far, the one being answered and the confirmation. Ask is not a tab.
+struct NoteAskBar: View {
+    @ObservedObject var model: NotesModel
     @ObservedObject var assistant: NoteAssistant
     let meta: NoteMeta
     let turns: [TranscriptTurn]
+    /// True in the live window (the drawer scrolls inside a fixed height); false in snapshots (full height).
+    let scrolls: Bool
 
     var body: some View {
-        if let access = assistant.currentAccess {
-            VStack(alignment: .leading, spacing: 18) {
-                if turns.isEmpty {
-                    Text("There's no transcript to ask about yet.")
-                        .font(AppFont.body)
-                        .foregroundColor(Palette.muted)
-                } else {
-                    conversation(access)
-                    input
-                    Text(NotesAI.askFooter(access))
-                        .font(AppFont.caption)
-                        .foregroundColor(Palette.muted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    // Computed once per body, the same way the client builds the transcript it sends.
-                    if let hint = NotesAI.askCostHint(lines: NotesAI.transcriptLines(turns, speakers: meta.speakers)) {
-                        Text(hint)
-                            .font(AppFont.caption)
-                            .foregroundColor(Palette.muted)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+        VStack(spacing: 0) {
+            Rectangle().fill(Palette.hairline).frame(height: 1)
+            VStack(alignment: .leading, spacing: 12) {
+                if model.askExpanded && model.keyInUse { drawer }
+                inputRow
             }
+            .frame(maxWidth: 780, alignment: .leading)
+            .padding(.horizontal, AppMetrics.pageSide)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Palette.window)
+        .onChange(of: assistant.asking) { asking in
+            if asking != nil { model.askExpanded = true }
+        }
+        .onChange(of: assistant.pending) { pending in
+            if case .ask? = pending { model.askExpanded = true }
         }
     }
 
     private var busy: Bool { assistant.asking != nil || assistant.pending != nil }
+
+    private var draftEmpty: Bool {
+        assistant.askDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var hasHistory: Bool {
+        if !assistant.questions.isEmpty || assistant.asking != nil || assistant.askFailure != nil { return true }
+        if case .ask? = assistant.pending { return true }
+        return false
+    }
+
+    private func send() {
+        model.askExpanded = true
+        assistant.ask()
+    }
+
+    // MARK: Input
+
+    @ViewBuilder
+    private var inputRow: some View {
+        if model.keyInUse {
+            keyedInput
+        } else {
+            HStack(spacing: 10) {
+                Text("Add an API key to ask about this meeting.")
+                    .font(AppFont.body)
+                    .foregroundColor(Palette.muted)
+                Spacer(minLength: 12)
+                Button("Open Settings") { model.openKeySettings?() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+            }
+        }
+    }
+
+    private var keyedInput: some View {
+        HStack(alignment: .center, spacing: 10) {
+            if hasHistory { toggleButton }
+            TextField("Ask about this meeting", text: $assistant.askDraft)
+                .textFieldStyle(.plain)
+                .font(AppFont.body)
+                .foregroundColor(Palette.ink)
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
+                .disabled(busy)
+                .onSubmit { if !busy && !draftEmpty { send() } }
+                .accessibilityLabel("Ask about this meeting")
+            Button("Ask") { send() }
+                .buttonStyle(AppPrimaryButtonStyle(height: 36))
+                .disabled(busy || draftEmpty)
+        }
+    }
+
+    private var toggleButton: some View {
+        let label = model.askExpanded ? "Hide answers" : "Show answers"
+        return Button { model.askExpanded.toggle() } label: {
+            Image(systemName: model.askExpanded ? "chevron.down" : "chevron.up")
+                .font(.system(size: 14))
+                .foregroundColor(Palette.ink)
+                .frame(width: 30, height: 30)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .help(label)
+        .accessibilityLabel(label)
+    }
+
+    // MARK: Drawer
+
+    @ViewBuilder
+    private var drawer: some View {
+        if let access = assistant.currentAccess {
+            if scrolls {
+                ScrollViewReader { proxy in
+                    ScrollView { drawerContent(access) }
+                        .frame(maxHeight: 300)
+                        .onChange(of: assistant.questions.count) { _ in scrollToBottom(proxy) }
+                        .onChange(of: assistant.partialAnswer) { _ in scrollToBottom(proxy) }
+                }
+            } else {
+                drawerContent(access)
+            }
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        proxy.scrollTo("ask-bottom", anchor: .bottom)
+    }
+
+    private func drawerContent(_ access: NotesAccess) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack { NoteSectionHeading("Ask"); Spacer(minLength: 0) }
+            conversation(access)
+            Text(NotesAI.askFooter(access))
+                .font(AppFont.caption)
+                .foregroundColor(Palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            // Computed once per body, the same way the client builds the transcript it sends.
+            if let hint = NotesAI.askCostHint(lines: NotesAI.transcriptLines(turns, speakers: meta.speakers)) {
+                Text(hint)
+                    .font(AppFont.caption)
+                    .foregroundColor(Palette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Color.clear.frame(height: 1).id("ask-bottom")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
     // MARK: Conversation
 
@@ -120,33 +229,6 @@ struct NoteAskView: View {
                     .buttonStyle(AppPrimaryButtonStyle())
                     .disabled(f.retryAt.map { context.date < $0 } ?? false)
             }
-        }
-    }
-
-    // MARK: Input
-
-    private var input: some View {
-        let empty = assistant.askDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return HStack(alignment: .bottom, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Ask about this meeting")
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                TextField("What are my action items?", text: $assistant.askDraft)
-                    .textFieldStyle(.plain)
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.ink)
-                    .padding(.horizontal, 14)
-                    .frame(height: 44)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
-                    .disabled(busy)
-                    .onSubmit { if !busy && !empty { assistant.ask() } }
-                    .accessibilityLabel("Ask about this meeting")
-            }
-            Button("Ask") { assistant.ask() }
-                .buttonStyle(AppPrimaryButtonStyle(height: 44))
-                .disabled(busy || empty)
         }
     }
 }

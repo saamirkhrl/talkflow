@@ -265,11 +265,14 @@ enum NotesAI {
 
     static let summaryRules = """
     You write meeting notes from the transcript above. Fill in every field:
+    - title: a short, specific name for this meeting, 3 to 7 words, in sentence case (capitalize only the first word and proper nouns), such as "Q3 hiring plan and budget". No quotes, no ending period, and never just "Meeting".
+    - description: what the meeting was about in at most 10 words, as a plain phrase without an ending period.
     - summary: two to four sentences on what the meeting was about and what came out of it.
     - summary_times: the times of up to five lines the summary relies on most.
-    - action_items: each task someone agreed to do or was asked to do. owner is that person's name exactly as it appears in the transcript, or an empty string if nobody took it on. task is a short phrase that starts with a verb. time is the time of the line where the task came up.
-    - decisions: each thing the group decided, with the time of the line where it was decided.
-    - open_questions: each question raised and not answered by the end, with the time of the line where it was raised.
+    - decisions: each decision the group reached or discussed. status is "aligned" when the group agreed, "needs_discussion" when it was raised and left open, "disagreed" when people did not agree, or "shelved" when it was put off on purpose. A question raised and not answered by the end is a decision with status "needs_discussion". time is the time of the line where it was decided or raised.
+    - details: the main topics of the meeting in the order they came up, usually three to eight. topic is a label of two to five words. text is one to three sentences on what was said about it, naming who said it when the transcript shows that. times are the times of up to three lines it comes from.
+    - action_items: the suggested next steps: each task someone agreed to do or was asked to do. owner is that person's name exactly as it appears in the transcript, or an empty string if nobody took it on. task is a short phrase that starts with a verb. time is the time of the line where the task came up.
+    - speakers: real names for the speakers labelled "Speaker 1", "Speaker 2" and so on, only when the transcript states the name directly: the speaker introduces themselves, someone addresses them by name just before or just after they speak, a roll call, or a chair calls on them by name. label is the speaker's label exactly as it appears in the transcript. name is the name as it was used in the meeting, usually a first name; keep a title if one was used, such as "Councilmember Lee". evidence is the words from the transcript line that show the name, at most 15 words, copied character for character. time is that line's time. confidence is "high" only when the line leaves no doubt which speaker it is; otherwise "low". Do not guess from the topic, a role or the way someone talks. If two speakers could match a name, leave both out. Never include "You". Use an empty list when no name is certain.
     Use only what the transcript says. Do not invent tasks, names, dates or numbers. Copy every time exactly from the square brackets at the start of a transcript line. Use an empty list when there is nothing for a field. Write in the language the meeting was held in.
     """
 
@@ -277,9 +280,11 @@ enum NotesAI {
 
     static let combineRules = """
     You merge meeting notes. The user message holds notes written from consecutive parts of one long meeting, in order, as JSON. Write one set of notes for the whole meeting with the same fields.
+    - title: a short, specific name for the whole meeting, 3 to 7 words, in sentence case. No quotes, no ending period, and never just "Meeting".
+    - description: what the whole meeting was about in at most 10 words, as a plain phrase without an ending period.
     - summary: three to five sentences covering the whole meeting.
-    - Keep every action item, decision and open question, except that two items saying the same thing become one, keeping the earliest time.
-    - A question that a later part answers is no longer open; leave it out.
+    - details: one entry per topic for the whole meeting, in the order the topics came up. Entries from different parts about the same topic become one entry that keeps their times.
+    - Keep every decision and action item, except that two items saying the same thing become one, keeping the earliest time. A decision with status "needs_discussion" that a later part settles takes the later status and time.
     - Copy every time exactly from the notes. Do not make up times, tasks, names, dates or numbers.
     Write in the language the notes are written in.
     """
@@ -293,26 +298,37 @@ enum NotesAI {
 
     /// The structured-output schema, accepted by both providers: every property required,
     /// additionalProperties false, no numeric or length bounds (neither dialect allows them everywhere).
-    static var summarySchema: [String: Any] {
-        let point: [String: Any] = [
-            "type": "object", "additionalProperties": false, "required": ["text", "time"],
-            "properties": ["text": ["type": "string"], "time": ["type": "integer"]],
+    /// `speakers` is true for a summary request and false for the combine request (names are merged from the parts).
+    static func summarySchema(speakers: Bool) -> [String: Any] {
+        func object(_ properties: [String: Any], _ required: [String]) -> [String: Any] {
+            ["type": "object", "additionalProperties": false, "required": required, "properties": properties]
+        }
+        let text: [String: Any] = ["type": "string"]
+        let integer: [String: Any] = ["type": "integer"]
+        let integers: [String: Any] = ["type": "array", "items": integer]
+        let status: [String: Any] = ["type": "string", "enum": ["aligned", "needs_discussion", "disagreed", "shelved"]]
+        let confidence: [String: Any] = ["type": "string", "enum": ["high", "low"]]
+        let decision = object(["text": text, "status": status, "time": integer], ["text", "status", "time"])
+        let detail = object(["topic": text, "text": text, "times": integers], ["topic", "text", "times"])
+        let action = object(["owner": text, "task": text, "time": integer], ["owner", "task", "time"])
+        let speaker = object(
+            ["label": text, "name": text, "evidence": text, "time": integer, "confidence": confidence],
+            ["label", "name", "evidence", "time", "confidence"])
+        var properties: [String: Any] = [
+            "title": text,
+            "description": text,
+            "summary": text,
+            "summary_times": integers,
+            "decisions": ["type": "array", "items": decision] as [String: Any],
+            "details": ["type": "array", "items": detail] as [String: Any],
+            "action_items": ["type": "array", "items": action] as [String: Any],
         ]
-        let action: [String: Any] = [
-            "type": "object", "additionalProperties": false, "required": ["owner", "task", "time"],
-            "properties": ["owner": ["type": "string"], "task": ["type": "string"], "time": ["type": "integer"]],
-        ]
-        return [
-            "type": "object", "additionalProperties": false,
-            "required": ["summary", "summary_times", "action_items", "decisions", "open_questions"],
-            "properties": [
-                "summary": ["type": "string"],
-                "summary_times": ["type": "array", "items": ["type": "integer"]],
-                "action_items": ["type": "array", "items": action],
-                "decisions": ["type": "array", "items": point],
-                "open_questions": ["type": "array", "items": point],
-            ] as [String: Any],
-        ]
+        var required = ["title", "description", "summary", "summary_times", "decisions", "details", "action_items"]
+        if speakers {
+            properties["speakers"] = ["type": "array", "items": speaker] as [String: Any]
+            required.append("speakers")
+        }
+        return object(properties, required)
     }
 
     // MARK: Disclosure (the line under every summary and answer)
@@ -437,7 +453,7 @@ enum NotesAI {
     static func summaryRequest(_ access: NotesAccess, key: String, lines: [String], part: Int, of total: Int) -> URLRequest {
         let messages: [[String: Any]] = [["role": "user", "content": summaryInstruction(part: part, of: total)]]
         return buildRequest(access, key: key, context: contextText(lines: lines), rules: summaryRules,
-                            messages: messages, schema: true, stream: false)
+                            messages: messages, schema: summarySchema(speakers: true), stream: false)
     }
 
     static func combineRequest(_ access: NotesAccess, key: String, parts: [NoteSummary], speakers: [NoteSpeaker]) -> URLRequest {
@@ -450,23 +466,28 @@ enum NotesAI {
                     ["owner": item.owner.isEmpty ? "" : ownerName(item.owner, speakers: speakers),
                      "task": item.task, "time": Int(item.time)]
                 },
-                "decisions": part.decisions.map { ["text": $0.text, "time": Int($0.time)] as [String: Any] },
-                "open_questions": part.openQuestions.map { ["text": $0.text, "time": Int($0.time)] as [String: Any] },
+                "decisions": NotesDoc.decisions(part).map { p -> [String: Any] in
+                    ["text": p.text, "status": DecisionStatus.of(p.status).rawValue, "time": Int(p.time)]
+                },
+                "details": NotesDoc.details(part).map { d -> [String: Any] in
+                    ["topic": d.topic, "text": d.text, "times": d.times.map { Int($0) }]
+                },
             ]
         }
         let data = (try? JSONSerialization.data(withJSONObject: items, options: [.sortedKeys])) ?? Data()
         let json = String(data: data, encoding: .utf8) ?? "[]"
         let user: [String: Any] = ["role": "user", "content": combinePrefix + json]
+        let combineSchema: [String: Any]? = summarySchema(speakers: false)
 
         switch access.provider {
         case .anthropic:
             // No cache_control: the combine input is small and used once.
             let body = anthropicBody(access, system: [["type": "text", "text": combineRules]], messages: [user],
-                                     maxTokens: summaryMaxOutput, schema: true, stream: false)
+                                     maxTokens: summaryMaxOutput, schema: combineSchema, stream: false)
             return makeRequest(url: anthropicURL, headers: anthropicHeaders(key), body: body, timeout: summaryTimeout)
         case .openAI:
             let input: [[String: Any]] = [["role": "developer", "content": combineRules], user]
-            let body = openAIBody(access, input: input, maxTokens: summaryMaxOutput, schema: true, stream: false)
+            let body = openAIBody(access, input: input, maxTokens: summaryMaxOutput, schema: combineSchema, stream: false)
             return makeRequest(url: openAIURL, headers: openAIHeaders(key), body: body, timeout: summaryTimeout)
         }
     }
@@ -480,7 +501,7 @@ enum NotesAI {
         }
         messages.append(["role": "user", "content": question])
         return buildRequest(access, key: key, context: contextText(lines: lines), rules: askRules,
-                            messages: messages, schema: false, stream: true)
+                            messages: messages, schema: nil, stream: true)
     }
 
     // The builders never send temperature, top_p, top_k, tool_choice or an assistant prefill: the current
@@ -506,20 +527,21 @@ enum NotesAI {
     }
 
     private static func anthropicBody(_ access: NotesAccess, system: [[String: Any]], messages: [[String: Any]],
-                                      maxTokens: Int, schema: Bool, stream: Bool) -> [String: Any] {
+                                      maxTokens: Int, schema: [String: Any]?, stream: Bool) -> [String: Any] {
         var body: [String: Any] = [
             "model": access.model.rawValue,
             "max_tokens": maxTokens,
             "system": system,
             "messages": messages,
         ]
-        let format: [String: Any] = ["type": "json_schema", "schema": summarySchema]
+        var format: [String: Any] = [:]
+        if let schema { format = ["type": "json_schema", "schema": schema] }
         if access.model == .claudeHaiku {
             body["thinking"] = ["type": "disabled"]
-            if schema { body["output_config"] = ["format": format] }
+            if schema != nil { body["output_config"] = ["format": format] }
         } else {
             var config: [String: Any] = ["effort": "low"]
-            if schema { config["format"] = format }
+            if schema != nil { config["format"] = format }
             body["output_config"] = config
         }
         if stream { body["stream"] = true }
@@ -527,7 +549,7 @@ enum NotesAI {
     }
 
     private static func openAIBody(_ access: NotesAccess, input: [[String: Any]], maxTokens: Int,
-                                   schema: Bool, stream: Bool) -> [String: Any] {
+                                   schema: [String: Any]?, stream: Bool) -> [String: Any] {
         var body: [String: Any] = [
             "model": access.model.rawValue,
             "store": false,
@@ -535,9 +557,9 @@ enum NotesAI {
             "reasoning": ["effort": "low"],
             "input": input,
         ]
-        if schema {
+        if let schema {
             body["text"] = ["format": ["type": "json_schema", "name": "meeting_notes", "strict": true,
-                                       "schema": summarySchema] as [String: Any]]
+                                       "schema": schema] as [String: Any]]
         }
         if stream { body["stream"] = true }
         return body
@@ -545,7 +567,7 @@ enum NotesAI {
 
     /// Summary and Ask share the shape: the transcript as a cached block, the rules, then the messages.
     private static func buildRequest(_ access: NotesAccess, key: String, context: String, rules: String,
-                                     messages: [[String: Any]], schema: Bool, stream: Bool) -> URLRequest {
+                                     messages: [[String: Any]], schema: [String: Any]?, stream: Bool) -> URLRequest {
         let maxTokens = stream ? askMaxOutput : summaryMaxOutput
         let timeout = stream ? askTimeout : summaryTimeout
         switch access.provider {
@@ -607,6 +629,7 @@ enum NotesAI {
     private struct RawPoint: Decodable {
         let text: String
         let time: Double
+        let status: String?
     }
 
     private struct RawAction: Decodable {
@@ -615,20 +638,76 @@ enum NotesAI {
         let time: Double
     }
 
+    private struct RawDetail: Decodable {
+        let topic: String
+        let text: String
+        let times: [Double]
+    }
+
+    /// A real name the reply proposes for one speaker, with the words from the transcript that show it. Only
+    /// `acceptedNames` decides whether it is used.
+    struct NameSuggestion: Decodable, Equatable {
+        var label: String
+        var name: String
+        var evidence: String
+        var time: Double
+        var confidence: String
+    }
+
     private struct RawSummary: Decodable {
         let summary: String
         let summaryTimes: [Double]
         let actionItems: [RawAction]
         let decisions: [RawPoint]
-        let openQuestions: [RawPoint]
+        let title: String?
+        let description: String?
+        let details: [RawDetail]?
+        let speakers: [NameSuggestion]?
+        let openQuestions: [RawPoint]?
 
         private enum CodingKeys: String, CodingKey {
             case summary
             case summaryTimes = "summary_times"
             case actionItems = "action_items"
             case decisions
+            case title
+            case description
+            case details
+            case speakers
             case openQuestions = "open_questions"
         }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            summary = try c.decode(String.self, forKey: .summary)
+            summaryTimes = try c.decode([Double].self, forKey: .summaryTimes)
+            actionItems = try c.decode([RawAction].self, forKey: .actionItems)
+            decisions = try c.decode([RawPoint].self, forKey: .decisions)
+            title = try c.decodeIfPresent(String.self, forKey: .title)
+            description = try c.decodeIfPresent(String.self, forKey: .description)
+            details = try c.decodeIfPresent([RawDetail].self, forKey: .details)
+            speakers = try c.decodeIfPresent([NameSuggestion].self, forKey: .speakers)
+            openQuestions = try c.decodeIfPresent([RawPoint].self, forKey: .openQuestions)
+        }
+    }
+
+    private static func blank(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// True when the reply has an empty text, topic or task where one is needed.
+    private static func hasBlankField(_ raw: RawSummary) -> Bool {
+        if blank(raw.summary) { return true }
+        if raw.actionItems.contains(where: { blank($0.task) }) { return true }
+        if raw.decisions.contains(where: { blank($0.text) }) { return true }
+        if (raw.openQuestions ?? []).contains(where: { blank($0.text) }) { return true }
+        let details = raw.details ?? []
+        return details.contains(where: { blank($0.topic) || blank($0.text) })
+    }
+
+    private static func allTimes(_ raw: RawSummary) -> [Double] {
+        var times = raw.summaryTimes + raw.actionItems.map { $0.time } + raw.decisions.map { $0.time }
+        times += (raw.openQuestions ?? []).map { $0.time }
+        for d in raw.details ?? [] { times += d.times }
+        return times
     }
 
     static func validateSummary(_ text: String, turns: [TranscriptTurn], speakers: [NoteSpeaker],
@@ -645,31 +724,141 @@ enum NotesAI {
         guard let data = t.data(using: .utf8), let raw = try? JSONDecoder().decode(RawSummary.self, from: data) else {
             return .failure(.malformed)
         }
-        func blank(_ s: String) -> Bool { s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        if blank(raw.summary) || raw.actionItems.contains(where: { blank($0.task) })
-            || raw.decisions.contains(where: { blank($0.text) }) || raw.openQuestions.contains(where: { blank($0.text) }) {
-            return .failure(.malformed)
-        }
+        if hasBlankField(raw) { return .failure(.malformed) }
         // A time that points at no turn would be a link to nowhere, so the whole reply is refused, not patched.
-        let allTimes = raw.summaryTimes + raw.actionItems.map { $0.time } + raw.decisions.map { $0.time }
-            + raw.openQuestions.map { $0.time }
-        let bad = allTimes.filter { snap($0, turns: turns) == nil }.count
+        let bad = allTimes(raw).filter { snap($0, turns: turns) == nil }.count
         if bad > 0 { return .failure(.badTimes(bad)) }
 
         func snapped(_ time: Double) -> Double { snap(time, turns: turns) ?? time }
-        var summaryTimes: [Double] = []
-        for time in raw.summaryTimes.map(snapped) where !summaryTimes.contains(time) { summaryTimes.append(time) }
+        func snappedUnique(_ times: [Double]) -> [Double] {
+            var out: [Double] = []
+            for time in times.map(snapped) where !out.contains(time) { out.append(time) }
+            return out
+        }
         let trim = { (s: String) in s.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let accepted = acceptedNames(raw.speakers ?? [], turns: turns, speakers: speakers)
+        let ownerSpeakers = NotesDoc.applyingSuggestedNames(accepted, to: speakers)
+        let actions = raw.actionItems.map { a in
+            NoteSummary.ActionItem(owner: ownerKey(trim(a.owner), speakers: ownerSpeakers), task: trim(a.task),
+                                   time: snapped(a.time), done: false)
+        }
+        let decisions = raw.decisions.map { p -> NoteSummary.Point in
+            var status: String?
+            if let given = p.status { status = DecisionStatus(rawValue: given) != nil ? given : DecisionStatus.aligned.rawValue }
+            return NoteSummary.Point(text: trim(p.text), time: snapped(p.time), status: status)
+        }
+        let openQuestions = (raw.openQuestions ?? []).map { NoteSummary.Point(text: trim($0.text), time: snapped($0.time)) }
+        var details: [NoteSummary.Detail]?
+        if let rawDetails = raw.details {
+            details = rawDetails.map { NoteSummary.Detail(topic: trim($0.topic), text: trim($0.text), times: snappedUnique($0.times)) }
+        }
         return .success(NoteSummary(
             summary: trim(raw.summary),
-            summaryTimes: summaryTimes,
-            actionItems: raw.actionItems.map {
-                NoteSummary.ActionItem(owner: ownerKey(trim($0.owner), speakers: speakers), task: trim($0.task),
-                                       time: snapped($0.time), done: false)
-            },
-            decisions: raw.decisions.map { NoteSummary.Point(text: trim($0.text), time: snapped($0.time)) },
-            openQuestions: raw.openQuestions.map { NoteSummary.Point(text: trim($0.text), time: snapped($0.time)) },
-            provider: provider.name, model: model.rawValue, written: written, parts: parts))
+            summaryTimes: snappedUnique(raw.summaryTimes),
+            actionItems: actions,
+            decisions: decisions,
+            openQuestions: openQuestions,
+            provider: provider.name, model: model.rawValue, written: written, parts: parts,
+            details: details,
+            title: NotesDoc.cleanTitle(raw.title ?? ""),
+            subtitle: NotesDoc.cleanDescription(raw.description ?? ""),
+            suggestedNames: accepted.isEmpty ? nil : accepted))
+    }
+
+    // MARK: Speaker names
+
+    /// Lowercase, accents and width folded, every character that is not a letter or number a space, runs of
+    /// spaces collapsed.
+    private static func normalize(_ s: String) -> String {
+        let folded = s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+        var out = ""
+        var lastSpace = true
+        for ch in folded.lowercased() {
+            if ch.isLetter || ch.isNumber {
+                out.append(ch)
+                lastSpace = false
+            } else if !lastSpace {
+                out.append(" ")
+                lastSpace = true
+            }
+        }
+        return out.trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func collapsedSpaces(_ s: String) -> String {
+        s.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    private static func isGenericSpeakerName(_ lower: String) -> Bool {
+        if lower == "you" || lower == "everyone else" { return true }
+        guard lower.hasPrefix("speaker ") else { return false }
+        let rest = lower.dropFirst("speaker ".count)
+        return !rest.isEmpty && rest.allSatisfy { $0 >= "0" && $0 <= "9" }
+    }
+
+    /// The names from a reply's `speakers` that are safe to use: each one is a direct, high-confidence claim whose
+    /// quote is in the transcript near the cited line, said by (or next to) that speaker, and that no other
+    /// speaker or suggestion contradicts. Everything else is dropped; invalid names never fail a reply.
+    static func acceptedNames(_ raw: [NameSuggestion], turns: [TranscriptTurn],
+                              speakers: [NoteSpeaker]) -> [String: String] {
+        var candidates: [(key: String, name: String)] = []
+        for s in raw {
+            guard s.confidence.lowercased() == "high" else { continue }
+            let name = collapsedSpaces(s.name)
+            guard !name.isEmpty, name.count <= NotesLogic.maxNameLength else { continue }
+            guard !isGenericSpeakerName(name.lowercased()) else { continue }
+            let label = s.label.trimmingCharacters(in: .whitespacesAndNewlines)
+            let match = speakers.first { sp in
+                guard NotesDoc.isOtherVoice(sp.key), NotesDoc.nameSource(sp) == .default else { return false }
+                return NotesLogic.displayName(sp.key, in: speakers).caseInsensitiveCompare(label) == .orderedSame
+            }
+            guard let key = match?.key else { continue }
+            let ne = normalize(s.evidence)
+            let nn = normalize(name)
+            guard ne.count >= 2, !nn.isEmpty, (" " + ne + " ").contains(" " + nn + " ") else { continue }
+            guard let c = turnIndex(for: s.time, in: turns) else { continue }
+            let lo = max(0, c - NotesDoc.nameEvidenceWindow)
+            let hi = min(turns.count - 1, c + NotesDoc.nameEvidenceWindow)
+            guard lo <= hi else { continue }
+            guard (lo...hi).contains(where: { normalize(turns[$0].text).contains(ne) }) else { continue }
+            guard (lo...hi).contains(where: { turns[$0].speaker == key }) else { continue }
+            candidates.append((key, name))
+        }
+        return settleNames(candidates, speakers: speakers)
+    }
+
+    /// Drops a key given two different names, a name given to two or more keys, and a name another speaker shows.
+    private static func settleNames(_ candidates: [(key: String, name: String)],
+                                    speakers: [NoteSpeaker]) -> [String: String] {
+        var result: [String: String] = [:]
+        var order: [String] = []
+        for c in candidates {
+            if !order.contains(c.key) { order.append(c.key) }
+        }
+        for key in order {
+            let mine = candidates.filter { $0.key == key }
+            let first = mine[0].name
+            if mine.contains(where: { $0.name.caseInsensitiveCompare(first) != .orderedSame }) { continue }
+            let sharing = Set(candidates.filter { $0.name.caseInsensitiveCompare(first) == .orderedSame }.map { $0.key })
+            if sharing.count >= 2 { continue }
+            let others = speakers.filter { $0.key != key }
+            let clash = others.contains { NotesLogic.displayName($0.key, in: speakers).caseInsensitiveCompare(first) == .orderedSame }
+            if clash { continue }
+            result[key] = first
+        }
+        return result
+    }
+
+    /// The names of all the parts of a long meeting: the union, minus a key with two different names and a name
+    /// on two or more keys.
+    static func mergedNames(_ parts: [[String: String]]) -> [String: String] {
+        var candidates: [(key: String, name: String)] = []
+        for part in parts {
+            for key in part.keys.sorted() {
+                if let name = part[key] { candidates.append((key, name)) }
+            }
+        }
+        return settleNames(candidates, speakers: [])
     }
 
     /// The start of the turn a cited time points at, or nil if it points at none.

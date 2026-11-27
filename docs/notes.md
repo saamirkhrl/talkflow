@@ -62,6 +62,38 @@ None for notes, except:
   They send the transcript text, with the speakers' names, never audio, to Anthropic (if an
   Anthropic key is saved) or OpenAI, with the user's key and billed to them.
 
+## Document-style notes
+
+The summary request returns one JSON reply that fills a document-style page. Everything below
+comes from that single request, never a second one.
+
+- **Title and description.** The reply proposes a title (3 to 7 words) and a one-line description
+  (at most 10 words). `NotesDoc.cleanTitle` and `cleanDescription` tidy them (quotes, ending
+  periods, generic words such as "Meeting" are refused). A new summary refreshes the description
+  and replaces the title only while the title is the placeholder or an earlier auto title. A title
+  the user typed is never changed. Emptying the title in the editor returns it to the placeholder.
+- **Speaker names.** The reply may name the other voices, only from direct evidence in the
+  transcript. `NotesAI.acceptedNames` keeps a name only when the confidence is high, the label is
+  a speaker still on its default name, the name is at most 40 characters and is inside the quoted
+  evidence, the quote occurs within two turns of the cited line, and that speaker talks there. A
+  name given to two speakers, two names for one speaker, or a name another speaker already shows
+  is dropped. Invalid names are dropped silently and never fail the reply. A name the user typed
+  is never replaced, and **Clear** on a suggested name returns the speaker to "Speaker N" and marks
+  it user-set, so it is not suggested again. A long meeting merges the names of its parts
+  (`NotesAI.mergedNames`).
+- **Layout.** The Summary tab reads as a document: Summary, Decisions (each with a status:
+  aligned, needs further discussion, disagreed or shelved), Details (topics, each with time links
+  into the transcript) and Suggested next steps. Copy on the Summary tab writes the same
+  structure as Markdown (`NotesDoc.markdown`).
+- **Ask** is a bar pinned at the bottom of a meeting; its answers open above it.
+- **Backward compatible.** Every new field is optional, so notes saved earlier still open:
+  `titleSource` and `subtitle` in `note.json`, `nameSource` on each speaker, and `details`,
+  `title`, `subtitle`, `suggestedNames` and a decision's `status` in `summary.json`. A missing
+  source is read from the old rule (an empty or placeholder title is a placeholder, a name is the
+  user's). An old summary shows its decisions as aligned and its open questions as needing
+  further discussion, and has no Details.
+- Logs carry counts only (details, names suggested, whether a title was set), never the text.
+
 ## Not in this version
 
 No live transcript, no Windows note taker, no calendar or automatic meeting detection, no

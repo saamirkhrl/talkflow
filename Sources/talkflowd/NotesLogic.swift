@@ -86,7 +86,8 @@ enum NotesLogic {
 
     static func speakers(for turns: [TranscriptTurn], keeping old: [NoteSpeaker]) -> [NoteSpeaker] {
         speakerKeys(in: turns).map { key in
-            NoteSpeaker(key: key, name: old.first { $0.key == key }?.name)
+            let o = old.first { $0.key == key }
+            return NoteSpeaker(key: key, name: o?.name, nameSource: o?.nameSource)
         }
     }
 
@@ -110,8 +111,11 @@ enum NotesLogic {
         if key == youKey { return speakers }
         guard let index = speakers.firstIndex(where: { $0.key == key }) else { return speakers }
         let trimmed = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(maxNameLength))
+        let newName: String? = (trimmed.isEmpty || trimmed == defaultName(key)) ? nil : trimmed
         var result = speakers
-        result[index].name = (trimmed.isEmpty || trimmed == defaultName(key)) ? nil : trimmed
+        if newName == result[index].name && NotesDoc.nameSource(result[index]) != .auto { return speakers }
+        result[index].name = newName
+        result[index].nameSource = .user
         return result
     }
 

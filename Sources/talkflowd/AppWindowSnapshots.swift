@@ -51,6 +51,9 @@ extension DashboardController {
         shoot(4, "home-setup", .home, fullHeight: true)
         model.setupNeeded = false
 
+        // A made-up council meeting, with an auto title and auto names, beside the launch samples.
+        let council = SampleNotes.seedCouncil(into: model.notes.store) ?? ""
+        model.notes.refresh()
         shoot(5, "notes", .notes, fullHeight: true)
         shoot(6, "dictionary", .dictionary, fullHeight: true)
 
@@ -91,6 +94,7 @@ extension DashboardController {
         func noteID(_ title: String) -> String { n.notes.first { $0.title == title }?.id ?? "" }
         let launch = noteID("Launch planning")
         let failed = noteID("Customer call")
+        let robotics = noteID("Robotics team sync")
         n.stage(route: .session, session: NotesSession(noteID: launch, phase: .recording(CaptureLevels(
             elapsed: 754, you: 0.62, others: 0.34, noComputerAudio: false, echoHandlingActive: true))), title: "Launch planning")
         shoot(10, "notes-recording", .notes, fullHeight: true)
@@ -102,16 +106,19 @@ extension DashboardController {
             step: .transcribing, fraction: 0.8, secondsLeft: 110))), title: "Launch planning", duration: 2520)
         shoot(12, "notes-writing", .notes, fullHeight: true)
         n.stage(route: .detail(launch))
+        n.detailTab = .transcript
         shoot(13, "note-detail", .notes, fullHeight: true)
         n.renamingKey = "s2"
         n.renameDraft = "Sam"
         shoot(14, "note-rename", .notes, fullHeight: true)
         n.cancelRename()
+        // A note with no summary, on the Summary tab, no key.
+        n.stage(route: .detail(robotics))
         n.detailTab = .summary
         shoot(15, "note-summary-off", .notes, fullHeight: true)
-        n.detailTab = .ask
-        shoot(16, "note-ask-off", .notes, fullHeight: true)
+        n.stage(route: .detail(launch))
         n.detailTab = .transcript
+        shoot(16, "note-ask-off", .notes, fullHeight: true)
         n.stage(route: .detail(failed))
         shoot(17, "note-failed", .notes, fullHeight: true)
         // Summary and Ask with a key in use, from the made-up summary and answers NotesModel.preview() seeded and canned states.
@@ -126,15 +133,34 @@ extension DashboardController {
         shoot(23, "note-summary-failed", .notes, fullHeight: true)
         a.stageSummaryPhase(.idle, for: launch); a.stagePending(.summary(launch))
         shoot(24, "note-summary-confirm", .notes, fullHeight: true)
-        a.stagePending(nil); n.detailTab = .ask
+        a.stagePending(nil); n.detailTab = .summary
+        n.askExpanded = true
         shoot(25, "note-ask", .notes, fullHeight: true)
         a.stageAsk(asking: "Who is sending the screenshots?", partial: "Speaker 2 is lining up the screenshots for launch day [75] and keeping them", failure: nil)
         shoot(26, "note-ask-streaming", .notes, fullHeight: true)
         a.stageAsk(asking: nil, partial: "", failure: NoteAssistant.AskFailure(question: "Who is sending the screenshots?", error: .offline, retryAt: nil))
         shoot(27, "note-ask-failed", .notes, fullHeight: true)
+        n.askExpanded = false
         a.stageAsk(asking: nil, partial: "", failure: nil); n.detailTab = .transcript; a.stageHighlight(3)
         shoot(29, "note-cited-row", .notes, fullHeight: true)
-        a.stageHighlight(nil); a.access = { nil }
+        a.stageHighlight(nil)
+        // The council meeting: auto-named speakers, then the one being renamed.
+        n.stage(route: .detail(council)); n.detailTab = .transcript
+        shoot(30, "note-speakers-auto", .notes, fullHeight: true)
+        n.renamingKey = "s1"
+        n.renameDraft = "Councilmember Lee"
+        shoot(31, "note-rename-suggested", .notes, fullHeight: true)
+        n.cancelRename()
+        // The title being edited, and the Ask bar with answers collapsed.
+        n.stage(route: .detail(launch)); n.detailTab = .summary
+        n.editingTitle = true
+        n.titleDraft = "Launch planning"
+        shoot(32, "note-title-edit", .notes, fullHeight: true)
+        n.editingTitle = false
+        n.titleDraft = ""
+        n.askExpanded = false
+        shoot(33, "note-ask-collapsed", .notes, fullHeight: true)
+        a.access = { nil }
         // A meeting still marked as recording, as if talkflow had quit during it.
         let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))
         n.stage(route: .list)
@@ -168,6 +194,8 @@ extension DashboardController {
         let width = AppMetrics.defaultSize.width
         let root = AppShellView(model: model, snapshot: true)
             .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light)
+            // Fixed to the window's width, so the height it asks for counts text at its wrapped lines.
+            .frame(width: width)
         let host = NSHostingView(rootView: root)
         host.appearance = look
         var height = AppMetrics.defaultSize.height

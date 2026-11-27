@@ -288,20 +288,19 @@ private struct NotesListPage: View {
         let title = NotesLogic.displayTitle(m)
         let date = NotesLogic.dateLabel(m.started, now: now, calendar: .current)
         let detail = NotesLogic.rowDetail(m)
-        let detailColor: Color
-        switch m.state {
-        case .failed: detailColor = Palette.warn
-        case .recording: detailColor = Palette.record
-        default: detailColor = Palette.muted
-        }
+        let subtitle = (m.subtitle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let label = subtitle.isEmpty ? "\(title), \(date), \(detail)" : "\(title), \(subtitle), \(date), \(detail)"
         return Button { model.open(m.id) } label: {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(AppFont.bodyMedium).foregroundColor(Palette.ink).lineLimit(1)
-                    Text(date).font(AppFont.caption).foregroundColor(Palette.muted)
+                    Text(subtitle.isEmpty ? date : subtitle)
+                        .font(AppFont.caption).foregroundColor(Palette.muted)
+                        .lineLimit(1).truncationMode(.tail)
                 }
                 Spacer(minLength: 16)
-                Text(detail).font(AppFont.caption).foregroundColor(detailColor)
+                rowTrailing(m, date: date, detail: detail, hasSubtitle: !subtitle.isEmpty)
+                    .fixedSize()
             }
             .padding(.horizontal, AppMetrics.rowH)
             .padding(.vertical, 14)
@@ -310,6 +309,26 @@ private struct NotesListPage: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
-        .accessibilityLabel("\(title), \(date), \(detail)")
+        .accessibilityLabel(label)
+    }
+
+    private func detailColor(_ m: NoteMeta) -> Color {
+        switch m.state {
+        case .failed: return Palette.warn
+        case .recording: return Palette.record
+        default: return Palette.muted
+        }
+    }
+
+    @ViewBuilder
+    private func rowTrailing(_ m: NoteMeta, date: String, detail: String, hasSubtitle: Bool) -> some View {
+        if hasSubtitle {
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(date).font(AppFont.caption).foregroundColor(Palette.muted)
+                Text(detail).font(AppFont.caption).foregroundColor(detailColor(m))
+            }
+        } else {
+            Text(detail).font(AppFont.caption).foregroundColor(detailColor(m))
+        }
     }
 }

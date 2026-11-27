@@ -223,7 +223,7 @@ enum NotesAskRun {
                 let owner = speakers.contains { $0.key == a.owner } ? NotesLogic.displayName(a.owner, in: speakers) : a.owner
                 return ScoreSummary.Item(owner: owner, task: a.task)
             },
-            decisions: s.decisions.map(\.text))
+            decisions: NotesDoc.decisions(s).filter { DecisionStatus.of($0.status) != .needsDiscussion }.map(\.text))
     }
 
     struct SummaryScore: Codable, Equatable {
@@ -486,8 +486,13 @@ enum NotesAskRun {
     static func lines(_ o: Output) -> [String] {
         var l: [String] = []
         if let s = o.summary {
+            let details = (s.details ?? []).count
+            let names = (s.suggestedNames ?? [:]).count
+            let hasTitle = s.title == nil ? "no" : "yes"
+            let hasDescription = s.subtitle == nil ? "no" : "yes"
             l.append("notesasktest: summary ok, \(s.parts) part(s), \(s.actionItems.count) action items, "
-                + "\(s.decisions.count) decisions, \(o.model)")
+                + "\(s.decisions.count) decisions, \(o.model), \(details) details, title \(hasTitle), "
+                + "description \(hasDescription), \(names) name(s) suggested")
         } else if o.mode != "ask" {
             l.append("notesasktest: summary failed, \(o.error?.category ?? "unknown")")
         }

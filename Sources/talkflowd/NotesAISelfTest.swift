@@ -202,7 +202,7 @@ enum NotesAISelfTest {
         let lines = NotesAI.transcriptLines(turns, speakers: speakers)
         let context = NotesAI.contextText(lines: lines)
         let cachedContext: [String: Any] = ["type": "text", "text": context, "cache_control": ["type": "ephemeral"]]
-        let format: [String: Any] = ["type": "json_schema", "schema": NotesAI.summarySchema]
+        let format: [String: Any] = ["type": "json_schema", "schema": NotesAI.summarySchema(speakers: true)]
         let forbidden = ["temperature", "top_p", "top_k", "stream", "tool_choice"]
 
         let r20 = NotesAI.summaryRequest(aH, key: "k-test", lines: lines, part: 1, of: 1)
@@ -265,7 +265,7 @@ enum NotesAISelfTest {
                       ["role": "developer", "content": NotesAI.summaryRules],
                       ["role": "user", "content": "Write the notes for this meeting."]],
             "text": ["format": ["type": "json_schema", "name": "meeting_notes", "strict": true,
-                                "schema": NotesAI.summarySchema] as [String: Any]],
+                                "schema": NotesAI.summarySchema(speakers: true)] as [String: Any]],
         ]
         check(r25.url == NotesAI.openAIURL && r25.value(forHTTPHeaderField: "Authorization") == "Bearer k-o"
               && r25.value(forHTTPHeaderField: "content-type") == "application/json"
@@ -300,14 +300,15 @@ enum NotesAISelfTest {
         let exp27json: [[String: Any]] = [
             ["part": 1, "summary": "One.", "summary_times": [4],
              "action_items": [["owner": "Maya", "task": "Draft", "time": 48]],
-             "decisions": [["text": "Ship", "time": 36]], "open_questions": []],
+             "decisions": [["text": "Ship", "status": "aligned", "time": 36]], "details": []],
             ["part": 2, "summary": "Two.", "summary_times": [27],
              "action_items": [["owner": "", "task": "Cut video", "time": 27]],
-             "decisions": [], "open_questions": [["text": "When?", "time": 19]]],
+             "decisions": [["text": "When?", "status": "needs_discussion", "time": 19]], "details": []],
         ]
+        let format27: [String: Any] = ["type": "json_schema", "schema": NotesAI.summarySchema(speakers: false)]
         let output27 = b27["output_config"] as? [String: Any]
         check(same(b27["system"], [["type": "text", "text": NotesAI.combineRules]]) && content27.hasPrefix(NotesAI.combinePrefix)
-              && same(json(rest27), exp27json) && same(output27?["format"], format) && b27["max_tokens"] as? Int == 16000,
+              && same(json(rest27), exp27json) && same(output27?["format"], format27) && b27["max_tokens"] as? Int == 16000,
               "NA27 combine request", "content \(content27.count) chars")
 
         // MARK: Replies

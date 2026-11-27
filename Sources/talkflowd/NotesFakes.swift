@@ -160,8 +160,11 @@ enum SampleNotes {
 
         /// Writes one note. A failed write only leaves that sample out of the preview.
         func make(title: String, started: Date, duration: Double, names: [String: String],
-                  state: NoteState, items: Int?, turns: [TranscriptTurn]?) -> String? {
+                  state: NoteState, items: Int?, subtitle: String? = nil, auto: Bool = false,
+                  turns: [TranscriptTurn]?) -> String? {
             guard var meta = try? store.create(title: title, started: started) else { return nil }
+            meta.subtitle = subtitle
+            if auto { meta.titleSource = .auto }
             meta.duration = duration
             meta.state = state
             meta.actionItemCount = items
@@ -193,6 +196,7 @@ enum SampleNotes {
         ids["robotics"] = make(
             title: "Robotics team sync", started: day(1, 16, 30), duration: 1080,
             names: ["s1": "Priya"], state: .ready, items: 2,
+            subtitle: "Arm grip pads, spare motor and drive code", auto: true,
             turns: [
                 turn("you", 3, "Let's go through what's left before the regional competition."),
                 turn("s1", 14, "The arm still drops the ball about one time in five. I think the grip pads are worn."),
@@ -215,6 +219,7 @@ enum SampleNotes {
         ids["design"] = make(
             title: "Design review", started: day(9, 10, 0), duration: 2700,
             names: ["s1": "Jordan"], state: .ready, items: 3,
+            subtitle: "Settings layout, the word list and the empty state",
             turns: [
                 turn("you", 5, "Let's start with the new settings layout and see if the sections read clearly."),
                 turn("s1", 21, "The grouping is better. The word list buried under Advanced is easy to miss, though."),
@@ -236,5 +241,48 @@ enum SampleNotes {
         }
 
         return ids
+    }
+
+    /// A made-up 65-minute community board meeting for the snapshots (not part of seed(), so tests that count the
+    /// sample notes are unaffected): an auto title, one auto-named speaker per kind of name, and people who
+    /// address each other by name. Returns its id.
+    static func seedCouncil(into store: NoteStore, now: Date = Date(), calendar: Calendar = .current) -> String? {
+        let base = calendar.date(byAdding: .day, value: -1, to: now) ?? now
+        let started = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: base) ?? base
+        guard var meta = try? store.create(title: "Parks budget and library hours", started: started) else { return nil }
+        func turn(_ speaker: String, _ start: Double, _ text: String) -> TranscriptTurn {
+            TranscriptTurn(speaker: speaker, start: start, end: start + 8, text: text)
+        }
+        let turns = [
+            turn("you", 5, "Good evening, everyone. First item is the parks budget, which is short this year."),
+            turn("s1", 22, "Thank you, Councilmember Lee. The shortfall is about forty thousand, mostly from the pool repairs."),
+            turn("you", 41, "Thank you. Dana, you had a question about the library?"),
+            turn("s2", 55, "Yes. Can the library keep its Saturday hours if we trim the parks line?"),
+            turn("you", 71, "Priya, you had a question about the crosswalk too?"),
+            turn("s3", 84, "I do. The crossing by the school needs a flashing sign before winter."),
+            turn("s4", 103, "I can speak to the cost of that. A sign and the install runs about six thousand."),
+            turn("s2", 124, "Then I move that we keep Saturday hours and fund the sign from the reserve."),
+            turn("s5", 140, "Seconded."),
+            turn("s6", 152, "I would like the pool repair schedule on the next agenda before we vote."),
+            turn("you", 171, "Noted. All in favor of the sign and the Saturday hours?"),
+            turn("s1", 188, "Aye. The parks line can wait one more month."),
+        ]
+        meta.duration = 3900
+        meta.state = .ready
+        meta.actionItemCount = 3
+        meta.titleSource = .auto
+        meta.subtitle = "Parks shortfall, library hours and a crosswalk vote"
+        meta.speakers = [
+            NoteSpeaker(key: "you", name: nil),
+            NoteSpeaker(key: "s1", name: "Councilmember Lee", nameSource: .auto),
+            NoteSpeaker(key: "s2", name: "Dana", nameSource: .user),
+            NoteSpeaker(key: "s3", name: "Priya", nameSource: .auto),
+            NoteSpeaker(key: "s4", name: nil),
+            NoteSpeaker(key: "s5", name: nil),
+            NoteSpeaker(key: "s6", name: nil),
+        ]
+        try? store.save(Transcript(turns: turns), for: meta.id)
+        try? store.save(meta)
+        return meta.id
     }
 }

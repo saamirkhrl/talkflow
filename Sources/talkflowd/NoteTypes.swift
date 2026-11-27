@@ -103,13 +103,36 @@ extension NoteState: Codable {
     }
 }
 
+/// Who set a speaker's name. Stored as a string so a value from a later talkflow never breaks decoding.
+enum NameSource: String, Codable, Equatable {
+    /// No name: "Speaker 1".
+    case `default`
+    /// Proposed by the summary from direct evidence in the transcript and applied automatically; shown with a
+    /// quiet "suggested" mark. Never replaces a user's name.
+    case auto
+    /// Typed (or cleared) by the user. Never changed by a summary.
+    case user
+}
+
+/// Who set a meeting's title.
+enum TitleSource: String, Codable, Equatable {
+    /// No title yet: "Untitled meeting".
+    case placeholder
+    /// Written by the summary. A later summary may replace it.
+    case auto
+    /// Typed by the user. Never changed by a summary.
+    case user
+}
+
 struct NoteSpeaker: Codable, Equatable {
     /// "you" for the microphone; "s1", "s2", ... for the other voices,
     /// numbered by first appearance (NotesLogic.numberSpeakers).
     var key: String
-    /// Set when the user renames this speaker; nil shows the default name
+    /// Set when the user renames this speaker, or by an auto name; nil shows the default name
     /// ("You", "Speaker 1").
     var name: String?
+    /// Nil on notes saved before auto names: read through NotesLogic.nameSource (nil name = default, else user).
+    var nameSource: NameSource? = nil
 }
 
 /// note.json: everything the list and the header need, so the list never
@@ -132,6 +155,12 @@ struct NoteMeta: Codable, Equatable, Identifiable {
     /// How many action items the summary has; nil when there is no summary
     /// (the list says "Transcript only"). Written by the summary part.
     var actionItemCount: Int?
+    /// Nil on notes saved before auto titles: read through NotesLogic.titleSource (an empty or placeholder
+    /// title = placeholder, anything else = user).
+    var titleSource: TitleSource? = nil
+    /// The one-line description under the title on the list (at most 10 words), written by the summary; nil
+    /// when there is none.
+    var subtitle: String? = nil
 }
 
 struct TranscriptTurn: Codable, Equatable {
@@ -166,13 +195,27 @@ struct NoteSummary: Codable, Equatable {
     struct Point: Codable, Equatable {
         var text: String
         var time: Double
+        /// Decisions only: "aligned", "needs_discussion", "disagreed" or "shelved" (DecisionStatus). Nil on
+        /// summaries saved before statuses (read as aligned). A string, so a later value never breaks decoding.
+        var status: String? = nil
+    }
+
+    /// One topic of the Details section: a short label, what was said, and the turns it comes from.
+    struct Detail: Codable, Equatable {
+        var topic: String
+        var text: String
+        /// Turn starts, in seconds (each one passed NotesAI.snap).
+        var times: [Double]
     }
 
     var schemaVersion: Int = NotesSchema.version
     var summary: String
     /// Turn starts the summary paragraph relies on most.
     var summaryTimes: [Double]
+    /// The "suggested next steps".
     var actionItems: [ActionItem]
+    /// New summaries put every decision here, each with a status, and leave openQuestions empty (an open
+    /// question is a decision with status needs_discussion). Old summaries have no statuses and use both.
     var decisions: [Point]
     var openQuestions: [Point]
     /// "Anthropic" or "OpenAI".
@@ -183,6 +226,35 @@ struct NoteSummary: Codable, Equatable {
     /// 1 when written in one request; more when a long meeting was
     /// summarised in parts and then combined (NotesAI.split).
     var parts: Int
+    /// Added with document-style notes. Nil on older summaries, which still render (see NotesDoc).
+    var details: [Detail]? = nil
+    /// The cleaned title and description the reply proposed (NotesDoc.cleanTitle / cleanDescription), or nil.
+    var title: String? = nil
+    var subtitle: String? = nil
+    /// Speaker key -> name, for names that passed NotesAI.acceptedNames. Applied to the note's speakers by
+    /// NoteAssistant (NotesDoc.applyingSuggestedNames), never over a user's name.
+    var suggestedNames: [String: String]? = nil
+}
+
+/// A decision's status in document-style notes.
+enum DecisionStatus: String, CaseIterable, Equatable {
+    case aligned
+    case needsDiscussion = "needs_discussion"
+    case disagreed
+    case shelved
+
+    /// "Aligned", "Needs further discussion", "Disagreed", "Shelved".
+    var label: String {
+        switch self {
+        case .aligned: return "Aligned"
+        case .needsDiscussion: return "Needs further discussion"
+        case .disagreed: return "Disagreed"
+        case .shelved: return "Shelved"
+        }
+    }
+
+    /// Nil or an unknown string reads as aligned (a decision saved before statuses).
+    static func of(_ raw: String?) -> DecisionStatus { DecisionStatus(rawValue: raw ?? "") ?? .aligned }
 }
 
 /// questions.json: the Ask history for one meeting. Written by the Ask part.
@@ -330,11 +402,10 @@ enum NotesRoute: Equatable {
     case detail(String)
 }
 
-/// The tabs of one meeting.
+/// The tabs of one meeting, in order. Ask is not a tab: it is the bar pinned at the bottom of the meeting.
 enum NoteTab: String, CaseIterable, Hashable {
-    case transcript = "Transcript"
     case summary = "Summary"
-    case ask = "Ask"
+    case transcript = "Transcript"
 }
 
 /// The meeting being recorded, or the notes being written for it. Only one
