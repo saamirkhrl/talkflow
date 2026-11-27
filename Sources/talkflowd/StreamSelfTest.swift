@@ -745,7 +745,38 @@ enum StreamSelfTest {
             ("Thanks for the gift. Sorry, the delay.", "Thanks for the gift. Sorry, the delay."),
             ("Sorry for the wait. Sorry, the noise.", "Sorry for the wait. Sorry, the noise."),
             ("Say the word the, say the word an.", "Say the word the, say the word an."),
-            ("Search for the, search for an, search for a.", "Search for the, search for an, search for a.")
+            ("Search for the, search for an, search for a.", "Search for the, search for an, search for a."),
+            // A retraction, a hedge ("I think she said"), then part of the old sentence said again with one value changed.
+            ("So the pitch went really well. Ms. Lee said that she would invest $3 million in it. Actually, no, I think she said she would invest $4 million, and we would give her 10% of the company.",
+                 "So the pitch went really well. Ms. Lee said that she would invest $4 million, and we would give her 10% of the company."),
+            ("The kickoff was fine. Ms. Lee said that she would invest $3 million. Actually, no. I think she said she would invest $4 million actually for 10% of the company.",
+                 "The kickoff was fine. Ms. Lee said that she would invest $4 million for 10% of the company."),
+            ("The review is on Monday. No wait, I think the review is on Tuesday.",
+                 "The review is on Tuesday."),
+            ("Ana said the budget is 50 thousand, sorry, I mean she said the budget is 60 thousand.",
+                 "Ana said the budget is 60 thousand."),
+            ("Omar said the shipment would arrive at 9. Scratch that, I think he said the shipment would arrive at 11, so plan for the afternoon.",
+                 "Omar said the shipment would arrive at 11, so plan for the afternoon."),
+            ("Kenji told us the rent is $2,000 a month. Wait, no, he told us the rent is $2,400 a month.",
+                 "Kenji told us the rent is $2,400 a month."),
+            ("We hired Daniel for the design work. Actually, no, I think we hired Carlos for the design work.",
+                 "We hired Carlos for the design work."),
+            ("The bus leaves at 6 on Friday. Wait, I think the bus leaves at 7 on Friday.",
+                 "The bus leaves at 7 on Friday."),
+            // ... and never when it could be a new thought, a contrast, a new subject, an answer or a negation.
+            ("Actually, no one came to the meeting.", "Actually, no one came to the meeting."),
+            ("We invited 20 people. Actually, no one came to the meeting.", "We invited 20 people. Actually, no one came to the meeting."),
+            ("I think he said yes.", "I think he said yes."),
+            ("He asked if we would pay 12 million. I think he said yes.", "He asked if we would pay 12 million. I think he said yes."),
+            ("He offered 12 million. Actually, I think that is too low.", "He offered 12 million. Actually, I think that is too low."),
+            ("He offered 12 million last year. Actually, I think he offered 15 million this year.", "He offered 12 million last year. Actually, I think he offered 15 million this year."),
+            ("Tom will pay 12 million. Actually, no, I think Sarah will pay 15 million.", "Tom will pay 12 million. Actually, no, I think Sarah will pay 15 million."),
+            ("Should we meet at 3? Actually, no, I think we should meet at 4.", "Should we meet at 3? Actually, no, I think we should meet at 4."),
+            ("Lena said she would pay 12 dollars. Actually, no, I think she said she would not pay 15 dollars.", "Lena said she would pay 12 dollars. Actually, no, I think she said she would not pay 15 dollars."),
+            ("He would pay 12 dollars. Actually, no, I think she said he would pay 15 dollars.", "He would pay 12 dollars. Actually, no, I think she said he would pay 15 dollars."),
+            ("Mia will bring 3 chairs. Sorry, I think Mia will bring 4 chairs.", "Mia will bring 3 chairs. Sorry, I think Mia will bring 4 chairs."),
+            ("Priya said she would pay 12 dollars. Actually, no, I think she said she would pay 12 dollars too.", "Priya said she would pay 12 dollars. Actually, no, I think she said she would pay 12 dollars too."),
+            ("Sam said he would pay 10 dollars.\nActually, no, I think he said he would pay 20 dollars.", "Sam said he would pay 10 dollars.\nActually, no, I think he said he would pay 20 dollars.")
         ]
         for (raw, want) in pure {
             let got = SelfCorrection.apply(to: raw)
@@ -760,6 +791,13 @@ enum StreamSelfTest {
         let spokenTime = Dictation.render("Let's meet at 4 p.m., scratch that, 5 p.m. that works.", leadingSpace: "", structure: true)
         check(!spokenTime.contains("4") && spokenTime.contains("5 p.m."),
               "pipeline: scratch that swaps 4 p.m. for 5 p.m.", spokenTime.debugDescription)
+
+        // The real pipeline, casual style: the cue as its own sentence, "actually" again in the restatement.
+        let hedged = Dictation.render("The kickoff was fine. Ms. Lee said that she would invest $3 million. Actually, no. I think she said she would invest $4 million actually for 10% of the company.",
+                                      leadingSpace: "", structure: true, style: .casual)
+        check(!hedged.contains("actually") && !hedged.contains("$3") && hedged.contains("she would invest $4 million for 10% of the company")
+              && !SelfCorrection.hasMarker(in: hedged),
+              "pipeline: a hedged restatement keeps only the corrected value", hedged.debugDescription)
 
         // The guard that makes corruption impossible by construction.
         check(SelfCorrection.isDeletionOnly(original: "meet at 2, no wait, 3", result: "meet at 3"),
