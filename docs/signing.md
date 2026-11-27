@@ -6,7 +6,8 @@ secret exists in this repository, and none should ever be added to it.
 
 What is in place:
 
-- `release.sh` signs the app and its bundled engine with the certificate
+- `release.sh` signs the app and its bundled helpers (the speech engine and,
+  from the note taker on, the speaker helper `talkflow-diarize`) with the certificate
   whose SHA-1 is `F38EDDA5DB8580C91C067FF8EE3AEFEF8B5F05BA`, checks the
   result's designated requirement against `RELEASE_DR`, and refuses to
   publish without that certificate. Only `--dry-run` (CI) falls back to ad hoc.
@@ -18,6 +19,15 @@ What is in place:
   Export, as a password-protected .p12) and keep it offline before this Mac
   is replaced.** Losing it means one more re-grant for every user; leaking it
   lets anyone ship an app macOS treats as talkflow.
+- System Audio Recording, the permission meeting notes need (macOS 14.2 or
+  later), is stored against the designated requirement like the others, so
+  it is kept across updates for the same reason. Only the main app holds it:
+  the speaker helper reads files the app hands it and needs no permission.
+  Setup does not ask for it and **Reset and allow again** does not cover it
+  (it resets Microphone, Accessibility and Input Monitoring only). When the
+  Mac's sound is not arriving, the Notes page points to System Settings >
+  Privacy & Security > Screen & System Audio Recording instead. Uninstall
+  resets every permission, this one included.
 - Existing users: 0.1.8 is installed by the old updater (re-signed ad hoc on
   their Macs, so one re-grant as before). 0.1.9 is installed by 0.1.8's
   updater with the release signature (one last re-grant, as the requirement

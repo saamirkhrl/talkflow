@@ -6,7 +6,7 @@ import ServiceManagement
 /// it), the engine's background service, the speech models, logs, caches,
 /// saved API keys, the login item and the app's permissions.
 ///
-/// The user's data folder (`UserData.directory`: stats and settings) is kept,
+/// The user's data folder (`UserData.directory`: stats, settings and meeting notes) is kept,
 /// so installing again picks up where they left off. Homebrew is never
 /// touched: the engine ships in the app, and a whisper-cpp the user has in
 /// Homebrew is theirs.
@@ -106,7 +106,7 @@ enum Uninstaller {
         the login item and talkflow's permissions, then quits. Homebrew and anything \
         installed with it are left alone.
 
-        Your stats and settings stay in \(UserData.directory.path), so installing \
+        Your stats, settings and meeting notes stay in \(UserData.directory.path), so installing \
         talkflow again picks up where you left off. Delete that folder for a completely \
         fresh start.
         """

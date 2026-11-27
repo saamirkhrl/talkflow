@@ -1,6 +1,5 @@
 import { DownloadCta } from "./DownloadCta";
 import { HeroRibbon } from "./HeroRibbon";
-import { ForOs } from "./visitor";
 
 // The copy sits in the open sky of the plush scene (SkyBackdrop, behind the page).
 export function Hero() {
@@ -22,8 +21,8 @@ export function Hero() {
           <em>for free, forever.</em>
         </h1>
         <p className="mt-5 max-w-[44ch] text-[clamp(17px,1.6vw,20px)] leading-[1.5] text-white/85">
-          Hold <ForOs mac="fn" windows="Ctrl + Win" />, speak, and your words are typed wherever your cursor is. Open source, and it
-          never leaves your <ForOs mac="Mac" windows="computer" />.
+          Hold fn, speak, and your words are typed wherever your cursor is. Open source, and it
+          never leaves your Mac.
         </p>
         <div className="relative z-10 mt-7">
           <DownloadCta compare />

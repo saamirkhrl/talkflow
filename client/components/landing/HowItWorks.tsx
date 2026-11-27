@@ -1,6 +1,5 @@
 import { RecDot, SectionTitle, Waveform } from "./primitives";
 import { LetGoDemo } from "./LetGoDemo";
-import { ForOs } from "./visitor";
 
 const STEP = "flex flex-col gap-5 border-t border-line pt-6";
 const STAGE = "flex h-36 items-center justify-center rounded-3xl bg-mist px-6";
@@ -14,27 +13,14 @@ export function HowItWorks() {
       <ol className="mt-14 grid gap-x-8 gap-y-12 md:grid-cols-3">
         <li className={STEP}>
           <div className={STAGE}>
-            <ForOs
-              mac={<kbd className={KEY}>fn</kbd>}
-              windows={
-                <span className="flex items-center gap-3">
-                  <kbd className={KEY}>Ctrl</kbd>
-                  <span aria-hidden="true" className="text-[22px] text-white/70">+</span>
-                  <kbd className={KEY}>Win</kbd>
-                </span>
-              }
-            />
+            <kbd className={KEY}>fn</kbd>
           </div>
           <div>
             <h3 className="text-[19px] font-semibold">
-              1. Hold <ForOs mac="fn" windows="Ctrl + Win" />
+              1. Hold fn
             </h3>
             <p className="mt-1.5 text-graphite">
-              <ForOs
-                mac="The Globe key in the corner of your keyboard."
-                windows="Ctrl and the Windows key, bottom left. You can pick another shortcut in Settings."
-              />{" "}
-              talkflow starts listening.
+              The Globe key in the corner of your keyboard. talkflow starts listening.
             </p>
           </div>
         </li>

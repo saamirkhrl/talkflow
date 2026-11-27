@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Writes talkflow-release.json for one GitHub release, from the assets on it.
 
-Every talkflow app (macOS, Windows, later Linux) asks one URL for updates:
+The talkflow Mac app asks one URL for updates:
 
     https://github.com/saamirkhrl/talkflow/releases/latest/download/talkflow-release.json
 
@@ -14,8 +14,7 @@ See docs/releases.md for the schema.
     scripts/release-manifest.py v0.1.4 --upload       # ...and attach it to the release
     scripts/release-manifest.py v0.1.4 --out m.json   # write somewhere else
 
-Idempotent: run it again after more assets are attached (the Windows
-installers arrive from CI minutes after the Mac release exists) and it
+Idempotent: run it again after more assets are attached and it
 regenerates the whole file, replacing the old one with `--clobber`. It never
 creates a release and never touches any asset other than the manifest.
 
@@ -38,16 +37,17 @@ NOTES_LIMIT = 2000
 
 # Asset name -> (platform, arch, roles). "update" is what an installed app
 # downloads to update itself; "installer" is what a new user downloads. On
-# Windows and Linux one file is both. Names are fixed: the website links to
+# Linux one file is both. Names are fixed: the website links to
 # releases/latest/download/<name>.
 ASSETS = {
     "talkflow-macos.zip": ("macos", "universal", ("update",)),
     "talkflow-macos.dmg": ("macos", "universal", ("installer",)),
-    "talkflow-windows-x64-setup.exe": ("windows", "x64", ("update", "installer")),
     # Reserved: picked up automatically the first time a release carries them.
     "talkflow-linux-x64.AppImage": ("linux", "x64", ("update", "installer")),
     "talkflow-linux-arm64.AppImage": ("linux", "arm64", ("update", "installer")),
 }
+# "windows" stays as an always-empty object: talkflow is Mac-only now, and old
+# Windows installs read it, find no entry and simply stop finding updates.
 PLATFORMS = ("macos", "windows", "linux")
 
 TAG_PATTERN = re.compile(r"^v(\d+\.\d+\.\d+)$")

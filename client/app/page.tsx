@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Apps } from "@/components/landing/Apps";
-import { FAQ, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, WINDOWS_DOWNLOAD_PATH } from "@/components/landing/content";
+import { FAQ, REPO_URL, SITE_DESCRIPTION, SITE_TITLE } from "@/components/landing/content";
 import { Faq } from "@/components/landing/Faq";
 import { FinalCta } from "@/components/landing/FinalCta";
 import { Hero } from "@/components/landing/Hero";
@@ -9,7 +9,6 @@ import { LaunchVideo } from "@/components/landing/LaunchVideo";
 import { Privacy } from "@/components/landing/Privacy";
 import { Prompting } from "@/components/landing/Prompting";
 import { Stats } from "@/components/landing/Stats";
-import { SkyBackdrop } from "@/components/landing/SkyBackdrop";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata, SITE_URL } from "@/lib/seo";
 
@@ -25,12 +24,12 @@ const APP_JSON_LD = {
   url: SITE_URL,
   image: `${SITE_URL}/icon.svg`,
   applicationCategory: "UtilitiesApplication",
-  operatingSystem: "macOS, Windows",
+  operatingSystem: "macOS",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   isAccessibleForFree: true,
   license: "https://opensource.org/license/mit",
   codeRepository: REPO_URL,
-  downloadUrl: [`${SITE_URL}/download/mac`, `${SITE_URL}${WINDOWS_DOWNLOAD_PATH}`],
+  downloadUrl: `${SITE_URL}/download/mac`,
 };
 
 const FAQ_JSON_LD = {
@@ -48,12 +47,13 @@ export default function Home() {
     <main className="overflow-x-clip">
       <JsonLd data={APP_JSON_LD} />
       <JsonLd data={FAQ_JSON_LD} />
-      <SkyBackdrop />
       <Hero />
       <LaunchVideo />
       <div className="mx-auto mt-[clamp(72px,10vw,140px)] flex max-w-[1280px] flex-col gap-[clamp(40px,6vw,88px)] px-3 sm:px-4">
-        <div className="glass">
+        <div className="glass pb-[clamp(48px,6vw,80px)]">
           <Apps />
+        </div>
+        <div className="glass">
           <HowItWorks />
         </div>
         <div className="glass">

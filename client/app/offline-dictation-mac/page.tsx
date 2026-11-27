@@ -41,7 +41,8 @@ export default function OfflineDictationMacPage() {
         talkflow includes a speech engine, whisper.cpp, which runs OpenAI&apos;s open Whisper model
         on your Mac&apos;s own processor. The engine listens only at 127.0.0.1, which always means
         your own computer. The app sends your recording there and gets text back, without the audio
-        ever going over the internet. Audio is kept in memory only and is never written to disk.
+        ever going over the internet. Dictation audio is kept in memory only and is never written
+        to disk.
       </p>
       <p>
         Setup downloads the English speech model once (small.en, about 190 MB). A larger, more
@@ -67,7 +68,9 @@ export default function OfflineDictationMacPage() {
         </li>
       </ul>
       <p>
-        You can turn either off at any time in System Settings &gt; Privacy &amp; Security. If
+        Meeting notes ask for one more, System Audio Recording, the first time you record a meeting
+        (macOS 14.2 or later); dictation doesn&apos;t need it. You can turn any of them off at any
+        time in System Settings &gt; Privacy &amp; Security. If
         holding fn opens the emoji picker instead, set System Settings &gt; Keyboard &gt; &quot;Press
         the globe key to&quot; to <strong>Do Nothing</strong>.
       </p>
@@ -92,6 +95,11 @@ export default function OfflineDictationMacPage() {
         <li>
           <strong>Only if you add your own key:</strong> OpenAI for transcription, or Anthropic for
           punctuation. That step then goes to that provider. Both are off unless you add a key.
+        </li>
+        <li>
+          <strong>Only if you use meeting notes:</strong> two optional model downloads from Hugging
+          Face, when you click, and, with an Anthropic or OpenAI key saved, a meeting&apos;s
+          transcript text (never audio) to Anthropic or OpenAI for a summary or answers.
         </li>
       </ul>
       <p>
@@ -123,8 +131,7 @@ export default function OfflineDictationMacPage() {
       <h2 id="install">Install</h2>
       <p>
         Download it below, or see the <Link href="/download/mac">Mac download page</Link>. You can
-        also build it yourself from <a href={REPO_URL}>the source on GitHub</a>. Using a PC? See{" "}
-        <Link href="/dictation-for-windows">dictation for Windows</Link>.
+        also build it yourself from <a href={REPO_URL}>the source on GitHub</a>.
       </p>
     </ContentPage>
   );

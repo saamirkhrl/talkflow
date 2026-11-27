@@ -41,7 +41,6 @@ const SETS = Object.fromEntries(
 // OS glyphs: single color, inherit currentColor so they sit inside buttons.
 const OS = [
   { key: "apple", candidates: ["simple-icons:apple"] },
-  { key: "windows", candidates: ["mdi:microsoft-windows"] },
 ];
 
 // App logos in display order. Candidates are tried in order: full-color
@@ -192,9 +191,8 @@ ${credits.map((c) => `//   ${c}`).join("\n")}
 ${skipped.length ? `//\n// Skipped (not found in any set): ${skipped.join(", ")}\n` : ""}
 export type BrandSvg = { viewBox: string; body: string };
 
-export const OS_LOGOS: { apple: BrandSvg; windows: BrandSvg } = {
+export const OS_LOGOS: { apple: BrandSvg } = {
   apple: { viewBox: ${q(osLogos.apple.viewBox)}, body: ${q(osLogos.apple.body)} },
-  windows: { viewBox: ${q(osLogos.windows.viewBox)}, body: ${q(osLogos.windows.body)} },
 };
 
 export const APP_LOGOS: ({ name: string } & BrandSvg)[] = [
@@ -212,6 +210,6 @@ ${appLogos
 
 writeFileSync(OUT_FILE, out);
 console.log(
-  `Wrote ${path.relative(CLIENT_DIR, OUT_FILE)}: ${appLogos.length} app logos, 2 OS logos` +
+  `Wrote ${path.relative(CLIENT_DIR, OUT_FILE)}: ${appLogos.length} app logos, ${OS.length} OS logos` +
     (skipped.length ? `; skipped ${skipped.join(", ")}` : ""),
 );

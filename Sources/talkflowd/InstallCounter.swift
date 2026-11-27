@@ -20,7 +20,7 @@ enum InstallCounter {
     static let selfTestArguments: Set<String> = [
         "--typetest", "--streamtest", "--focusprobe", "--writetest", "--newlinetest", "--stresstest", "--rectest",
         "--dashboardshot", "--onboardingshot", "--updatetest", "--formattest", "--uninstallplan", "--enginecheck",
-        "--downloadtest",
+        "--downloadtest", "--correctiontest",
     ]
 
     /// The baked-in URL, or nil when there is none (every non-release build).

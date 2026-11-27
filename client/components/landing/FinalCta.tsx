@@ -19,7 +19,7 @@ export function FinalCta() {
 // Launch-directory badges, shown in the footer box.
 export function Badges() {
   return (
-    <div className="flex flex-wrap items-center gap-4">
+    <div className="flex flex-wrap items-center justify-center gap-4">
       <a
         href="https://www.producthunt.com/products/talkflow-6?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-talkflow-ea47cdaa-f4ff-4b0b-a5a4-56bd516d7179"
         target="_blank"

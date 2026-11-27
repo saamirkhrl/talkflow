@@ -41,7 +41,10 @@ import Foundation
 /// out of the round trip and removed the only component that could invent
 /// text. The optional AI punctuation pass (`Polish`, off by default) does not
 /// change that: the model only suggests, and only its punctuation, casing and
-/// line breaks around words it left alone are ever used.
+/// line breaks around words it left alone are ever used. The optional
+/// correction step (`CorrectionModel`, runs only when the rules leave a marker)
+/// also never writes text: its reply only picks whole words to delete, inside
+/// tight bounds, and must pass `isDeletionOnly`.
 final class Dictation {
     private let recorder = Recorder()
     private let overlay: OverlayController
@@ -69,9 +72,25 @@ final class Dictation {
     private var leadingSpace = ""
     /// `Preferences.typeWhileSpeaking`, fixed for the length of a hold.
     private var liveTyping = false
+    /// What the release pass of one hold needs, captured when its transcript
+    /// arrives, so a hold started while the model step runs cannot change how
+    /// this one is written.
+    private struct Hold {
+        let context: ScreenContext.Snapshot?
+        let bundleID: String?
+        let liveTyping: Bool
+        let style: WritingStyle
+        let claudePolishes: Bool
+        let aiPolish: Bool
+        let corrections: Bool
+    }
     /// `Preferences.writingStyle`, fixed for the length of a hold, so the live
     /// text and the release pass are written the same way.
     private var style: WritingStyle = .formal
+    /// `Preferences.aiCorrections`, fixed for the length of a hold.
+    private var corrections = false
+    /// Set once the correction model has been asked to load this hold.
+    private var correctionPrewarmed = false
     /// `Preferences.language`, fixed for the length of a hold, so every
     /// transcription of it asks whisper for the same language.
     private var language: DictationLanguage = .english
@@ -104,6 +123,8 @@ final class Dictation {
         focusLeft = false
         liveTyping = Preferences.typeWhileSpeaking
         style = Preferences.writingStyle
+        corrections = Preferences.aiCorrections
+        correctionPrewarmed = false
         language = Preferences.language
         targetAppPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
@@ -171,47 +192,92 @@ final class Dictation {
                 // the complete text, where inserting one costs one rewrite
                 // rather than one per tick.
                 let english = self.language.usesEnglishRules(for: result.text)
-                var final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, style: self.style, english: english)
-                var verbatim = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, corrections: false, style: self.style, english: english)
+                let final = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, style: self.style, english: english)
+                let verbatim = Self.render(result.text, leadingSpace: self.leadingSpace, structure: true, corrections: false, style: self.style, english: english)
                 let detail = Self.logTranscripts ? ": \(result.text)" : ""
                 print("talkflowd: transcribed \(Self.shape(of: result.text, segments: result.segments)) in \(String(format: "%.2f", result.elapsed))s\(detail)")
 
-                // Fitted to where it lands. The casing change is skipped while
-                // typing live: the first word is already on screen, and
-                // recasing it would rewrite the whole dictation. Not in other
-                // languages either: a German sentence may open with a noun,
-                // and German nouns keep their capital.
-                let context = self.context
-                if !self.liveTyping, english, ScreenContext.continuesSentence(after: context?.textBeforeCaret) {
-                    final = ScreenContext.lowercasingStart(final, names: context?.names ?? [])
-                }
-                if ScreenContext.isChat(bundleID: context?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier) {
-                    final = ScreenContext.chatStyled(final)
-                    verbatim = ScreenContext.chatStyled(verbatim)
-                }
-
-                // The punctuation pass may put capitals back, so the style is
-                // applied again to whatever it returns.
-                let style = self.style
-                let names = context?.names ?? []
-                if !self.liveTyping, Self.claudePolishes {
-                    ClaudePolish.run(final, names: names, keepCapitals: !english) { polished, error in
-                        if let error { self.overlay.showError(error) }
-                        self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
-                    }
-                } else if !self.liveTyping, Preferences.aiPolish {
-                    Polish.run(final, names: names, keepCapitals: !english) { polished in
-                        self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration)
-                    }
-                } else {
-                    self.deliver(final, verbatim: verbatim, duration: duration)
+                let hold = Hold(context: self.context,
+                                bundleID: self.context?.bundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+                                liveTyping: self.liveTyping, style: self.style,
+                                claudePolishes: Self.claudePolishes, aiPolish: Preferences.aiPolish, corrections: self.corrections)
+                self.correct(final, verbatim: verbatim, english: english, hold: hold) { corrected in
+                    self.complete(corrected, verbatim: verbatim, english: english, duration: duration, hold: hold)
                 }
             }
         }
     }
 
+    /// Everything after the text is settled: fitted to where it lands, the
+    /// optional punctuation pass, then `deliver`.
+    private func complete(_ final: String, verbatim: String, english: Bool, duration: TimeInterval, hold: Hold) {
+        var final = final
+        var verbatim = verbatim
+        // Fitted to where it lands. The casing change is skipped while
+        // typing live: the first word is already on screen, and
+        // recasing it would rewrite the whole dictation. Not in other
+        // languages either: a German sentence may open with a noun,
+        // and German nouns keep their capital.
+        let context = hold.context
+        if !hold.liveTyping, english, ScreenContext.continuesSentence(after: context?.textBeforeCaret) {
+            final = ScreenContext.lowercasingStart(final, names: context?.names ?? [])
+        }
+        if ScreenContext.isChat(bundleID: hold.bundleID) {
+            final = ScreenContext.chatStyled(final)
+            verbatim = ScreenContext.chatStyled(verbatim)
+        }
+
+        // The punctuation pass may put capitals back, so the style is
+        // applied again to whatever it returns.
+        let style = hold.style
+        let names = context?.names ?? []
+        if !hold.liveTyping, hold.claudePolishes {
+            ClaudePolish.run(final, names: names, keepCapitals: !english) { polished, error in
+                if let error { self.overlay.showError(error) }
+                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
+            }
+        } else if !hold.liveTyping, hold.aiPolish {
+            Polish.run(final, names: names, keepCapitals: !english) { polished in
+                self.deliver(style.apply(polished, english: english), verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
+            }
+        } else {
+            self.deliver(final, verbatim: verbatim, duration: duration, liveTyping: hold.liveTyping)
+        }
+    }
+
+    /// The model step for a spoken correction the rules left in (see
+    /// `CorrectionModel`). Calls `next` with the text to use, on the main queue,
+    /// at once when the step does not apply. Logs one line when it is relevant,
+    /// with no transcript content.
+    private func correct(_ final: String, verbatim: String, english: Bool, hold: Hold, next: @escaping (String) -> Void) {
+        guard english else {
+            print("talkflowd: corrections skipped: dictation not in English (language setting: \(language.rawValue))")
+            return next(final)
+        }
+        let rules = final == verbatim ? "rules made no change" : "rules applied"
+        guard SelfCorrection.hasMarker(in: final) else {
+            if final != verbatim { print("talkflowd: corrections: rules applied") }
+            return next(final)
+        }
+        let skip: String?
+        if hold.liveTyping { skip = "type while speaking" }
+        else if !hold.corrections { skip = "setting off" }
+        else if !CorrectionModel.isAvailable && !hold.claudePolishes { skip = "no model on this Mac" }
+        else { skip = nil }
+        if let skip {
+            print("talkflowd: corrections: \(rules), marker left; model skipped (\(skip))")
+            return next(final)
+        }
+        let stage: CorrectionModel.Stage = CorrectionModel.isAvailable ? .model : .claude
+        let style = hold.style
+        CorrectionModel.run(final, stage: stage) { corrected, outcome, elapsed in
+            print("talkflowd: corrections: \(rules), marker left; \(stage.rawValue) \(outcome.logPhrase) in \(String(format: "%.2f", elapsed))s")
+            next(corrected == final ? final : style.apply(corrected, english: true))
+        }
+    }
+
     /// Writes the final text and closes the hold.
-    private func deliver(_ final: String, verbatim: String, duration: TimeInterval) {
+    private func deliver(_ final: String, verbatim: String, duration: TimeInterval, liveTyping: Bool) {
         reconcile(to: final, verbatim: verbatim)
         if !field.typedText.isEmpty {
             StatsStore.shared.recordSession(text: field.typedText, durationSeconds: duration)
@@ -228,7 +294,7 @@ final class Dictation {
         // A new hold started while this one was still finishing: what was just
         // written belongs to the old hold, and the new one must start from an
         // empty record or its insert would be aligned against this text.
-        if isRecording, !liveTyping { field.reset() }
+        if isRecording, !self.liveTyping { field.reset() }
         // The pill goes now - the user has stopped speaking and there is
         // nothing left to visualise - but a long keystroke insert takes a
         // moment to finish landing. Stay in `.processing` until it is out, or
@@ -629,6 +695,13 @@ final class Dictation {
                 // compared against nothing and half of it would commit at once.
                 let english = self.language.usesEnglishRules(for: result.text)
                 let rendered = Self.render(result.text, leadingSpace: self.leadingSpace, structure: false, style: self.style, english: english)
+                // Loads the correction model only for holds that may need it: the caption
+                // (rendered without corrections) has a marker in it.
+                if english, !self.liveTyping, self.corrections, !self.correctionPrewarmed,
+                   CorrectionModel.isAvailable, SelfCorrection.hasMarker(in: rendered) {
+                    self.correctionPrewarmed = true
+                    DispatchQueue.global(qos: .userInitiated).async { CorrectionModel.prewarm() }
+                }
                 guard self.liveTyping else {
                     // Caption only. StreamCommit still runs, to tell the words
                     // that have settled from the ones whisper may revise.

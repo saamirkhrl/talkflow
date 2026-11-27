@@ -4,7 +4,10 @@ import Foundation
 /// and fixed for its length, so flipping one mid-dictation never changes how a
 /// half-finished hold is written.
 enum Preferences {
-    private static let defaults = UserDefaults.standard
+    /// UserDefaults.standard. `--windowpreview` and `--dashboardshot` swap in
+    /// a throwaway suite before anything reads a setting (`PreviewSandbox`),
+    /// so a test build never changes the real ones.
+    static var defaults = UserDefaults.standard
 
     /// Type into the field while the key is held (the original behaviour).
     /// Off by default: the words are shown in the overlay instead and inserted
@@ -48,6 +51,14 @@ enum Preferences {
         set { defaults.set(newValue, forKey: "aiPolish") }
     }
 
+    /// Let a model remove words the user took back when the rules leave a spoken
+    /// correction in (see `CorrectionModel`). Only ever deletes words. Off by
+    /// default (`CorrectionModel.enabledByDefault`): it did not pass its measurement.
+    static var aiCorrections: Bool {
+        get { defaults.object(forKey: "aiCorrections") as? Bool ?? CorrectionModel.enabledByDefault }
+        set { defaults.set(newValue, forKey: "aiCorrections") }
+    }
+
     /// Words whisper is biased towards, learned from the user's own fixes after
     /// a dictation (see `Vocabulary`). Newest first.
     static var learnedWords: [String] {
@@ -63,6 +74,12 @@ enum Preferences {
             defaults.set(newValue.rawValue, forKey: "writingStyle")
             NotificationCenter.default.post(name: .writingStyleChanged, object: nil)
         }
+    }
+
+    /// The user clicked "Not now" on the Notes downloads offer. A link under the Notes list brings it back.
+    static var notesDownloadsDeclined: Bool {
+        get { defaults.bool(forKey: "notesDownloadsDeclined") }
+        set { defaults.set(newValue, forKey: "notesDownloadsDeclined") }
     }
 
     /// The language dictated in. English by default, which is how talkflow
@@ -93,9 +110,39 @@ enum Preferences {
         set { defaults.set(newValue.rawValue, forKey: "claudeModel") }
     }
 
+    /// Retires the "Use my key for meeting notes" switch (0.1.13 and earlier). Meeting notes now use a saved
+    /// Anthropic or OpenAI key with no switch, so the old value is removed at launch and never read. Where the
+    /// user had turned the switch off, the one-time confirmation is cleared too, so talkflow asks again before
+    /// it first sends a transcript instead of starting without asking. The keys themselves are never touched.
+    static func retireNotesSwitch(_ d: UserDefaults = defaults) {
+        guard let old = d.object(forKey: "notesUseKey") else { return }
+        if (old as? Bool) == false { d.removeObject(forKey: "notesConfirmedProvider") }
+        d.removeObject(forKey: "notesUseKey")
+    }
+
+    /// The model picked for meeting notes, one per provider, so switching key
+    /// keeps each choice. Nil (or an unknown id) means the cheapest
+    /// (NotesAIModel.defaultModel).
+    static var notesAnthropicModel: String? {
+        get { defaults.string(forKey: "notesAnthropicModel") }
+        set { defaults.set(newValue, forKey: "notesAnthropicModel") }
+    }
+
+    static var notesOpenAIModel: String? {
+        get { defaults.string(forKey: "notesOpenAIModel") }
+        set { defaults.set(newValue, forKey: "notesOpenAIModel") }
+    }
+
+    /// The provider ("anthropic" or "openai") the user agreed to send
+    /// transcripts to, in the one-time confirmation. Asked again if the
+    /// provider in use changes (a key removed or added).
+    static var notesConfirmedProvider: String? {
+        get { defaults.string(forKey: "notesConfirmedProvider") }
+        set { defaults.set(newValue, forKey: "notesConfirmedProvider") }
+    }
+
     /// The keys held to dictate, from the Settings page. Fn by default.
-    /// "macHotkey" because the keycodes are the Mac's own; the Windows app
-    /// keeps its shortcut in windows.json and leaves this key alone.
+    /// Stored as "macHotkey" because the keycodes are the Mac's own.
     static var hotkey: HotkeySpec {
         get { (defaults.array(forKey: "macHotkey") as? [[Int]]).flatMap(HotkeySpec.init(stored:)) ?? .fn }
         set {

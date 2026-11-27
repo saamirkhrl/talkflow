@@ -7,7 +7,7 @@ import { Wordmark } from "@/components/brand/Logo";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { REPO_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WINDOWS_DOWNLOAD_PATH } from "./content";
+import { REPO_URL, SHOW_OS_LOGOS } from "./content";
 import { GithubIcon } from "./GithubIcon";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
@@ -25,7 +25,7 @@ const LINKS = [
 
 // A floating pill that tightens and turns to frosted glass once the page moves.
 export function Nav({ stars }: { stars: number | null }) {
-  const { os, mobile } = useVisitor();
+  const { mobile } = useVisitor();
   const scrolled = useSyncExternalStore(subscribeScroll, () => scrollY > 24, () => false);
 
   return (
@@ -54,14 +54,13 @@ export function Nav({ stars }: { stars: number | null }) {
         )}
 
         <a
-          // Macs go to the Apple Silicon / Intel page and Windows PCs download
-          // the installer (or, before it is out, the download section says
-          // so). Phones go to the download section.
-          href={mobile ? "/#download" : os === "mac" ? "/download/mac" : WINDOWS_AVAILABLE ? WINDOWS_DOWNLOAD_PATH : "/#download"}
+          // Computers go to the Apple Silicon / Intel page. Phones go to the
+          // download section.
+          href={mobile ? "/#download" : "/download/mac"}
           className={cn(buttonClass.secondary, "mr-1 px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
           {SHOW_OS_LOGOS && !mobile && (
-            <BrandLogo logo={os === "windows" ? OS_LOGOS.windows : OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
+            <BrandLogo logo={OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
           )}
           Download
         </a>

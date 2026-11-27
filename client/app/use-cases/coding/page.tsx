@@ -4,8 +4,7 @@ import { ContentPage } from "@/components/guides/ContentPage";
 import { pageMetadata } from "@/lib/seo";
 
 // Feature claims are checked against Sources/talkflowd (TextCommands.swift,
-// ListFormat.swift, SelfCorrection.swift, Vocabulary.swift, FieldSync.swift)
-// and their windows/Talkflow.Core/Text counterparts.
+// ListFormat.swift, SelfCorrection.swift, Vocabulary.swift, FieldSync.swift).
 
 const PATH = "/use-cases/coding";
 
@@ -75,7 +74,7 @@ export default function CodingPage() {
           and it remembers the fix for next time.
         </li>
         <li>
-          <strong>Your shortcut.</strong> fn on a Mac and Ctrl + Win on Windows by default, or any
+          <strong>Your shortcut.</strong> fn by default, or any
           modifier combination you record, so it stays out of your editor&apos;s keybindings.
         </li>
       </ul>
@@ -112,7 +111,7 @@ export default function CodingPage() {
 
       <h2 id="private">Your code stays on your machine</h2>
       <p>
-        Speech recognition runs on your own Mac or PC. Your words go only into the app you dictate
+        Speech recognition runs on your own Mac. Your words go only into the app you dictate
         into, so what you say about unreleased code isn&apos;t sent to a transcription service.
         (If you choose to add your own OpenAI or Anthropic key in Settings, that step goes to that
         provider instead.) See <Link href="/how-it-works">how talkflow works</Link> and the{" "}

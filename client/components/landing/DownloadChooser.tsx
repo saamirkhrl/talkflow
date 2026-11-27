@@ -3,7 +3,7 @@
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { BUILDS, WINDOWS_AVAILABLE, WINDOWS_DOWNLOAD_PATH, type BuildId } from "./content";
+import { BUILDS, type BuildId } from "./content";
 
 type Arch = "arm" | "x86" | null;
 
@@ -36,7 +36,6 @@ async function detectArch(): Promise<Arch> {
 }
 
 // The Mac download page: Apple Silicon or Intel, with the chips each is for.
-// (Windows has one build, so its Download buttons download it directly.)
 export function DownloadChooser() {
   const [arch, setArch] = useState<Arch>(null);
   useEffect(() => {
@@ -45,8 +44,8 @@ export function DownloadChooser() {
 
   return (
     // At least a screen tall, so the footer's big wordmark waits below the fold instead of peeking up under the choices.
-    <main className="min-h-svh px-gutter pt-32 pb-20 sm:pt-40 sm:pb-28">
-      <div className="mx-auto max-w-[760px]">
+    <main className="min-h-svh px-3 pt-28 pb-20 sm:px-4 sm:pt-32 sm:pb-28">
+      <div className="glass mx-auto max-w-[860px] px-[clamp(24px,6vw,72px)] py-[clamp(40px,6vw,72px)]">
         <h1 className="font-serif text-[clamp(40px,6vw,64px)] leading-[1.02] font-normal tracking-[-0.02em]">
           Download talkflow for Mac
         </h1>
@@ -87,14 +86,6 @@ export function DownloadChooser() {
             );
           })}
         </div>
-
-        {WINDOWS_AVAILABLE && (
-          <p className="mt-8 text-[15px]">
-            <a href={WINDOWS_DOWNLOAD_PATH} className="underline decoration-1 underline-offset-[3px] hover:decoration-2">
-              Download for Windows instead
-            </a>
-          </p>
-        )}
       </div>
     </main>
   );

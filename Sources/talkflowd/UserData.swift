@@ -7,6 +7,7 @@ import Foundation
 ///   (written by `StatsStore`).
 /// - `settings.json`: a copy of the Settings page and the learned words,
 ///   rewritten whenever one changes.
+/// - `notes/`: one folder per recorded meeting (see `NoteStore`).
 ///
 /// Uninstalling (`Uninstaller`) keeps this folder, so installing again picks
 /// up where the user left off: stats are read straight from it, and settings
@@ -26,9 +27,11 @@ enum UserData {
     /// The preference keys that are the user's choices. Setup state and
     /// API keys (kept in the Keychain) are deliberately not here.
     static let settingKeys = [
-        "typeWhileSpeaking", "accurateFinalPass", "finalPassTooSlow", "aiPolish", "learnedWords", "writingStyle",
+        "typeWhileSpeaking", "accurateFinalPass", "finalPassTooSlow", "aiPolish", "aiCorrections", "learnedWords", "writingStyle",
         "useOpenAITranscription", "useClaudePunctuation", "claudeModel", "dashboardChart", "macHotkey",
         "dictationLanguage",
+        // Words added by hand on the Dictionary page (see `WordList`).
+        "dictionaryAddedWords",
     ]
 
     private static var observer: NSObjectProtocol?

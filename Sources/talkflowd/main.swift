@@ -30,6 +30,21 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude [<model id>]]`.
+// `check` runs no model. `claude` sends each case to Anthropic with the saved key and the
+// corrections model (`CorrectionModel.claudeModel`, or the id given after it, e.g.
+// claude-haiku-5-5); billed, synthetic sentences only, never runs unless given. Run it from
+// the installed app: only its signature may read the Keychain item without a prompt.
+if let index = CommandLine.arguments.firstIndex(of: "--correctiontest") {
+    CorrectionSelfTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
+// The real Summary or Ask request on a made-up transcript, with the key in the Keychain (billed). Run from the
+// installed app: a build can't read the Keychain without a prompt. Result in $TMPDIR/talkflow-notesasktest.json.
+if let index = CommandLine.arguments.firstIndex(of: "--notesasktest") {
+    NotesAskTest.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // The on-demand final-pass server, timed against the real engine. Run from
 // the installed app; stops its final-pass server, which the next hold restarts.
 if let index = CommandLine.arguments.firstIndex(of: "--finalpasstest") {
@@ -133,6 +148,76 @@ if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
         if Date().timeIntervalSince(started) >= seconds { exit(0) }
     }
     NSApplication.shared.run()
+}
+
+// Pure logic, like --streamtest: the Dictionary page's add and remove
+// rules. Results in $TMPDIR/talkflow-dictionarytest.log.
+if CommandLine.arguments.contains("--dictionarytest") {
+    DictionarySelfTest.run()
+}
+
+// Pure logic and storage in a temporary folder, like --dictionarytest: the note taker's merge, speaker,
+// label and copy rules, and the notes store. Results in $TMPDIR/talkflow-notestest.log.
+if CommandLine.arguments.contains("--notestest") {
+    NotesSelfTest.run()
+}
+
+// Records the microphone and this Mac's sound for a few seconds into a temporary folder through the real meeting
+// capture, reports durations, sample counts against the clock, levels and the computer-audio state, then deletes
+// the audio. Never requests a permission. Results in $TMPDIR/talkflow-capturetest.log. Usage: --capturetest [seconds]
+if let index = CommandLine.arguments.firstIndex(of: "--capturetest") {
+    let seconds = CommandLine.arguments.dropFirst(index + 1).first.flatMap(Double.init) ?? 10
+    CaptureSelfTest.run(seconds: seconds)
+}
+
+// The note taker end to end on the made-up meeting fixture (FakeMeeting.swift): records through the real capture
+// while the meeting plays through the speakers, writes notes through the app's own pipeline into a temporary notes
+// folder on throwaway settings, then scores the transcript against the fixture's truth. Plays sound, so it is never
+// run by a build script. --dry-run plays nothing and feeds the fixture's files instead; --fake-pipeline returns the
+// truth instead of transcribing. Results on the terminal and in $TMPDIR/talkflow-fakemeeting.log; the app log gets
+// counts only. Usage: --fakemeeting [folder] [--dry-run] [--fake-pipeline]
+if CommandLine.arguments.contains("--fakemeeting") {
+    FakeMeeting.run(CommandLine.arguments)
+}
+
+// The notes pipeline's audio stages (echo, near-end gate, cutter) on two files, no speech engine. NotesProbe.swift.
+if CommandLine.arguments.contains("--notesprobe") {
+    NotesProbe.run(CommandLine.arguments)
+}
+
+// The speaker helper on the diarization spike's fixtures: error rate, speakers found and wall time.
+// Optional --helper <path> and --models <dir>. Results in $TMPDIR/talkflow-diarizetest.log; skips
+// with one line when the fixtures or the helper are absent.
+if CommandLine.arguments.contains("--diarizetest") {
+    DiarizeSelfTest.run(arguments: CommandLine.arguments)
+}
+
+// The whole after-Stop pipeline on two WAV files (mic, system), with a transcript JSON out. Numbers only on
+// stdout; takes the shared bench lock. See NotesPipelineHarness for the options (--check, --headphones, ...).
+if let index = CommandLine.arguments.firstIndex(of: "--notespipeline") {
+    NotesPipelineHarness.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
+// The offline echo canceller on the digital echo fixtures (folder optional). Numbers only, in
+// $TMPDIR/talkflow-echotest.log; skips with one line when the fixtures are absent.
+if let index = CommandLine.arguments.firstIndex(of: "--echotest") {
+    EchoSelfTest.run(folder: CommandLine.arguments.dropFirst(index + 1).first)
+}
+
+// Opens the real app window from a build, on throwaway settings and sample
+// stats, to click around without installing. Starts no hotkey, recorder,
+// engine, updater or install count, and runs before the single-instance
+// guard. Run it from the repo root so it finds the app icon.
+if CommandLine.arguments.contains("--windowpreview") {
+    WindowPreview.run()
+}
+
+// Cmd+V and the other Edit shortcuts in the app window's fields, through the
+// real main menu, on throwaway settings. Briefly opens and activates the
+// window, and puts the clipboard back afterwards. Results in
+// $TMPDIR/talkflow-pastetest.log.
+if CommandLine.arguments.contains("--pastetest") {
+    PasteSelfTest.run()
 }
 
 // Read-only: what Settings > Uninstall talkflow would do on this Mac, step by

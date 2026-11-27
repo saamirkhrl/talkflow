@@ -10,12 +10,17 @@
 # scripts/build-whisper-macos.sh, which needs cmake and caches its result in
 # .build/whisper-engine. Without cmake the app keeps the engine it already has,
 # or falls back to Homebrew's whisper-server.
+#
+# The speaker helper (Contents/Helpers/talkflow-diarize) is built by
+# scripts/build-diarize-macos.sh (Apple Silicon, Swift 6.2 or newer). Without
+# it the app still works and labels the other voices "Everyone else".
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="/Applications/talkflow.app"
 UID_NUM=$(id -u)
 ENGINE="$PROJECT_DIR/.build/whisper-engine"
+DIARIZE="$PROJECT_DIR/.build/diarize-helper"
 
 echo "==> Building"
 cd "$PROJECT_DIR"
@@ -25,6 +30,13 @@ if command -v cmake >/dev/null 2>&1; then
         || echo "warning: the speech engine did not build; installing without a new one" >&2
 else
     echo "warning: cmake not found, so the speech engine is not rebuilt (brew install cmake)" >&2
+fi
+# Incremental, so cheap when nothing changed. It skips itself (exit 0, no
+# binary) on a toolchain older than Swift 6.2.
+"$PROJECT_DIR/scripts/build-diarize-macos.sh" "$DIARIZE" \
+    || echo "warning: the speaker helper did not build; installing without a new one" >&2
+if [ ! -x "$DIARIZE/talkflow-diarize" ]; then
+    echo "warning: the speaker helper was not built (needs Apple Silicon and Swift 6.2 or newer); this install keeps the old helper or has none, so notes show one speaker for everyone" >&2
 fi
 
 echo "==> Stopping running instance"
@@ -47,6 +59,13 @@ if [ -x "$ENGINE/whisper-server" ]; then
     cp "$ENGINE/whisper-server" "$APP/Contents/Helpers/whisper-server.new"
     mv -f "$APP/Contents/Helpers/whisper-server.new" "$APP/Contents/Helpers/whisper-server"
     cp "$ENGINE/whisper.cpp-LICENSE.txt" "$APP/Contents/Resources/whisper.cpp-LICENSE.txt"
+fi
+if [ -x "$DIARIZE/talkflow-diarize" ]; then
+    mkdir -p "$APP/Contents/Helpers"
+    # Same rename-over as whisper-server, for the same reason.
+    cp "$DIARIZE/talkflow-diarize" "$APP/Contents/Helpers/talkflow-diarize.new"
+    mv -f "$APP/Contents/Helpers/talkflow-diarize.new" "$APP/Contents/Helpers/talkflow-diarize"
+    cp "$DIARIZE/talkflow-diarize-NOTICES.txt" "$APP/Contents/Resources/talkflow-diarize-NOTICES.txt"
 fi
 
 echo "==> Signing"

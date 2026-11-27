@@ -30,7 +30,7 @@ export default function OpengraphImage() {
         <img src={`data:image/svg+xml;base64,${Buffer.from(ICON).toString("base64")}`} width={120} height={120} alt="" />
         <div style={{ marginTop: 48, fontSize: 96, letterSpacing: "-0.03em" }}>talkflow</div>
         <div style={{ marginTop: 20, fontSize: 40, color: "#5f5e66", maxWidth: 900 }}>
-          Hold a key, speak, and your words are typed wherever your cursor is. Free, open source, on your own Mac or PC.
+          Hold a key, speak, and your words are typed wherever your cursor is. Free, open source, on your own Mac.
         </div>
       </div>
     ),

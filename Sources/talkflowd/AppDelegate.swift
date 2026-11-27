@@ -6,7 +6,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// restored a reinstall's shortcut, not when this delegate is.
     private var hotkey: HotkeyMonitor { HotkeyMonitor.shared }
     private let overlay = OverlayController()
-    private let dashboard = DashboardController()
+    /// Made on first use, after `UserData.start()` has restored a
+    /// reinstall's settings, so the window reads the restored ones.
+    /// The Notes section's state. Owned here, not by the window, so a meeting keeps recording when the window is
+    /// closed and the menu bar can stop it. Made on first use, after UserData.start().
+    private lazy var notes = NotesModel.live()
+    private lazy var dashboard = DashboardController(notes: notes)
     private var statusBar: StatusBar!
     private var dictation: Dictation!
     /// Made the first time setup is shown, and kept (with its engine
@@ -22,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // First, so a reinstall has the user's settings before anything reads them.
         UserData.start()
+        // Drops the retired meeting-notes switch before anything reads the notes settings.
+        Preferences.retireNotesSwitch()
         installEditMenu()
         statusBar = StatusBar()
         statusBar.onDashboardClicked = { [weak self] in self?.dashboard.show() }
@@ -35,6 +42,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         dictation = Dictation(overlay: overlay, statusBar: statusBar)
+        // The window and the Dock icon never take focus mid-dictation (DockIcon).
+        DockIcon.isDictating = { [weak self] in self?.statusBar.isBusy ?? false }
+        statusBar.onStateChange = { state in if state == .idle { DockIcon.dictationEnded() } }
+        statusBar.onSettingsClicked = { [weak self] in self?.dashboard.show(.settings) }
+        // The menu bar shows a meeting being recorded and can stop it, window open or not.
+        notes.onRecordingChange = { [weak self] on in self?.statusBar.setMeetingRecording(on) }
+        statusBar.onStopMeeting = { [weak self] in self?.notes.stop() }
+        // Finds recordings an earlier run left unfinished; the Notes page offers to finish or delete them.
+        notes.refresh()
+        dashboard.setupNeeded = statusBar.setupNeeded
+        dashboard.openSetup = { [weak self] in self?.onboarding.show() }
 
         // Setup's Try it page shows when the shortcut is held (only if setup exists).
         hotkey.onStart = { [weak self] in
@@ -73,6 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             SpeechEngine.prepareOnLaunch()
             DispatchQueue.main.async { LiveModel.prepare() }
         }
+        // A crash can leave the notes engine or the speaker helper running. Synchronous so a notes job started right
+        // after launch is never hit by it, and cheap (one ps).
+        NotesProcesses.stopLeftovers(reason: "launch")
         FinalPassEngine.prepare()
         startUpdateChecks()
         stopOnSIGTERM()
@@ -84,20 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (the app is an accessory), so it only makes those shortcuts work in the
     /// dashboard's and setup's fields, such as pasting an API key.
     private func installEditMenu() {
-        let edit = NSMenu(title: "Edit")
-        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
-        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
-        edit.addItem(.separator())
-        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
-        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
-        editItem.submenu = edit
-        let main = NSMenu()
-        main.addItem(NSMenuItem(title: "talkflow", action: nil, keyEquivalent: ""))
-        main.addItem(editItem)
-        NSApp.mainMenu = main
+        EditMenu.install()
     }
 
     /// Shortly after launch when online, then every few hours. A newer version
@@ -105,8 +113,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// where installing is still a click.
     @MainActor
     private func startUpdateChecks() {
-        statusBar.onUpdateClicked = { [weak self] in self?.dashboard.show() }
-        UpdateNotice.shared.onOpen = { [weak self] in self?.dashboard.show() }
+        statusBar.onUpdateClicked = { [weak self] in self?.dashboard.show(.settings, anchor: .about) }
+        UpdateNotice.shared.onOpen = { [weak self] in self?.dashboard.show(.settings, anchor: .about) }
         UpdateNotice.shared.start()
         Updater.shared.onAvailabilityChange = { [weak self] version in self?.statusBar.setUpdate(version: version) }
         Updater.shared.startBackgroundChecks()
@@ -130,6 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         signal(SIGTERM, SIG_IGN)
         let source = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
         source.setEventHandler { [weak self] in
+            self?.notes.appWillTerminate()
+            NotesProcesses.stopLeftovers(reason: "sigterm")
             self?.dictation?.abandon()
             FinalPassEngine.stop()
             exit(0)
@@ -139,6 +149,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        notes.appWillTerminate()
+        NotesProcesses.stopLeftovers(reason: "quit")
         dictation?.abandon()
         FinalPassEngine.stop()
     }

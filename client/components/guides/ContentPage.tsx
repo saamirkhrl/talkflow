@@ -34,12 +34,12 @@ export function ContentPage({
   return (
     <>
       <JsonLd data={breadcrumb} />
-      <main className="px-gutter pt-32 sm:pt-40">
-        <article className={`mx-auto max-w-[68ch] text-[17px] leading-[1.7] text-ink ${PROSE}`}>
+      <main className="px-3 pt-28 sm:px-4 sm:pt-32">
+        <article className={`glass mx-auto max-w-[860px] px-[clamp(24px,6vw,80px)] py-[clamp(40px,6vw,72px)] text-[17px] leading-[1.7] text-ink ${PROSE}`}>
           <nav aria-label="Breadcrumb" className="text-[15px] text-graphite">
             <ol className="mt-0! flex list-none! flex-wrap gap-x-2 pl-0!">
               <li className="mt-0! pl-0!">
-                <Link href="/" className="no-underline! hover:text-ink">
+                <Link href="/" className="no-underline! hover:text-white">
                   talkflow
                 </Link>
               </li>
@@ -70,7 +70,11 @@ export function ContentPage({
           </ul>
         </article>
       </main>
-      <FinalCta />
+      <div className="mx-auto mt-[clamp(40px,6vw,72px)] max-w-[1280px] px-3 sm:px-4">
+        <div className="glass">
+          <FinalCta />
+        </div>
+      </div>
     </>
   );
 }

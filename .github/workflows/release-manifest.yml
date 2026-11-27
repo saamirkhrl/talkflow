@@ -3,7 +3,8 @@
 #
 # Runs scripts/release-manifest.py --upload, which only reads the release and
 # replaces its talkflow-release.json asset. It never creates a release or a
-# tag and never removes any other asset.
+# tag and never removes any other asset. release.sh attaches the Mac files when
+# it creates the release, so the "published" event sees all of them.
 name: Release manifest
 
 on:
@@ -14,11 +15,6 @@ on:
       tag:
         description: "Release tag to (re)generate the manifest for, e.g. v0.1.4"
         required: true
-  # The Windows workflow attaches the installers to an existing release, so
-  # the manifest is regenerated once it has finished.
-  workflow_run:
-    workflows: ["Windows"]
-    types: [completed]
 
 permissions: {}
 
@@ -28,7 +24,6 @@ concurrency:
 
 jobs:
   manifest:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write # read the release, upload the manifest asset
@@ -45,20 +40,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
           INPUT_TAG: ${{ inputs.tag }}
-          RUN_REF: ${{ github.event.workflow_run.head_branch }}
         run: |
           case "$EVENT" in
             release) tag="$RELEASE_TAG" ;;
             workflow_dispatch) tag="$INPUT_TAG" ;;
-            workflow_run)
-              # A Windows run started by a release or a tag push carries the
-              # tag here. Otherwise (a run from a branch) refresh the latest
-              # release, which is harmless if nothing changed.
-              tag="$RUN_REF"
-              if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || ! gh release view "$tag" >/dev/null 2>&1; then
-                tag="$(gh release view --json tagName --jq .tagName)"
-              fi
-              ;;
           esac
           if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::not a release tag: '$tag'"

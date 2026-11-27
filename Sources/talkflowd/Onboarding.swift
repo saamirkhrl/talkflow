@@ -80,14 +80,14 @@ final class OnboardingController: NSWindowController, NSWindowDelegate {
     /// While setup is open it is a regular app: Dock icon, Cmd-Tab, and
     /// clicking the icon brings setup back (AppDelegate's reopen handler).
     private func bringToFront() {
-        if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
+        DockIcon.require(.setup)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
         model.stop()
-        NSApp.setActivationPolicy(.accessory)
+        DockIcon.release(.setup)
     }
 }
 
