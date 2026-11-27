@@ -41,6 +41,18 @@ final class OverlayController {
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
     }
 
+    /// What lets a panel sit over another app's full-screen Space: on every
+    /// Space, auxiliary to full screen, above the menu bar level. Shared by the
+    /// pill, caption and error notice; checked by `--streamtest`.
+    static let overlayLevel: NSWindow.Level = .statusBar
+    static let overlayBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+
+    static func applyOverlayBehavior(_ panel: NSPanel) {
+        panel.level = overlayLevel
+        panel.collectionBehavior = overlayBehavior
+        panel.hidesOnDeactivate = false
+    }
+
     func show() {
         if panel == nil {
             buildPanel()
@@ -162,12 +174,11 @@ final class OverlayController {
             backing: .buffered,
             defer: false
         )
-        panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        Self.applyOverlayBehavior(panel)
 
         let container = NSView()
         container.wantsLayer = true
@@ -236,12 +247,11 @@ final class OverlayController {
             backing: .buffered,
             defer: false
         )
-        panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        Self.applyOverlayBehavior(panel)
 
         let container = NSView()
         container.wantsLayer = true
@@ -288,12 +298,11 @@ final class OverlayController {
             backing: .buffered,
             defer: false
         )
-        panel.level = .floating
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        Self.applyOverlayBehavior(panel)
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
         container.wantsLayer = true
