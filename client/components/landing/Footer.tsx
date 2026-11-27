@@ -43,9 +43,9 @@ export function Footer() {
             fading into the scene at its foot. */}
         <p
           aria-hidden="true"
-          className="relative mt-[clamp(48px,8svh,120px)] -mb-[0.06em] flex justify-center font-serif text-[clamp(96px,23.5vw,520px)] leading-[0.78] font-normal italic tracking-[-0.055em] whitespace-nowrap select-none"
+          className="relative mt-[clamp(48px,8svh,120px)] -mb-[0.06em] flex justify-center font-serif text-[clamp(96px,25vw,560px)] leading-[0.8] font-normal tracking-[-0.035em] whitespace-nowrap select-none"
         >
-          <span className="bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_45%,rgb(255_255_255/0.55)_75%,rgb(255_255_255/0)_100%)] bg-clip-text pr-[0.08em] text-transparent [filter:drop-shadow(0_0_30px_rgb(200_190_255/0.55))_drop-shadow(0_18px_40px_rgb(6_30_130/0.45))]">
+          <span className="bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_45%,rgb(255_255_255/0.55)_75%,rgb(255_255_255/0)_100%)] bg-clip-text text-transparent [filter:drop-shadow(0_0_30px_rgb(200_190_255/0.55))_drop-shadow(0_18px_40px_rgb(6_30_130/0.45))]">
             talkflow
           </span>
         </p>

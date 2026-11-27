@@ -56,7 +56,7 @@ export function Privacy() {
           </span>
 
           <div className="flex flex-col items-center gap-4 text-center text-fog md:pt-[calc(var(--pad)+1px)]">
-            <span className="grid size-(--tile) place-items-center rounded-[28%] border border-dashed border-white/35">
+            <span className="grid size-(--tile) place-items-center rounded-[28%] bg-[#1f1e22] text-white shadow-[0_12px_28px_-12px_rgb(0_0_0/0.6)] ring-1 ring-white/10">
               <CloudOff className="size-[42%]" strokeWidth={1.25} aria-hidden="true" />
             </span>
             <span className="text-[13px] leading-snug md:text-[14px]">No cloud</span>

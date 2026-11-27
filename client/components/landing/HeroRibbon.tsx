@@ -704,7 +704,7 @@ export function HeroRibbon() {
 
         <div
           ref={pillRef}
-          className="absolute bottom-8 left-1/2 flex h-[44px] w-[112px] -translate-x-1/2 items-center justify-center gap-2.5 rounded-full bg-ink text-paper sm:bottom-10 sm:h-[56px] sm:w-[144px] sm:gap-3"
+          className="absolute bottom-8 left-1/2 flex h-[44px] w-[112px] -translate-x-1/2 items-center justify-center gap-2.5 rounded-full bg-[#1f1e22] text-white shadow-[0_12px_28px_-12px_rgb(0_0_0/0.6)] sm:bottom-10 sm:h-[56px] sm:w-[144px] sm:gap-3"
         >
           <RecDot className="sm:size-2.5" />
           <span className="sm:hidden">

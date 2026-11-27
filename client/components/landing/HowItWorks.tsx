@@ -40,7 +40,7 @@ export function HowItWorks() {
         </li>
         <li className={STEP}>
           <div className={STAGE}>
-            <span className="flex h-14 items-center gap-3 rounded-full bg-ink px-5 text-paper">
+            <span className="flex h-14 items-center gap-3 rounded-full px-5 bg-[#1f1e22] text-white shadow-[0_12px_28px_-12px_rgb(0_0_0/0.6)]">
               <RecDot />
               <Waveform bars={14} height={22} />
             </span>
