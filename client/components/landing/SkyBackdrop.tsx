@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
+// Placeholder: your original 16:9 render until the generated set (see
+// design-prompts.md at the repo root) replaces sky-1200/2400.webp.
 // One tall plush render behind the whole home page. It is fixed to the window
 // and pans from the sky at the top to the coral and cloud bed at the bottom as
 // the page scrolls, so the page reads as one long scene. Only a transform
@@ -48,7 +50,7 @@ export function SkyBackdrop() {
         alt=""
         decoding="async"
         fetchPriority="high"
-        className="absolute top-0 left-1/2 h-auto w-full min-w-[calc(100svh*0.56)] max-w-none will-change-transform"
+        className="absolute top-0 left-1/2 h-auto w-full min-w-[calc(100svh*1.78)] max-w-none will-change-transform"
       />
     </div>
   );
