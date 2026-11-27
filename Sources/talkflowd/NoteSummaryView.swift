@@ -226,9 +226,19 @@ struct NoteSummaryView: View {
 struct NotesDocumentView: View {
     @ObservedObject var assistant: NoteAssistant
     let meta: NoteMeta
+    /// Speaker references ("{{s2}}") already resolved to the current names, so a rename or Clear shows at once.
     let summary: NoteSummary
     var writing = false
     var onWriteAgain: (() -> Void)?
+
+    init(assistant: NoteAssistant, meta: NoteMeta, summary: NoteSummary, writing: Bool = false,
+         onWriteAgain: (() -> Void)? = nil) {
+        _assistant = ObservedObject(wrappedValue: assistant)
+        self.meta = meta
+        self.summary = NotesDoc.resolving(summary, speakers: meta.speakers)
+        self.writing = writing
+        self.onWriteAgain = onWriteAgain
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 26) {

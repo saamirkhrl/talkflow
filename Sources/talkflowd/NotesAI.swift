@@ -271,8 +271,9 @@ enum NotesAI {
     - summary_times: the times of up to five lines the summary relies on most.
     - decisions: each decision the group reached or discussed. status is "aligned" when the group agreed, "needs_discussion" when it was raised and left open, "disagreed" when people did not agree, or "shelved" when it was put off on purpose. A question raised and not answered by the end is a decision with status "needs_discussion". time is the time of the line where it was decided or raised.
     - details: the main topics of the meeting in the order they came up, usually three to eight. topic is a label of two to five words. text is one to three sentences on what was said about it, naming who said it when the transcript shows that. times are the times of up to three lines it comes from.
-    - action_items: the suggested next steps: each task someone agreed to do or was asked to do. owner is that person's name exactly as it appears in the transcript, or an empty string if nobody took it on. task is a short phrase that starts with a verb. time is the time of the line where the task came up.
-    - speakers: real names for the speakers labelled "Speaker 1", "Speaker 2" and so on, only when the transcript states the name directly: the speaker introduces themselves, someone addresses them by name just before or just after they speak, a roll call, or a chair calls on them by name. label is the speaker's label exactly as it appears in the transcript. name is the name as it was used in the meeting, usually a first name; keep a title if one was used, such as "Councilmember Lee". evidence is the words from the transcript line that show the name, at most 15 words, copied character for character. time is that line's time. confidence is "high" only when the line leaves no doubt which speaker it is; otherwise "low". Do not guess from the topic, a role or the way someone talks. If two speakers could match a name, leave both out. Never include "You". Use an empty list when no name is certain.
+    - action_items: the suggested next steps: each task someone agreed to do or was asked to do. owner is "You" when the user took it on, otherwise that speaker's label (such as "Speaker 2") or the name you gave that speaker in speakers; use an empty string only when nobody was assigned. task is a short phrase that starts with a verb. time is the time of the line where the task came up.
+    - speakers: one entry for every label "Speaker 1", "Speaker 2" and so on that appears in the transcript, in order, and never one for "You". label is that label exactly. When a transcript line states the speaker's real name directly, fill in name, kind, evidence and time. kind is "addressed" when another person says the name to them just before they speak or just after they spoke, such as "Bob, do you want to start?" followed by Bob's turn, or "Thanks, Bob" after Bob's turn; the person who says "Thanks, Bob" or "Bob, can you..." is not Bob. kind is "introduced" when they say their own name, such as "I'm Bob" or "this is Bob". name is the name as used in the meeting, usually a first name; keep a title if one was used, such as "Councilmember Lee". evidence is the words of that one line that contain the name, at most 15 words, copied exactly. time is that line's time. confidence is "high" when the line clearly names this speaker in one of those two ways, otherwise "low". Do not guess from the topic, a role or the way someone talks. If two speakers could match a name, give it to neither. If the name is said to "You", it names nobody. When there is no such line, set name and evidence to empty strings, kind to "none", time to 0 and confidence to "low".
+    Refer to a speaker by a real name in summary, decisions, details and action_items only if you gave that name in their speakers entry; otherwise use their label, such as "Speaker 2". The user is always "You".
     Use only what the transcript says. Do not invent tasks, names, dates or numbers. Copy every time exactly from the square brackets at the start of a transcript line. Use an empty list when there is nothing for a field. Write in the language the meeting was held in.
     """
 
@@ -308,12 +309,13 @@ enum NotesAI {
         let integers: [String: Any] = ["type": "array", "items": integer]
         let status: [String: Any] = ["type": "string", "enum": ["aligned", "needs_discussion", "disagreed", "shelved"]]
         let confidence: [String: Any] = ["type": "string", "enum": ["high", "low"]]
+        let kind: [String: Any] = ["type": "string", "enum": ["addressed", "introduced", "none"]]
         let decision = object(["text": text, "status": status, "time": integer], ["text", "status", "time"])
         let detail = object(["topic": text, "text": text, "times": integers], ["topic", "text", "times"])
         let action = object(["owner": text, "task": text, "time": integer], ["owner", "task", "time"])
         let speaker = object(
-            ["label": text, "name": text, "evidence": text, "time": integer, "confidence": confidence],
-            ["label", "name", "evidence", "time", "confidence"])
+            ["label": text, "name": text, "kind": kind, "evidence": text, "time": integer, "confidence": confidence],
+            ["label", "name", "kind", "evidence", "time", "confidence"])
         var properties: [String: Any] = [
             "title": text,
             "description": text,
@@ -457,8 +459,10 @@ enum NotesAI {
     }
 
     static func combineRequest(_ access: NotesAccess, key: String, parts: [NoteSummary], speakers: [NoteSpeaker]) -> URLRequest {
-        let items: [[String: Any]] = parts.enumerated().map { index, part in
-            [
+        let items: [[String: Any]] = parts.enumerated().map { index, original -> [String: Any] in
+            let named = NotesDoc.applyingSuggestedNames(original.suggestedNames ?? [:], to: speakers)
+            let part = NotesDoc.resolving(original, speakers: named)
+            return [
                 "part": index + 1,
                 "summary": part.summary,
                 "summary_times": part.summaryTimes.map { Int($0) },
@@ -649,9 +653,51 @@ enum NotesAI {
     struct NameSuggestion: Decodable, Equatable {
         var label: String
         var name: String
+        /// "addressed", "introduced" or "none" (anything else is refused by the review).
+        var kind: String
         var evidence: String
         var time: Double
         var confidence: String
+
+        init(label: String, name: String, kind: String, evidence: String, time: Double, confidence: String) {
+            self.label = label
+            self.name = name
+            self.kind = kind
+            self.evidence = evidence
+            self.time = time
+            self.confidence = confidence
+        }
+
+        private enum CodingKeys: String, CodingKey { case label, name, kind, evidence, time, confidence }
+
+        /// Tolerant: a null or missing name, kind or evidence reads as "".
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            label = try c.decodeIfPresent(String.self, forKey: .label) ?? ""
+            name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+            kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? ""
+            evidence = try c.decodeIfPresent(String.self, forKey: .evidence) ?? ""
+            time = try c.decodeIfPresent(Double.self, forKey: .time) ?? 0
+            confidence = try c.decodeIfPresent(String.self, forKey: .confidence) ?? ""
+        }
+    }
+
+    /// What the review decided about one proposed name, with the fixed reason when it was refused. Holds the
+    /// proposal's own text, so it goes to the result file of --notesasktest, never to a log.
+    struct NameVerdict: Codable, Equatable {
+        var label: String
+        var name: String
+        var kind: String
+        var confidence: String
+        var evidence: String
+        var time: Double
+        /// Index of the transcript turn the quote was found in.
+        var quoteTurn: Int?
+        /// That turn's speaker key.
+        var quoteSpeaker: String?
+        var accepted: Bool
+        /// "" when accepted, else one of the fixed reasons in nameReview.
+        var reason: String
     }
 
     private struct RawSummary: Decodable {
@@ -710,17 +756,33 @@ enum NotesAI {
         return times
     }
 
-    static func validateSummary(_ text: String, turns: [TranscriptTurn], speakers: [NoteSpeaker],
-                                provider: NotesProvider, model: NotesAIModel, written: Date,
-                                parts: Int) -> Result<NoteSummary, NotesAIError> {
+    /// Defensive: structured output should never fence its JSON, but a fence is cheap to tolerate.
+    private static func unfenced(_ text: String) -> String {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Defensive: structured output should never fence its JSON, but a fence is cheap to tolerate.
         if t.hasPrefix("```") {
             if let newline = t.firstIndex(of: "\n") { t = String(t[t.index(after: newline)...]) } else { t = "" }
             t = t.trimmingCharacters(in: .whitespacesAndNewlines)
             if t.hasSuffix("```") { t = String(t.dropLast(3)) }
             t = t.trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        return t
+    }
+
+    private struct RawSpeakersOnly: Decodable {
+        let speakers: [NameSuggestion]?
+    }
+
+    /// Just the "speakers" array of a reply, decoded tolerantly; [] when absent or unreadable. For diagnostics.
+    static func speakerProposals(fromReply text: String) -> [NameSuggestion] {
+        guard let data = unfenced(text).data(using: .utf8),
+              let raw = try? JSONDecoder().decode(RawSpeakersOnly.self, from: data) else { return [] }
+        return raw.speakers ?? []
+    }
+
+    static func validateSummary(_ text: String, turns: [TranscriptTurn], speakers: [NoteSpeaker],
+                                provider: NotesProvider, model: NotesAIModel, written: Date,
+                                parts: Int) -> Result<NoteSummary, NotesAIError> {
+        let t = unfenced(text)
         guard let data = t.data(using: .utf8), let raw = try? JSONDecoder().decode(RawSummary.self, from: data) else {
             return .failure(.malformed)
         }
@@ -752,7 +814,7 @@ enum NotesAI {
         if let rawDetails = raw.details {
             details = rawDetails.map { NoteSummary.Detail(topic: trim($0.topic), text: trim($0.text), times: snappedUnique($0.times)) }
         }
-        return .success(NoteSummary(
+        let built = NoteSummary(
             summary: trim(raw.summary),
             summaryTimes: snappedUnique(raw.summaryTimes),
             actionItems: actions,
@@ -762,7 +824,8 @@ enum NotesAI {
             details: details,
             title: NotesDoc.cleanTitle(raw.title ?? ""),
             subtitle: NotesDoc.cleanDescription(raw.description ?? ""),
-            suggestedNames: accepted.isEmpty ? nil : accepted))
+            suggestedNames: accepted.isEmpty ? nil : accepted)
+        return .success(NotesDoc.tokenizing(built, speakers: ownerSpeakers))
     }
 
     // MARK: Speaker names
@@ -796,35 +859,119 @@ enum NotesAI {
         return !rest.isEmpty && rest.allSatisfy { $0 >= "0" && $0 <= "9" }
     }
 
-    /// The names from a reply's `speakers` that are safe to use: each one is a direct, high-confidence claim whose
-    /// quote is in the transcript near the cited line, said by (or next to) that speaker, and that no other
-    /// speaker or suggestion contradicts. Everything else is dropped; invalid names never fail a reply.
+    /// The names from a reply's `speakers` that passed the review (see nameReview), as speaker key -> name.
+    /// Invalid names never fail a reply; they are dropped.
     static func acceptedNames(_ raw: [NameSuggestion], turns: [TranscriptTurn],
                               speakers: [NoteSpeaker]) -> [String: String] {
-        var candidates: [(key: String, name: String)] = []
-        for s in raw {
-            guard s.confidence.lowercased() == "high" else { continue }
-            let name = collapsedSpaces(s.name)
-            guard !name.isEmpty, name.count <= NotesLogic.maxNameLength else { continue }
-            guard !isGenericSpeakerName(name.lowercased()) else { continue }
-            let label = s.label.trimmingCharacters(in: .whitespacesAndNewlines)
-            let match = speakers.first { sp in
-                guard NotesDoc.isOtherVoice(sp.key), NotesDoc.nameSource(sp) == .default else { return false }
-                return NotesLogic.displayName(sp.key, in: speakers).caseInsensitiveCompare(label) == .orderedSame
-            }
-            guard let key = match?.key else { continue }
-            let ne = normalize(s.evidence)
-            let nn = normalize(name)
-            guard ne.count >= 2, !nn.isEmpty, (" " + ne + " ").contains(" " + nn + " ") else { continue }
-            guard let c = turnIndex(for: s.time, in: turns) else { continue }
-            let lo = max(0, c - NotesDoc.nameEvidenceWindow)
-            let hi = min(turns.count - 1, c + NotesDoc.nameEvidenceWindow)
-            guard lo <= hi else { continue }
-            guard (lo...hi).contains(where: { normalize(turns[$0].text).contains(ne) }) else { continue }
-            guard (lo...hi).contains(where: { turns[$0].speaker == key }) else { continue }
-            candidates.append((key, name))
+        let reviewed = reviewNames(raw, turns: turns, speakers: speakers)
+        var result: [String: String] = [:]
+        for (i, v) in reviewed.verdicts.enumerated() where v.accepted {
+            guard let key = reviewed.keys[i], result[key] == nil else { continue }
+            result[key] = v.name
         }
-        return settleNames(candidates, speakers: speakers)
+        return result
+    }
+
+    /// One verdict per proposed name, in input order, with the first failing step as the reason.
+    static func nameReview(_ raw: [NameSuggestion], turns: [TranscriptTurn],
+                           speakers: [NoteSpeaker]) -> [NameVerdict] {
+        reviewNames(raw, turns: turns, speakers: speakers).verdicts
+    }
+
+    private static func reviewNames(_ raw: [NameSuggestion], turns: [TranscriptTurn],
+                                    speakers: [NoteSpeaker]) -> (verdicts: [NameVerdict], keys: [String?]) {
+        var verdicts: [NameVerdict] = []
+        var keys: [String?] = []
+        for s in raw {
+            let one = reviewOne(s, turns: turns, speakers: speakers)
+            verdicts.append(one.verdict)
+            keys.append(one.key)
+        }
+        settleVerdicts(&verdicts, keys: keys, speakers: speakers)
+        return (verdicts, keys)
+    }
+
+    private static func reviewOne(_ s: NameSuggestion, turns: [TranscriptTurn],
+                                  speakers: [NoteSpeaker]) -> (verdict: NameVerdict, key: String?) {
+        let name = collapsedSpaces(s.name)
+        let kind = s.kind.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        var v = NameVerdict(label: s.label, name: name, kind: kind, confidence: s.confidence, evidence: s.evidence,
+                            time: s.time, quoteTurn: nil, quoteSpeaker: nil, accepted: false, reason: "")
+        func refuse(_ reason: String, _ key: String? = nil) -> (verdict: NameVerdict, key: String?) {
+            v.reason = reason
+            return (v, key)
+        }
+        if name.isEmpty || kind == "none" { return refuse("no name") }
+        let label = s.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        let match = speakers.first { sp in
+            guard NotesDoc.isOtherVoice(sp.key) else { return false }
+            return NotesLogic.displayName(sp.key, in: speakers).caseInsensitiveCompare(label) == .orderedSame
+        }
+        guard let speaker = match else { return refuse("not a speaker label") }
+        let key = speaker.key
+        if NotesDoc.nameSource(speaker) != .default { return refuse("speaker already named", key) }
+        if isGenericSpeakerName(name.lowercased()) { return refuse("generic name", key) }
+        if name.count > NotesLogic.maxNameLength { return refuse("too long", key) }
+        if s.confidence.lowercased() != "high" { return refuse("low confidence", key) }
+        if kind != "addressed" && kind != "introduced" { return refuse("unknown kind", key) }
+
+        let ne = normalize(s.evidence)
+        if ne.count < 2 { return refuse("quote not found", key) }
+        var found: [Int] = []
+        for i in turns.indices where (" " + normalize(turns[i].text) + " ").contains(" " + ne + " ") { found.append(i) }
+        if found.isEmpty { return refuse("quote not found", key) }
+        var q = found[0]
+        if let c = turnIndex(for: s.time, in: turns) {
+            for i in found where abs(i - c) < abs(q - c) { q = i }
+        }
+        v.quoteTurn = q
+        v.quoteSpeaker = turns[q].speaker
+
+        let nn = normalize(name)
+        if nn.isEmpty || !(" " + ne + " ").contains(" " + nn + " ") { return refuse("name not in quote", key) }
+        let quoter = turns[q].speaker
+        if kind == "introduced" {
+            if quoter != key { return refuse("introduced by someone else", key) }
+        } else {
+            if quoter == key { return refuse("named speaker said it", key) }
+            let prev = turns[..<q].last { $0.speaker != quoter }?.speaker
+            let next = turns[(q + 1)...].first { $0.speaker != quoter }?.speaker
+            if prev != key && next != key { return refuse("not next to the named speaker", key) }
+        }
+        v.accepted = true
+        return (v, key)
+    }
+
+    /// Over the provisionally accepted verdicts: one name per speaker, one speaker per name, and no name another
+    /// speaker already shows.
+    private static func settleVerdicts(_ verdicts: inout [NameVerdict], keys: [String?], speakers: [NoteSpeaker]) {
+        func same(_ a: String, _ b: String) -> Bool { a.caseInsensitiveCompare(b) == .orderedSame }
+        func live() -> [Int] { verdicts.indices.filter { verdicts[$0].accepted } }
+        func drop(_ i: Int, _ reason: String) {
+            verdicts[i].accepted = false
+            verdicts[i].reason = reason
+        }
+        var twoNames: [Int] = []
+        for i in live() {
+            let mine = live().filter { keys[$0] == keys[i] }
+            if mine.contains(where: { !same(verdicts[$0].name, verdicts[i].name) }) { twoNames.append(i) }
+        }
+        for i in twoNames { drop(i, "two names for one speaker") }
+
+        var shared: [Int] = []
+        for i in live() {
+            let owners = Set(live().filter { same(verdicts[$0].name, verdicts[i].name) }.map { keys[$0] ?? "" })
+            if owners.count >= 2 { shared.append(i) }
+        }
+        for i in shared { drop(i, "name on two speakers") }
+
+        var used: [Int] = []
+        for i in live() {
+            let others = speakers.filter { $0.key != keys[i] }
+            let clash = others.contains { same(NotesLogic.displayName($0.key, in: speakers), verdicts[i].name) }
+            if clash { used.append(i) }
+        }
+        for i in used { drop(i, "name already used") }
     }
 
     /// Drops a key given two different names, a name given to two or more keys, and a name another speaker shows.
@@ -894,6 +1041,11 @@ enum NotesAI {
         // A speaker key, not the name, so a later rename of that speaker carries over to the action item.
         for speaker in speakers
         where NotesLogic.displayName(speaker.key, in: speakers).caseInsensitiveCompare(trimmed) == .orderedSame {
+            return speaker.key
+        }
+        // The prompt lets the model write a speaker's label ("Speaker 2") even after it named that speaker.
+        for speaker in speakers where NotesDoc.isOtherVoice(speaker.key)
+        && NotesLogic.defaultName(speaker.key).caseInsensitiveCompare(trimmed) == .orderedSame {
             return speaker.key
         }
         return trimmed

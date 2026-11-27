@@ -263,7 +263,8 @@ enum NotesAISamples {
             "decisions": sample.decisions.map(decision),
             "details": NotesDoc.details(sample).map(detail),
             "action_items": actions,
-            "speakers": [Any](),
+            "speakers": [["label": "Speaker 2", "name": "", "kind": "none", "evidence": "", "time": 0,
+                          "confidence": "low"] as [String: Any]],
         ]
         return json(["type": "message", "role": "assistant",
                      "content": [["type": "text", "text": json(raw)]],

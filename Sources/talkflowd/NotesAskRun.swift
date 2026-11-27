@@ -217,8 +217,9 @@ enum NotesAskRun {
 
     /// Owners as the Summary tab shows them: a speaker key becomes its name ("you" -> "You"), any other owner
     /// stays as the model wrote it.
-    static func scoreFormat(_ s: NoteSummary, speakers: [NoteSpeaker]) -> ScoreSummary {
-        ScoreSummary(
+    static func scoreFormat(_ original: NoteSummary, speakers: [NoteSpeaker]) -> ScoreSummary {
+        let s = NotesDoc.resolving(original, speakers: speakers)
+        return ScoreSummary(
             action_items: s.actionItems.map { a in
                 let owner = speakers.contains { $0.key == a.owner } ? NotesLogic.displayName(a.owner, in: speakers) : a.owner
                 return ScoreSummary.Item(owner: owner, task: a.task)
@@ -380,6 +381,12 @@ enum NotesAskRun {
         /// Summary and ask requests started (a summary of a long meeting may take several HTTP requests).
         var calls: Int = 0
         var speakerNamesApplied: Int = 0
+        /// Diagnostics for the speaker names: the raw reply text of every summary request, the review of every
+        /// proposed name, and how many speakers the accepted names would rename. Holds meeting text, so it goes to
+        /// the result file only, never to a line (see `lines`).
+        var rawReplies: [String]?
+        var nameReview: [NotesAI.NameVerdict]?
+        var autoNamesApplied: Int?
         var error: Failure?
         var summary: NoteSummary?
         /// The summary in score.py's --summary shape (also written to its own file).
@@ -410,6 +417,8 @@ enum NotesAskRun {
         if case .ask(let q) = mode { queue = [TruthQuestion(id: "", question: q, answer: "", evidence: [])] }
         var answers: [Output.Answer] = []
         var summaryOK = true
+        var rawReplies: [String] = []
+        client.onReplyText = { rawReplies.append($0) }
 
         func finish() {
             done = true
@@ -463,6 +472,12 @@ enum NotesAskRun {
                 case .success(let s):
                     out.summary = s
                     out.scoreSummary = scoreFormat(s, speakers: speakers)
+                    out.rawReplies = rawReplies
+                    var proposals: [NotesAI.NameSuggestion] = []
+                    for text in rawReplies { proposals += NotesAI.speakerProposals(fromReply: text) }
+                    out.nameReview = NotesAI.nameReview(proposals, turns: transcript.turns, speakers: speakers)
+                    let renamed = NotesDoc.applyingSuggestedNames(s.suggestedNames ?? [:], to: speakers)
+                    out.autoNamesApplied = zip(speakers, renamed).filter { $0.name != $1.name }.count
                 case .failure(let err):
                     summaryOK = false
                     out.error = failure(err, access)
@@ -482,6 +497,20 @@ enum NotesAskRun {
         return out
     }
 
+    /// "names: proposed N, applied M, rejected K (reason xC, ...)". Reasons are fixed strings, never meeting text.
+    static func namesLine(_ review: [NotesAI.NameVerdict], applied: Int) -> String {
+        let proposed = review.filter { $0.kind != "none" && !$0.name.isEmpty }
+        let rejected = proposed.filter { !$0.accepted }
+        var line = "notesasktest: names: proposed \(proposed.count), applied \(applied), rejected \(rejected.count)"
+        if !rejected.isEmpty {
+            var counts: [String: Int] = [:]
+            for v in rejected { counts[v.reason, default: 0] += 1 }
+            let parts = counts.keys.sorted().map { "\($0) x\(counts[$0] ?? 0)" }
+            line += " (" + parts.joined(separator: ", ") + ")"
+        }
+        return line
+    }
+
     /// The counts-only lines a run prints: never transcript, summary or answer text.
     static func lines(_ o: Output) -> [String] {
         var l: [String] = []
@@ -496,6 +525,7 @@ enum NotesAskRun {
         } else if o.mode != "ask" {
             l.append("notesasktest: summary failed, \(o.error?.category ?? "unknown")")
         }
+        if let review = o.nameReview { l.append(namesLine(review, applied: o.autoNamesApplied ?? 0)) }
         if o.mode == "ask" {
             l.append(o.ok ? "notesasktest: ask ok, \(o.citations?.count ?? 0) citation(s), \(o.model)"
                           : "notesasktest: ask failed, \(o.error?.category ?? "unknown")")

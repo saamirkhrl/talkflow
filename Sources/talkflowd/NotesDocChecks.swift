@@ -27,16 +27,16 @@ enum NotesDocChecks {
 
     private static let fixedNow = Date(timeIntervalSince1970: 1_792_000_000)
 
-    private static func suggestion(_ label: String, _ name: String, _ evidence: String, _ time: Double,
+    private static func suggestion(_ label: String, _ name: String, _ kind: String, _ evidence: String, _ time: Double,
                                    _ confidence: String) -> Suggestion {
-        Suggestion(label: label, name: name, evidence: evidence, time: time, confidence: confidence)
+        Suggestion(label: label, name: name, kind: kind, evidence: evidence, time: time, confidence: confidence)
     }
 
     private static let priyaQuote = "Priya, can you give us the budget update"
 
     private static var goodSuggestions: [Suggestion] {
-        [suggestion("Speaker 1", "Priya", priyaQuote, 0, "high"),
-         suggestion("Speaker 2", "Marcus", "This is Marcus", 14, "high")]
+        [suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 0, "high"),
+         suggestion("Speaker 2", "Marcus", "introduced", "This is Marcus", 14, "high")]
     }
 
     private static func meta(_ title: String, _ source: TitleSource?) -> NoteMeta {
@@ -52,7 +52,8 @@ enum NotesDocChecks {
 
     private static func suggestionObjects(_ list: [Suggestion]) -> [[String: Any]] {
         list.map { s -> [String: Any] in
-            ["label": s.label, "name": s.name, "evidence": s.evidence, "time": Int(s.time), "confidence": s.confidence]
+            ["label": s.label, "name": s.name, "kind": s.kind, "evidence": s.evidence, "time": Int(s.time),
+             "confidence": s.confidence]
         }
     }
 
@@ -122,6 +123,7 @@ enum NotesDocChecks {
         runReplies(check)
         runCopy(check)
         runFlows(check)
+        runNameFix(check)
     }
 
     private static func runRules(_ check: (Bool, String, String) -> Void) {
@@ -276,46 +278,48 @@ enum NotesDocChecks {
         check(got16 == ["s1": "Priya", "s2": "Marcus"], "DOC16 acceptedNames takes direct, quoted names", describe(got16))
 
         // DOC17 / DOC18
-        let g17 = accepted([suggestion("Speaker 1", "Priya", "Priya, please start us off", 0, "high")])
+        let g17 = accepted([suggestion("Speaker 1", "Priya", "addressed", "Priya, please start us off", 0, "high")])
         check(g17.isEmpty, "DOC17 a quote that is not in the transcript is refused", describe(g17))
-        let g18 = accepted([suggestion("Speaker 1", "Priya", "can you give us the budget update", 0, "high")])
+        let g18 = accepted([suggestion("Speaker 1", "Priya", "addressed", "can you give us the budget update", 0, "high")])
         check(g18.isEmpty, "DOC18 a name that is not in its quote is refused", describe(g18))
 
         // DOC19 the same name on two speakers
-        let g19 = accepted([suggestion("Speaker 1", "Priya", priyaQuote, 0, "high"),
-                            suggestion("Speaker 2", "Priya", "Thanks Priya", 14, "high")])
+        let g19 = accepted([suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 0, "high"),
+                            suggestion("Speaker 3", "Priya", "addressed", "Thanks Priya", 14, "high")])
         check(g19.isEmpty, "DOC19 one name on two speakers is refused for both", describe(g19))
 
         // DOC20 over 40 characters
         let longName = "Priya Venkataraman-Subramanian Krishnamurthy"
-        let g20 = accepted([suggestion("Speaker 1", longName, longName, 0, "high")])
+        let g20 = accepted([suggestion("Speaker 1", longName, "addressed", longName, 0, "high")])
         check(longName.count == 44 && g20.isEmpty, "DOC20 a name over 40 characters is refused", describe(g20))
 
         // DOC21 low confidence
-        let g21 = accepted([suggestion("Speaker 1", "Priya", priyaQuote, 0, "low")])
+        let g21 = accepted([suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 0, "low")])
         check(g21.isEmpty, "DOC21 low confidence is refused", describe(g21))
 
         // DOC22 "You" as a name or a label
-        let g22a = accepted([suggestion("Speaker 1", "You", "You can start", 0, "high")])
-        let g22b = accepted([suggestion("You", "Priya", priyaQuote, 0, "high")])
+        let g22a = accepted([suggestion("Speaker 1", "You", "addressed", "You can start", 0, "high")])
+        let g22b = accepted([suggestion("You", "Priya", "addressed", priyaQuote, 0, "high")])
         check(g22a.isEmpty && g22b.isEmpty, "DOC22 You is never named or renamed", "\(describe(g22a)) \(describe(g22b))")
 
         // DOC23 a speaker the user renamed
         let renamedSpeakers = [NoteSpeaker(key: "you"), NoteSpeaker(key: "s1", name: "Pri", nameSource: .user),
                                NoteSpeaker(key: "s2"), NoteSpeaker(key: "s3")]
-        let g23a = accepted([suggestion("Speaker 1", "Priya", priyaQuote, 0, "high")], speakers: renamedSpeakers)
-        let g23b = accepted([suggestion("Pri", "Priya", priyaQuote, 0, "high")], speakers: renamedSpeakers)
+        let g23a = accepted([suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 0, "high")], speakers: renamedSpeakers)
+        let g23b = accepted([suggestion("Pri", "Priya", "addressed", priyaQuote, 0, "high")], speakers: renamedSpeakers)
         check(g23a.isEmpty && g23b.isEmpty, "DOC23 a name the user typed is never replaced",
               "\(describe(g23a)) \(describe(g23b))")
 
-        // DOC24 a time that matches no turn
-        let far = [suggestion("Speaker 1", "Priya", priyaQuote, 9999, "high")]
+        // DOC24 a quote that is not there, at a time that matches no turn; a wrong time with a real quote still works
+        let far = [suggestion("Speaker 1", "Priya", "addressed", "Priya, please start us off", 9999, "high")]
         let g24 = accepted(far)
+        let late = accepted([suggestion("Speaker 1", "Priya", "addressed", priyaQuote, 9999, "high")])
         var v24 = "not a success"
         if case .success(let s) = validate(newReply(names: far)) {
             v24 = s.suggestedNames == nil ? "ok" : "names kept"
         }
-        check(g24.isEmpty && v24 == "ok", "DOC24 a name at a missing time is dropped, the reply still succeeds", v24)
+        check(g24.isEmpty && v24 == "ok" && late == ["s1": "Priya"],
+              "DOC24 a name without its quote is dropped and the reply still succeeds", "\(v24) \(describe(late))")
 
         // DOC25 mergedNames
         let m25a = NotesAI.mergedNames([["s1": "Priya"], ["s1": "Priya", "s2": "Marcus"]])
@@ -557,5 +561,211 @@ enum NotesDocChecks {
               "DOC30 Clear on a suggested name", describe(cleared as Any))
         model.backToList()
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+// MARK: - Speaker names: direction of address, per-label entries, diagnostics, stored references
+
+extension NotesDocChecks {
+    private static func tn(_ speaker: String, _ start: Double, _ text: String) -> TranscriptTurn {
+        TranscriptTurn(speaker: speaker, start: start, end: start + 5, text: text)
+    }
+
+    private static let meeting: [TranscriptTurn] = [
+        tn("you", 13, "Okay, I think we can start. Thanks everyone for joining. Dave said he might be a few minutes late, so let's not wait for him."),
+        tn("s1", 22, "Morning. Can everyone hear me okay? I got a new headset and I have no idea how loud it is."),
+        tn("s2", 29, "We can hear you, Bob, very clearly. Maybe a little too clearly."),
+        tn("you", 34, "Right. So the plan for today is the version 2 launch. Jason, are you there?"),
+        tn("s3", 48, "Yeah, I'm here. I'm on my phone in the car park, so the line might be a bit rough."),
+        tn("you", 96, "Okay, let's come back to that. The bigger question is the launch date. Emily, you had concerns about that."),
+        tn("s2", 106, "I did. The onboarding screens are still the old design."),
+        tn("s5", 159, "Hi, sorry, sorry. I'm here now. The meeting link kept sending me to the wrong room."),
+        tn("you", 167, "Hi Dave, we were just about to decide on moving the launch."),
+        tn("s4", 219, "Do we actually need the animated tutorial? Nobody in the beta watched the video one."),
+        tn("s2", 225, "That's exactly what I thought, Lucia."),
+        tn("s4", 230, "Hi all, this is Lucia from the data team, by the way."),
+    ]
+
+    private static let meetingSpeakers: [NoteSpeaker] = [
+        NoteSpeaker(key: "you"), NoteSpeaker(key: "s1"), NoteSpeaker(key: "s2"), NoteSpeaker(key: "s3"),
+        NoteSpeaker(key: "s4"), NoteSpeaker(key: "s5"),
+    ]
+
+    private static func entry(_ label: String, _ name: String, _ kind: String, _ evidence: String, _ time: Double,
+                              _ confidence: String = "high") -> Suggestion {
+        Suggestion(label: label, name: name, kind: kind, evidence: evidence, time: time, confidence: confidence)
+    }
+
+    private static var meetingEntries: [Suggestion] {
+        [entry("Speaker 1", "Bob", "addressed", "We can hear you, Bob, very clearly.", 29),
+         entry("Speaker 2", "Emily", "addressed", "Emily, you had concerns about that.", 96),
+         entry("Speaker 3", "Jason", "addressed", "Jason, are you there?", 34),
+         entry("Speaker 4", "Lucia", "addressed", "That's exactly what I thought, Lucia.", 225),
+         entry("Speaker 5", "Dave", "addressed", "Hi Dave", 167)]
+    }
+
+    private static func review(_ list: [Suggestion]) -> [NotesAI.NameVerdict] {
+        NotesAI.nameReview(list, turns: meeting, speakers: meetingSpeakers)
+    }
+
+    private static func reasons(_ list: [Suggestion]) -> [String] {
+        review(list).map { $0.accepted ? "ok" : $0.reason }
+    }
+
+    private static func meetingReply() -> String {
+        func obj(_ k: [String: Any]) -> [String: Any] { k }
+        let decisions: [[String: Any]] = [["text": "Move the launch", "status": "needs_discussion", "time": 167]]
+        let details: [[String: Any]] = [
+            ["topic": "Audio check", "text": "Speaker 2 told Bob the headset is clear.", "times": [29]],
+            ["topic": "Onboarding", "text": "Speaker 2 said the screens are old.", "times": [106]],
+            ["topic": "Late joiner", "text": "Dave joined late.", "times": [159]],
+        ]
+        let actions: [[String: Any]] = [
+            ["owner": "Speaker 3", "task": "Check the line", "time": 48],
+            ["owner": "You", "task": "Set the launch date", "time": 34],
+            ["owner": "Dave", "task": "Review the screens", "time": 167],
+            ["owner": "", "task": "Book a room", "time": 96],
+        ]
+        let raw: [String: Any] = [
+            "title": "Version 2 launch plan", "description": "Launch date and onboarding screens",
+            "summary": "Bob tested his headset and Speaker 2 raised onboarding.", "summary_times": [13],
+            "decisions": decisions, "details": details, "action_items": actions,
+            "speakers": meetingEntries.map { s -> [String: Any] in
+                ["label": s.label, "name": s.name, "kind": s.kind, "evidence": s.evidence, "time": Int(s.time),
+                 "confidence": s.confidence]
+            },
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: raw, options: [.sortedKeys])) ?? Data()
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    private static func validated() -> NoteSummary? {
+        let r = NotesAI.validateSummary(meetingReply(), turns: meeting, speakers: meetingSpeakers, provider: .anthropic,
+                                        model: .claudeHaiku, written: Date(timeIntervalSince1970: 0), parts: 1)
+        if case .success(let s) = r { return s }
+        return nil
+    }
+
+    static func runNameFix(_ check: (Bool, String, String) -> Void) {
+        // DOC31 the whole reply
+        let s31 = validated()
+        let want31 = ["s1": "Bob", "s2": "Emily", "s3": "Jason", "s4": "Lucia", "s5": "Dave"]
+        let owners = s31?.actionItems.map { $0.owner } ?? []
+        let d0 = NotesDoc.details(s31 ?? emptySummary()).first?.text ?? ""
+        check(s31?.suggestedNames == want31 && owners == ["s3", "you", "s5", ""]
+              && d0 == "{{s2}} told {{s1}} the headset is clear.",
+              "DOC31 a reply in the real shape is validated, names kept, references stored as tokens",
+              "\(describe(s31?.suggestedNames as Any)) \(owners) \(d0)")
+
+        // DOC32 addressed by another speaker
+        let a32 = NotesAI.acceptedNames([meetingEntries[0]], turns: meeting, speakers: meetingSpeakers)
+        check(a32 == ["s1": "Bob"], "DOC32 a name said to a speaker by another speaker is accepted", describe(a32))
+
+        // DOC33 addressed quote spoken by the named speaker
+        let r33 = reasons([entry("Speaker 2", "Lucia", "addressed", "That's exactly what I thought, Lucia.", 225)])
+        check(r33 == ["named speaker said it"], "DOC33 a quote the named speaker said is refused", describe(r33))
+
+        // DOC34 / DOC35 introduced
+        let intro = "this is Lucia from the data team"
+        let r34 = reasons([entry("Speaker 4", "Lucia", "introduced", intro, 230)])
+        check(r34 == ["ok"], "DOC34 a self-introduction is accepted", describe(r34))
+        let r35 = reasons([entry("Speaker 2", "Lucia", "introduced", intro, 230)])
+        check(r35 == ["introduced by someone else"], "DOC35 an introduction by someone else is refused", describe(r35))
+
+        // DOC36 normalised quote, wrong time
+        let q36 = "we can hear you bob very clearly"
+        let r36 = reasons([entry("Speaker 1", "Bob", "addressed", q36, 29), entry("Speaker 1", "Bob", "addressed", q36, 31)])
+        check(r36 == ["ok", "ok"], "DOC36 a normalised quote is found, even at a wrong time", describe(r36))
+
+        // DOC37 You, and a quote without the name
+        let r37 = reasons([entry("You", "Samr", "addressed", "Hi Dave", 167),
+                           entry("Speaker 1", "Samr", "addressed", "Morning", 22)])
+        check(r37 == ["not a speaker label", "name not in quote"], "DOC37 You is never named, a quote needs the name",
+              describe(r37))
+
+        // DOC38 null name
+        let raw38 = "{\"label\":\"Speaker 3\",\"name\":null,\"kind\":\"none\",\"evidence\":null,\"time\":0,\"confidence\":\"low\"}"
+        let dec38 = try? JSONDecoder().decode(Suggestion.self, from: Data(raw38.utf8))
+        let wrapped = "{\"speakers\":[" + raw38 + "]}"
+        let props38 = NotesAI.speakerProposals(fromReply: wrapped)
+        let r38 = dec38.map { reasons([$0]) } ?? ["decode failed"]
+        let n38 = dec38.map { NotesAI.acceptedNames([$0], turns: meeting, speakers: meetingSpeakers) } ?? ["x": "y"]
+        check(r38 == ["no name"] && n38.isEmpty && props38.count == 1, "DOC38 a null name decodes and names nobody",
+              "\(r38) \(n38) \(props38.count)")
+
+        // DOC39 duplicates
+        let r39 = review([entry("Speaker 2", "Emily", "addressed", "Emily, you had concerns about that.", 96),
+                          entry("Speaker 4", "Emily", "addressed", "Emily, you had concerns about that.", 96)])
+        let small = [tn("s1", 0, "Hello there."), tn("you", 6, "Dave, please go ahead."), tn("s2", 10, "Sure.")]
+        let sp3 = [NoteSpeaker(key: "you"), NoteSpeaker(key: "s1"), NoteSpeaker(key: "s2")]
+        let dave = [entry("Speaker 1", "Dave", "addressed", "Dave, please go ahead", 6),
+                    entry("Speaker 2", "Dave", "addressed", "Dave, please go ahead", 6)]
+        let v39 = NotesAI.nameReview(dave, turns: small, speakers: sp3)
+        let a39 = NotesAI.acceptedNames(dave, turns: small, speakers: sp3)
+        check(r39.map { $0.accepted } == [true, false] && r39[1].reason == "not next to the named speaker"
+              && v39.map { $0.reason } == ["name on two speakers", "name on two speakers"] && a39.isEmpty,
+              "DOC39 a name on two speakers is refused for both", "\(r39.map { $0.reason }) \(v39.map { $0.reason })")
+
+        // DOC40 neither neighbour is the named speaker
+        let r40 = reasons([entry("Speaker 3", "Bob", "addressed", "We can hear you, Bob, very clearly.", 29)])
+        check(r40 == ["not next to the named speaker"], "DOC40 a name said next to someone else is refused", describe(r40))
+
+        // DOC41 stored references follow renames
+        if let s = validated() {
+            let named = NotesDoc.applyingSuggestedNames(s.suggestedNames ?? [:], to: meetingSpeakers)
+            let renamedEm = NotesLogic.renaming("s2", to: "Em", in: named)
+            let cleared = NotesDoc.clearingName("s1", in: renamedEm)
+            let t1 = NotesDoc.details(NotesDoc.resolving(s, speakers: renamedEm)).first?.text ?? ""
+            let t2 = NotesDoc.details(NotesDoc.resolving(s, speakers: cleared)).first?.text ?? ""
+            let m = NoteMeta(id: "20261123-140000-abcd", title: "T", started: Date(timeIntervalSince1970: 0), duration: 60,
+                             speakers: renamedEm, state: .ready)
+            let md = NotesDoc.markdown(meta: m, summary: s, calendar: Calendar(identifier: .gregorian))
+            check(t1 == "Em told Bob the headset is clear." && t2 == "Em told Speaker 1 the headset is clear."
+                  && md.contains("Em told Bob the headset is clear."),
+                  "DOC41 stored references follow renames", "\(t1) | \(t2)")
+        } else {
+            check(false, "DOC41 stored references follow renames", "no summary")
+        }
+
+        // DOC42 the review of the whole reply
+        let v42 = review(NotesAI.speakerProposals(fromReply: meetingReply()))
+        check(v42.count == 5 && v42.allSatisfy { $0.accepted } && v42.map { $0.quoteTurn ?? -1 } == [2, 5, 3, 10, 8],
+              "DOC42 nameReview on the whole reply", "\(v42.map { $0.reason }) \(v42.map { $0.quoteTurn ?? -1 })")
+
+        // DOC43 the names line
+        var out = NotesAskRun.Output(mode: "summary", provider: "Anthropic", model: "m", ok: true)
+        func verdict(_ kind: String, _ name: String, _ ok: Bool, _ reason: String) -> NotesAI.NameVerdict {
+            NotesAI.NameVerdict(label: "Speaker 1", name: name, kind: kind, confidence: "high", evidence: "x", time: 0,
+                                quoteTurn: nil, quoteSpeaker: nil, accepted: ok, reason: reason)
+        }
+        out.nameReview = [verdict("addressed", "Bob", true, ""), verdict("introduced", "Lucia", true, ""),
+                          verdict("addressed", "Dave", false, "low confidence"), verdict("none", "", false, "no name")]
+        out.autoNamesApplied = 2
+        let lines43 = NotesAskRun.lines(out)
+        let want43 = "notesasktest: names: proposed 3, applied 2, rejected 1 (low confidence x1)"
+        check(lines43.contains(want43), "DOC43 the names line holds counts and fixed reasons only", lines43.joined(separator: " | "))
+
+        // DOC44 the request and the prompt
+        if let access = NotesAccess.resolve(hasAnthropic: { true }, hasOpenAI: { false }, anthropicModel: nil, openAIModel: nil) {
+            let lines = NotesAI.transcriptLines(meeting, speakers: meetingSpeakers)
+            let req = NotesAI.summaryRequest(access, key: "k", lines: lines, part: 1, of: 1)
+            var itemRequired: [String] = []
+            if let body = req.httpBody, let obj = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any],
+               let outCfg = obj["output_config"] as? [String: Any], let format = outCfg["format"] as? [String: Any],
+               let schema = format["schema"] as? [String: Any], let props = schema["properties"] as? [String: Any],
+               let sp = props["speakers"] as? [String: Any], let item = sp["items"] as? [String: Any] {
+                itemRequired = item["required"] as? [String] ?? []
+            }
+            check(itemRequired.contains("kind") && NotesAI.summaryRules.contains("is not Bob"),
+                  "DOC44 the summary request asks for a kind and the prompt names the direction",
+                  "required \(itemRequired)")
+        } else {
+            check(false, "DOC44 the summary request asks for a kind and the prompt names the direction", "no access")
+        }
+    }
+
+    private static func emptySummary() -> NoteSummary {
+        NoteSummary(summary: "", summaryTimes: [], actionItems: [], decisions: [], openQuestions: [],
+                    provider: "", model: "", written: Date(timeIntervalSince1970: 0), parts: 1)
     }
 }
