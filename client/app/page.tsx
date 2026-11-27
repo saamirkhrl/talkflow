@@ -66,8 +66,10 @@ export default function Home() {
         <div className="glass">
           <Faq />
         </div>
+        <div className="glass">
+          <FinalCta />
+        </div>
       </div>
-      <FinalCta />
     </main>
   );
 }

@@ -1,10 +1,11 @@
 import { RecDot, SectionTitle, Waveform } from "./primitives";
+import { LetGoDemo } from "./LetGoDemo";
 import { ForOs } from "./visitor";
 
 const STEP = "flex flex-col gap-5 border-t border-line pt-6";
 const STAGE = "flex h-36 items-center justify-center rounded-3xl bg-mist px-6";
 const KEY =
-  "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-line border-b-[5px] bg-paper p-2.5 font-sans text-[22px] text-ink shadow-[0_1px_0_rgba(31,30,34,0.05)]";
+  "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-black/10 border-b-[5px] bg-white p-2.5 font-sans text-[22px] text-[#0b1f66] shadow-[0_10px_24px_-12px_rgb(3_12_60/0.7)]";
 
 export function HowItWorks() {
   return (
@@ -18,7 +19,7 @@ export function HowItWorks() {
               windows={
                 <span className="flex items-center gap-3">
                   <kbd className={KEY}>Ctrl</kbd>
-                  <span aria-hidden="true" className="text-[22px] text-graphite">+</span>
+                  <span aria-hidden="true" className="text-[22px] text-white/70">+</span>
                   <kbd className={KEY}>Win</kbd>
                 </span>
               }
@@ -51,10 +52,7 @@ export function HowItWorks() {
         </li>
         <li className={STEP}>
           <div className={STAGE}>
-            <p className="max-w-[22ch] text-left text-[17px] leading-snug">
-              Can we move standup to Thursday?
-              <span aria-hidden="true" className="ml-0.5 inline-block h-[1.1em] w-0.5 translate-y-[0.2em] animate-blink bg-ink" />
-            </p>
+            <LetGoDemo />
           </div>
           <div>
             <h3 className="text-[19px] font-semibold">3. Let go</h3>

@@ -3,7 +3,7 @@ import { GUIDES } from "./content";
 
 export function Footer() {
   return (
-    <footer className="overflow-hidden">
+    <footer className="overflow-hidden pb-0">
       <div className="mx-auto max-w-[1200px] px-gutter pt-10">
         <div className="glass px-[clamp(20px,3vw,36px)] py-8">
         <nav aria-labelledby="footer-guides" className="mb-10 border-b border-line pb-10">
@@ -34,14 +34,20 @@ export function Footer() {
             </Link>
           </div>
         </div>
-        </div>
-        <p id="not-affiliated" className="mx-auto max-w-[70ch] pt-6 text-center text-[13px] leading-[1.5] text-white/80">
+        <p id="not-affiliated" className="mt-6 border-t border-line pt-5 text-left text-[13px] leading-[1.5] text-white/70">
           * talkflow is an independent, open-source project. It is not affiliated with, endorsed
           by or sponsored by Wispr AI, Inc. Wispr Flow is a trademark of Wispr AI, Inc.
         </p>
-        {/* The wordmark rests on the coral and cloud bed at the foot of the scene. */}
-        <p aria-hidden="true" className="mt-[clamp(80px,14svh,180px)] pb-[clamp(120px,22svh,260px)] text-center font-serif text-[clamp(72px,22.5vw,290px)] leading-[0.8] tracking-[-0.04em] whitespace-nowrap text-white select-none [text-shadow:0_10px_40px_rgb(10_40_150/0.45),0_2px_0_rgb(190_180_240/0.9)]">
-          talkflow
+        </div>
+        {/* The wordmark, nearly edge to edge, glowing like the clouds and
+            fading into the scene at its foot. */}
+        <p
+          aria-hidden="true"
+          className="relative mt-[clamp(48px,8svh,120px)] -mb-[0.06em] flex justify-center font-serif text-[clamp(96px,23.5vw,520px)] leading-[0.78] font-normal italic tracking-[-0.055em] whitespace-nowrap select-none"
+        >
+          <span className="bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_45%,rgb(255_255_255/0.55)_75%,rgb(255_255_255/0)_100%)] bg-clip-text pr-[0.08em] text-transparent [filter:drop-shadow(0_0_30px_rgb(200_190_255/0.55))_drop-shadow(0_18px_40px_rgb(6_30_130/0.45))]">
+            talkflow
+          </span>
         </p>
       </div>
     </footer>

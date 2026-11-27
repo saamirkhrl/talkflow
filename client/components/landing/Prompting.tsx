@@ -9,10 +9,10 @@ const SPEEDS = [
 
 export function Prompting() {
   return (
-    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(56px,7vw,96px)]">
+    <section className="mx-auto max-w-[1200px] px-gutter pt-[clamp(40px,5vw,64px)] pb-[clamp(56px,7vw,96px)]">
       <div className="grid gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* Pinned beside the app tour on wide screens, so the copy stays put while the apps change. */}
-        <div className="lg:sticky lg:top-0 lg:flex lg:h-svh lg:flex-col lg:justify-center lg:self-start lg:pt-16">
+        <div className="lg:sticky lg:top-24 lg:self-start lg:pt-12">
           <SectionTitle>Say the whole thought.</SectionTitle>
           <p className="mt-6 max-w-[42ch] text-[18px] text-graphite">
             Most people talk much faster than they type, so the context you would normally skip, the edge cases and the

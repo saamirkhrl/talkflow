@@ -35,7 +35,7 @@ export function Privacy() {
                     className="absolute top-[calc(var(--tile)/2)] right-[calc(50%+var(--tile)/2+20px)] left-[calc(-50%+var(--tile)/2+20px)] hidden h-px bg-white/35 md:block"
                   />
                 )}
-                <span className="grid size-(--tile) place-items-center rounded-[28%] bg-white/10 ring-1 ring-white/15">
+                <span className="grid size-(--tile) place-items-center rounded-[28%] bg-white text-[#0b2a8f] shadow-[0_12px_28px_-14px_rgb(3_12_60/0.8)]">
                   <Icon className="size-[42%]" strokeWidth={1.25} aria-hidden="true" />
                 </span>
                 <span className="max-w-[18ch] text-[13px] leading-snug text-white/90 md:text-[14px] lg:max-w-none lg:whitespace-nowrap">

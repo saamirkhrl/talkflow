@@ -210,9 +210,9 @@ export function AppTour() {
 
   return (
     <div ref={track} className="relative" style={{ height: `calc(100svh + ${(SCENES.length - 1) * STEP_SVH}svh)` }}>
-      <div className="sticky top-0 flex h-svh flex-col justify-center pt-16 pb-4">
+      <div className="sticky top-0 flex h-svh flex-col justify-start pt-24 pb-4">
         <div className="mb-5 flex justify-center">
-          <div className="flex items-center gap-0.5 rounded-full border border-line bg-paper p-1">
+          <div className="flex items-center gap-1 rounded-full bg-[#071c66]/70 p-1 ring-1 ring-white/15">
             {SCENES.map((s, i) => (
               <button
                 key={s.name}
@@ -221,19 +221,11 @@ export function AppTour() {
                 aria-label={`Show ${s.name}`}
                 aria-current={i === active ? "true" : undefined}
                 className={cn(
-                  "flex h-9 items-center rounded-full px-2 text-[13.5px] transition-[background-color,box-shadow,color] duration-300 sm:px-2.5 sm:text-[14px]",
-                  i === active ? "bg-white text-ink shadow-[0_1px_3px_rgba(31,30,34,0.14)]" : "text-graphite hover:bg-ink/5",
+                  "grid size-10 place-items-center rounded-full transition-[background-color,box-shadow,opacity] duration-300",
+                  i === active ? "bg-white shadow-[0_2px_8px_rgba(3,12,60,0.3)]" : "opacity-70 hover:bg-white/10 hover:opacity-100",
                 )}
               >
                 <BrandLogo logo={LOGOS[i]} className="size-[18px]" />
-                <span
-                  className={cn(
-                    "grid transition-[grid-template-columns] duration-300 ease-[cubic-bezier(.2,.8,.2,1)]",
-                    i === active ? "grid-cols-[1fr]" : "grid-cols-[0fr]",
-                  )}
-                >
-                  <span className="overflow-hidden pl-2 whitespace-nowrap">{s.name}</span>
-                </span>
               </button>
             ))}
           </div>

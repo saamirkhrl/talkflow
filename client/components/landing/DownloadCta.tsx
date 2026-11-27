@@ -108,9 +108,9 @@ function InstallCommand() {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-11 min-w-0 items-center gap-3 rounded-full border border-line pl-4 pr-1.5 font-mono text-[13px]">
-        <span aria-hidden="true" className="select-none text-graphite">$</span>
-        <code className="truncate text-ink">{command}</code>
+      <div className="flex h-11 min-w-0 items-center gap-3 rounded-full bg-[#071c66]/90 pl-4 pr-1.5 font-mono text-[13px] text-white shadow-[0_10px_30px_-12px_rgb(3_12_60/0.8)] ring-1 ring-white/15 backdrop-blur-md">
+        <span aria-hidden="true" className="select-none text-white/55">$</span>
+        <code className="truncate text-white">{command}</code>
         <button
           type="button"
           aria-label={copied ? "Copied" : "Copy install command"}
@@ -123,7 +123,7 @@ function InstallCommand() {
               setCopied(false);
             }
           }}
-          className="inline-flex size-8 flex-none items-center justify-center rounded-full text-graphite transition-colors hover:bg-ink/5 hover:text-ink"
+          className="inline-flex size-8 flex-none items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
         >
           {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
         </button>
@@ -161,7 +161,7 @@ function OtherBuilds() {
         aria-expanded={open}
         title="Other builds"
         onClick={() => setOpen((value) => !value)}
-        className={cn(buttonClass.secondary, "size-11", open && "bg-ink/5")}
+        className={cn(buttonClass.secondary, "size-11 border-transparent bg-[#071c66]/90 text-white ring-1 ring-white/15 backdrop-blur-md", open && "bg-[#0a2580]")}
       >
         <Layers size={17} aria-hidden="true" />
       </button>
