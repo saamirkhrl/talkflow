@@ -131,8 +131,7 @@ export default function OfflineDictationMacPage() {
       <h2 id="install">Install</h2>
       <p>
         Download it below, or see the <Link href="/download/mac">Mac download page</Link>. You can
-        also build it yourself from <a href={REPO_URL}>the source on GitHub</a>. Using a PC? See{" "}
-        <Link href="/dictation-for-windows">dictation for Windows</Link>.
+        also build it yourself from <a href={REPO_URL}>the source on GitHub</a>.
       </p>
     </ContentPage>
   );

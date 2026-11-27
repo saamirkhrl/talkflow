@@ -2,8 +2,7 @@
 
 Every talkflow release on GitHub carries a small JSON file,
 `talkflow-release.json`, that lists the builds attached to that release with
-their sha256 and size. Every app (macOS today, Windows next, Linux later)
-checks for updates by fetching one URL:
+their sha256 and size. The Mac app checks for updates by fetching one URL:
 
 ```
 https://github.com/saamirkhrl/talkflow/releases/latest/download/talkflow-release.json
@@ -29,10 +28,7 @@ non-prerelease release, so the URL never changes.
         "installer": { "name": "talkflow-macos.dmg", "url": "...", "sha256": "<hex>", "size": 456 }
       }
     },
-    "windows": {
-      "x64":   { "update": { "name": "talkflow-windows-x64-setup.exe", "...": "..." },
-                 "installer": { "name": "talkflow-windows-x64-setup.exe", "...": "..." } }
-    },
+    "windows": {},
     "linux": {}
   }
 }
@@ -47,9 +43,11 @@ non-prerelease release, so the URL never changes.
 - Each asset entry has `name`, `url` (the GitHub download URL), `sha256`
   (lowercase hex) and `size` (bytes).
 - `update` is what an installed app downloads to update itself; `installer` is
-  what a new user downloads. On Windows and Linux they are the same file.
+  what a new user downloads. On Linux they would be the same file.
 - `macos`, `windows` and `linux` are always present, possibly empty. An arch
-  appears only when its asset is attached to that release.
+  appears only when its asset is attached to that release. talkflow is
+  Mac-only, so `windows` is always the empty object: old Windows installs
+  read it, find no entry and stop finding updates instead of breaking.
 - Apps ignore platforms, arches and keys they do not know.
 
 ### Asset names
@@ -61,7 +59,6 @@ The names are fixed. The website links to
 |---|---|---|
 | `talkflow-macos.zip` | macos / universal | update |
 | `talkflow-macos.dmg` | macos / universal | installer |
-| `talkflow-windows-x64-setup.exe` | windows / x64 | update, installer |
 | `talkflow-linux-x64.AppImage` | linux / x64 | update, installer (reserved) |
 | `talkflow-linux-arm64.AppImage` | linux / arm64 | update, installer (reserved) |
 
@@ -80,9 +77,6 @@ Any other asset on a release (and the manifest itself) is left out.
   app checks the downloaded zip's sha256 against the expected one and refuses
   to install on a mismatch ("The download did not match the release's
   checksum, so it was not installed").
-- **Windows** reads `platforms.windows.x64.update`. Windows ships one build,
-  x64, for every PC; Windows on Arm runs it through emulation. (Releases up to
-  0.1.4 may also carry `talkflow-windows-arm64-setup.exe`; nothing reads it now.)
 - **Linux**, when it exists, reads `platforms.linux.<arch>.update`.
 
 ### When the Mac app checks
@@ -131,16 +125,12 @@ Three things run it:
    Mac-only release has a manifest immediately. If that step fails, the
    release stays published and the script prints the command to rerun.
 2. `.github/workflows/release-manifest.yml` runs it with `--upload`:
-   - on `release: published`;
-   - on `workflow_run`, when the workflow named `Windows` completes
-     successfully (that workflow attaches the Windows installers to an
-     existing release, minutes after the Mac assets). It uses the run's tag
-     (`head_branch`) when that is a release tag, otherwise the latest
-     release;
+   - on `release: published` (`release.sh` attaches the Mac files when it
+     creates the release, so they are all there);
    - by hand: Actions > Release manifest > Run workflow, with a `tag`.
    The job has `contents: write` only; the workflow's default is no
-   permissions. Runs are serialized. GitHub only triggers `workflow_run` and
-   `release` workflows from the copy of the file on the default branch.
+   permissions. Runs are serialized. GitHub only triggers `release`
+   workflows from the copy of the file on the default branch.
 3. Anyone, by hand, with the commands above.
 
 ## The install counter
@@ -154,9 +144,6 @@ Release builds carry the URL of the anonymous install counter
   own `Info.plist` (`TalkflowTelemetryURL`), never `Packaging/Info.plist`, and
   prints `install counter: on` or `off`. Check a build with
   `/usr/libexec/PlistBuddy -c "Print :TalkflowTelemetryURL" .build/release-artifacts/talkflow.app/Contents/Info.plist`.
-- **Windows:** the `Windows` workflow passes the repository secret
-  `TALKFLOW_TELEMETRY_URL` as `-p:TalkflowTelemetryUrl` on published releases
-  only.
 - Unset, a release builds the same and never sends. The privacy policy must
   describe the counter (with this version filled in) before the first release
   that carries the URL ships.
@@ -184,8 +171,8 @@ scripts/build-diarize-macos.sh --check .build/release-artifacts/talkflow.app/Con
 1. Build and attach `talkflow-linux-x64.AppImage` and/or
    `talkflow-linux-arm64.AppImage` to the release (from CI or by hand).
 2. Regenerate the manifest: if the Linux build comes from its own workflow,
-   add that workflow's name to `workflow_run.workflows` in
-   `release-manifest.yml`; otherwise run the workflow by hand with the tag.
+   add a `workflow_run` trigger on that workflow to `release-manifest.yml`;
+   otherwise run the workflow by hand with the tag.
    The generator already knows these names, so no code change is needed.
 3. In the Linux app, read `platforms.linux.<arch>.update` from the manifest
    URL and verify the download's sha256 before replacing anything.

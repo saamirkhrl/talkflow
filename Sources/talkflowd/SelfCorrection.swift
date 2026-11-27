@@ -438,7 +438,6 @@ enum SelfCorrection {
 
     /// Unambiguous given names: none is also an everyday word (no Will, Mark, Rose, Grace,
     /// May, Hope, Jack, Frank, Bill, Ray, Joy, June, April, Ivy, Holly, Penny, Dawn, Chase).
-    /// One list for Mac and Windows; keep them identical.
     private static let givenNames: Set<String> = [
         "aaron", "abigail", "adam", "ahmed", "aiden", "aisha", "alan", "albert", "alex", "alexander", "ali",
         "alice", "amanda", "amelia", "amit", "amy", "ana", "ananya", "andrea", "andrew", "andy", "angela",
@@ -548,7 +547,7 @@ enum SelfCorrection {
 
     /// Words that point back, so the restart that drops a whole sentence leaves it
     /// alone. Third person only: "me", "us", "you" and "here" point at the speaker, not
-    /// at the old sentence. One list for Mac and Windows; keep them identical.
+    /// at the old sentence.
     private static let backReferences: Set<String> = [
         "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself",
         "they", "them", "their", "theirs", "themselves",

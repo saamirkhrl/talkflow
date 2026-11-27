@@ -3,7 +3,7 @@
 import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
-import { BUILDS, WINDOWS_AVAILABLE, WINDOWS_DOWNLOAD_PATH, type BuildId } from "./content";
+import { BUILDS, type BuildId } from "./content";
 
 type Arch = "arm" | "x86" | null;
 
@@ -36,7 +36,6 @@ async function detectArch(): Promise<Arch> {
 }
 
 // The Mac download page: Apple Silicon or Intel, with the chips each is for.
-// (Windows has one build, so its Download buttons download it directly.)
 export function DownloadChooser() {
   const [arch, setArch] = useState<Arch>(null);
   useEffect(() => {
@@ -87,14 +86,6 @@ export function DownloadChooser() {
             );
           })}
         </div>
-
-        {WINDOWS_AVAILABLE && (
-          <p className="mt-8 text-[15px]">
-            <a href={WINDOWS_DOWNLOAD_PATH} className="underline decoration-1 underline-offset-[3px] hover:decoration-2">
-              Download for Windows instead
-            </a>
-          </p>
-        )}
       </div>
     </main>
   );

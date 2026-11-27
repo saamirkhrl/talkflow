@@ -5,7 +5,7 @@
 // defaults (app/layout.tsx).
 export const SITE_TITLE = "talkflow: talk to your computer, for free";
 export const SITE_DESCRIPTION =
-  "The free, open-source Wispr Flow alternative. Hold a key, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac or PC.";
+  "The free, open-source Wispr Flow alternative. Hold a key, speak, and your words are typed wherever your cursor is. Runs entirely on your Mac.";
 
 export const REPO_URL = "https://github.com/saamirkhrl/talkflow";
 // The newest Mac build itself, not the releases page: GitHub serves the asset
@@ -20,17 +20,9 @@ export const MAC_BUILD_DETAIL = "Apple Silicon and Intel, macOS 13+";
 // release, installs it to /Applications and opens it.
 export const INSTALL_SCRIPT_PATH = "/install.sh";
 
-// Apple's and Microsoft's trademark guidelines restrict use of their logos
+// Apple's trademark guidelines restrict use of its logo
 // without permission. Set to false to show text-only download buttons.
 export const SHOW_OS_LOGOS = true;
-
-// The Windows installers are attached to every release by
-// .github/workflows/windows.yml. Set this to false to offer only the Mac
-// download and say Windows is coming instead.
-export const WINDOWS_AVAILABLE: boolean = true;
-// Windows has one build, x64. It runs on every Windows 10 (1809) and 11 PC,
-// Arm PCs included, which run it through Windows' built-in emulation. There is
-// no separate Arm build.
 
 // Every build the site offers, by the path it is served from:
 // talkflow.live/download/<id> redirects to that release asset (see
@@ -39,34 +31,21 @@ export const WINDOWS_AVAILABLE: boolean = true;
 // The Mac release is one universal app (Apple Silicon and Intel in the same
 // binary), so both Mac paths serve the same disk image. Give one its own
 // asset name here if separate builds are ever published.
-export type BuildId = "mac-apple-silicon" | "mac-intel" | "windows-x64";
+export type BuildId = "mac-apple-silicon" | "mac-intel";
 // `chips` are what the Mac download page lists on each choice, so people can
 // match the one in About This Mac.
-export const BUILDS: Record<BuildId, { os: "mac" | "windows"; label: string; chips: string[]; asset: string; available: boolean }> = {
+export const BUILDS: Record<BuildId, { label: string; chips: string[]; asset: string }> = {
   "mac-apple-silicon": {
-    os: "mac",
     label: "Apple Silicon",
     chips: ["M1", "M2", "M3", "M4", "M5"],
     asset: "talkflow-macos.dmg",
-    available: true,
   },
   "mac-intel": {
-    os: "mac",
     label: "Intel",
     chips: ["Core i3", "Core i5", "Core i7", "Core i9"],
     asset: "talkflow-macos.dmg",
-    available: true,
-  },
-  "windows-x64": {
-    os: "windows",
-    label: "Windows",
-    chips: [],
-    asset: "talkflow-windows-x64-setup.exe",
-    available: WINDOWS_AVAILABLE,
   },
 };
-// Where every Windows Download button points: the route downloads the installer.
-export const WINDOWS_DOWNLOAD_PATH = "/download/windows-x64";
 export const buildUrl = (id: BuildId) => `${REPO_URL}/releases/latest/download/${BUILDS[id].asset}`;
 
 // What gets dictated into each app in the "Say the whole thought" scroll demo.
@@ -98,7 +77,6 @@ export const WISPR_FLOW_PRICE = "$15/mo";
 export const GUIDES: { path: string; label: string }[] = [
   { path: "/how-it-works", label: "How talkflow works" },
   { path: "/offline-dictation-mac", label: "Offline dictation for Mac" },
-  { path: "/dictation-for-windows", label: "Dictation for Windows" },
   { path: "/use-cases/coding", label: "Dictation for coding" },
   { path: "/use-cases/email-and-chat", label: "Dictation for email and chat" },
   { path: "/use-cases/writing", label: "Dictation for writing" },
@@ -108,19 +86,19 @@ export const GUIDES: { path: string; label: string }[] = [
 export const FAQ: [question: string, answer: string][] = [
   [
     "How is it different from Wispr Flow?",
-    "Wispr Flow Pro costs $15 a month, or $12 a month billed yearly, and Wispr Flow's free plan stops at 2,000 words a week on desktop. talkflow is free with no word limit, it's open source, and the speech engine runs on your own Mac or PC.",
+    "Wispr Flow Pro costs $15 a month, or $12 a month billed yearly, and Wispr Flow's free plan stops at 2,000 words a week on desktop. talkflow is free with no word limit, it's open source, and the speech engine runs on your own Mac.",
   ],
   [
     "Is it really free?",
-    "Yes. No trial, no tiers, no subscription. talkflow is open source under the MIT License and runs on your own Mac or PC, so there's nothing to pay for.",
+    "Yes. No trial, no tiers, no subscription. talkflow is open source under the MIT License and runs on your own Mac, so there's nothing to pay for.",
   ],
   [
     "Does anything get sent to the cloud?",
-    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the dashboard). An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries on a Mac, are off unless you turn them on.",
+    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the dashboard). An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries, are off unless you turn them on.",
   ],
   [
     "Which key do I hold?",
-    "On a Mac, fn, the Globe key in the bottom-left corner of Mac keyboards. On Windows, Ctrl + Win (you can change it in Settings). Hold it while you talk and let go when you're done.",
+    "fn, the Globe key in the bottom-left corner of Mac keyboards (you can change it in Settings). Hold it while you talk and let go when you're done.",
   ],
   [
     "Does it rewrite what I say?",
@@ -136,7 +114,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "What do I need to run it?",
-    "A Mac with macOS 13 or later (built and tested on Apple silicon), or a PC with Windows 10 (version 1809) or later, including Arm PCs. The English speech model needs about 190 MB of disk space on a Mac and about 490 MB on Windows, plus about 575 MB for the optional, more accurate final-pass model. Meeting notes (Mac only for now) need macOS 14.2 or later.",
+    "A Mac with macOS 13 or later (built and tested on Apple silicon). The English speech model needs about 190 MB of disk space, plus about 575 MB for the optional, more accurate final-pass model. Meeting notes need macOS 14.2 or later.",
   ],
 ];
 

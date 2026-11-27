@@ -1,18 +1,15 @@
 import { CloudOff, Cpu, Mic, TextCursorInput, Unlink } from "lucide-react";
-import { ForOs } from "./visitor";
-
-const YOUR_COMPUTER = <ForOs mac="Mac" windows="computer" />;
 
 const FACTS: [React.ReactNode, string][] = [
-  [<>Runs on your {YOUR_COMPUTER}</>, "Whisper recognizes your speech on your own processor."],
+  ["Runs on your Mac", "Whisper recognizes your speech on your own processor."],
   ["No cloud, no account", "No sign-in or analytics, and it works offline. Online, it only checks for updates and counts installs, anonymously."],
-  ["Dictation audio is never saved", "Held in memory, never written to disk. Meeting recordings on a Mac are deleted once their notes are written, and kept only if that fails, with a Delete button."],
+  ["Dictation audio is never saved", "Held in memory, never written to disk. Meeting recordings are deleted once their notes are written, and kept only if that fails, with a Delete button."],
   ["Open source", "Every line is public, MIT licensed."],
 ];
 
 const STEPS: { icon: typeof Mic; label: React.ReactNode }[] = [
   { icon: Mic, label: "Your voice" },
-  { icon: Cpu, label: <>Speech engine on your {YOUR_COMPUTER}</> },
+  { icon: Cpu, label: "Speech engine on your Mac" },
   { icon: TextCursorInput, label: "Text at your cursor" },
 ];
 
@@ -21,7 +18,7 @@ export function Privacy() {
     <section id="privacy" className="px-3 sm:px-4">
       <div className="mx-auto max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-ink px-gutter py-[clamp(56px,7vw,96px)] text-paper">
         <h2 className="max-w-[13ch] font-serif text-[clamp(40px,6vw,80px)] leading-[0.98] font-normal tracking-[-0.025em]">
-          Your voice never leaves your {YOUR_COMPUTER}.
+          Your voice never leaves your Mac.
         </h2>
 
         {/* Where your audio goes: voice, engine and cursor boxed together, and a broken line out to the cloud it never reaches. */}

@@ -15,7 +15,7 @@ URL="https://github.com/$REPO/releases/latest/download/talkflow-macos.zip"
 say() { printf '==> %s\n' "$1"; }
 fail() { printf 'error: %s\n' "$1" >&2; exit 1; }
 
-[ "$(uname -s)" = "Darwin" ] || fail "This installer is for macOS. On Windows, download talkflow from https://talkflow.live/download/windows"
+[ "$(uname -s)" = "Darwin" ] || fail "This installer is for macOS. talkflow is Mac-only."
 major=$(sw_vers -productVersion | cut -d. -f1)
 [ "$major" -ge 13 ] || fail "talkflow needs macOS 13 or newer (this Mac has $(sw_vers -productVersion))."
 

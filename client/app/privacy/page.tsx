@@ -9,18 +9,18 @@ const COUNTED_FROM = "0.1.6";
 export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy",
   description:
-    "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac or PC.",
+    "What the talkflow website and app do and do not do with your information. Dictation happens on your own Mac.",
   path: "/privacy",
 });
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="November 24, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="November 27, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
           <strong>The app works on your computer.</strong> Your speech is turned into text on your
-          own Mac or PC, by a speech engine running on it. Apart from that, the app asks GitHub
+          own Mac, by a speech engine running on it. Apart from that, the app asks GitHub
           whether a newer version exists (see{" "}<a href="#app-updates">Update checks</a>), tells us
           once that it was installed (see <a href="#app-receive">What we receive from the app</a>),
           and contacts OpenAI or Anthropic only if you add your own API key. We don&apos;t receive
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
           disk.
         </li>
         <li>
-          <strong>Meeting notes, on a Mac, stay on your Mac.</strong> If you record a meeting, the
+          <strong>Meeting notes stay on your Mac.</strong> If you record a meeting, the
           recording is saved until its notes are written and then deleted, and the transcript is
           kept on your computer. We never receive either. Telling the other people that they are
           being recorded is your responsibility (see <a href="#app-notes">Meeting notes</a>).
@@ -82,7 +82,7 @@ export default function PrivacyPage() {
       <ul>
         <li>this website;</li>
         <li>
-          official releases of the talkflow app for Mac and Windows, downloaded from this website or
+          official releases of the talkflow app for Mac, downloaded from this website or
           from{" "}
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a>;
         </li>
@@ -209,15 +209,9 @@ export default function PrivacyPage() {
 
       <h2 id="app">Part 2: The app</h2>
 
-      <p>
-        talkflow has a Mac app and a Windows app. They handle your information the same way; where
-        they differ, this part says so. Meeting notes are in the Mac app only, for now.
-      </p>
-
       <h3 id="app-how">How dictation works</h3>
       <p>
-        When you hold the talkflow shortcut (fn on a Mac and Ctrl + Win on Windows, unless you
-        change it), the app:
+        When you hold the talkflow shortcut (fn, unless you change it), the app:
       </p>
       <ol>
         <li>records sound from your microphone and keeps it in your computer&apos;s memory;</li>
@@ -367,7 +361,7 @@ export default function PrivacyPage() {
           <strong>OpenAI transcription.</strong> For each dictation, talkflow sends the recorded audio
           to OpenAI to be turned into text. To help spell words correctly, it also sends a short
           hint: the first name on your computer&apos;s user account, and up to 25 words talkflow has
-          learned from your corrections and, on a Mac, names visible on your screen (such as an
+          learned from your corrections and names visible on your screen (such as an
           email&apos;s recipients). The live preview while you speak still runs on your computer.
         </li>
         <li>
@@ -407,7 +401,7 @@ export default function PrivacyPage() {
         be installed. The Whisper speech models are downloaded from Hugging Face: small.en (English
         only) during setup, and large-v3-turbo in the background on computers that use it. Hugging
         Face sees your IP address when you download them and handles it under the{" "}
-        <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>. On a Mac, meeting
+        <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>. Meeting
         notes offer two optional downloads from Hugging Face, which start only when you click: the
         larger large-v3-turbo model (about 574 MB) and speaker models for telling voices apart
         (about 21 MB).
@@ -415,10 +409,8 @@ export default function PrivacyPage() {
 
       <h3 id="app-local">What stays on your computer</h3>
       <p>
-        The app keeps a small amount of information on your own computer. On a Mac, your data is in{" "}
-        <code>~/Library/Application Support/talkflow/</code>. On Windows, it is in{" "}
-        <code>%APPDATA%\talkflow\</code>, and the models and logs are in{" "}
-        <code>%LOCALAPPDATA%\talkflow\</code>.
+        The app keeps a small amount of information on your own computer, in{" "}
+        <code>~/Library/Application Support/talkflow/</code>.
       </p>
       <ul>
         <li>
@@ -432,30 +424,24 @@ export default function PrivacyPage() {
           <a href="#app-reads">What the app reads while you dictate</a>).
         </li>
         <li>
-          <strong>A technical log.</strong> On a Mac, at{" "}
-          <code>~/Library/Logs/talkflow/talkflow.log</code>, which grows until you delete it. On
-          Windows, at <code>%LOCALAPPDATA%\talkflow\logs\talkflow.log</code>, which starts over at
-          2 MB. For each dictation it records technical details, such as its length and timing and
+          <strong>A technical log</strong>, at{" "}
+          <code>~/Library/Logs/talkflow/talkflow.log</code>, which grows until you delete it. For each dictation it records technical details, such as its length and timing and
           the name of the app you dictated into. It does not record your words. For meeting notes
           it records counts and durations, never what was said.
         </li>
         <li>
-          <strong>Meeting notes</strong>, on a Mac, if you record any (see{" "}
+          <strong>Meeting notes</strong>, if you record any (see{" "}
           <a href="#app-notes">Meeting notes</a>). Each note has its own folder in{" "}
           <code>notes/</code>, with the transcript and, until the notes are written, the audio.
         </li>
         <li>
-          <strong>Whether this copy has been counted.</strong> A yes/no flag (in the app&apos;s
-          preferences on a Mac, and in <code>windows.json</code> on Windows), so the install count
+          <strong>Whether this copy has been counted.</strong> A yes/no flag, in the app&apos;s
+          preferences, so the install count
           described above is sent only once.
         </li>
         <li>
-          <strong>On Windows, speed measurements.</strong> How fast your PC runs each speech model,
-          so talkflow can choose the right settings (<code>device.json</code>).
-        </li>
-        <li>
-          <strong>Your own API keys</strong>, if you add any: in the macOS Keychain on a Mac, and in
-          Windows Credential Manager on Windows, never in a plain file.
+          <strong>Your own API keys</strong>, if you add any: in the macOS Keychain, never in a
+          plain file.
         </li>
         <li>
           <strong>The speech engine&apos;s own log.</strong> The speech engine may keep its own log
@@ -464,20 +450,17 @@ export default function PrivacyPage() {
       </ul>
       <p>
         talkflow doesn&apos;t encrypt these files itself. They are protected by your user account,
-        and by disk encryption (FileVault on a Mac, BitLocker or device encryption on Windows) if
-        you have it turned on.
+        and by disk encryption (FileVault) if you have it turned on.
       </p>
       <p>
-        <strong>Deleting them.</strong> You can delete these files at any time. On a Mac, deleting
-        the talkflow app may not delete them. On Windows, uninstalling removes the models and logs
-        but keeps your data folder, so remove <code>%APPDATA%\talkflow\</code> too if you want it
-        gone.
+        <strong>Deleting them.</strong> You can delete these files at any time. Deleting the
+        talkflow app may not delete them.
       </p>
 
       <h3 id="app-reads">What the app reads while you dictate</h3>
       <p>
         When you start a dictation, talkflow reads what is around your cursor, through macOS
-        Accessibility on a Mac or UI Automation on Windows: up to 300 characters before the cursor,
+        Accessibility: up to 300 characters before the cursor,
         up to the last 4,000 characters of the text field, and names visible on screen, such as an
         email&apos;s recipients. It uses this to get spacing and capitals right, to spell names
         correctly and, a little later, to notice when you corrected a word it got wrong, so it can
@@ -486,17 +469,15 @@ export default function PrivacyPage() {
         only for that dictation, except a corrected word, which is saved to your learned words.
       </p>
       <p>
-        <strong>The clipboard.</strong> On a Mac, talkflow types with keystrokes and doesn&apos;t
+        <strong>The clipboard.</strong> talkflow types with keystrokes and doesn&apos;t
         use the clipboard, with one exception: if the text can&apos;t be typed (for example, because
         you switched to another app while speaking), it is put on the clipboard so your words
-        aren&apos;t lost. On Windows, longer dictations are pasted: talkflow saves what is on your
-        clipboard, puts the dictation there, pastes it, and then puts your clipboard back. That
-        paste is kept out of Windows clipboard history and the cloud clipboard.
+        aren&apos;t lost.
       </p>
 
       <h3 id="app-permissions">Permissions the app asks for</h3>
       <p>
-        <strong>On a Mac.</strong> You can turn any of these off at any time in{" "}
+        You can turn any of these off at any time in{" "}
         <strong>System Settings &gt; Privacy &amp; Security</strong>, but talkflow won&apos;t work
         without the first two.
       </p>
@@ -521,23 +502,6 @@ export default function PrivacyPage() {
           it.
         </li>
       </ul>
-      <p>
-        <strong>On Windows.</strong> Windows doesn&apos;t ask desktop apps for permissions. Instead:
-      </p>
-      <ul>
-        <li>
-          <strong>Microphone.</strong> The switches in Settings &gt; Privacy &amp; security &gt;
-          Microphone must allow desktop apps to use it. talkflow checks them and, if one is off,
-          tells you which.
-        </li>
-        <li>
-          <strong>The shortcut.</strong> To notice when you hold the shortcut, talkflow watches key
-          presses, as Windows lets any desktop app do. It keeps track only of which keys are held
-          down at that moment, to tell whether the shortcut is held. It doesn&apos;t record, store
-          or send what you type.
-        </li>
-      </ul>
-
       <h3 id="app-outside">Things outside talkflow&apos;s control</h3>
       <p>
         Some things that happen on your computer are up to you, your organization or other
@@ -550,11 +514,10 @@ export default function PrivacyPage() {
           tool you use.
         </li>
         <li>
-          <strong>Your operating system.</strong> macOS and Windows may make their own network
-          connections, for example to check a newly downloaded app or installer before it first
-          opens. If you have chosen to share analytics or diagnostic data with Apple or Microsoft,
-          your operating system may also send them crash reports that involve talkflow.
-          Apple&apos;s and Microsoft&apos;s privacy policies cover those.
+          <strong>Your operating system.</strong> macOS may make its own network
+          connections, for example to check a newly downloaded app before it first opens. If you
+          have chosen to share analytics or diagnostic data with Apple, macOS may also send them
+          crash reports that involve talkflow. Apple&apos;s privacy policy covers those.
         </li>
         <li>
           <strong>Work computers.</strong> If you use talkflow on a computer managed by your

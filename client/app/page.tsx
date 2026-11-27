@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Apps } from "@/components/landing/Apps";
-import { FAQ, REPO_URL, SITE_DESCRIPTION, SITE_TITLE, WINDOWS_DOWNLOAD_PATH } from "@/components/landing/content";
+import { FAQ, REPO_URL, SITE_DESCRIPTION, SITE_TITLE } from "@/components/landing/content";
 import { Faq } from "@/components/landing/Faq";
 import { FinalCta } from "@/components/landing/FinalCta";
 import { Hero } from "@/components/landing/Hero";
@@ -24,12 +24,12 @@ const APP_JSON_LD = {
   url: SITE_URL,
   image: `${SITE_URL}/icon.svg`,
   applicationCategory: "UtilitiesApplication",
-  operatingSystem: "macOS, Windows",
+  operatingSystem: "macOS",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   isAccessibleForFree: true,
   license: "https://opensource.org/license/mit",
   codeRepository: REPO_URL,
-  downloadUrl: [`${SITE_URL}/download/mac`, `${SITE_URL}${WINDOWS_DOWNLOAD_PATH}`],
+  downloadUrl: `${SITE_URL}/download/mac`,
 };
 
 const FAQ_JSON_LD = {

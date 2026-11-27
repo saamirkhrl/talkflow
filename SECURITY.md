@@ -10,7 +10,7 @@ is sent to that provider. With an Anthropic key and Claude punctuation on, the
 experimental AI corrections option (off by default; used on Macs without Apple
 Intelligence) sends the dictated text to Anthropic in a second request.
 
-Meeting notes (Mac only) work differently. A meeting the user records is written to disk:
+Meeting notes work differently. A meeting the user records is written to disk:
 the microphone and the sound the Mac plays, as two tracks in
 `~/Library/Application Support/talkflow/notes/<id>/audio/`. After Stop, the notes are
 written on the Mac by a second Whisper server, also only on `127.0.0.1`, and the audio is
