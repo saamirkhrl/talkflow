@@ -117,7 +117,7 @@ extension DashboardController {
         n.detailTab = .summary
         shoot(15, "note-summary-off", .notes, fullHeight: true)
         n.stage(route: .detail(launch))
-        n.detailTab = .transcript
+        n.detailTab = .ask
         shoot(16, "note-ask-off", .notes, fullHeight: true)
         n.stage(route: .detail(failed))
         shoot(17, "note-failed", .notes, fullHeight: true)
@@ -133,14 +133,12 @@ extension DashboardController {
         shoot(23, "note-summary-failed", .notes, fullHeight: true)
         a.stageSummaryPhase(.idle, for: launch); a.stagePending(.summary(launch))
         shoot(24, "note-summary-confirm", .notes, fullHeight: true)
-        a.stagePending(nil); n.detailTab = .summary
-        n.askExpanded = true
+        a.stagePending(nil); n.detailTab = .ask
         shoot(25, "note-ask", .notes, fullHeight: true)
         a.stageAsk(asking: "Who is sending the screenshots?", partial: "Speaker 2 is lining up the screenshots for launch day [75] and keeping them", failure: nil)
         shoot(26, "note-ask-streaming", .notes, fullHeight: true)
         a.stageAsk(asking: nil, partial: "", failure: NoteAssistant.AskFailure(question: "Who is sending the screenshots?", error: .offline, retryAt: nil))
         shoot(27, "note-ask-failed", .notes, fullHeight: true)
-        n.askExpanded = false
         a.stageAsk(asking: nil, partial: "", failure: nil); n.detailTab = .transcript; a.stageHighlight(3)
         shoot(29, "note-cited-row", .notes, fullHeight: true)
         a.stageHighlight(nil)
@@ -151,15 +149,13 @@ extension DashboardController {
         n.renameDraft = "Councilmember Lee"
         shoot(31, "note-rename-suggested", .notes, fullHeight: true)
         n.cancelRename()
-        // The title being edited, and the Ask bar with answers collapsed.
+        // The title being edited.
         n.stage(route: .detail(launch)); n.detailTab = .summary
         n.editingTitle = true
         n.titleDraft = "Launch planning"
         shoot(32, "note-title-edit", .notes, fullHeight: true)
         n.editingTitle = false
         n.titleDraft = ""
-        n.askExpanded = false
-        shoot(33, "note-ask-collapsed", .notes, fullHeight: true)
         a.access = { nil }
         // A meeting still marked as recording, as if talkflow had quit during it.
         let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))

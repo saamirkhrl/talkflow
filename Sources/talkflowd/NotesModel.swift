@@ -17,8 +17,6 @@ final class NotesModel: ObservableObject {
     /// A plain-words problem for the current screen; cleared when the screen changes.
     @Published var problem: String?
     @Published var detailTab: NoteTab = .transcript
-    /// The Ask bar's answers drawer is open (the bar itself is always there on a meeting with a transcript).
-    @Published var askExpanded = false
     /// The meeting title is being edited on the meeting page, and what has been typed.
     @Published var editingTitle = false
     @Published var titleDraft = ""
@@ -323,7 +321,6 @@ final class NotesModel: ObservableObject {
         let hasTranscript = !(detailTranscript?.turns.isEmpty ?? true)
         detailTab = NotesDoc.defaultTab(hasTranscript: hasTranscript, hasSummary: assistant.summary != nil,
                                         keyInUse: keyInUse)
-        askExpanded = false
         editingTitle = false
         titleDraft = ""
     }
@@ -333,7 +330,6 @@ final class NotesModel: ObservableObject {
         assistant.load(nil)
         problem = nil
         renamingKey = nil
-        askExpanded = false
         editingTitle = false
         titleDraft = ""
         refresh()

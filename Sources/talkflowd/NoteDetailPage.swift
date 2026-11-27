@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// One meeting: header with Copy and Delete, the speakers, then Summary and Transcript. The Ask bar (NoteAskBar)
-/// is pinned under the page. Without a key the Summary tab shows saved notes read only, or how to add a key; a
-/// time in the notes or in an answer jumps to its row in the transcript.
+/// One meeting: header with Copy and Delete, the speakers, then Summary, Ask and Transcript. Ask is its own page:
+/// the header stays and the conversation fills the rest of the window, with the input pinned under it. Without a
+/// key the Summary tab shows saved notes read only, or how to add a key; a time in the notes or in an answer
+/// jumps to its row in the transcript.
 struct NoteDetailPage: View {
     @ObservedObject var model: NotesModel
     @ObservedObject private var assistant: NoteAssistant
@@ -16,23 +17,14 @@ struct NoteDetailPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // A snapshot has no scroll view: the page takes the height its content needs, so the bar sits under it.
-            if scrolls { page } else { page.fixedSize(horizontal: false, vertical: true) }
-            if !turns.isEmpty, let meta = model.detailMeta {
-                NoteAskBar(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
-            }
-        }
-    }
-
-    private var page: some View {
+        // One reader around both layouts, so a citation clicked on the Ask page can scroll the transcript that
+        // replaces it.
         ScrollViewReader { proxy in
-            AppPage(maxWidth: 780, scrolls: scrolls) {
-                VStack(alignment: .leading, spacing: 22) {
-                    AppBackLink(title: "Notes") { model.backToList() }
-                    if let meta = model.detailMeta {
-                        content(meta)
-                    }
+            Group {
+                if model.detailTab == .ask, let meta = model.detailMeta {
+                    askLayout(meta)
+                } else {
+                    page
                 }
             }
             .onChange(of: assistant.jump) { jump in
@@ -44,6 +36,36 @@ struct NoteDetailPage: View {
         }
     }
 
+    private var page: some View {
+        AppPage(maxWidth: 780, scrolls: scrolls) {
+            VStack(alignment: .leading, spacing: 22) {
+                AppBackLink(title: "Notes") { model.backToList() }
+                if let meta = model.detailMeta {
+                    headerBlock(meta)
+                    tabBody(meta)
+                }
+            }
+        }
+    }
+
+    /// The Ask tab: the header as on every tab, but not inside a scroll view, so the Ask page gets the height that
+    /// is left and scrolls only its conversation.
+    private func askLayout(_ meta: NoteMeta) -> some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 22) {
+                AppBackLink(title: "Notes") { model.backToList() }
+                headerBlock(meta)
+            }
+            .frame(maxWidth: 780, alignment: .leading)
+            .padding(.top, AppMetrics.titlebar + AppMetrics.pageTop)
+            .padding(.horizontal, AppMetrics.pageSide)
+            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            NoteAskPage(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
+        }
+        .frame(maxHeight: scrolls ? .infinity : nil, alignment: .top)
+    }
+
     private func scroll(_ proxy: ScrollViewProxy, to turn: Int) {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             proxy.scrollTo(turn, anchor: .center)
@@ -53,7 +75,7 @@ struct NoteDetailPage: View {
     }
 
     @ViewBuilder
-    private func content(_ meta: NoteMeta) -> some View {
+    private func headerBlock(_ meta: NoteMeta) -> some View {
         header(meta)
         if !meta.speakers.isEmpty {
             speakersRow(meta)
@@ -67,11 +89,17 @@ struct NoteDetailPage: View {
             failedNotice(meta, f)
         }
         AppSegmented(label: "View", options: NoteTab.allCases, title: { $0.rawValue }, selection: $model.detailTab)
+    }
+
+    @ViewBuilder
+    private func tabBody(_ meta: NoteMeta) -> some View {
         switch model.detailTab {
         case .transcript:
             transcript(meta)
         case .summary:
             summaryTab(meta)
+        case .ask:
+            EmptyView()
         }
     }
 
