@@ -24,8 +24,8 @@ function PriceCompare() {
         Wispr Flow Pro costs {WISPR_FLOW_PRICE}. talkflow is free. talkflow is not affiliated with Wispr.
       </span>
       <span aria-hidden="true" className="flex flex-col items-start gap-1.5">
-        <span className="text-[12px] tracking-[0.01em] text-graphite">Wispr Flow Pro*</span>
-        <span className="relative font-serif text-[28px] text-ink/55">
+        <span className="text-[12px] tracking-[0.01em] text-white">Wispr Flow Pro*</span>
+        <span className="relative font-serif text-[28px] text-white/90">
           {WISPR_FLOW_PRICE}
           <svg
             viewBox="0 0 100 40"

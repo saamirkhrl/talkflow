@@ -690,7 +690,8 @@ export function HeroRibbon() {
 
         <div
           ref={badgesRef}
-          className="absolute bottom-[84px] left-1/2 grid -translate-x-1/2 sm:bottom-[104px]"
+          aria-hidden="true"
+          className="hidden"
         >
           {FEATURES.map((label) => (
             <span
