@@ -142,8 +142,7 @@ enum Preferences {
     }
 
     /// The keys held to dictate, from the Settings page. Fn by default.
-    /// "macHotkey" because the keycodes are the Mac's own; the Windows app
-    /// keeps its shortcut in windows.json and leaves this key alone.
+    /// Stored as "macHotkey" because the keycodes are the Mac's own.
     static var hotkey: HotkeySpec {
         get { (defaults.array(forKey: "macHotkey") as? [[Int]]).flatMap(HotkeySpec.init(stored:)) ?? .fn }
         set {

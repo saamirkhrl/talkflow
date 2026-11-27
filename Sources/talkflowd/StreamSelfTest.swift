@@ -646,7 +646,7 @@ enum StreamSelfTest {
             ("Move the meeting. Wait, no, move the call to Friday.", "Move the call to Friday."),
             ("Meet at the cafe. Wait, no, meet here.", "Meet here."),
             ("Ping the team. Actually, no, ping the whole company.", "Ping the whole company."),
-            ("It works on Mac. Wait, no, it fails on Windows.", "It fails on Windows."),
+            ("It works on Mac. Wait, no, it fails on Linux.", "It fails on Linux."),
             ("Delete the old migration. Wait, don't delete it, just rename it.", "Don't delete it, just rename it."),
             ("Can you make the, can you change the font size?", "Can you change the font size?"),
             ("Let's ship today, start over, let's ship tomorrow.", "Let's ship today, start over, let's ship tomorrow."),
@@ -2078,9 +2078,10 @@ enum StreamSelfTest {
             return Updater.parseManifest(Data(json.utf8))
         }
         let mac = #""macos":{"universal":{"update":{"name":"talkflow-macos.zip","url":"https://e/talkflow-macos.zip","sha256":"\#(sha)","size":123},"installer":{"name":"talkflow-macos.dmg","url":"https://e/talkflow-macos.dmg","sha256":"\#(sha)","size":456}}}"#
-        let windows = #""windows":{"x64":{"update":{"name":"talkflow-windows-x64-setup.exe","url":"https://e/w.exe","sha256":"\#(sha)","size":1}}}"#
+        // The real manifest keeps "windows" as an empty object (docs/releases.md).
+        let rest = #""windows":{},"linux":{}"#
 
-        let newer = manifest(platforms: mac + "," + windows + #","linux":{}"#)
+        let newer = manifest(platforms: mac + "," + rest)
         check(newer?.release?.version == "0.2.0", "manifest: the macOS update is read", String(describing: newer))
         check(newer?.release?.zipURL.absoluteString == "https://e/talkflow-macos.zip", "manifest: the update zip is chosen, not the dmg")
         check(newer?.release?.sha256 == sha, "manifest: the update's sha256 is kept for the download check")
@@ -2090,12 +2091,12 @@ enum StreamSelfTest {
         let same = manifest(version: "0.1.3", platforms: mac)
         check(same?.release.map { Updater.isNewer($0.version, than: "0.1.3") } == false, "manifest: the same version is not offered")
 
-        let windowsOnly = manifest(platforms: windows + #","linux":{}"#)
-        check(windowsOnly != nil && windowsOnly?.release == nil, "manifest: no macOS entry means no update", String(describing: windowsOnly))
+        let noMac = manifest(platforms: #""macos":{},"windows":{},"linux":{"x64":{"update":{"name":"talkflow-linux-x64.AppImage","url":"https://e/l.AppImage","sha256":"\#(sha)","size":1}}}"#)
+        check(noMac != nil && noMac?.release == nil, "manifest: no macOS entry means no update", String(describing: noMac))
         let installerOnly = manifest(platforms: #""macos":{"universal":{"installer":{"name":"talkflow-macos.dmg","url":"https://e/d.dmg","sha256":"\#(sha)","size":1}}}"#)
         check(installerOnly != nil && installerOnly?.release == nil, "manifest: a dmg alone is not an update")
 
-        let unknown = manifest(platforms: mac + #","plan9":{"mips":{"update":{"url":"https://e/x"}}},"windows":{"riscv":{"update":{}}}"#)
+        let unknown = manifest(platforms: mac + #","plan9":{"mips":{"update":{"url":"https://e/x"}}},"linux":{"riscv":{"update":{}}}"#)
         check(unknown?.release?.zipURL.absoluteString == "https://e/talkflow-macos.zip", "manifest: unknown platforms and arches are ignored")
         let otherArch = manifest(platforms: #""macos":{"arm64":{"update":{"name":"a.zip","url":"https://e/a.zip","sha256":"\#(sha)","size":1}}}"#)
         check(otherArch != nil && otherArch?.release == nil, "manifest: only the universal macOS build is used")
