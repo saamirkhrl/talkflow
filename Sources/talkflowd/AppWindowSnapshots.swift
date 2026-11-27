@@ -108,10 +108,6 @@ extension DashboardController {
         n.stage(route: .detail(launch))
         n.detailTab = .transcript
         shoot(13, "note-detail", .notes, fullHeight: true)
-        n.renamingKey = "s2"
-        n.renameDraft = "Sam"
-        shoot(14, "note-rename", .notes, fullHeight: true)
-        n.cancelRename()
         // A note with no summary, on the Summary tab, no key.
         n.stage(route: .detail(robotics))
         n.detailTab = .summary
@@ -142,13 +138,9 @@ extension DashboardController {
         a.stageAsk(asking: nil, partial: "", failure: nil); n.detailTab = .transcript; a.stageHighlight(3)
         shoot(29, "note-cited-row", .notes, fullHeight: true)
         a.stageHighlight(nil)
-        // The council meeting: auto-named speakers, then the one being renamed.
+        // The council meeting: auto-named speakers.
         n.stage(route: .detail(council)); n.detailTab = .transcript
         shoot(30, "note-speakers-auto", .notes, fullHeight: true)
-        n.renamingKey = "s1"
-        n.renameDraft = "Councilmember Lee"
-        shoot(31, "note-rename-suggested", .notes, fullHeight: true)
-        n.cancelRename()
         // The title being edited.
         n.stage(route: .detail(launch)); n.detailTab = .summary
         n.editingTitle = true
@@ -156,6 +148,47 @@ extension DashboardController {
         shoot(32, "note-title-edit", .notes, fullHeight: true)
         n.editingTitle = false
         n.titleDraft = ""
+        // The meeting page at the window's default and smallest sizes, laid out and scrolling as in the app.
+        func shootLive(_ name: String) {
+            model.section = .notes
+            for (sizeName, size) in [("default", AppMetrics.defaultSize), ("min", AppMetrics.minSize)] {
+                for (look, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                    let url = folder.appendingPathComponent("50-\(name)-\(sizeName)-\(look).png")
+                    if renderLive(model, appearance: appearance, size: size, to: url) { written.append(url) }
+                }
+            }
+        }
+        n.stage(route: .detail(launch)); n.detailTab = .summary
+        shootLive("detail-summary")
+        n.stage(route: .detail(robotics)); n.detailTab = .ask
+        shootLive("detail-ask-empty")
+        // The two made-up answers, then a long one.
+        var asked = NotesAISamples.questions(now: Date())
+        if let last = asked.entries.last {
+            asked.entries.append(NoteQuestions.Entry(
+                question: "What is still open before launch, and who has each part?",
+                answer: """
+                Three things are still open before launch.
+
+                First, the demo video. Everyone agreed the current one undersells the app, and a new cut waits on the Settings page being final [27]. Nobody gave a date for that yet.
+
+                Second, the launch post. It leads with the privacy angle [36], Maya drafts it tonight and sends it round for edits [48], and the screenshots for launch day come from Speaker 2 [75].
+
+                Third, the follow-up. There is a check-in on Thursday to see where things stand [92]; anything not settled by then moves to the week after.
+
+                - Demo video: waiting on Settings [27]
+                - Launch post: drafting tonight [48]
+                - Check-in: Thursday [92]
+                """,
+                citations: [27, 36, 48, 75, 92], asked: Date(), provider: last.provider, model: last.model))
+        }
+        try? n.store.save(asked, for: launch)
+        n.stage(route: .detail(launch)); n.detailTab = .ask
+        shootLive("detail-ask")
+        n.detailTab = .transcript
+        shootLive("detail-transcript")
+        try? n.store.save(NotesAISamples.questions(now: Date()), for: launch)
+        n.stage(route: .detail(launch))
         a.access = { nil }
         // A meeting still marked as recording, as if talkflow had quit during it.
         let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))
@@ -215,6 +248,37 @@ extension DashboardController {
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return false }
         rep.size = NSSize(width: width, height: height)
+        look.performAsCurrentDrawingAppearance {
+            host.cacheDisplay(in: host.bounds, to: rep)
+        }
+        window.contentView = nil
+        guard let png = rep.representation(using: .png, properties: [:]) else { return false }
+        return (try? png.write(to: url)) != nil
+    }
+
+    /// The window at a fixed size, laid out as in the app (pages scroll), for the meeting page's tabs.
+    @MainActor
+    private static func renderLive(_ model: AppWindowModel, appearance: NSAppearance.Name, size: NSSize, to url: URL) -> Bool {
+        guard let look = NSAppearance(named: appearance) else { return false }
+        let root = AppShellView(model: model, snapshot: false)
+            .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light)
+            .frame(width: size.width, height: size.height)
+        let host = NSHostingView(rootView: root)
+        host.appearance = look
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: size.width, height: size.height),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = look
+        window.contentView = host
+        host.frame = NSRect(origin: .zero, size: size)
+        host.layoutSubtreeIfNeeded()
+        // Lets the Ask tab's scroll to the newest question run, as it does a moment after the page opens.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        host.layoutSubtreeIfNeeded()
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return false }
+        rep.size = size
         look.performAsCurrentDrawingAppearance {
             host.cacheDisplay(in: host.bounds, to: rep)
         }

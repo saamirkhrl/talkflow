@@ -58,6 +58,8 @@ enum AppFont {
     static let speaker = Font.system(size: 14, weight: .semibold)
     /// A section heading in the meeting's written notes.
     static let docHeading = Font.system(size: 20, weight: .regular, design: .serif)
+    /// A meeting's title on its page: the serif face, smaller than a page title.
+    static let noteTitle = Font.system(size: 24, weight: .regular, design: .serif)
 }
 
 enum AppMetrics {
@@ -81,18 +83,21 @@ enum AppMetrics {
 struct AppPage<Content: View>: View {
     let maxWidth: CGFloat
     let scrolls: Bool
+    let top: CGFloat
     let content: Content
 
-    init(maxWidth: CGFloat, scrolls: Bool, @ViewBuilder content: () -> Content) {
+    init(maxWidth: CGFloat, scrolls: Bool, top: CGFloat = AppMetrics.titlebar + AppMetrics.pageTop,
+         @ViewBuilder content: () -> Content) {
         self.maxWidth = maxWidth
         self.scrolls = scrolls
+        self.top = top
         self.content = content()
     }
 
     var body: some View {
         let inner = content
             .frame(maxWidth: maxWidth, alignment: .leading)
-            .padding(.top, AppMetrics.titlebar + AppMetrics.pageTop)
+            .padding(.top, top)
             .padding(.horizontal, AppMetrics.pageSide)
             .padding(.bottom, AppMetrics.pageBottom)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -198,6 +203,23 @@ struct AppLinkButtonStyle: ButtonStyle {
             .foregroundColor(Palette.ink)
             .opacity(configuration.isPressed ? 0.55 : 1)
             .contentShape(Rectangle())
+            .pointerCursor()
+    }
+}
+
+/// A text-only action that stays out of the way (Copy and Delete on a meeting): muted, no outline, a faint
+/// fill while pressed.
+struct AppQuietButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(AppFont.control)
+            .foregroundColor(isEnabled ? (configuration.isPressed ? Palette.ink : Palette.muted) : Palette.muted.opacity(0.5))
+            .padding(.horizontal, 10)
+            .frame(minHeight: 28)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Palette.ink.opacity(configuration.isPressed ? 0.06 : 0)))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
             .pointerCursor()
     }
 }

@@ -22,8 +22,8 @@ are in [notes-measurements.md](notes-measurements.md).
    `Contents/Helpers/talkflow-diarize` (a separate Swift package over FluidAudio, in
    `Helpers/talkflow-diarize`). It runs only on Apple Silicon with macOS 14 or later and needs
    the speaker models downloaded; otherwise the other side is labelled "Everyone else". The
-   microphone side is "You"; other voices are "Speaker 1", "Speaker 2" and so on, and the user
-   can rename them. The helper writes speaker turns only. No voice data is saved, and voices
+   microphone side is "You"; other voices are "Speaker 1", "Speaker 2" and so on; a name
+   said in the meeting can replace a label. The helper writes speaker turns only. No voice data is saved, and voices
    are not remembered from one meeting to the next.
 4. **Transcription** by whisper.cpp on a private `whisper-server`, started for notes and
    listening only on `127.0.0.1`. It uses large-v3-turbo when that model is on disk,
@@ -88,9 +88,9 @@ comes from that single request, never a second one.
   "two names for one speaker", "name on two speakers", "name already used"). High and medium pass,
   low is refused. The quote is searched in the whole transcript and the turn nearest the cited time
   is used; for "addressed", the speaker before or after the quoting turn must be the named one.
-  Invalid names are dropped and never fail the reply. A name the user typed is never replaced, and
-  **Clear** on a suggested name returns the speaker to "Speaker N" and marks it user-set, so it is
-  not suggested again. A long meeting merges the names of its parts (`NotesAI.mergedNames`).
+  Invalid names are dropped and never fail the reply. A name the user typed is never replaced.
+  `NotesModel.clearSuggestedName` returns a speaker to "Speaker N" and marks it user-set, so it is
+  not suggested again; the meeting page has no control for renaming or clearing at the moment. A long meeting merges the names of its parts (`NotesAI.mergedNames`).
 - **Local vocative pass.** Without any model, `NotesAI.localVotes` reads the transcript for names
   said to a speaker: a sentence that starts with "Name," or says "over to Name" names whoever speaks
   next; "Thanks, Name", "Hi Name", or a trailing or enclosed ", Name" names whoever spoke before.
@@ -103,7 +103,7 @@ comes from that single request, never a second one.
   the two name differently, or one name on two speakers, gets none.
 - **Stored references follow renames.** In stored summary text, a speaker's label or name is saved
   as a `{{s2}}` token (`NotesDoc.tokenizing`) and turned into the current display name when shown,
-  copied or sent on (`NotesDoc.resolving`), so renaming or clearing a speaker updates the notes.
+  copied or sent on (`NotesDoc.resolving`), so a changed name updates the notes.
   Old summaries have no tokens and show as saved.
 - **Diagnostics.** `--notesasktest` also writes the raw reply texts, the review of every proposed
   name and the number of speakers it would rename into the result file (meeting text, local only),
@@ -114,7 +114,10 @@ comes from that single request, never a second one.
   aligned, needs further discussion, disagreed or shelved), Details (topics, each with time links
   into the transcript) and Suggested next steps. Copy on the Summary tab writes the same
   structure as Markdown (`NotesDoc.markdown`).
-- **Ask** is a bar pinned at the bottom of a meeting; its answers open above it.
+- **Ask** is its own tab: the conversation fills the page under the header and answers read like
+  the Summary, without a bubble; the question field stays pinned at the bottom. Before the first
+  question the tab shows one line saying each question sends the transcript to the provider with
+  the user's key. The Summary and the answers carry no "Written by" line.
 - **Backward compatible.** Every new field is optional, so notes saved earlier still open:
   `titleSource` and `subtitle` in `note.json`, `nameSource` on each speaker, and `details`,
   `title`, `subtitle`, `suggestedNames` and a decision's `status` in `summary.json`. A missing

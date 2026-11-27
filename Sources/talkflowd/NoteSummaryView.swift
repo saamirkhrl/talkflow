@@ -221,8 +221,8 @@ struct NoteSummaryView: View {
     }
 }
 
-/// The meeting's written notes as a document: Summary, Decisions, Details, Suggested next steps, then who wrote
-/// them. Shown with a key (with Write again) and without one (saved notes, read only).
+/// The meeting's written notes as a document: Summary, Decisions, Details, Suggested next steps, then Write again.
+/// Shown with a key (with Write again) and without one (saved notes, read only).
 struct NotesDocumentView: View {
     @ObservedObject var assistant: NoteAssistant
     let meta: NoteMeta
@@ -353,18 +353,13 @@ struct NotesDocumentView: View {
         }
     }
 
+    @ViewBuilder
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(NotesAI.disclosure(provider: summary.provider, modelID: summary.model))
-                .font(AppFont.caption)
-                .foregroundColor(Palette.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            if let onWriteAgain {
-                Button("Write again", action: onWriteAgain)
-                    .buttonStyle(AppLinkButtonStyle())
-                    .disabled(writing)
-                    .help("Writes a new summary, sending the transcript again")
-            }
+        if let onWriteAgain {
+            Button("Write again", action: onWriteAgain)
+                .buttonStyle(AppLinkButtonStyle())
+                .disabled(writing)
+                .help("Writes a new summary, sending the transcript again")
         }
     }
 }

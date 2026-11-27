@@ -347,8 +347,9 @@ enum NotesAI {
         "Written by \(NotesAIModel.title(forID: modelID)) with your key. The transcript was sent to \(provider). The audio never left this Mac."
     }
 
+    /// The one line on an empty Ask tab.
     static func askFooter(_ access: NotesAccess) -> String {
-        "Answers come from \(access.model.shortTitle) with your key. Each question sends this transcript to \(access.provider.name)."
+        "Each question sends this transcript to \(access.provider.name) with your key."
     }
 
     /// Shown under the Ask footer for a long meeting. Same size estimate the client uses to send the transcript.
