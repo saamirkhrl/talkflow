@@ -7,8 +7,7 @@ import { pageMetadata } from "@/lib/seo";
 // Every claim is checked against the app's source: Sources/talkflowd
 // (SpeechEngine.swift, Dictation.swift, Preferences.swift, Polish.swift,
 // TextCommands.swift, SelfCorrection.swift, ListFormat.swift, Vocabulary.swift,
-// ScreenContext.swift) and windows/ (Talkflow/SpeechEngine.cs,
-// Talkflow.Core/DevicePolicy.cs). Keep it that way when editing.
+// ScreenContext.swift). Keep it that way when editing.
 
 const PATH = "/how-it-works";
 
@@ -29,8 +28,7 @@ export default function HowItWorksPage() {
       <h2 id="steps">The short version</h2>
       <ol>
         <li>
-          You hold the shortcut: <strong>fn</strong> on a Mac, <strong>Ctrl + Win</strong> on
-          Windows. Both can be changed in Settings.
+          You hold the shortcut: <strong>fn</strong> by default. You can change it in Settings.
         </li>
         <li>
           talkflow records from your microphone into memory and shows a small live caption of what
@@ -55,23 +53,19 @@ export default function HowItWorksPage() {
       <ul>
         <li>
           <strong>small.en</strong>, an English-only model, is the main one. It produces the live caption while you hold
-          the key, and the final text unless the larger model below is in use. On a Mac it is a
-          5-bit compressed copy of about 190 MB; on Windows it is the full-size file of about
-          490 MB. Setup downloads it once, from the whisper.cpp project on Hugging Face.
+          the key, and the final text unless the larger model below is in use. It is a
+          5-bit compressed copy of about 190 MB. Setup downloads it once, from the whisper.cpp project on Hugging Face.
         </li>
         <li>
           <strong>large-v3-turbo</strong> is optional and used only for the final pass, after you let
           go, because that is the only transcript that reaches your document. It is off by default:
           it uses about 800 MB more memory for a small gain in accuracy, so it is an opt-in
           (Accurate final pass in Settings). Turned on, it downloads about 575 MB in the background.
-          On a Mac it is then loaded only while you dictate and unloaded right after. On Windows,
-          talkflow times it on your PC first and skips it if the PC is too slow; it can use your
-          graphics card through Vulkan, and falls back to the processor.
+          It is then loaded only while you dictate and unloaded right after.
         </li>
       </ul>
       <p>
-        If the larger model is missing or slow to answer, the final pass simply uses small.en. On
-        slower Windows PCs the live caption is turned off so it never delays the final text.
+        If the larger model is missing or slow to answer, the final pass simply uses small.en.
       </p>
 
       <h2 id="cleanup">The tidy-up: rules, not rewriting</h2>
@@ -127,7 +121,7 @@ export default function HowItWorksPage() {
           It is built for English. Its main model, small.en, is English-only: fast and accurate
           for English, but it doesn&apos;t transcribe other languages.
         </li>
-        <li>It doesn&apos;t run on phones or tablets: there is a Mac app and a Windows app.</li>
+        <li>It doesn&apos;t run on phones or tablets, only on a Mac.</li>
         <li>It doesn&apos;t rewrite, summarize or &quot;improve&quot; what you dictate.</li>
       </ul>
 
@@ -135,9 +129,8 @@ export default function HowItWorksPage() {
       <p>
         talkflow is open source under the MIT License, so every step above can be read in{" "}
         <a href={REPO_URL}>the source code on GitHub</a>. What the app sends over the network is
-        listed in the <Link href="/privacy">privacy policy</Link>. Platform details are in{" "}
-        <Link href="/offline-dictation-mac">offline dictation for Mac</Link> and{" "}
-        <Link href="/dictation-for-windows">dictation for Windows</Link>.
+        listed in the <Link href="/privacy">privacy policy</Link>. Mac details are in{" "}
+        <Link href="/offline-dictation-mac">offline dictation for Mac</Link>.
       </p>
     </ContentPage>
   );

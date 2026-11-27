@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/seo";
 
 // Feature claims are checked against Sources/talkflowd (StructurePolish.swift,
 // TextCommands.swift, WritingStyle.swift, ScreenContext.swift,
-// SelfCorrection.swift) and their windows/Talkflow.Core/Text counterparts.
+// SelfCorrection.swift).
 
 const PATH = "/use-cases/email-and-chat";
 
@@ -26,8 +26,8 @@ export default function EmailAndChatPage() {
       <h2 id="any-app">Works where you already write</h2>
       <p>
         talkflow isn&apos;t a separate editor you copy from. It types straight into the focused text
-        field, so there&apos;s nothing to paste and no new app to learn. It works in most Mac and
-        Windows apps, from desktop email clients to web apps in your browser. Not every app has
+        field, so there&apos;s nothing to paste and no new app to learn. It works in most Mac apps,
+        from desktop email clients to web apps in your browser. Not every app has
         been tested, and apps can change how they accept typed text.
       </p>
 
@@ -100,11 +100,10 @@ export default function EmailAndChatPage() {
       <h2 id="limits">Good to know</h2>
       <ul>
         <li>It is built for English.</li>
-        <li>It runs on Mac and Windows computers, not on phones.</li>
+        <li>It runs on a Mac, not on phones.</li>
         <li>
-          The default shortcut is fn on a Mac and Ctrl + Win on Windows. See{" "}
-          <Link href="/offline-dictation-mac">Mac</Link> and{" "}
-          <Link href="/dictation-for-windows">Windows</Link> setup.
+          The default shortcut is fn. See{" "}
+          <Link href="/offline-dictation-mac">Mac</Link> setup.
         </li>
       </ul>
     </ContentPage>

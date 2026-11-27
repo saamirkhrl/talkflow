@@ -69,8 +69,7 @@ export default function WritingPage() {
 
       <h2 id="flow">Nothing jumps around while you talk</h2>
       <p>
-        A small live caption shows what talkflow is hearing while you hold the key (on slower
-        Windows PCs it is turned off). The text goes
+        A small live caption shows what talkflow is hearing while you hold the key. The text goes
         into your document once, when you let go, so the words already on the page are never
         deleted and retyped under your cursor.
       </p>
@@ -93,7 +92,7 @@ export default function WritingPage() {
 
       <h2 id="private">Drafts stay on your computer</h2>
       <p>
-        Speech recognition runs on your own Mac or PC with Whisper, and works with Wi-Fi off.
+        Speech recognition runs on your own Mac with Whisper, and works with Wi-Fi off.
         Unfinished drafts, journals and private notes aren&apos;t sent to a transcription service.
         Read <Link href="/how-it-works">how talkflow works</Link> for the details.
       </p>
@@ -106,8 +105,7 @@ export default function WritingPage() {
           create.
         </li>
         <li>
-          It runs on Mac and Windows. See <Link href="/offline-dictation-mac">Mac</Link> and{" "}
-          <Link href="/dictation-for-windows">Windows</Link>.
+          It runs on a Mac. See <Link href="/offline-dictation-mac">offline dictation for Mac</Link>.
         </li>
       </ul>
     </ContentPage>

@@ -4,7 +4,6 @@
 //
 // Sources and licenses:
 //   OS apple: simple-icons:apple (CC0-1.0)
-//   OS windows: mdi:microsoft-windows (Apache-2.0)
 //   Slack: logos:slack-icon (CC0-1.0)
 //   Notion: logos:notion-icon (CC0-1.0)
 //   Messages: thesvg:imessage (MIT), filled #34DA50 (simple-icons brand hex)
@@ -54,9 +53,8 @@
 
 export type BrandSvg = { viewBox: string; body: string };
 
-export const OS_LOGOS: { apple: BrandSvg; windows: BrandSvg } = {
+export const OS_LOGOS: { apple: BrandSvg } = {
   apple: { viewBox: "0 0 24 24", body: "<path fill=\"currentColor\" d=\"M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04c-2.04.027-3.91 1.183-4.961 3.014c-2.117 3.675-.546 9.103 1.519 12.09c1.013 1.454 2.208 3.09 3.792 3.039c1.52-.065 2.09-.987 3.935-.987c1.831 0 2.35.987 3.96.948c1.637-.026 2.676-1.48 3.676-2.948c1.156-1.688 1.636-3.325 1.662-3.415c-.039-.013-3.182-1.221-3.22-4.857c-.026-3.04 2.48-4.494 2.597-4.559c-1.429-2.09-3.623-2.324-4.39-2.376c-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83c-1.207.052-2.662.805-3.532 1.818c-.78.896-1.454 2.338-1.273 3.714c1.338.104 2.715-.688 3.559-1.701\"/>" },
-  windows: { viewBox: "0 0 24 24", body: "<path fill=\"currentColor\" d=\"M3 12V6.75l6-1.32v6.48zm17-9v8.75l-10 .15V5.21zM3 13l6 .09v6.81l-6-1.15zm17 .25V22l-10-1.91V13.1z\"/>" },
 };
 
 export const APP_LOGOS: ({ name: string } & BrandSvg)[] = [

@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" lastUpdated="October 18, 2026">
+    <LegalPage title="Terms of Use" lastUpdated="November 27, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -53,7 +53,7 @@ export default function TermsPage() {
 
       <h2 id="app-license">2. The app has its own license</h2>
       <p>
-        talkflow is a free dictation app for Mac and Windows. Its source code is
+        talkflow is a free dictation app for Mac. Its source code is
         published at <a href={REPO_URL} target="_blank" rel="noopener noreferrer">{REPO_URL}</a> under the MIT License (see the LICENSE file
         at the root of the repository).
       </p>
@@ -134,7 +134,7 @@ export default function TermsPage() {
       <h2 id="other-companies">6. Other companies&apos; names and logos</h2>
       <p>
         The site shows the names and logos of other companies&apos; apps as examples of places you
-        can type. talkflow types into the focused text field of most Mac and Windows apps. We have not tested
+        can type. talkflow types into the focused text field of most Mac apps. We have not tested
         every app, and apps can change how they handle typed text, so talkflow may not work in every
         app or in every version of an app. We use these names and logos only to describe where you
         can type.
@@ -156,8 +156,7 @@ export default function TermsPage() {
       </p>
       <p>
         Apple, Mac, macOS, Messages and the Apple logo are trademarks of Apple Inc., registered in
-        the U.S. and other countries. Windows and the Windows logo are trademarks of the Microsoft
-        group of companies. Gmail is a trademark of Google LLC. Slack is a trademark of Slack
+        the U.S. and other countries. Gmail is a trademark of Google LLC. Slack is a trademark of Slack
         Technologies, LLC. WhatsApp is a trademark of WhatsApp LLC. Notion is a trademark of Notion
         Labs, Inc. Claude and Claude Code are trademarks of Anthropic, PBC. Wispr Flow is a
         trademark of its owner. All other product names and logos are trademarks of their

@@ -38,8 +38,8 @@ const LOGOS = SCENES.map((s) => APP_LOGOS.find((logo) => logo.name === s.logo)!)
 // How much page scroll each app gets, in viewport heights.
 const STEP_SVH = 70;
 
-// The stage is a little Mac screen drawn in points and scaled to fit. Windows
-// are a real small window size, or a narrow one on phones, where their
+// The stage is a little Mac screen drawn in points and scaled to fit. App
+// windows are a real small window size, or a narrow one on phones, where their
 // sidebars collapse. They grow taller to use any spare height.
 const WIDE = { w: 720, h: 430 };
 const NARROW = { w: 380, h: 450 };

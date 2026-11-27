@@ -6,14 +6,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
-import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WINDOWS_AVAILABLE, WINDOWS_DOWNLOAD_PATH, WISPR_FLOW_PRICE } from "./content";
+import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WISPR_FLOW_PRICE } from "./content";
 import { buttonClass } from "./primitives";
 import { useVisitor } from "./visitor";
-
-const OS = {
-  mac: { label: "Mac", logo: OS_LOGOS.apple },
-  windows: { label: "Windows", logo: OS_LOGOS.windows },
-};
 
 // Wispr Flow Pro's price with a red line drawn through it, then "Free". The
 // asterisk points to the non-affiliation note at the bottom of the footer.
@@ -52,11 +47,10 @@ function PriceCompare() {
   );
 }
 
-// Desktop visitors get the button for their own OS: on a Mac it opens the
-// Apple Silicon / Intel page, on Windows it downloads the one installer
-// (while WINDOWS_AVAILABLE is off, Windows says it is coming).
-// Under it, the one-line Terminal install and a menu of every build. Phones
-// can't run talkflow, so they get a way to carry the link to a computer
+// Desktop visitors get the Mac download, which opens the Apple Silicon /
+// Intel page; on a computer that is not a Mac, a plain line under it says
+// talkflow is Mac-only. Under it, the one-line Terminal install and a menu of
+// every build. Phones can't run talkflow, so they get a way to carry the link to a computer
 // instead. Nothing is collected either way. `compare` adds the Wispr Flow
 // price next to the button.
 export function DownloadCta({ align = "center", compare = false }: { align?: "center" | "start"; compare?: boolean }) {
@@ -67,25 +61,13 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
   return (
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
-        {os === "mac" ? (
-          <Link href="/download/mac" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS.mac.logo} className="size-[18px] -translate-y-px" />}
-            Download for Mac
-          </Link>
-        ) : WINDOWS_AVAILABLE ? (
-          // A plain link: the route redirects to the installer, which downloads.
-          <a href={WINDOWS_DOWNLOAD_PATH} className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
-            Download for Windows
-          </a>
-        ) : (
-          <span aria-disabled="true" className={cn(buttonClass.secondary, "h-13 cursor-default px-7 text-[17px] text-graphite hover:bg-transparent")}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-[18px] -translate-y-px" />}
-            Windows version coming soon
-          </span>
-        )}
+        <Link href="/download/mac" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+          {SHOW_OS_LOGOS && <BrandLogo logo={OS_LOGOS.apple} className="size-[18px] -translate-y-px" />}
+          Download for Mac
+        </Link>
         {compare && <PriceCompare />}
       </div>
+      {os !== "mac" && <p className="text-[15px] text-graphite">talkflow is Mac-only.</p>}
       <InstallCommand />
     </div>
   );
@@ -133,8 +115,7 @@ function InstallCommand() {
   );
 }
 
-// A small menu of every build, for anyone who wants the other OS or the
-// GitHub release page.
+// A small menu of every build: the Mac app and the GitHub release page.
 function OtherBuilds() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -172,31 +153,13 @@ function OtherBuilds() {
         >
           <p className="px-3 pb-1 pt-2 text-[12px] tracking-[0.01em] text-graphite">All builds</p>
           <Link role="menuitem" href="/download/mac" onClick={() => setOpen(false)} className={menuItem}>
-            {SHOW_OS_LOGOS && <BrandLogo logo={OS.mac.logo} className="size-4 flex-none" />}
+            {SHOW_OS_LOGOS && <BrandLogo logo={OS_LOGOS.apple} className="size-4 flex-none" />}
             <span className="flex flex-col">
               <span className="text-[15px] text-ink">macOS</span>
               <span className="text-[12px] text-graphite">{MAC_BUILD_DETAIL}</span>
             </span>
             <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
           </Link>
-          {WINDOWS_AVAILABLE ? (
-            <a role="menuitem" href={WINDOWS_DOWNLOAD_PATH} onClick={() => setOpen(false)} className={menuItem}>
-              {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none" />}
-              <span className="flex flex-col">
-                <span className="text-[15px] text-ink">Windows</span>
-                <span className="text-[12px] text-graphite">Any PC with Windows 10 or 11</span>
-              </span>
-              <Download size={16} aria-hidden="true" className="ml-auto text-graphite" />
-            </a>
-          ) : (
-            <div role="menuitem" aria-disabled="true" className={cn(menuItem, "cursor-default hover:bg-transparent")}>
-              {SHOW_OS_LOGOS && <BrandLogo logo={OS.windows.logo} className="size-4 flex-none opacity-60" />}
-              <span className="flex flex-col">
-                <span className="text-[15px] text-graphite">Windows</span>
-                <span className="text-[12px] text-graphite">Coming soon</span>
-              </span>
-            </div>
-          )}
           <a role="menuitem" href={RELEASES_URL} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)} className={cn(menuItem, "border-t border-line rounded-t-none mt-1 pt-3")}>
             <span className="text-[14px] text-graphite">All releases on GitHub</span>
             <ExternalLink size={14} aria-hidden="true" className="ml-auto text-graphite" />
@@ -234,7 +197,7 @@ function CopyLink({ align, compare }: { align: "center" | "start"; compare: bool
         {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
         {copied ? "Link copied" : "Copy link for your computer"}
       </button>
-      <p className="text-[15px] text-graphite">talkflow runs on your computer, not your phone. Open this page on your Mac or PC to download it.</p>
+      <p className="text-[15px] text-graphite">talkflow runs on your computer, not your phone. Open this page on your Mac to download it.</p>
     </div>
   );
 }

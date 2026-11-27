@@ -29,7 +29,7 @@ const ROWS: [label: string, talkflow: string, wispr: string][] = [
   ["Where speech is transcribed", "On your own computer, with Whisper", "In Wispr's cloud (its privacy page: \"Transcription always happens in the cloud\")"],
   ["Works offline", "Yes, once set up", "No, transcription needs its servers"],
   ["Account", "None", "Required by its terms of service"],
-  ["Platforms", "Mac and Windows", "Mac, Windows, iPhone and Android"],
+  ["Platforms", "Mac", "Mac, Windows, iPhone and Android"],
   ["Languages", "English", "100+ languages, per its website"],
   ["Text editing", "Fixed rules: filler removal, spoken punctuation, lists. Never rephrases", "Automatic formatting and edits of what you said"],
 ];
@@ -83,7 +83,7 @@ export default function WisprFlowAlternativePage() {
 
       <h2 id="processing">Where your audio goes</h2>
       <p>
-        This is the biggest difference. talkflow runs Whisper on your own Mac or PC through
+        This is the biggest difference. talkflow runs Whisper on your own Mac through
         whisper.cpp; your audio never leaves the computer, and dictation works with Wi-Fi off. Wispr
         Flow sends audio to its servers for transcription. Its privacy page says the audio is deleted
         once it is transcribed unless you turn on its cloud storage, and that a setting controls
@@ -105,8 +105,7 @@ export default function WisprFlowAlternativePage() {
       <h2 id="where-wispr-does-more">Where Wispr Flow does more</h2>
       <ul>
         <li>
-          <strong>Phones.</strong> Wispr Flow has iPhone and Android apps. talkflow is only for Mac
-          and Windows.
+          <strong>Phones.</strong> Wispr Flow has iPhone and Android apps. talkflow is only for Mac.
         </li>
         <li>
           <strong>Languages.</strong> Wispr Flow says it supports more than 100 languages. talkflow is
@@ -125,13 +124,12 @@ export default function WisprFlowAlternativePage() {
 
       <h2 id="which">Which one fits</h2>
       <p>
-        talkflow is a good fit if you dictate in English on a Mac or PC and want it free, private and
-        working offline, with code you can inspect. If you need phone apps, other languages or
+        talkflow is a good fit if you dictate in English on a Mac and want it free, private and
+        working offline, with code you can inspect. If you need Windows or phone apps, other languages or
         AI rewriting, Wispr Flow covers those.
       </p>
       <p>
-        Read about <Link href="/offline-dictation-mac">offline dictation on Mac</Link> or{" "}
-        <Link href="/dictation-for-windows">dictation on Windows</Link>, or browse{" "}
+        Read about <Link href="/offline-dictation-mac">offline dictation on Mac</Link>, or browse{" "}
         <a href={REPO_URL}>the source on GitHub</a>.
       </p>
 

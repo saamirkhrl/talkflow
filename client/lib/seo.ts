@@ -7,7 +7,7 @@ export const SITE_NAME = "talkflow";
 
 // The shared social card (app/opengraph-image.tsx). Pages that set their own
 // openGraph lose the file-based image, so pageMetadata names it again.
-export const OG_IMAGE_ALT = "talkflow: free, open-source dictation that runs on your own Mac or PC";
+export const OG_IMAGE_ALT = "talkflow: free, open-source dictation that runs on your own Mac";
 
 // Next merges metadata shallowly, so a page that sets openGraph or twitter
 // replaces the layout's whole object. Every page builds its metadata here so

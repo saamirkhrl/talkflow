@@ -2,7 +2,9 @@
 
 import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 
-type Os = "mac" | "windows";
+// talkflow is Mac-only. "other" is any desktop that is not a Mac, which gets
+// a line saying so next to the Mac download.
+type Os = "mac" | "other";
 
 type Visitor = {
   os: Os;
@@ -16,7 +18,7 @@ const noopSubscribe = () => () => {};
 function detectOs(): Os {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
   const platform = nav.userAgentData?.platform || navigator.platform || "";
-  return /win/i.test(platform) || /Windows/.test(navigator.userAgent) ? "windows" : "mac";
+  return /mac/i.test(platform || navigator.userAgent) ? "mac" : "other";
 }
 
 function detectMobileUa(): boolean {
@@ -47,12 +49,6 @@ export function VisitorProvider({ children }: { children: React.ReactNode }) {
   const narrow = useMediaQuery("(max-width: 639px)");
 
   return <VisitorContext.Provider value={{ os, mobile: mobileUa || narrow }}>{children}</VisitorContext.Provider>;
-}
-
-// Copy that names the visitor's computer or shortcut: the Mac wording on a Mac
-// (and while rendering on the server), the Windows wording on Windows.
-export function ForOs({ mac, windows }: { mac: React.ReactNode; windows: React.ReactNode }) {
-  return <>{useVisitor().os === "windows" ? windows : mac}</>;
 }
 
 export function useVisitor(): Visitor {
