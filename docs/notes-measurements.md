@@ -153,12 +153,11 @@ Error is diarization error rate with a 0.25 s collar, overlapped speech scored.
 | Peak memory | 720 to 850 MB | 187 to 275 MB | 395 to 460 MB |
 | Model download | 21 MB | 32.5 MB | 32.5 MB |
 | Shipped code | 8.1 MB, system frameworks only | 51.7 MB static | 51.7 MB static |
-| Runs on Intel Macs / Windows | no / no | yes / yes | yes / yes |
+| Runs on Intel Macs | no | yes | yes |
 
 Chosen: FluidAudio's offline pipeline (pyannote community-1 segmentation, WeSpeaker embeddings,
 VBx clustering), threshold 0.6, no fixed speaker count. Where the helper cannot run (Intel, macOS
-older than 14) the system track is labelled "Everyone else". sherpa-onnx stays the documented
-option for a later Windows note taker.
+older than 14) the system track is labelled "Everyone else".
 
 Known weakness: isolated turns of 0.4 to 0.8 s ("Okay.", "No.") are dropped, because the library
 does not embed segments shorter than 1.0 s. The threshold sweep did not finish in the time box.

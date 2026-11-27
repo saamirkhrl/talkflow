@@ -41,8 +41,7 @@ The route runs exactly one statement, which takes no input from the request:
 UPDATE install_counter SET count = count + 1 WHERE id
 ```
 
-Each app keeps a local `installCounted` flag (macOS: `UserDefaults`; Windows:
-`windows.json`) and sets it only after a 2xx answer, so a failure or timeout is
+The Mac app keeps a local `installCounted` flag (in `UserDefaults`) and sets it only after a 2xx answer, so a failure or timeout is
 retried quietly on the next launch. The flag is not part of the settings backup,
 so it never moves to another machine.
 
@@ -54,7 +53,6 @@ Names only; values never go in git.
 | --- | --- | --- |
 | `DATABASE_URL` | Vercel, **Production only** | Neon connection string the route writes with. Server-only: never `NEXT_PUBLIC_`. Not set on Preview, so test deployments can't touch the real count (the route answers 500 there). |
 | `TALKFLOW_TELEMETRY_URL` | the release machine, when running `release.sh` | The full URL of the route, e.g. `https://<site>/api/install`. Baked into the release `.app` only. Unset: the build succeeds and never sends. |
-| `TALKFLOW_TELEMETRY_URL` | GitHub Actions secret (Windows workflow) | Passed to the Windows installer build on published releases only. |
 | `TALKFLOW_STATS_DB_URL` | the owner's shell only | Read-only connection string used to view the count. Never in a file in this repo. |
 
 ## The table (migration)

@@ -2,8 +2,7 @@
 
 Notes is a section of the Mac app window. The user clicks **Start recording**, talks, and
 clicks **Stop and write notes**; talkflow then writes a transcript on the Mac, with the voices
-told apart. Summary, action items and Ask are optional and use the user's own key. Notes is
-Mac only for now; the Windows app has no note taker. The measurements behind the constants
+told apart. Summary, action items and Ask are optional and use the user's own key. The measurements behind the constants
 are in [notes-measurements.md](notes-measurements.md).
 
 ## What it does, in order
@@ -96,7 +95,7 @@ comes from that single request, never a second one.
 
 ## Not in this version
 
-No live transcript, no Windows note taker, no calendar or automatic meeting detection, no
+No live transcript, no calendar or automatic meeting detection, no
 remembering voices across meetings, and no local model for summaries. There is no built-in
 recording-consent reminder: telling the other people that they are being recorded is the
 user's responsibility, and the rules differ from place to place.
