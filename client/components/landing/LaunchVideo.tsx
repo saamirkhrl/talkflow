@@ -52,7 +52,7 @@ export function LaunchVideo() {
   return (
     <section id="watch" aria-label="talkflow in 36 seconds" className="pt-[clamp(72px,9vw,128px)]">
       <div className="mx-auto max-w-[1080px] px-gutter">
-        <div className="group relative overflow-hidden rounded-[clamp(14px,2vw,24px)] border border-line bg-paper shadow-[0_30px_80px_-30px_rgb(31_30_34/0.25)]">
+        <div className="group relative overflow-hidden rounded-[clamp(14px,2vw,24px)] bg-white shadow-[0_40px_100px_-40px_rgb(5_20_90/0.8)] ring-1 ring-white/40">
           <video
             ref={ref}
             className="block aspect-video w-full cursor-pointer"

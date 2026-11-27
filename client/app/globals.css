@@ -37,6 +37,16 @@
 
 /* The hero's sky. Inside it the palette flips to white, so the download
    menu and install line recolor themselves. */
+.sheet {
+  --color-ink: #0b1f66;
+  --color-paper: #f8f9fe;
+  --color-mist: #eceffb;
+  --color-graphite: #56628f;
+  --color-line: color-mix(in srgb, #0b1f66 12%, transparent);
+  --color-fog: #b4c2f0;
+  color: var(--color-ink);
+}
+
 .on-sky {
   --color-ink: #ffffff;
   --color-paper: #0a41bf;
@@ -103,8 +113,13 @@
     }
   }
 
+  /* The sky. On the root, so the fixed scene canvas (z-index -10) paints above it. */
+  html {
+    background: linear-gradient(180deg, #0a3cb8 0%, #1550d8 100%) fixed #0a3cb8;
+  }
+
   body {
-    background: var(--color-paper);
+    background: transparent;
     color: var(--color-ink);
     font-size: 17px;
     line-height: 1.55;
@@ -134,4 +149,14 @@
       transition: none !important;
     }
   }
+}
+
+/* The hero ribbon's spoken words run over white plush clouds: a soft blue
+   outline keeps them readable. */
+#top svg text.italic,
+#top svg .italic {
+  paint-order: stroke fill;
+  stroke: rgb(12 44 160 / 0.6);
+  stroke-width: 3px;
+  stroke-linejoin: round;
 }

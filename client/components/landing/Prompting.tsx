@@ -9,7 +9,7 @@ const SPEEDS = [
 
 export function Prompting() {
   return (
-    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+    <section className="mx-auto max-w-[1200px] px-gutter pt-[clamp(32px,4vw,56px)] pb-[clamp(72px,10vw,136px)]">
       <div className="grid gap-x-16 gap-y-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         {/* Pinned beside the app tour on wide screens, so the copy stays put while the apps change. */}
         <div className="lg:sticky lg:top-0 lg:flex lg:h-svh lg:flex-col lg:justify-center lg:self-start lg:pt-16">

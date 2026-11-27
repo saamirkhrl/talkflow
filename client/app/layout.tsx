@@ -72,7 +72,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html lang="en" className={newsreader.variable}>
-      <body className="font-sans">
+      <body className="on-sky font-sans">
         <SmoothScroll />
         <VisitorProvider>
           <Nav stars={stars} />

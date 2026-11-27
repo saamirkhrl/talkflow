@@ -9,6 +9,7 @@ import { LaunchVideo } from "@/components/landing/LaunchVideo";
 import { Privacy } from "@/components/landing/Privacy";
 import { Prompting } from "@/components/landing/Prompting";
 import { Stats } from "@/components/landing/Stats";
+import { PlushScene } from "@/components/landing/PlushScene";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { pageMetadata, SITE_URL } from "@/lib/seo";
 
@@ -47,14 +48,21 @@ export default function Home() {
     <main className="overflow-x-clip">
       <JsonLd data={APP_JSON_LD} />
       <JsonLd data={FAQ_JSON_LD} />
+      <PlushScene />
       <Hero />
       <LaunchVideo />
-      <Apps />
-      <HowItWorks />
-      <Prompting />
-      <Privacy />
-      <Stats />
-      <Faq />
+      <div className="sheet mx-3 mt-[clamp(64px,8vw,112px)] max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-[#f8f9fe] shadow-[0_40px_100px_-40px_rgb(5_20_90/0.7)] sm:mx-4 xl:mx-auto">
+        <Apps />
+        <HowItWorks />
+      </div>
+      {/* The gap between the two sheets, where the camera passes the arch. */}
+      <div aria-hidden="true" data-scene-y="-30" className="h-[clamp(260px,46svh,480px)]" />
+      <div className="sheet mx-3 max-w-[1360px] rounded-[clamp(28px,4vw,48px)] bg-[#f8f9fe] shadow-[0_40px_100px_-40px_rgb(5_20_90/0.7)] sm:mx-4 xl:mx-auto">
+        <Prompting />
+        <Privacy />
+        <Stats />
+        <Faq />
+      </div>
       <FinalCta />
     </main>
   );

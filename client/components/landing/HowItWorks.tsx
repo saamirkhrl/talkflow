@@ -8,7 +8,7 @@ const KEY =
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+    <section className="mx-auto max-w-[1200px] px-gutter pt-[clamp(64px,8vw,112px)] pb-[clamp(48px,6vw,80px)]">
       <SectionTitle className="max-w-[16ch]">Three moves, no typing.</SectionTitle>
       <ol className="mt-14 grid gap-x-8 gap-y-12 md:grid-cols-3">
         <li className={STEP}>
