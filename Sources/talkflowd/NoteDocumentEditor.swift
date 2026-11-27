@@ -8,11 +8,16 @@ struct DocEditorStage {
     var slash: Bool
 }
 
-/// Keeps the text view's styling in step with every edit (attributes only).
+/// Keeps the text view's styling in step with every edit (attributes only). This runs in didProcessEditing, not
+/// willProcessEditing: attributes changed in willProcessEditing widen the storage's edited range to whole
+/// paragraphs, and the layout manager then moves the caret to the end of that widened range. A character typed
+/// mid-block sent the caret to the start of the next block, and the next keystroke landed there with the previous
+/// block's kind, which the restyle then spread over that whole block. Attributes changed here leave the selection
+/// alone and are still laid out (the editor harness, NE checks, compares the layout with a fresh load).
 private final class DocStorageDelegate: NSObject, NSTextStorageDelegate {
     weak var view: DocTextView?
 
-    func textStorage(_ textStorage: NSTextStorage, willProcessEditing editedMask: NSTextStorageEditActions,
+    func textStorage(_ textStorage: NSTextStorage, didProcessEditing editedMask: NSTextStorageEditActions,
                      range editedRange: NSRange, changeInLength delta: Int) {
         guard let view else { return }
         DocText.restyle(textStorage, around: editedRange, tail: view.tail)
@@ -284,8 +289,31 @@ final class DocTextView: NSTextView {
                 setKind(k, checked: false, paragraph: info.index)
                 return
             }
+            if sel.location == info.content.location, info.index > 0 { matchKindBeforeMerge(into: info.index - 1) }
         }
         super.deleteBackward(sender)
+    }
+
+    /// Forward delete at the end of a block pulls the next block up into it.
+    override func deleteForward(_ sender: Any?) {
+        let sel = selectedRange()
+        if sel.length == 0 {
+            let info = paragraphInfo(at: sel.location)
+            if sel.location == NSMaxRange(info.content) { matchKindBeforeMerge(into: info.index) }
+        }
+        super.deleteForward(sender)
+    }
+
+    /// Before the line break after block `upper` is deleted: gives the block below it the upper block's kind as its
+    /// own undoable change. The restyle would give it that kind anyway, but the restyle is not undoable, so Undo
+    /// brought the line break back and left the lower block with the upper block's kind.
+    private func matchKindBeforeMerge(into upper: Int) {
+        guard let s = textStorage else { return }
+        let list = DocText.paragraphs(s.string as NSString)
+        guard list.indices.contains(upper + 1), list[upper].whole.length > 0, list[upper + 1].whole.length > 0 else { return }
+        let a = paragraphInfo(at: list[upper].whole.location)
+        let b = paragraphInfo(at: list[upper + 1].whole.location)
+        if a.kind != b.kind || a.checked != b.checked { setKind(a.kind, checked: a.checked, paragraph: upper + 1) }
     }
 
     override func moveUp(_ sender: Any?) {
@@ -626,7 +654,11 @@ struct NoteDocumentEditor: NSViewRepresentable {
         return tv
     }
 
+    /// Test hook for the editor harness: how many times SwiftUI has updated an editor.
+    static var updateCount = 0
+
     func updateNSView(_ tv: DocTextView, context: Context) {
+        Self.updateCount += 1
         let c = context.coordinator
         wire(tv, c)
         if c.token != token || (!c.edited && c.loaded != blocks) {
