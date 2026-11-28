@@ -47,9 +47,10 @@ final class StreamCommit {
     /// should now be on screen - always the previous return value plus more - or
     /// nil when nothing new is stable enough to type.
     ///
-    /// The transcript must cover the whole recording every time. Agreement is
-    /// positional, so transcribing only the last few seconds would shift every
-    /// word index against what is already committed.
+    /// The transcript must cover the same text every time. Agreement is
+    /// positional, so a transcript that starts later would shift every word
+    /// index against what is already committed. After a settle the front of the
+    /// hypothesis is replaced; the caller then calls `rebase` before advancing.
     func advance(_ hypothesis: String) -> String? {
         let current = Self.tokenize(hypothesis)
         defer { previous = current }
@@ -77,6 +78,80 @@ final class StreamCommit {
         }
         committedWords = stable
         return committed
+    }
+
+    /// Lowercased, with everything that is not a letter or digit removed; a word that is all
+    /// punctuation keeps its lowercased self.
+    private static func norm(_ word: String) -> String {
+        let kept = word.lowercased().filter { $0.isLetter || $0.isNumber }
+        return kept.isEmpty ? word.lowercased() : String(kept)
+    }
+
+    /// Re-anchors the commit point after a settle.
+    ///
+    /// A settle replaces the front of the hypothesis with the settle request's own text. If whisper
+    /// split or merged a word there, the positional `committedWords` no longer points at the end of
+    /// what is on screen, and the next commit would repeat or skip words. This finds where the
+    /// committed text ends in `hypothesis` by content. `committed` (the screen) is never changed.
+    ///
+    /// Returns true when it found where the committed text ends; false means try again with the
+    /// next hypothesis (nothing should be committed until it returns true). `force` accepts the
+    /// best alignment even when it is not confirmed.
+    @discardableResult
+    func rebase(onto hypothesis: String, force: Bool = false) -> Bool {
+        let current = Self.tokenize(hypothesis)
+        previous = current
+
+        let c = Self.tokenize(committed).map { Self.norm($0.word) }
+        let h = current.map { Self.norm($0.word) }
+        if c.isEmpty { committedWords = 0; return true }
+
+        var p = 0
+        while p < c.count, p < h.count, c[p] == h[p] { p += 1 }
+        if p == c.count { committedWords = p; return true }
+
+        // A bound on the work: a committed tail this long means something is badly off.
+        if c.count - p > 400 {
+            committedWords = min(c.count, h.count)
+            return force
+        }
+
+        let cc = Array(c[p...])
+        let hh = Array(h[p..<min(h.count, p + cc.count + 40)])
+        let rows = cc.count, cols = hh.count
+        var d = Array(repeating: Array(repeating: 0, count: cols + 1), count: rows + 1)
+        for i in 0...rows { d[i][0] = i }
+        for j in 0...cols { d[0][j] = j }
+        if rows >= 1, cols >= 1 {
+            for i in 1...rows {
+                for j in 1...cols {
+                    var best = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (cc[i - 1] == hh[j - 1] ? 0 : 1))
+                    // "to morrow" -> "tomorrow"
+                    if i >= 2, cc[i - 2] + cc[i - 1] == hh[j - 1] { best = min(best, d[i - 2][j - 1]) }
+                    // "anytime" -> "any time"
+                    if j >= 2, cc[i - 1] == hh[j - 2] + hh[j - 1] { best = min(best, d[i - 1][j - 2]) }
+                    d[i][j] = best
+                }
+            }
+        }
+
+        func anchored(_ j: Int) -> Bool {
+            guard j >= 1 else { return false }
+            if hh[j - 1] == cc[rows - 1] { return true }
+            if rows >= 2, cc[rows - 2] + cc[rows - 1] == hh[j - 1] { return true }
+            if j >= 2, cc[rows - 1] == hh[j - 2] + hh[j - 1] { return true }
+            return false
+        }
+
+        let minimum = (0...cols).map { d[rows][$0] }.min() ?? 0
+        let tied = (0...cols).filter { d[rows][$0] == minimum }
+        let pick = tied.first(where: anchored)
+        let j = pick ?? tied[0]
+        if pick != nil || force {
+            committedWords = p + j
+            return true
+        }
+        return false
     }
 
     /// Splits into words and the whitespace preceding each one. Whitespace after

@@ -30,6 +30,15 @@ if CommandLine.arguments.contains("--streamtest") {
     StreamSelfTest.run()
 }
 
+// Dev harnesses for the long-hold work (LONG-HOLD-SPEC.md C1, C2): file audio against a private
+// whisper-server on a port the caller gives. No mic, no permissions, never port 8178.
+if let index = CommandLine.arguments.firstIndex(of: "--holdreplay") {
+    HoldReplay.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+if let index = CommandLine.arguments.firstIndex(of: "--enginereplay") {
+    EngineReplay.run(Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // Measures the model step for spoken corrections: `--correctiontest [dev|heldout|all|check] [text|span] [claude [<model id>]]`.
 // `check` runs no model. `claude` sends each case to Anthropic with the saved key and the
 // corrections model (`CorrectionModel.claudeModel`, or the id given after it, e.g.
@@ -254,6 +263,7 @@ if CommandLine.arguments.contains("--enginecheck") {
     old f16 model complete: \(SpeechEngine.legacyModelIsComplete), agent loads it: \(SpeechEngine.agentLoadsLegacyModel())
     launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
     server responding on :\(SpeechEngine.port): \(alive)
+    engine on demand (can stop when idle): \(LaunchAgentBackend.live.canStop)
     isInstalled: \(SpeechEngine.isInstalled)
     permissions: microphone=\(Permissions.microphone) accessibility=\(Permissions.accessibility) inputMonitoring=\(Permissions.inputMonitoring)
     needsSetup: \(Onboarding.needsSetup())

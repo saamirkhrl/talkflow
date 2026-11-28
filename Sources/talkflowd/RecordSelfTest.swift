@@ -77,6 +77,10 @@ enum RecordSelfTest {
             report("audio not written to disk (talkflow_KEEP_TEST_AUDIO=1 to keep it)")
         }
 
+        // The engine starts on demand now; this run is a plain process, so start it by hand.
+        try? LaunchAgentBackend.live.start()
+        _ = SpeechEngine.waitUntilResponding(timeout: 30)
+
         let done = DispatchSemaphore(value: 0)
         Transcriber.transcribe(wav: wav, serverURL: URL(string: "http://127.0.0.1:8178/inference")!) { result in
             if let result {

@@ -136,6 +136,10 @@ enum StreamSelfTest {
         runActivityGridCases()
         runHomeInsightsCases()
         runOverlayCases()
+        report("case: bounded live updates (long holds)")
+        LongHoldChecks.run { check($0, $1, $2) }
+        report("case: the live engine starts on demand and stops when idle")
+        LiveEngineChecks.run { check($0, $1, $2) }
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
@@ -1362,9 +1366,9 @@ enum StreamSelfTest {
         check(arguments == [bundled, "-m", model, "--host", "127.0.0.1", "--port", "8178", "-nt"],
               "agent: runs the bundled server on the model, localhost, port 8178", "\(arguments)")
         let fresh = SpeechEngine.agentPlist(binary: bundled)
-        check(fresh["Label"] as? String == SpeechEngine.agentLabel && fresh["RunAtLoad"] as? Bool == true
-              && fresh["KeepAlive"] as? Bool == true && (fresh["StandardOutPath"] as? String)?.hasSuffix("whisper-server.log") == true,
-              "agent: label, start at load, kept alive, logged")
+        check(fresh["Label"] as? String == SpeechEngine.agentLabel && fresh["RunAtLoad"] as? Bool == false
+              && fresh["KeepAlive"] as? Bool == false && (fresh["StandardOutPath"] as? String)?.hasSuffix("whisper-server.log") == true,
+              "agent: label, started on demand, not kept alive, logged")
 
         // What happens to an existing plist.
         let all = on(bundled, arm, intel)

@@ -96,19 +96,30 @@ final class Recorder {
     /// Everything captured so far, as a valid WAV. Safe to call mid-recording -
     /// that's what drives the live preview.
     ///
-    /// Always the whole buffer, and there is deliberately no way to ask for less.
-    /// `StreamCommit` compares each transcript against the previous one word by
-    /// word, so every transcript has to cover the same audio; handing it only the
-    /// recent seconds would shift every word index against what is already
-    /// committed. This used to take a `lastSeconds` argument that nothing ever
-    /// passed, carrying a comment arguing for the trim that `Dictation.tickPreview`
-    /// documents as the thing that must not happen. 60s of speech transcribes in
-    /// ~1.5s, so the whole buffer is affordable for a hold of any realistic length.
+    /// Live updates now send only the unsettled tail (see `HoldSession`, which reads
+    /// `samples(from:to:)`); this is kept for callers that want the whole buffer.
     func snapshotWAV() -> Data {
         lock.lock()
         let copy = samples
         lock.unlock()
         return Self.wav(from: copy, sampleRate: Int(sampleRate))
+    }
+
+    /// How many 16 kHz samples have been captured so far.
+    var sampleCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return samples.count
+    }
+
+    /// A copy of samples `start..<end`, both clamped to what has been captured.
+    func samples(from start: Int, to end: Int) -> [Int16] {
+        lock.lock()
+        defer { lock.unlock() }
+        let low = max(0, min(start, samples.count))
+        let high = max(0, min(end, samples.count))
+        guard high > low else { return [] }
+        return Array(samples[low..<high])
     }
 
     var durationSeconds: TimeInterval {
@@ -184,3 +195,5 @@ final class Recorder {
         return data
     }
 }
+
+extension Recorder: HoldAudioSource {}

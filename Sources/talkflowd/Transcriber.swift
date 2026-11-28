@@ -2,7 +2,8 @@ import Foundation
 
 /// Sends audio to the local whisper-server for transcription.
 ///
-/// The server is a LaunchAgent that stays up with the model already resident, so
+/// The server is a LaunchAgent that talkflow starts when a hold needs it and stops
+/// after two idle minutes (`LiveEngine`); while it is up the model is resident, so
 /// a request costs only inference: measured on this M4 with small.en, 0.30s for
 /// 5.8s of speech and 1.25s for 39s. That is what makes transcribing once, at the
 /// end of the hold, feel instant rather than like waiting. large-v3-turbo and
