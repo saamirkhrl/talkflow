@@ -26,14 +26,14 @@ export function Stats() {
             unoptimized
             className="absolute bottom-2 left-1/2 h-auto w-[min(476.5px,calc(100%-24px))] -translate-x-1/2"
           />
-          {/* A screenshot of the real window, shadow included, taken at 2x: 560 x 588 pt plus the shadow. */}
+          {/* The app's Home screen, rendered from the app at 2x (1040 x 680 pt). */}
           <Image
-            src="/app/dashboard-dark.webp"
-            width={606}
-            height={634}
+            src="/app/home-light.webp"
+            width={1040}
+            height={680}
             unoptimized
-            className="h-auto w-full max-w-[606px]"
-            alt="The talkflow Dashboard window: 155,284 total words dictated, 968 words today, 145 wpm, a 62-day streak and 1 day 22 hours saved, above a grid of daily activity for the last 26 weeks."
+            className="h-auto w-full max-w-[880px] rounded-[12px] shadow-[0_30px_70px_-20px_rgb(0_0_0/0.55)] ring-1 ring-black/10"
+            alt="The talkflow Home screen: 45,000 total words dictated, 1,240 words today, 142 wpm, a 51-day streak and 13 hours 28 minutes saved, with today's progress and a chart of the last 30 days."
           />
         </div>
       </figure>
