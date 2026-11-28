@@ -2,7 +2,7 @@ import { CloudOff, Cpu, Mic, TextCursorInput, Unlink } from "lucide-react";
 
 const FACTS: [React.ReactNode, string][] = [
   ["Runs on your Mac", "Whisper recognizes your speech on your own processor."],
-  ["No cloud, no account", "No sign-in or analytics, and it works offline. Online, it only checks for updates and counts installs, anonymously."],
+  ["No cloud, no account", "No sign-in or analytics, and it works offline. Online, it downloads its speech models, checks for updates and counts installs, anonymously."],
   ["Dictation audio is never saved", "Held in memory, never written to disk. Meeting recordings are deleted once their notes are written, and kept only if that fails, with a Delete button."],
   ["Open source", "Every line is public, MIT licensed."],
 ];

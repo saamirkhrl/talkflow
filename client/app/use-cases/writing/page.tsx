@@ -99,7 +99,7 @@ export default function WritingPage() {
 
       <h2 id="limits">Good to know</h2>
       <ul>
-        <li>It is built for English.</li>
+        <li>It supports English and German.</li>
         <li>
           It&apos;s free with no word limit, so long sessions cost nothing. There is no account to
           create.

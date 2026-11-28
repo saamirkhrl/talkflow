@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function TermsPage() {
   return (
-    <LegalPage title="Terms of Use" lastUpdated="November 27, 2026">
+    <LegalPage title="Terms of Use" lastUpdated="November 28, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -66,8 +66,9 @@ export default function TermsPage() {
         These terms cover everything else: the site itself and the talkflow name and logo.
       </p>
       <p>
-        talkflow uses whisper.cpp (MIT License) and OpenAI&apos;s Whisper speech model (MIT
-        License). Each is covered by its own license, which you can find in its repository.
+        talkflow uses whisper.cpp (MIT License), OpenAI&apos;s Whisper speech model (MIT License)
+        and, for meeting notes, FluidAudio (Apache License 2.0) with speaker models licensed CC BY
+        4.0. Each is covered by its own license, which you can find in its repository.
       </p>
 
       <h2 id="getting-the-app">3. Getting the app</h2>

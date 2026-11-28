@@ -421,7 +421,7 @@ function Recording({ writing }: { writing: boolean }) {
       <div className="mt-5 rounded-[16px] border border-[#e2e1de] bg-white px-7 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="pl-7 text-[13px] text-[#6b6a6f]">{writing ? "Writing notes" : "Recording"}</p>
+            <p className="pl-7 text-[13px] text-[#6b6a6f]">Recording</p>
             <p className="flex items-center gap-3 font-serif text-[54px] leading-none tabular-nums">
               <span className={cn("size-3.5 rounded-full", writing ? "bg-[#9a999e]" : "animate-dot-pulse bg-[#e0352b]")} />
               12:34
@@ -433,7 +433,7 @@ function Recording({ writing }: { writing: boolean }) {
               writing ? "scale-95 bg-[#55545a]" : "bg-[#1f1e22]",
             )}
           >
-            {writing ? "Writing notes..." : "Stop and write notes"}
+            Stop and write notes
           </span>
         </div>
         <div className="mt-7 grid grid-cols-[180px_1fr] items-center gap-x-6 gap-y-5">

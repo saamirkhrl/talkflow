@@ -15,7 +15,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="Privacy Policy" lastUpdated="November 27, 2026">
+    <LegalPage title="Privacy Policy" lastUpdated="November 28, 2026">
       <h2 id="short-version">The short version</h2>
       <ul>
         <li>
@@ -30,7 +30,9 @@ export default function PrivacyPage() {
           <strong>Optional cloud features send your words to the company you pick.</strong> If you
           add your own OpenAI key and turn on OpenAI transcription, your recorded audio goes to
           OpenAI. If you add your own Anthropic key and turn on Claude punctuation, the text of your
-          dictation goes to Anthropic. If you save an Anthropic or OpenAI key, a meeting&apos;s
+          dictation goes to Anthropic. If you turn on AI corrections on a Mac without Apple
+          Intelligence, the text of your dictation goes to Anthropic with your key. If you save an
+          Anthropic or OpenAI key, a meeting&apos;s
           transcript text goes to that provider for a summary, action items or answers, after
           talkflow asks once. Nothing is sent unless you add a key (see{" "}
           <a href="#app-keys">Your own OpenAI or Anthropic key</a>).
@@ -143,6 +145,10 @@ export default function PrivacyPage() {
           contact Google Fonts.
         </li>
         <li>
+          The footer shows badges from Product Hunt, TryMacApps and UsefulShelf. Your browser loads
+          those images from their sites, which see your IP address.
+        </li>
+        <li>
           To show the right download button, the page checks in your browser which operating system
           you&apos;re using. That check happens on your device, and the result isn&apos;t sent to
           us.
@@ -222,8 +228,9 @@ export default function PrivacyPage() {
         </li>
         <li>
           turns the speech into text using OpenAI&apos;s Whisper speech model, running on your
-          computer: the English-only &quot;small.en&quot; version and, on computers fast enough
-          for it, the larger &quot;large-v3-turbo&quot; version for the final text;
+          computer: the English-only &quot;small.en&quot; version (or the multilingual small version
+          if you dictate in German), and the larger &quot;large-v3-turbo&quot; version for the final
+          text if you turn on Accurate final pass;
         </li>
         <li>types the text into the app you&apos;re using.</li>
       </ol>
@@ -263,14 +270,14 @@ export default function PrivacyPage() {
         <li>
           <strong>The audio is saved only until the notes are written.</strong> While you record,
           the two tracks are saved in the notes folder (below). When you stop, talkflow removes
-          echo, tells the voices apart and turns the speech into text, all on your Mac, with the
+          echo, tells the voices apart (on Apple silicon with macOS 14 or later) and turns the speech into text, all on your Mac, with the
           speech engine at 127.0.0.1. The audio is deleted as soon as the transcript is saved. It is
           kept only if writing the notes or deleting the audio fails; the note then says so and
           offers Delete.
         </li>
         <li>
           <strong>What is kept.</strong> The transcript and the note&apos;s details (its title,
-          date, length and the speaker names you give), plus a summary and your questions if you
+          date, length and any speaker names talkflow suggests from the conversation), plus a summary and your questions if you
           make them, in <code>~/Library/Application Support/talkflow/notes/</code>. They stay until
           you delete the note.
         </li>
@@ -329,7 +336,7 @@ export default function PrivacyPage() {
       <h3 id="app-updates">Update checks</h3>
       <p>
         When it is online, the app asks GitHub whether a newer version exists: shortly after it
-        starts, every few hours while it runs, and when you open the dashboard. It downloads a small
+        starts, every few hours while it runs, and when you open the talkflow window. It downloads a small
         public file listing the latest release (if that file is missing, it asks GitHub&apos;s
         release API instead). The request sends nothing about you or your dictation. Like any web
         request, it reaches GitHub with your IP address, and it names the app and its version (for
@@ -370,6 +377,12 @@ export default function PrivacyPage() {
           words and only takes the punctuation from the reply.
         </li>
         <li>
+          <strong>AI corrections</strong> (experimental, off by default). They remove words you took
+          back mid-sentence. On a Mac with Apple Intelligence they run on your Mac. On a Mac without
+          it, with an Anthropic key saved and AI corrections turned on, talkflow sends the text of each
+          dictation to Anthropic. They only ever delete words.
+        </li>
+        <li>
           <strong>Meeting notes: summary, action items and Ask</strong> (Mac). Only with an
           Anthropic or OpenAI key saved in <strong>Settings &gt; API keys</strong>, and talkflow
           asks once before the first request. When you ask for a summary or ask a
@@ -399,7 +412,8 @@ export default function PrivacyPage() {
       <p>
         The whisper.cpp speech engine comes inside the talkflow download, so nothing else needs to
         be installed. The Whisper speech models are downloaded from Hugging Face: small.en (English
-        only) during setup, and large-v3-turbo in the background on computers that use it. Hugging
+        only) during setup, the multilingual small model if you choose German or Automatic, and
+        large-v3-turbo if you turn on Accurate final pass. Hugging
         Face sees your IP address when you download them and handles it under the{" "}
         <a href="https://huggingface.co/privacy">Hugging Face privacy policy</a>. Meeting
         notes offer two optional downloads from Hugging Face, which start only when you click: the
@@ -496,7 +510,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>System Audio Recording</strong>, for meeting notes only (macOS 14.2 or later).
-          macOS asks the first time you record a meeting. talkflow uses it to record the sound your
+          Setup offers it as an optional last step; if you skip it, macOS asks the first time you
+          record a meeting. talkflow uses it to record the sound your
           Mac plays during a meeting you chose to record. It is listed under Screen &amp; System
           Audio Recording, but talkflow doesn&apos;t record your screen. Dictation works without
           it.

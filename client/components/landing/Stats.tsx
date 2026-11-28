@@ -8,9 +8,8 @@ export function Stats() {
       <div className="grid items-end gap-x-16 gap-y-8 lg:grid-cols-2">
         <SectionTitle className="max-w-[14ch]">See how much you didn&apos;t type.</SectionTitle>
         <p className="max-w-[44ch] text-[18px] text-graphite lg:justify-self-end">
-          Open Dashboard from the menu bar to see your words, speed, streak
-          and the typing time you&apos;ve saved. It&apos;s worked out on your Mac and stays
-          there.
+          Click the talkflow icon in the menu bar to open Home and see your words, speed, streak and the typing time
+          you&apos;ve saved. It&apos;s worked out on your Mac and stays there.
         </p>
       </div>
 
@@ -33,7 +32,7 @@ export function Stats() {
             height={680}
             unoptimized
             className="h-auto w-full max-w-[880px] rounded-[12px] shadow-[0_30px_70px_-20px_rgb(0_0_0/0.55)] ring-1 ring-black/10"
-            alt="The talkflow Home screen: 45,000 total words dictated, 1,240 words today, 142 wpm, a 51-day streak and 13 hours 28 minutes saved, with today's progress and a chart of the last 30 days."
+            alt="The talkflow Home screen: 45,000 total words dictated, 1,240 words today, 142 wpm, a 51-day streak and 13 hours 28 minutes saved, with today's progress, a chart of the last 30 days and a year of activity."
           />
         </div>
       </figure>

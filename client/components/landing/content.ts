@@ -94,7 +94,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Does anything get sent to the cloud?",
-    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the dashboard). An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries, are off unless you turn them on.",
+    "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the talkflow window). It also downloads its speech models from Hugging Face during setup. An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries, are off unless you turn them on.",
   ],
   [
     "Which key do I hold?",
@@ -102,7 +102,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Does it rewrite what I say?",
-    "No. It types what you said. It removes filler sounds like \"um\" and \"uh\", and it follows spoken commands such as \"comma\", \"question mark\", \"new paragraph\" and emoji names like \"rocket emoji\". It never rephrases your sentences.",
+    "No. It types what you said. It removes filler sounds like \"um\" and \"uh\", and it follows spoken commands such as \"comma\", \"question mark\", \"new paragraph\" and emoji names like \"rocket emoji\". When you correct yourself (\"3, no wait, 4\") it keeps only the correction. It never rephrases your sentences.",
   ],
   [
     "Why does macOS say talkflow can't be opened?",
@@ -110,7 +110,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "Which languages does it support?",
-    "English. talkflow uses Whisper's English speech model, which is fast and accurate for English but doesn't transcribe other languages.",
+    "English and German. Pick one in Settings, or Automatic if you switch between them. English uses Whisper's English model; German and Automatic download Whisper's multilingual model (about 190 MB) once. More languages are coming.",
   ],
   [
     "Does it work offline?",
@@ -118,7 +118,7 @@ export const FAQ: [question: string, answer: string][] = [
   ],
   [
     "What do I need to run it?",
-    "A Mac with macOS 13 or later (built and tested on Apple silicon). The English speech model needs about 190 MB of disk space, plus about 575 MB for the optional, more accurate final-pass model. Meeting notes need macOS 14.2 or later.",
+    "A Mac with macOS 13 or later (built and tested on Apple silicon). The speech model needs about 190 MB of disk space (another 190 MB if you dictate in German), plus about 575 MB for the optional, more accurate final-pass model. Meeting notes need macOS 14.2 or later.",
   ],
 ];
 
