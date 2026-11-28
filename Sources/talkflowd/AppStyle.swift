@@ -29,6 +29,9 @@ enum Palette {
     static let ink = dynamic(light: 0x1F1E22, dark: 0xF5F5F3)
     static let muted = dynamic(light: 0x5F5E66, dark: 0xA9A8AF)
     static let warn = dynamic(light: 0xB4541A, dark: 0xE8955A)
+    /// The website's blue and coral, used on Home.
+    static let brand = dynamic(light: 0x0A41BF, dark: 0x5B8CFF)
+    static let coral = dynamic(light: 0xF65D4B, dark: 0xFF7A69)
     static let cardStroke = dynamic(light: 0x1F1E22, dark: 0xF5F5F3, lightAlpha: 0.10, darkAlpha: 0)
     static let line = ink.opacity(0.12)
     static let hairline = ink.opacity(0.08)
