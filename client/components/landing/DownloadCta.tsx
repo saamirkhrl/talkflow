@@ -84,8 +84,8 @@ const noopSubscribe = () => () => {};
 
 // The one-line Terminal install, copyable, and the button that lists every
 // build. The command names this site, so it is right on whatever domain the
-// page is served from.
-function InstallCommand() {
+// page is served from. Also used by the Mac download page's install steps.
+export function InstallCommand() {
   const origin = useOrigin();
   const [copied, setCopied] = useState(false);
   const command = `curl -fsSL ${origin}${INSTALL_SCRIPT_PATH} | bash`;
