@@ -299,10 +299,10 @@ enum NotesAISelfTest {
         let rest27 = content27.hasPrefix(NotesAI.combinePrefix) ? String(content27.dropFirst(NotesAI.combinePrefix.count)) : ""
         let exp27json: [[String: Any]] = [
             ["part": 1, "summary": "One.", "summary_times": [4],
-             "action_items": [["owner": "Maya", "task": "Draft", "time": 48]],
+             "next_steps": [["owner": "Maya", "task": "Draft", "time": 48]],
              "decisions": [["text": "Ship", "status": "aligned", "time": 36]], "details": []],
             ["part": 2, "summary": "Two.", "summary_times": [27],
-             "action_items": [["owner": "", "task": "Cut video", "time": 27]],
+             "next_steps": [["owner": "", "task": "Cut video", "time": 27]],
              "decisions": [["text": "When?", "status": "needs_discussion", "time": 19]], "details": []],
         ]
         let format27: [String: Any] = ["type": "json_schema", "schema": NotesAI.summarySchema(speakers: false)]

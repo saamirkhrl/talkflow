@@ -105,6 +105,10 @@ export const FAQ: [question: string, answer: string][] = [
     "No. It types what you said. It removes filler sounds like \"um\" and \"uh\", and it follows spoken commands such as \"comma\", \"question mark\", \"new paragraph\" and emoji names like \"rocket emoji\". It never rephrases your sentences.",
   ],
   [
+    "Why does macOS say talkflow can't be opened?",
+    "talkflow is free and open source but isn't distributed through Apple, so the first time you open it, click Done, then go to System Settings, Privacy & Security, click Open Anyway next to talkflow and enter your Mac password; the one-line Terminal install skips this step.",
+  ],
+  [
     "Which languages does it support?",
     "English. talkflow uses Whisper's English speech model, which is fast and accurate for English but doesn't transcribe other languages.",
   ],

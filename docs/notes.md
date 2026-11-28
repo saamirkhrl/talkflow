@@ -21,8 +21,8 @@ are in [notes-measurements.md](notes-measurements.md).
    `Contents/Helpers/talkflow-diarize` (a separate Swift package over FluidAudio, in
    `Helpers/talkflow-diarize`). It runs only on Apple Silicon with macOS 14 or later and needs
    the speaker models downloaded; otherwise the other side is labelled "Everyone else". The
-   microphone side is "You"; other voices are "Speaker 1", "Speaker 2" and so on, and the user
-   can rename them. The helper writes speaker turns only. No voice data is saved, and voices
+   microphone side is "You"; other voices are "Speaker 1", "Speaker 2" and so on; a name
+   said in the meeting can replace a label. The helper writes speaker turns only. No voice data is saved, and voices
    are not remembered from one meeting to the next.
 4. **Transcription** by whisper.cpp on a private `whisper-server`, started for notes and
    listening only on `127.0.0.1`. It uses large-v3-turbo when that model is on disk,
@@ -38,6 +38,7 @@ are in [notes-measurements.md](notes-measurements.md).
   note.json        the note's details (title, start, length, state, speaker names)
   transcript.json  once written
   summary.json     only if the user made a summary
+  document.json    the Summary tab's notes as edited, once the user edits them
   questions.json   only if the user used Ask
   audio/           the two recorded tracks, only until the transcript is saved
 ```
@@ -71,26 +72,65 @@ comes from that single request, never a second one.
   periods, generic words such as "Meeting" are refused). A new summary refreshes the description
   and replaces the title only while the title is the placeholder or an earlier auto title. A title
   the user typed is never changed. Emptying the title in the editor returns it to the placeholder.
-- **Speaker names.** The reply may name the other voices, only from direct evidence in the
-  transcript. `NotesAI.acceptedNames` keeps a name only when the confidence is high, the label is
-  a speaker still on its default name, the name is at most 40 characters and is inside the quoted
-  evidence, the quote occurs within two turns of the cited line, and that speaker talks there. A
-  name given to two speakers, two names for one speaker, or a name another speaker already shows
-  is dropped. Invalid names are dropped silently and never fail the reply. A name the user typed
-  is never replaced, and **Clear** on a suggested name returns the speaker to "Speaker N" and marks
-  it user-set, so it is not suggested again. A long meeting merges the names of its parts
-  (`NotesAI.mergedNames`).
-- **Layout.** The Summary tab reads as a document: Summary, Decisions (each with a status:
-  aligned, needs further discussion, disagreed or shelved), Details (topics, each with time links
-  into the transcript) and Suggested next steps. Copy on the Summary tab writes the same
-  structure as Markdown (`NotesDoc.markdown`).
-- **Ask** is a bar pinned at the bottom of a meeting; its answers open above it.
+- **Speaker names.** The request is serialized with sorted keys, so the model writes the fields in
+  alphabetical order. The reply fields are named so that this order is the one we want: `attendees`
+  comes first (the model looks for names before it writes anything else), then `decisions`,
+  `description`, `details`, `next_steps`, `summary`, `summary_times`, `title`; inside an attendee,
+  `label`, `quote`, `quote_time`, `relation`, `speaker_name`, `strength`. Older field spellings
+  (`speakers`, `action_items`, `name`, `kind`, `evidence`, `time`, `confidence`) still decode.
+  The prompt gives a positive procedure for each label: look at the line before the speaker talks and
+  the line after they finish for a name said to them (relation "addressed", with the direction
+  spelled out: the person who says "Thanks, Marcus" is not Marcus), otherwise a self-introduction
+  ("introduced"). `strength` is high, medium or low. `NotesAI.nameReview` checks each entry and gives
+  a verdict with a fixed reason when refused ("no name", "not a speaker label", "speaker already
+  named", "generic name", "too long", "low confidence", "unknown kind", "quote not found", "name not
+  in quote", "introduced by someone else", "named speaker said it", "not next to the named speaker",
+  "two names for one speaker", "name on two speakers", "name already used"). High and medium pass,
+  low is refused. The quote is searched in the whole transcript and the turn nearest the cited time
+  is used; for "addressed", the speaker before or after the quoting turn must be the named one.
+  Invalid names are dropped and never fail the reply. A name the user typed is never replaced.
+  `NotesModel.clearSuggestedName` returns a speaker to "Speaker N" and marks it user-set, so it is
+  not suggested again; the meeting page has no control for renaming or clearing at the moment. A long meeting merges the names of its parts (`NotesAI.mergedNames`).
+- **Local vocative pass.** Without any model, `NotesAI.localVotes` reads the transcript for names
+  said to a speaker: a sentence that starts with "Name," or says "over to Name" names whoever speaks
+  next; "Thanks, Name", "Hi Name", or a trailing or enclosed ", Name" names whoever spoke before.
+  A name is two capitalised words at most and never a stopword (okay, sorry, everyone, weekdays,
+  months and similar). A turn with two or more different names in one direction is a list and counts
+  for nobody. A vote is not counted when it points at You, at a speaker that already has a name, or
+  when the name is too long. `NotesAI.localNames` names a speaker only when exactly one name has two
+  or more counted votes for them, nobody else has a counted vote for that name, and no other speaker
+  already shows it. `NotesAI.combinedNames` merges these with the model's accepted names; a speaker
+  the two name differently, or one name on two speakers, gets none.
+- **Stored references follow renames.** In stored summary text, a speaker's label or name is saved
+  as a `{{s2}}` token (`NotesDoc.tokenizing`) and turned into the current display name when shown,
+  copied or sent on (`NotesDoc.resolving`), so a changed name updates the notes.
+  Old summaries have no tokens and show as saved.
+- **Diagnostics.** `--notesasktest` also writes the raw reply texts, the review of every proposed
+  name and the number of speakers it would rename into the result file (meeting text, local only),
+  and prints one counts line: `names: proposed N, applied M, rejected K (reason xC, ...)`, then
+  `local names: N vote(s) counted, M name(s)` for the local pass (its votes and names are also in the
+  result file).
+- **Layout.** A meeting's header (back, the Copy and Delete icons, the title, the date line and
+  the Summary, Ask and Transcript tabs) stays put; only the tab under it scrolls. The Summary tab
+  is an editable document: the summary becomes headings, paragraphs, bullets and to-dos (Summary;
+  Decisions; Open questions for points that need further discussion, were disagreed or shelved;
+  Details; Action items as to-dos), with the time links kept. Typing "/" in an empty block opens
+  a menu (Text, Heading, Bullet list, To-do); "[] ", "- " and "# " at the start of a block make a
+  to-do, a bullet or a heading. Edits save on their own to `document.json`; `summary.json` is
+  never changed. Write again asks first when the notes were edited, then replaces them with the
+  new summary. Copy on the Summary tab copies the document as plain text
+  (`NoteDocument.plainText`).
+- **Ask** is its own tab: the conversation fills the page under the header and answers read like
+  the Summary, without a bubble; the question field stays pinned at the bottom. Before the first
+  question the tab shows one line saying each question sends the transcript to the provider with
+  the user's key. The Summary and the answers carry no "Written by" line.
 - **Backward compatible.** Every new field is optional, so notes saved earlier still open:
   `titleSource` and `subtitle` in `note.json`, `nameSource` on each speaker, and `details`,
   `title`, `subtitle`, `suggestedNames` and a decision's `status` in `summary.json`. A missing
   source is read from the old rule (an empty or placeholder title is a placeholder, a name is the
   user's). An old summary shows its decisions as aligned and its open questions as needing
-  further discussion, and has no Details.
+  further discussion, and has no Details. A note without `document.json` shows its summary as a
+  fresh document, as before.
 - Logs carry counts only (details, names suggested, whether a title was set), never the text.
 
 ## Not in this version

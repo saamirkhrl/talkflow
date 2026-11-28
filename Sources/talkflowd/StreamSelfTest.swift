@@ -130,6 +130,9 @@ enum StreamSelfTest {
         runPermissionGrantCases()
         runOnboardingProgressCases()
         runEffortlessSetupCases()
+        runOnboardingV2Cases()
+        report("case: app location and the guide panel placement")
+        OnboardingGuideChecks.run { check($0, $1, $2) }
         runActivityGridCases()
         runOverlayCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
@@ -745,7 +748,38 @@ enum StreamSelfTest {
             ("Thanks for the gift. Sorry, the delay.", "Thanks for the gift. Sorry, the delay."),
             ("Sorry for the wait. Sorry, the noise.", "Sorry for the wait. Sorry, the noise."),
             ("Say the word the, say the word an.", "Say the word the, say the word an."),
-            ("Search for the, search for an, search for a.", "Search for the, search for an, search for a.")
+            ("Search for the, search for an, search for a.", "Search for the, search for an, search for a."),
+            // A retraction, a hedge ("I think she said"), then part of the old sentence said again with one value changed.
+            ("So the pitch went really well. Ms. Lee said that she would invest $3 million in it. Actually, no, I think she said she would invest $4 million, and we would give her 10% of the company.",
+                 "So the pitch went really well. Ms. Lee said that she would invest $4 million, and we would give her 10% of the company."),
+            ("The kickoff was fine. Ms. Lee said that she would invest $3 million. Actually, no. I think she said she would invest $4 million actually for 10% of the company.",
+                 "The kickoff was fine. Ms. Lee said that she would invest $4 million for 10% of the company."),
+            ("The review is on Monday. No wait, I think the review is on Tuesday.",
+                 "The review is on Tuesday."),
+            ("Ana said the budget is 50 thousand, sorry, I mean she said the budget is 60 thousand.",
+                 "Ana said the budget is 60 thousand."),
+            ("Omar said the shipment would arrive at 9. Scratch that, I think he said the shipment would arrive at 11, so plan for the afternoon.",
+                 "Omar said the shipment would arrive at 11, so plan for the afternoon."),
+            ("Kenji told us the rent is $2,000 a month. Wait, no, he told us the rent is $2,400 a month.",
+                 "Kenji told us the rent is $2,400 a month."),
+            ("We hired Daniel for the design work. Actually, no, I think we hired Carlos for the design work.",
+                 "We hired Carlos for the design work."),
+            ("The bus leaves at 6 on Friday. Wait, I think the bus leaves at 7 on Friday.",
+                 "The bus leaves at 7 on Friday."),
+            // ... and never when it could be a new thought, a contrast, a new subject, an answer or a negation.
+            ("Actually, no one came to the meeting.", "Actually, no one came to the meeting."),
+            ("We invited 20 people. Actually, no one came to the meeting.", "We invited 20 people. Actually, no one came to the meeting."),
+            ("I think he said yes.", "I think he said yes."),
+            ("He asked if we would pay 12 million. I think he said yes.", "He asked if we would pay 12 million. I think he said yes."),
+            ("He offered 12 million. Actually, I think that is too low.", "He offered 12 million. Actually, I think that is too low."),
+            ("He offered 12 million last year. Actually, I think he offered 15 million this year.", "He offered 12 million last year. Actually, I think he offered 15 million this year."),
+            ("Tom will pay 12 million. Actually, no, I think Sarah will pay 15 million.", "Tom will pay 12 million. Actually, no, I think Sarah will pay 15 million."),
+            ("Should we meet at 3? Actually, no, I think we should meet at 4.", "Should we meet at 3? Actually, no, I think we should meet at 4."),
+            ("Lena said she would pay 12 dollars. Actually, no, I think she said she would not pay 15 dollars.", "Lena said she would pay 12 dollars. Actually, no, I think she said she would not pay 15 dollars."),
+            ("He would pay 12 dollars. Actually, no, I think she said he would pay 15 dollars.", "He would pay 12 dollars. Actually, no, I think she said he would pay 15 dollars."),
+            ("Mia will bring 3 chairs. Sorry, I think Mia will bring 4 chairs.", "Mia will bring 3 chairs. Sorry, I think Mia will bring 4 chairs."),
+            ("Priya said she would pay 12 dollars. Actually, no, I think she said she would pay 12 dollars too.", "Priya said she would pay 12 dollars. Actually, no, I think she said she would pay 12 dollars too."),
+            ("Sam said he would pay 10 dollars.\nActually, no, I think he said he would pay 20 dollars.", "Sam said he would pay 10 dollars.\nActually, no, I think he said he would pay 20 dollars.")
         ]
         for (raw, want) in pure {
             let got = SelfCorrection.apply(to: raw)
@@ -760,6 +794,13 @@ enum StreamSelfTest {
         let spokenTime = Dictation.render("Let's meet at 4 p.m., scratch that, 5 p.m. that works.", leadingSpace: "", structure: true)
         check(!spokenTime.contains("4") && spokenTime.contains("5 p.m."),
               "pipeline: scratch that swaps 4 p.m. for 5 p.m.", spokenTime.debugDescription)
+
+        // The real pipeline, casual style: the cue as its own sentence, "actually" again in the restatement.
+        let hedged = Dictation.render("The kickoff was fine. Ms. Lee said that she would invest $3 million. Actually, no. I think she said she would invest $4 million actually for 10% of the company.",
+                                      leadingSpace: "", structure: true, style: .casual)
+        check(!hedged.contains("actually") && !hedged.contains("$3") && hedged.contains("she would invest $4 million for 10% of the company")
+              && !SelfCorrection.hasMarker(in: hedged),
+              "pipeline: a hedged restatement keeps only the corrected value", hedged.debugDescription)
 
         // The guard that makes corruption impossible by construction.
         check(SelfCorrection.isDeletionOnly(original: "meet at 2, no wait, 3", result: "meet at 3"),
@@ -1431,27 +1472,22 @@ enum StreamSelfTest {
     private static func runOnboardingStepCases() {
         report("case: setup keeps its step and moves on when a grant lands")
         typealias G = PermissionGrants
-        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
-        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
-        let micAX = G(microphone: true, accessibility: true, inputMonitoring: false)
-        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
-        let micIM = G(microphone: true, accessibility: false, inputMonitoring: true)
+        let none = G(microphone: false, accessibility: false, systemAudio: false)
+        let mic = G(microphone: true, accessibility: false, systemAudio: false)
+        let micAX = G(microphone: true, accessibility: true, systemAudio: false)
+        let all = G(microphone: true, accessibility: true, systemAudio: true)
 
         // The pure rule.
         for step in OnboardingStep.allCases {
-            for grants in [none, mic, micAX, all, micIM] {
+            for grants in [none, mic, micAX, all] {
                 check(OnboardingFlow.stepAfterRefresh(current: step, before: grants, now: grants) == step,
-                      "flow: nothing changed keeps \(step) (grants \(grants.microphone)/\(grants.accessibility)/\(grants.inputMonitoring))")
+                      "flow: nothing changed keeps \(step) (grants \(grants.microphone)/\(grants.accessibility)/\(grants.systemAudio))")
             }
         }
         check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: none, now: mic) == .accessibility,
               "flow: the microphone grant moves on to Accessibility")
-        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: mic, now: micAX) == .inputMonitoring,
-              "flow: the Accessibility grant moves on to Input Monitoring")
-        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: micIM, now: all) == .engine,
-              "flow: an already granted Input Monitoring is skipped")
-        check(OnboardingFlow.stepAfterRefresh(current: .inputMonitoring, before: micAX, now: all) == .engine,
-              "flow: the Input Monitoring grant moves on to the engine")
+        check(OnboardingFlow.stepAfterRefresh(current: .accessibility, before: mic, now: micAX) == .engine,
+              "flow: the Accessibility grant moves on to the engine")
         check(OnboardingFlow.stepAfterRefresh(current: .microphone, before: mic, now: micAX) == .microphone,
               "flow: a grant for another step does not move this one")
         check(OnboardingFlow.stepAfterRefresh(current: .welcome, before: none, now: all) == .welcome,
@@ -1465,11 +1501,11 @@ enum StreamSelfTest {
               "flow: a first run saved on the welcome page opens there again")
         check(OnboardingFlow.initialStep(completed: false, saved: .accessibility, grants: mic, engineInstalled: false) == .accessibility,
               "flow: an interrupted first run resumes on its step")
-        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: all, engineInstalled: false) == .engine,
+        check(OnboardingFlow.initialStep(completed: false, saved: OnboardingStep.restored(3), grants: all, engineInstalled: false) == .engine,
               "flow: an interrupted first run moves past a grant that landed during the relaunch")
-        check(OnboardingFlow.initialStep(completed: false, saved: .inputMonitoring, grants: micIM, engineInstalled: false) == .accessibility,
+        check(OnboardingFlow.initialStep(completed: false, saved: OnboardingStep.restored(3), grants: mic, engineInstalled: false) == .accessibility,
               "flow: an interrupted first run goes back to a grant that was lost")
-        check(OnboardingFlow.initialStep(completed: true, saved: nil, grants: micIM, engineInstalled: true) == .accessibility,
+        check(OnboardingFlow.initialStep(completed: true, saved: nil, grants: mic, engineInstalled: true) == .accessibility,
               "flow: a finished setup reopens on what is missing")
 
         // The model, with fake permissions, as the window drives it.
@@ -1496,11 +1532,13 @@ enum StreamSelfTest {
         fake.ax = true
         model.refresh(announce: true)
         model.begin()
-        check(model.step == .inputMonitoring, "model: back from System Settings, the Accessibility step is done, not the first page", "\(model.step)")
+        check(model.step == .engine, "model: back from System Settings, the Accessibility step is done, not the first page", "\(model.step)")
         model.stop()
 
-        // macOS relaunches the app after the Input Monitoring grant.
+        // macOS relaunches the app after the grant; an older build had saved the
+        // dropped Input Monitoring step (3) as its progress.
         fake.im = true
+        defaults.set(3, forKey: Onboarding.progressKey)
         check(Onboarding.wasInterrupted(defaults: defaults), "model: an unfinished first run opens again on launch")
         let relaunched = OnboardingModel(startHotkey: { true }, environment: environment)
         relaunched.begin()
@@ -1590,7 +1628,7 @@ enum StreamSelfTest {
         check(after.status(.inputMonitoring) == .stale(.appChanged), "reset: the other permission is left alone")
         fake.ax = true
         after.refresh(announce: true)
-        check(after.step == .inputMonitoring, "reset: the new grant moves setup on", "\(after.step)")
+        check(after.step == .engine, "reset: the new grant moves setup on", "\(after.step)")
 
         fake.resetSucceeds = false
         after.resetAndAskAgain(.inputMonitoring)
@@ -1603,7 +1641,7 @@ enum StreamSelfTest {
         fake.engineInstalled = true
         let fine = OnboardingModel(startHotkey: { true }, environment: fake.environment(defaults: defaults))
         fine.begin()
-        check(fine.step == .ready, "update: with every grant applying, Setup opens on the last page, not the first", "\(fine.step)")
+        check(fine.step == .tryIt, "update: with every grant applying, Setup opens on the Try it page, not the first", "\(fine.step)")
         fine.stop()
 
         // A first run: Allow, System Settings, back without it applying.
@@ -1614,9 +1652,9 @@ enum StreamSelfTest {
         model.begin()
         check(model.step == .accessibility, "first run: a Mac that already granted the microphone starts on what is missing", "\(model.step)")
         model.allow(.accessibility)
-        check(fresh.requests == [.accessibility] && fresh.settingsOpened.isEmpty, "allow: the first click shows macOS's prompt")
+        check(fresh.settingsOpened == [.accessibility] && fresh.requests.isEmpty, "allow: the click opens System Settings with the guide beside it")
         model.allow(.accessibility)
-        check(fresh.settingsOpened == [.accessibility], "allow: a later click opens System Settings, so it always does something")
+        check(fresh.settingsOpened == [.accessibility, .accessibility], "allow: a later click opens System Settings again, so it always does something")
         check(model.status(.accessibility) == .missing, "allow: not stale while the user is still in System Settings")
         model.appBecameActive(awayFor: 1)
         check(model.status(.accessibility) == .missing, "back: a moment away (macOS's own prompt) is not a visit to System Settings")
@@ -1626,7 +1664,7 @@ enum StreamSelfTest {
         fresh.ax = true
         model.refresh(announce: true)
         check(model.status(.accessibility) == .granted && model.backFromSettings.isEmpty, "back: a grant that lands clears it")
-        check(model.step == .inputMonitoring, "back: and moves on", "\(model.step)")
+        check(model.step == .engine, "back: and moves on", "\(model.step)")
         model.reportAlreadyOn(.inputMonitoring)
         check(model.status(.inputMonitoring) == .stale(.userSaysOn), "already on: the user's word shows the fix")
         model.stop()
@@ -1654,11 +1692,11 @@ enum StreamSelfTest {
               "progress: the step on screen is current")
         check(F.mark(.microphone, current: .engine, status: .granted, engineDone: false) == .done,
               "progress: a granted permission is done")
-        check(F.mark(.inputMonitoring, current: .welcome, status: .missing, engineDone: false) == .pending,
+        check(F.mark(.accessibility, current: .welcome, status: .missing, engineDone: false) == .pending,
               "progress: a missing permission is pending")
-        check(F.mark(.engine, current: .ready, status: nil, engineDone: true) == .done, "progress: a working engine is done")
+        check(F.mark(.engine, current: .tryIt, status: nil, engineDone: true) == .done, "progress: a working engine is done")
         check(F.mark(.engine, current: .accessibility, status: nil, engineDone: false) == .pending, "progress: a missing engine is pending")
-        check(F.mark(.ready, current: .engine, status: nil, engineDone: true) == .pending, "progress: the last page is pending until reached")
+        check(F.mark(.tryIt, current: .engine, status: nil, engineDone: true) == .pending, "progress: the Try it page is pending until reached")
 
         let fake = FakeSystem()
         fake.mic = .granted
@@ -1682,27 +1720,27 @@ enum StreamSelfTest {
         report("case: setup gets the engine ready in the background and skips what is done")
         typealias F = OnboardingFlow
         typealias G = PermissionGrants
-        let none = G(microphone: false, accessibility: false, inputMonitoring: false)
-        let mic = G(microphone: true, accessibility: false, inputMonitoring: false)
-        let all = G(microphone: true, accessibility: true, inputMonitoring: true)
+        let none = G(microphone: false, accessibility: false)
+        let mic = G(microphone: true, accessibility: false)
+        let all = G(microphone: true, accessibility: true, systemAudio: true)
 
         // The pure rules.
         check(F.startsEngineByItself(responding: false, programPresent: true), "engine: not answering, program here: starts without a click")
         check(!F.startsEngineByItself(responding: true, programPresent: true), "engine: already answering: nothing to start")
         check(!F.startsEngineByItself(responding: false, programPresent: false), "engine: no program: waits for a click (installing needs consent)")
-        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: true) == .ready, "skip: a ready engine's step is skipped")
+        check(F.nextNeeded(after: .accessibility, grants: all, engineReady: true) == .tryIt, "skip: a ready engine's step is skipped")
         check(F.nextNeeded(after: .accessibility, grants: all, engineReady: false) == .engine, "skip: an engine still getting ready is shown")
         check(F.nextNeeded(after: .welcome, grants: mic) == .accessibility, "skip: Get started skips a microphone already allowed")
-        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .ready, "skip: with everything done, Get started goes straight to Try it")
-        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: all, engineReady: true) == .ready,
+        check(F.nextNeeded(after: .welcome, grants: all, engineReady: true) == .tryIt, "skip: with everything done, Get started goes straight to Try it")
+        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: all, engineReady: true) == .tryIt,
               "skip: the last grant goes straight to Try it when the engine is ready")
-        check(F.stepAfterEngine(current: .engine, ready: true, grants: all) == .ready, "engine: ready on its own step moves on by itself")
+        check(F.stepAfterEngine(current: .engine, ready: true, grants: all) == .tryIt, "engine: ready on its own step moves on by itself")
         check(F.stepAfterEngine(current: .accessibility, ready: true, grants: mic) == .accessibility, "engine: ready during a permission step leaves the step alone")
         check(F.stepAfterEngine(current: .engine, ready: false, grants: all) == .engine, "engine: a failure stays on its step")
         check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: true) == nil, "back: nothing to go back to for a returning user")
         check(F.previousShown(before: .engine, grants: all, engineReady: false, returning: false) == .welcome, "back: a first run goes back to the welcome page")
-        check(F.previousShown(before: .ready, grants: all, engineReady: false, returning: true) == .engine, "back: from Try it to an engine still getting ready")
-        check(F.previousShown(before: .ready, grants: mic, engineReady: true, returning: true) == .accessibility, "back: skips done steps to the one still needed")
+        check(F.previousShown(before: .tryIt, grants: all, engineReady: false, returning: true) == .engine, "back: from Try it to an engine still getting ready")
+        check(F.previousShown(before: .tryIt, grants: mic, engineReady: true, returning: true) == .accessibility, "back: skips done steps to the one still needed")
         check(F.previousShown(before: .microphone, grants: none, engineReady: false, returning: false) == .welcome, "back: the first step goes to the welcome page")
         check(F.previousShown(before: .welcome, grants: none, engineReady: false, returning: false) == nil, "back: none on the welcome page")
 
@@ -1802,7 +1840,7 @@ enum StreamSelfTest {
         check(model.step == .accessibility, "background: the microphone grant moves on", "\(model.step)")
         fake.ax = true; fake.im = true
         model.refresh(announce: true)
-        check(model.step == .ready, "skip: the engine was ready, so the last grant goes straight to Try it", "\(model.step)")
+        check(model.step == .tryIt, "skip: the engine was ready, so the last grant goes straight to Try it", "\(model.step)")
         check(model.mark(.engine) == .done, "skip: and the engine shows done")
         model.stop()
 
@@ -1828,7 +1866,7 @@ enum StreamSelfTest {
         onStep.engineSetups.last?(.working("Starting the speech engine...", nil))
         check(engineStep.step == .engine && engineStep.engineFraction == nil, "engine step: starting has no percentage")
         onStep.engineSetups.last?(.ready)
-        check(engineStep.step == .ready, "engine step: moves on when the engine is ready", "\(engineStep.step)")
+        check(engineStep.step == .tryIt, "engine step: moves on when the engine is ready", "\(engineStep.step)")
         engineStep.stop()
 
         // Already answering: nothing to download, and nothing shown for it.
@@ -1838,7 +1876,7 @@ enum StreamSelfTest {
         let ready = OnboardingModel(startHotkey: { true }, environment: alive.environment(defaults: EphemeralDefaults()))
         ready.begin()
         check(ready.engine == .ready && alive.engineSetups.isEmpty, "alive: a running engine is not set up again")
-        check(ready.step == .ready, "alive: a Mac with everything done opens straight on Try it, no welcome page", "\(ready.step)")
+        check(ready.step == .tryIt, "alive: a Mac with everything done opens straight on Try it, no welcome page", "\(ready.step)")
         check(ready.previousStep == nil, "alive: and has nothing to go back to")
         ready.stop()
 
@@ -1872,7 +1910,7 @@ enum StreamSelfTest {
         tryDefaults.set(true, forKey: Onboarding.completedKey)
         let tryIt = OnboardingModel(startHotkey: { true }, environment: tryFake.environment(defaults: tryDefaults))
         tryIt.begin()
-        check(tryIt.step == .ready && tryIt.hotkeyRunning, "try it: opens on the last page with Fn listening", "\(tryIt.step)")
+        check(tryIt.step == .tryIt && tryIt.hotkeyRunning, "try it: opens on the Try it page with Fn listening", "\(tryIt.step)")
         check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: ready when you are")
         tryIt.practice = "typed by hand"
         check(tryIt.tryItPhase(at: Date()) == .waiting, "try it: typing by hand is not a success")
@@ -1921,6 +1959,13 @@ enum StreamSelfTest {
         var engineChecks = 0
         var engineSetups: [(EngineState) -> Void] = []
         var reduceMotion = false
+        var audio = SystemAudioStatus.unknown
+        var audioRequests = 0
+        var notesSupported = true
+        var appLocation = AppLocation.fine
+        var guideOutcome = GuideOutcome.shown
+        var guides: [GuideRequest] = []
+        var guideHides = 0
 
         func environment(defaults: UserDefaults) -> OnboardingEnvironment {
             OnboardingEnvironment(
@@ -1937,8 +1982,256 @@ enum StreamSelfTest {
                 engineProgramPresent: { self.programPresent },
                 setUpEngine: { report in self.engineSetups.append(report) },
                 reduceMotion: { self.reduceMotion },
-                appName: "talkflow")
+                appName: "talkflow",
+                systemAudio: { self.audio },
+                requestSystemAudio: { done in self.audioRequests += 1; done() },
+                notesSupported: notesSupported,
+                appLocation: appLocation,
+                showGuide: { request, done in self.guides.append(request); done(self.guideOutcome) },
+                hideGuide: { self.guideHides += 1 })
         }
+    }
+
+    /// Onboarding v2: the new step order, notes step, guide panel and move
+    /// screen, on the pure rules and on the model with fakes only.
+    private static func runOnboardingV2Cases() {
+        report("case: setup v2 steps, meeting notes, guide and move to Applications")
+        typealias F = OnboardingFlow
+        typealias G = PermissionGrants
+        let none = G(microphone: false, accessibility: false, systemAudio: false)
+        let mic = G(microphone: true, accessibility: false, systemAudio: false)
+        let micAX = G(microphone: true, accessibility: true, systemAudio: false)
+        let all = G(microphone: true, accessibility: true, systemAudio: true)
+
+        // Order and resume.
+        check(OnboardingStep.allCases == [.welcome, .microphone, .accessibility, .engine, .tryIt, .meetingNotes, .done], "v2 order: the steps in flow order")
+        check(OnboardingStep.welcome.next == .microphone && OnboardingStep.accessibility.next == .engine && OnboardingStep.done.next == nil,
+              "v2 order: next skips the dropped raw value")
+        check(OnboardingStep.welcome.previous == nil && OnboardingStep.engine.previous == .accessibility, "v2 order: previous skips the dropped raw value")
+        let restored = (-1...8).map { OnboardingStep.restored($0) }
+        check(restored == [nil, .welcome, .microphone, .accessibility, .accessibility, .engine, .tryIt, .meetingNotes, .done, nil],
+              "v2 order: saved progress maps to a step, the old Input Monitoring save to Accessibility", "\(restored)")
+        check(F.steps(notesSupported: false) == [.welcome, .microphone, .accessibility, .engine, .tryIt, .done], "v2 order: no meeting notes step when unsupported")
+        check(F.steps(notesSupported: true) == OnboardingStep.allCases, "v2 order: every step when supported")
+        check(!F.offersNotes(supported: false, skipped: false, granted: false), "v2 notes: not offered when unsupported")
+        check(F.offersNotes(supported: true, skipped: false, granted: false), "v2 notes: offered when supported")
+        check(!F.offersNotes(supported: true, skipped: true, granted: false), "v2 notes: not offered once skipped")
+        check(!F.offersNotes(supported: true, skipped: false, granted: true), "v2 notes: not offered once granted")
+
+        // Flow.
+        check(F.nextNeeded(after: .welcome, grants: none) == .microphone, "v2 flow: Get started goes to the microphone")
+        check(F.nextNeeded(after: .welcome, grants: micAX, engineReady: true) == .tryIt, "v2 flow: with the basics done, Get started goes to Try it")
+        check(F.nextNeeded(after: .accessibility, grants: micAX, engineReady: false) == .engine, "v2 flow: Accessibility goes to the engine")
+        check(F.nextNeeded(after: .tryIt, grants: micAX, engineReady: true, offerNotes: true) == .meetingNotes, "v2 flow: Try it goes to meeting notes")
+        check(F.nextNeeded(after: .tryIt, grants: micAX, engineReady: true, offerNotes: false) == .done, "v2 flow: Try it skips meeting notes when not offered")
+        check(F.nextNeeded(after: .tryIt, grants: all, engineReady: true, offerNotes: true) == .done, "v2 flow: Try it skips meeting notes when allowed")
+        check(F.nextNeeded(after: .meetingNotes, grants: micAX) == .done, "v2 flow: meeting notes goes to the last page")
+        check(F.nextNeeded(after: .done, grants: micAX) == .done, "v2 flow: nothing after the last page")
+        for step in OnboardingStep.allCases {
+            for grants in [none, mic, micAX, all] {
+                check(F.stepAfterRefresh(current: step, before: grants, now: grants) == step, "v2 flow: nothing changed keeps \(step)")
+            }
+        }
+        check(F.stepAfterRefresh(current: .microphone, before: none, now: mic) == .accessibility, "v2 flow: the microphone grant moves to Accessibility")
+        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: micAX, engineReady: true) == .tryIt, "v2 flow: Accessibility with a ready engine goes to Try it")
+        check(F.stepAfterRefresh(current: .accessibility, before: mic, now: micAX, engineReady: false) == .engine, "v2 flow: Accessibility without an engine goes to the engine")
+        check(F.stepAfterRefresh(current: .meetingNotes, before: micAX, now: all) == .done, "v2 flow: the system audio grant moves to the last page")
+        check(F.stepAfterRefresh(current: .tryIt, before: micAX, now: all) == .tryIt, "v2 flow: Try it never moves by itself")
+        check(F.previousShown(before: .done, grants: micAX, engineReady: true, returning: false, offerNotes: true) == .meetingNotes, "v2 back: from the last page to meeting notes")
+        check(F.previousShown(before: .done, grants: micAX, engineReady: true, returning: false, offerNotes: false) == .tryIt, "v2 back: meeting notes skipped when not offered")
+        check(F.previousShown(before: .done, grants: all, engineReady: true, returning: false, offerNotes: true) == .tryIt, "v2 back: meeting notes skipped when allowed")
+        check(F.previousShown(before: .tryIt, grants: micAX, engineReady: true, returning: false) == .welcome, "v2 back: a first run goes back to the welcome page")
+        check(F.previousShown(before: .tryIt, grants: micAX, engineReady: true, returning: true) == nil, "v2 back: a returning user has nowhere to go")
+        check(F.previousShown(before: .tryIt, grants: mic, engineReady: true, returning: true) == .accessibility, "v2 back: to the permission still needed")
+        check(F.previousShown(before: .tryIt, grants: micAX, engineReady: false, returning: true) == .engine, "v2 back: to an engine still getting ready")
+        check(F.previousShown(before: .microphone, grants: none, engineReady: false, returning: false) == .welcome
+              && F.previousShown(before: .welcome, grants: none, engineReady: false, returning: false) == nil, "v2 back: the first step goes to welcome, welcome has none")
+        check(F.initialStep(completed: false, saved: nil, grants: none, engineInstalled: false) == .welcome, "v2 start: a first run opens on welcome")
+        check(F.initialStep(completed: false, saved: .accessibility, grants: mic, engineInstalled: false) == .accessibility, "v2 start: resumes on its step")
+        check(F.initialStep(completed: false, saved: OnboardingStep.restored(3), grants: micAX, engineInstalled: false) == .engine,
+              "v2 start: the old Input Monitoring save resumes past the granted step")
+        check(F.initialStep(completed: false, saved: .accessibility, grants: none, engineInstalled: false) == .microphone, "v2 start: goes back to a lost grant")
+        check(F.initialStep(completed: true, saved: nil, grants: micAX, engineInstalled: true) == .tryIt, "v2 start: a finished setup with nothing missing opens on Try it")
+        check(F.initialStep(completed: true, saved: nil, grants: mic, engineInstalled: true) == .accessibility, "v2 start: a finished setup opens on what is missing")
+        check(F.firstMissing(all, engineInstalled: true) == nil && F.firstMissing(micAX, engineInstalled: true) == nil
+              && F.firstMissing(mic, engineInstalled: true) == .accessibility, "v2 start: system audio is never required")
+        let interrupted = { (progress: Int?, completed: Bool) -> Bool in
+            let defaults = EphemeralDefaults()
+            if let progress { defaults.set(progress, forKey: Onboarding.progressKey) }
+            if completed { defaults.set(true, forKey: Onboarding.completedKey) }
+            return Onboarding.wasInterrupted(defaults: defaults)
+        }
+        check(interrupted(2, false) && interrupted(3, false), "v2 launch: an unfinished Accessibility save opens setup again")
+        check(!interrupted(0, false) && !interrupted(5, false) && !interrupted(6, false) && !interrupted(7, false),
+              "v2 launch: welcome, Try it, meeting notes and the last page do not")
+        check(!interrupted(2, true), "v2 launch: a finished setup does not")
+
+        // The model.
+        // 42. A first run, with the guide.
+        let first = FakeSystem()
+        let firstModel = OnboardingModel(startHotkey: { true }, environment: first.environment(defaults: EphemeralDefaults()))
+        firstModel.begin()
+        check(firstModel.step == .welcome, "v2 model: a first run opens on welcome", "\(firstModel.step)")
+        firstModel.goNext()
+        check(firstModel.step == .microphone, "v2 model: Get started goes to the microphone", "\(firstModel.step)")
+        first.mic = .granted
+        firstModel.refresh(announce: true)
+        check(firstModel.step == .accessibility, "v2 model: the microphone grant moves on", "\(firstModel.step)")
+        firstModel.allow(.accessibility)
+        check(first.settingsOpened == [.accessibility], "v2 model: Allow opens the Accessibility pane", "\(first.settingsOpened)")
+        check(first.guides.last == GuideRequest(target: .accessibility, mode: .drag), "v2 model: with the drag guide", "\(first.guides)")
+        check(!first.requests.contains(.accessibility), "v2 model: macOS's own prompt is not used")
+        check(firstModel.guideShown == [.accessibility] && firstModel.isWaiting(.accessibility), "v2 model: the guide is shown and setup waits")
+        first.ax = true
+        firstModel.refresh(announce: true)
+        check(first.guideHides == 1 && firstModel.guideShown.isEmpty, "v2 model: the grant hides the guide", "\(first.guideHides)")
+        check(firstModel.step == .engine, "v2 model: and moves on to the engine", "\(firstModel.step)")
+        firstModel.stop()
+
+        // 43. The panel could not find System Settings.
+        let lost = FakeSystem()
+        lost.guideOutcome = .notFound
+        lost.mic = .granted
+        let lostModel = OnboardingModel(startHotkey: { true }, environment: lost.environment(defaults: EphemeralDefaults()))
+        lostModel.begin()
+        lostModel.allow(.accessibility)
+        check(lost.requests == [.accessibility], "v2 fallback: macOS's own prompt is used", "\(lost.requests)")
+        check(lostModel.guideFailed == [.accessibility] && lostModel.guideShown.isEmpty, "v2 fallback: the page shows the old flow")
+        lostModel.stop()
+
+        // 44, 45. The microphone.
+        let micFresh = FakeSystem()
+        let micFreshModel = OnboardingModel(startHotkey: { true }, environment: micFresh.environment(defaults: EphemeralDefaults()))
+        micFreshModel.begin()
+        micFreshModel.allow(.microphone)
+        check(micFresh.requests == [.microphone] && micFresh.guides.isEmpty, "v2 microphone: not asked yet shows macOS's prompt, no guide")
+        micFreshModel.stop()
+        let micDenied = FakeSystem()
+        micDenied.mic = .denied
+        let micDeniedModel = OnboardingModel(startHotkey: { true }, environment: micDenied.environment(defaults: EphemeralDefaults()))
+        micDeniedModel.begin()
+        micDeniedModel.allow(.microphone)
+        check(micDenied.settingsOpened == [.microphone], "v2 microphone: denied opens the pane", "\(micDenied.settingsOpened)")
+        check(micDenied.guides.last == GuideRequest(target: .microphone, mode: .switchOn), "v2 microphone: with the switch-on guide", "\(micDenied.guides)")
+        micDeniedModel.stop()
+
+        // 46. Meeting notes offered, then skipped.
+        func notesFake() -> FakeSystem {
+            let fake = FakeSystem()
+            fake.mic = .granted; fake.ax = true; fake.im = true
+            fake.engineAlive = true; fake.engineInstalled = true
+            return fake
+        }
+        let offered = notesFake()
+        let offeredDefaults = EphemeralDefaults()
+        let offeredModel = OnboardingModel(startHotkey: { true }, environment: offered.environment(defaults: offeredDefaults))
+        offeredModel.begin()
+        check(offeredModel.step == .tryIt, "v2 notes: setup with the basics done opens on Try it", "\(offeredModel.step)")
+        offeredModel.goNext()
+        check(offeredModel.step == .meetingNotes, "v2 notes: Continue goes to meeting notes", "\(offeredModel.step)")
+        check(!offeredModel.canContinue, "v2 notes: and cannot continue before asking")
+        offeredModel.skipNotes()
+        check(offeredModel.step == .done, "v2 notes: Skip goes to the last page", "\(offeredModel.step)")
+        check(offeredDefaults.bool(forKey: Onboarding.notesSkippedKey), "v2 notes: and is remembered")
+        offeredModel.stop()
+        let skipped = OnboardingModel(startHotkey: { true }, environment: offered.environment(defaults: offeredDefaults))
+        skipped.begin()
+        check(skipped.step == .tryIt, "v2 notes: a second setup opens on Try it", "\(skipped.step)")
+        skipped.goNext()
+        check(skipped.step == .done, "v2 notes: and does not offer meeting notes again", "\(skipped.step)")
+        skipped.stop()
+
+        // 47. Allowing.
+        let allowing = notesFake()
+        let allowingModel = OnboardingModel(startHotkey: { true }, environment: allowing.environment(defaults: EphemeralDefaults()))
+        allowingModel.begin()
+        allowingModel.goNext()
+        check(allowingModel.step == .meetingNotes, "v2 allow: at meeting notes", "\(allowingModel.step)")
+        allowingModel.allowSystemAudio()
+        check(allowing.audioRequests == 1 && allowingModel.systemAudioAsked, "v2 allow: Allow asks once")
+        allowing.audio = .granted
+        allowingModel.refresh(announce: true)
+        check(allowingModel.step == .done, "v2 allow: the grant moves to the last page", "\(allowingModel.step)")
+        allowingModel.stop()
+
+        // 48. Denied.
+        let denied = notesFake()
+        denied.audio = .denied
+        let deniedModel = OnboardingModel(startHotkey: { true }, environment: denied.environment(defaults: EphemeralDefaults()))
+        deniedModel.begin()
+        deniedModel.goNext()
+        deniedModel.allowSystemAudio()
+        check(denied.settingsOpened.last == .systemAudio, "v2 denied: opens the System Audio pane", "\(denied.settingsOpened)")
+        check(denied.guides.last == GuideRequest(target: .systemAudio, mode: .switchOn), "v2 denied: with the switch-on guide", "\(denied.guides)")
+        check(denied.audioRequests == 0, "v2 denied: macOS is not asked again")
+        deniedModel.stop()
+
+        // 49. Cannot tell after asking.
+        let unknown = notesFake()
+        let unknownModel = OnboardingModel(startHotkey: { true }, environment: unknown.environment(defaults: EphemeralDefaults()))
+        unknownModel.begin()
+        unknownModel.goNext()
+        unknownModel.allowSystemAudio()
+        check(unknown.audio == .unknown && unknownModel.canContinue, "v2 unknown: after asking, when it cannot be read, Continue is open")
+        unknownModel.stop()
+
+        // 50. macOS before 14.2.
+        let old = notesFake()
+        old.notesSupported = false
+        let oldModel = OnboardingModel(startHotkey: { true }, environment: old.environment(defaults: EphemeralDefaults()))
+        oldModel.begin()
+        check(oldModel.step == .tryIt && !oldModel.notesSupported, "v2 old macOS: opens on Try it", "\(oldModel.step)")
+        oldModel.goNext()
+        check(oldModel.step == .done, "v2 old macOS: no meeting notes step", "\(oldModel.step)")
+        oldModel.stop()
+
+        // 51. Going back hides the guide.
+        // (At the microphone step: once the microphone is granted the Mac counts as
+        // returning, and Back from Accessibility then has nowhere to go.)
+        let back = FakeSystem()
+        back.mic = .denied
+        let backModel = OnboardingModel(startHotkey: { true }, environment: back.environment(defaults: EphemeralDefaults()))
+        backModel.begin()
+        backModel.goNext()
+        backModel.allow(.microphone)
+        check(backModel.step == .microphone && backModel.guideShown == [.microphone], "v2 back: at the microphone with the guide shown", "\(backModel.step)")
+        backModel.goBack()
+        check(backModel.step == .welcome && back.guideHides == 1 && backModel.guideShown.isEmpty, "v2 back: going back hides the guide", "\(back.guideHides)")
+        backModel.stop()
+
+        // 52. Move to Applications.
+        let moving = FakeSystem()
+        moving.appLocation = .diskImage
+        moving.mic = .granted
+        let movingModel = OnboardingModel(startHotkey: { true }, environment: moving.environment(defaults: EphemeralDefaults()))
+        check(movingModel.needsMove, "v2 move: a copy on the disk image needs the move")
+        movingModel.begin()
+        movingModel.allow(.accessibility)
+        check(moving.settingsOpened.isEmpty && moving.guides.isEmpty, "v2 move: Allow does nothing meanwhile")
+        movingModel.stop()
+        let settled = FakeSystem()
+        check(!OnboardingModel(startHotkey: { true }, environment: settled.environment(defaults: EphemeralDefaults())).needsMove, "v2 move: a copy in place does not")
+
+        // 53. The old Input Monitoring save resumes.
+        let resume = FakeSystem()
+        resume.mic = .granted; resume.ax = true
+        let resumeDefaults = EphemeralDefaults()
+        resumeDefaults.set(3, forKey: Onboarding.progressKey)
+        let resumeModel = OnboardingModel(startHotkey: { true }, environment: resume.environment(defaults: resumeDefaults))
+        resumeModel.begin()
+        check(resumeModel.step == .engine, "v2 resume: an old Input Monitoring save resumes on the engine", "\(resumeModel.step)")
+        resumeModel.stop()
+
+        // 54. Reaching Try it finishes setup.
+        let reach = notesFake()
+        let reachDefaults = EphemeralDefaults()
+        reachDefaults.set(2, forKey: Onboarding.progressKey)
+        let reachModel = OnboardingModel(startHotkey: { true }, environment: reach.environment(defaults: reachDefaults))
+        reachModel.begin()
+        check(reachModel.step == .tryIt, "v2 done: opens on Try it", "\(reachModel.step)")
+        check(reachDefaults.bool(forKey: Onboarding.completedKey) && reachDefaults.object(forKey: Onboarding.progressKey) == nil,
+              "v2 done: reaching Try it marks setup completed and drops the saved progress")
+        reachModel.stop()
     }
 
     /// The shortcut: names, recording, storage, and the listener's decisions
@@ -2267,6 +2560,90 @@ enum StreamSelfTest {
         check(b.contains(.canJoinAllSpaces) && b.contains(.fullScreenAuxiliary), "overlay panels join all Spaces and full screen")
         check(!b.contains(.moveToActiveSpace), "overlay panels do not move to the active Space")
         check(OverlayController.overlayLevel.rawValue >= NSWindow.Level.statusBar.rawValue, "overlay panels sit at or above the status bar level")
+
+        // The pill never takes the focus.
+        check(OverlayController.overlayStyle.contains(.nonactivatingPanel) && !OverlayController.overlayStyle.contains(.titled),
+              "overlay panels are borderless and never activate talkflow")
+
+        // A hidden pill is always rebuilt at show: a fresh panel joins every current Space.
+        check(OverlayController.needsFreshPanel(exists: false, visible: false, onActiveSpace: false), "the first show builds the pill")
+        check(OverlayController.needsFreshPanel(exists: true, visible: false, onActiveSpace: true), "a hidden pill is rebuilt at the next show")
+        check(OverlayController.needsFreshPanel(exists: true, visible: true, onActiveSpace: false), "a pill off the active Space is rebuilt")
+        check(!OverlayController.needsFreshPanel(exists: true, visible: true, onActiveSpace: true), "a pill already on screen is kept")
+
+        // Screen choice. AppKit frames, primary first; window bounds in window-server coordinates.
+        let builtIn = CGRect(x: 0, y: 0, width: 1470, height: 956)
+        let right = CGRect(x: 1470, y: 0, width: 2560, height: 1440)       // CG: 1470, -484
+        let above = CGRect(x: 0, y: 956, width: 1920, height: 1080)        // CG: 0, -1080
+        let left = CGRect(x: -1920, y: 0, width: 1920, height: 1080)       // CG: -1920, -124
+        let mid = CGPoint(x: 700, y: 400)
+        let pick = OverlayController.pickScreen
+        check(pick([], nil, mid, nil) == nil, "no screens, no choice")
+        check(pick([builtIn], CGRect(x: 0, y: 0, width: 1470, height: 956), mid, 0) == 0, "one display: a full-screen window picks it")
+        check(pick([builtIn, right], CGRect(x: 1470, y: -484, width: 2560, height: 1440), mid, 0) == 1,
+              "a full-screen window on the external display picks it")
+        check(pick([builtIn, right], CGRect(x: 1000, y: 100, width: 800, height: 600), CGPoint(x: 3000, y: 700), 1) == 0,
+              "a window across two displays picks the one holding more of it")
+        check(pick([builtIn, right], CGRect(x: 1300, y: 100, width: 800, height: 600), mid, 0) == 1,
+              "more of the window on the external display picks it")
+        check(pick([builtIn, above], CGRect(x: 100, y: -900, width: 800, height: 600), mid, 0) == 1,
+              "a display above the primary is matched through the flipped y axis")
+        check(pick([builtIn, left], CGRect(x: -1800, y: 0, width: 800, height: 600), mid, 0) == 1,
+              "a display left of the primary (negative x) is matched")
+        check(pick([builtIn, right], nil, CGPoint(x: 2000, y: 700), 0) == 1, "no front window: the screen under the mouse")
+        check(pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), mid, 0) == 0,
+              "a window left on a removed display falls back to the mouse")
+        check(pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), CGPoint(x: 2000, y: 700), nil) == 0,
+              "window and mouse both on a removed display fall back to the first screen")
+        check(pick([builtIn, right], nil, CGPoint(x: -500, y: -500), 1) == 1, "nothing matches: the main screen")
+        check(pick([builtIn, right], nil, CGPoint(x: -500, y: -500), 7) == 0, "a main index that is gone falls back to the first screen")
+
+        // Placement: bottom-center of the chosen screen, never a frame left from an earlier layout.
+        let pf = OverlayController.pillFrame(on: builtIn, width: 150, height: 40, bottomOffset: 70)
+        check(pf == CGRect(x: 660, y: 70, width: 150, height: 40), "the pill sits bottom-center, 70 pt up", "\(pf)")
+        let pfRight = OverlayController.pillFrame(on: right, width: 150, height: 40, bottomOffset: 70)
+        check(pfRight == CGRect(x: 2675, y: 70, width: 150, height: 40) && right.contains(pfRight), "on the external display it sits inside it", "\(pfRight)")
+        if let i = pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), CGPoint(x: 2000, y: 700), nil) {
+            let after = OverlayController.pillFrame(on: [builtIn][i], width: 150, height: 40, bottomOffset: 70)
+            check(builtIn.contains(after), "after the external display is removed the pill lands on a display that exists")
+        } else {
+            check(false, "after the external display is removed the pill lands on a display that exists", "no screen picked")
+        }
+
+        // Full-screen detection for the log line (window-server coordinates).
+        let cgBuiltIn = CGRect(x: 0, y: 0, width: 1470, height: 956)
+        let cgRight = CGRect(x: 1470, y: -484, width: 2560, height: 1440)
+        check(OverlayController.isFullScreen(window: cgBuiltIn, displays: [cgBuiltIn]), "a window covering the display is full screen")
+        check(!OverlayController.isFullScreen(window: CGRect(x: 0, y: 33, width: 1470, height: 871), displays: [cgBuiltIn]),
+              "a zoomed window under the menu bar is not full screen")
+        check(OverlayController.isFullScreen(window: cgRight, displays: [cgBuiltIn, cgRight]), "full screen on the external display")
+        check(OverlayController.isFullScreen(window: CGRect(x: 0.5, y: 0, width: 1470, height: 956), displays: [cgBuiltIn]), "half a point off still counts")
+        check(!OverlayController.isFullScreen(window: cgBuiltIn, displays: []), "no displays, not full screen")
+        let belowCamera = CGRect(x: 0, y: 33, width: 1470, height: 923)
+        check(OverlayController.isFullScreen(window: belowCamera, displays: [cgBuiltIn], topInsets: [33]),
+              "a full-screen window below the camera housing counts")
+        check(!OverlayController.isFullScreen(window: belowCamera, displays: [cgBuiltIn], topInsets: [0]),
+              "the same window on a display without a housing does not")
+
+        // The log line: one line, the values needed to diagnose, no text.
+        let line = OverlayController.showReport(.init(
+            reason: "show", rebuilt: true, policy: .accessory, appActive: false, panelClass: "NSPanel",
+            style: OverlayController.overlayStyle, level: OverlayController.overlayLevel.rawValue,
+            behavior: OverlayController.overlayBehavior, hidesOnDeactivate: false, screenIndex: 0,
+            screens: [builtIn, right], frame: pf, frontFullScreen: true, visible: true, onActiveSpace: true,
+            occlusionVisible: true, cgOnscreen: true))
+        let wanted = ["talkflowd: pill shown:", "policy=accessory", "style=borderless,nonactivating", "level=25",
+                      "behavior=canJoinAllSpaces,stationary,ignoresCycle,fullScreenAuxiliary", "hidesOnDeactivate=no",
+                      "screen=0", "screens=[0,0 1470x956; 1470,0 2560x1440]", "frame=660,70 150x40",
+                      "frontFullScreen=yes", "onActiveSpace=yes", "occlusionVisible=yes", "cgOnscreen=yes", "rebuilt=yes"]
+        let missing = wanted.filter { !line.contains($0) }
+        check(missing.isEmpty && !line.contains("\n"), "the pill log line carries every diagnostic value on one line", missing.joined(separator: " | "))
+        check(OverlayController.showReport(.init(
+            reason: "show", rebuilt: false, policy: .regular, appActive: true, panelClass: "NSPanel",
+            style: OverlayController.overlayStyle, level: 25, behavior: [], hidesOnDeactivate: true, screenIndex: nil,
+            screens: [], frame: .zero, frontFullScreen: false, visible: false, onActiveSpace: false,
+            occlusionVisible: false, cgOnscreen: false)).contains("policy=regular active=yes"),
+              "the log line names the regular policy")
     }
 
     /// The Home page's activity grid (ActivityGrid.swift): a year of weeks

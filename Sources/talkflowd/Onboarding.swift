@@ -97,6 +97,8 @@ enum Onboarding {
     /// it (System Settings' "Quit & Reopen", or Restart talkflow) resumes
     /// there instead of on the welcome page. Removed when setup finishes.
     static let progressKey = "onboardingProgress"
+    /// The user pressed Skip on the meeting notes step: it is not offered again.
+    static let notesSkippedKey = "onboardingNotesSkipped"
 
     /// Whether to open the setup window on launch: only when something is
     /// actually missing. A Mac that already has every permission and a working
@@ -151,26 +153,42 @@ enum Onboarding {
     /// relaunching talkflow after a grant), so it opens again where it was.
     static func wasInterrupted(defaults: UserDefaults = .standard) -> Bool {
         guard !defaults.bool(forKey: completedKey),
-              let saved = OnboardingStep(rawValue: defaults.integer(forKey: progressKey)) else { return false }
-        return saved != .welcome && saved != .ready
+              let saved = OnboardingStep.restored(defaults.integer(forKey: progressKey)) else { return false }
+        return saved != .welcome && saved != .tryIt && saved != .meetingNotes && saved != .done
     }
 }
 
 // MARK: - Model
 
 enum OnboardingStep: Int, CaseIterable {
-    case welcome, microphone, accessibility, inputMonitoring, engine, ready
+    // Raw values stay compatible with the progress saved by older builds
+    // (3 was Input Monitoring, which is no longer a step).
+    case welcome = 0, microphone = 1, accessibility = 2, engine = 4, tryIt = 5, meetingNotes = 6, done = 7
 
-    var next: OnboardingStep? { OnboardingStep(rawValue: rawValue + 1) }
-    var previous: OnboardingStep? { OnboardingStep(rawValue: rawValue - 1) }
+    /// The neighbour in flow order (not rawValue +- 1: 3 is unused).
+    var next: OnboardingStep? {
+        guard let index = Self.allCases.firstIndex(of: self), index + 1 < Self.allCases.count else { return nil }
+        return Self.allCases[index + 1]
+    }
+
+    var previous: OnboardingStep? {
+        guard let index = Self.allCases.firstIndex(of: self), index > 0 else { return nil }
+        return Self.allCases[index - 1]
+    }
+
+    /// A saved progress value as a step. The dropped Input Monitoring step
+    /// (3) resumes on Accessibility; anything unknown is nil.
+    static func restored(_ raw: Int) -> OnboardingStep? {
+        raw == 3 ? .accessibility : OnboardingStep(rawValue: raw)
+    }
 }
 
-/// The three permissions as plain values, so the step logic below can be
-/// checked by `--streamtest` without touching the real ones.
+/// The permissions as plain values, so the step logic below can be checked
+/// by `--streamtest` without touching the real ones.
 struct PermissionGrants: Equatable {
     var microphone: Bool
     var accessibility: Bool
-    var inputMonitoring: Bool
+    var systemAudio: Bool = false
 
     /// Whether the permission a step asks for is granted; nil for the steps
     /// that are not about a permission.
@@ -178,63 +196,75 @@ struct PermissionGrants: Equatable {
         switch step {
         case .microphone: return microphone
         case .accessibility: return accessibility
-        case .inputMonitoring: return inputMonitoring
-        case .welcome, .engine, .ready: return nil
+        case .meetingNotes: return systemAudio
+        case .welcome, .engine, .tryIt, .done: return nil
         }
     }
 }
 
 /// Which step setup shows. Pure, for `--streamtest`.
 enum OnboardingFlow {
-    /// The first permission step still missing, then the engine.
+    /// Whether the meeting notes step is still to be offered.
+    static func offersNotes(supported: Bool, skipped: Bool, granted: Bool) -> Bool {
+        supported && !skipped && !granted
+    }
+
+    /// The steps of a flow, without meeting notes where it is not supported.
+    static func steps(notesSupported: Bool) -> [OnboardingStep] {
+        OnboardingStep.allCases.filter { notesSupported || $0 != .meetingNotes }
+    }
+
+    /// The first permission step still missing, then the engine. System
+    /// audio is never required.
     static func firstMissing(_ grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep? {
         if !grants.microphone { return .microphone }
         if !grants.accessibility { return .accessibility }
-        if !grants.inputMonitoring { return .inputMonitoring }
         if !engineInstalled { return .engine }
         return nil
     }
 
-    /// Nothing to do on this step: its permission is granted, or it is the
-    /// engine and the engine is already answering.
-    static func isDone(_ step: OnboardingStep, grants: PermissionGrants, engineReady: Bool) -> Bool {
-        if let granted = grants.isGranted(step) { return granted }
-        return step == .engine && engineReady
+    /// Nothing to do on this step: its permission is granted, it is the
+    /// engine and the engine is already answering, or it is the meeting notes
+    /// step and there is nothing to offer. Welcome, Try it and the last page
+    /// are never skipped.
+    static func isDone(_ step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, offerNotes: Bool = true) -> Bool {
+        switch step {
+        case .microphone: return grants.microphone
+        case .accessibility: return grants.accessibility
+        case .engine: return engineReady
+        case .meetingNotes: return grants.systemAudio || !offerNotes
+        case .welcome, .tryIt, .done: return false
+        }
     }
 
     /// The step after `step`, skipping the ones that are already done.
-    static func nextNeeded(after step: OnboardingStep, grants: PermissionGrants, engineReady: Bool = false) -> OnboardingStep {
-        var candidate = step.next ?? .ready
-        while isDone(candidate, grants: grants, engineReady: engineReady), let next = candidate.next { candidate = next }
+    static func nextNeeded(after step: OnboardingStep, grants: PermissionGrants, engineReady: Bool = false, offerNotes: Bool = true) -> OnboardingStep {
+        var candidate = step.next ?? .done
+        while isDone(candidate, grants: grants, engineReady: engineReady, offerNotes: offerNotes), let next = candidate.next { candidate = next }
         return candidate
     }
 
     /// Where Back goes: the closest earlier step that still has something to
-    /// do, or the welcome page on a first run. Nil hides Back. Input
-    /// Monitoring is only ever a step after Accessibility is granted (that
-    /// grant usually covers it), so Back never lands on it before then.
-    static func previousShown(before step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, returning: Bool) -> OnboardingStep? {
+    /// do, or the welcome page on a first run. Nil hides Back.
+    static func previousShown(before step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, returning: Bool, offerNotes: Bool = true) -> OnboardingStep? {
         var candidate = step.previous
         while let shown = candidate {
             if shown == .welcome { return returning ? nil : .welcome }
-            let skipped = isDone(shown, grants: grants, engineReady: engineReady)
-                || (shown == .inputMonitoring && !grants.accessibility)
-            if !skipped { return shown }
+            if !isDone(shown, grants: grants, engineReady: engineReady, offerNotes: offerNotes) { return shown }
             candidate = shown.previous
         }
         return nil
     }
 
     /// Where setup opens when it was not already open. A finished setup goes
-    /// to whatever is missing, or to the last page (with the practice field)
-    /// when nothing is, never through the whole flow again. A first run
-    /// starts on the welcome page (where the languages are chosen), or, when
-    /// it was interrupted (`saved`), where it was, moved past a permission
-    /// that has since been granted and back to an earlier one that has since
-    /// been lost.
+    /// to whatever is missing, or to the Try it page when nothing is, never
+    /// through the whole flow again. A first run starts on the welcome page
+    /// (where the languages are chosen), or, when it was interrupted
+    /// (`saved`), where it was, moved past a permission that has since been
+    /// granted and back to an earlier one that has since been lost.
     static func initialStep(completed: Bool, saved: OnboardingStep?, grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep {
         let missing = firstMissing(grants, engineInstalled: engineInstalled)
-        if completed { return missing ?? .ready }
+        if completed { return missing ?? .tryIt }
         guard let saved, saved != .welcome else { return .welcome }
         var resumed = saved
         if grants.isGranted(saved) == true { resumed = nextNeeded(after: saved, grants: grants) }
@@ -261,17 +291,17 @@ enum OnboardingFlow {
     /// when the permission the current step asks for has just been granted;
     /// anything else, including the window simply coming back to the front,
     /// leaves the step alone (so Back to a granted step stays there).
-    static func stepAfterRefresh(current: OnboardingStep, before: PermissionGrants, now: PermissionGrants, engineReady: Bool = false) -> OnboardingStep {
+    static func stepAfterRefresh(current: OnboardingStep, before: PermissionGrants, now: PermissionGrants, engineReady: Bool = false, offerNotes: Bool = true) -> OnboardingStep {
         guard before.isGranted(current) == false, now.isGranted(current) == true else { return current }
-        return nextNeeded(after: current, grants: now, engineReady: engineReady)
+        return nextNeeded(after: current, grants: now, engineReady: engineReady, offerNotes: offerNotes)
     }
 
     /// The step once the engine has finished getting ready: on its own step,
     /// setup moves on by itself, as it does when a grant lands. Anywhere
     /// else the step stays (the engine step is simply skipped later).
-    static func stepAfterEngine(current: OnboardingStep, ready: Bool, grants: PermissionGrants) -> OnboardingStep {
+    static func stepAfterEngine(current: OnboardingStep, ready: Bool, grants: PermissionGrants, offerNotes: Bool = true) -> OnboardingStep {
         guard current == .engine, ready else { return current }
-        return nextNeeded(after: .engine, grants: grants, engineReady: true)
+        return nextNeeded(after: .engine, grants: grants, engineReady: true, offerNotes: offerNotes)
     }
 
     /// After the engine check: start getting it ready without a click when
@@ -417,6 +447,17 @@ struct OnboardingEnvironment {
     var appName: String
     /// The shortcut held to dictate. Setup only names it; Settings changes it.
     var shortcut: () -> HotkeySpec = { .fn }
+    /// System Audio Recording, which meeting notes need.
+    var systemAudio: () -> SystemAudioStatus = { .unknown }
+    /// Raises the system's own prompt for it (or its stand-in); calls back on the main thread.
+    var requestSystemAudio: (@escaping () -> Void) -> Void = { $0() }
+    /// Whether this macOS can record system audio at all (14.2 and later).
+    var notesSupported: Bool = false
+    /// Where this copy runs from.
+    var appLocation: AppLocation = .fine
+    /// Docks the guide panel beside System Settings; answers once per request.
+    var showGuide: (GuideRequest, @escaping (GuideOutcome) -> Void) -> Void = { _, done in done(.notFound) }
+    var hideGuide: () -> Void = {}
 
     static let live = OnboardingEnvironment(
         microphone: { Permissions.microphone },
@@ -454,7 +495,13 @@ struct OnboardingEnvironment {
             // A bare `.build` binary has no bundle name worth showing.
             return name.isEmpty || name == "talkflowd" ? "talkflow" : name
         }(),
-        shortcut: { Preferences.hotkey }
+        shortcut: { Preferences.hotkey },
+        systemAudio: { SystemAudioPermission.status() },
+        requestSystemAudio: { SystemAudioPermission.request($0) },
+        notesSupported: SystemAudioPermission.isSupported,
+        appLocation: AppLocation.current,
+        showGuide: { PermissionGuide.shared.show($0, outcome: $1) },
+        hideGuide: { PermissionGuide.shared.hide() }
     )
 }
 
@@ -606,12 +653,21 @@ final class OnboardingModel: ObservableObject {
     @Published var step: OnboardingStep = .welcome {
         didSet {
             saveProgress()
-            if step == .ready && oldValue != .ready { resetTryIt() }
+            if oldValue != step { hideGuideIfShown() }
+            if step == .tryIt && oldValue != .tryIt { resetTryIt() }
         }
     }
     @Published var microphone: Permissions.MicrophoneStatus
     @Published var accessibility: Bool
+    /// Only decides when the hotkey is started; no step asks for it.
     @Published var inputMonitoring: Bool
+    @Published var systemAudio: SystemAudioStatus
+    /// The user pressed Allow for system audio at least once this session.
+    @Published private(set) var systemAudioAsked = false
+    /// The guide panel is docked beside System Settings for this target.
+    @Published private(set) var guideShown: Set<GuideTarget> = []
+    /// The panel could not find System Settings: the old flow is shown.
+    @Published private(set) var guideFailed: Set<GuideTarget> = []
     @Published var engine: EngineState = .checking
     @Published var hotkeyRunning = false
     /// The same setting as in Settings, ticked as a list on the welcome page
@@ -661,6 +717,10 @@ final class OnboardingModel: ObservableObject {
     var bringToFront: () -> Void = {}
     var close: () -> Void = {}
 
+    /// This copy runs from the disk image or a translocated path: setup asks
+    /// for the move to Applications instead of any step.
+    let needsMove: Bool
+
     private let startHotkey: () -> Bool
     private let environment: OnboardingEnvironment
     private let history: PermissionHistory
@@ -688,11 +748,19 @@ final class OnboardingModel: ObservableObject {
         microphone = environment.microphone()
         accessibility = environment.accessibility()
         inputMonitoring = environment.inputMonitoring()
+        systemAudio = environment.systemAudio()
+        needsMove = environment.appLocation.needsMove
     }
 
     var grants: PermissionGrants {
-        PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, inputMonitoring: inputMonitoring)
+        PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, systemAudio: systemAudio == .granted)
     }
+
+    var notesSkipped: Bool { environment.defaults.bool(forKey: Onboarding.notesSkippedKey) }
+    var offerNotes: Bool {
+        OnboardingFlow.offersNotes(supported: environment.notesSupported, skipped: notesSkipped, granted: systemAudio == .granted)
+    }
+    var notesSupported: Bool { environment.notesSupported }
 
     static func askedKey(_ service: Permissions.Service) -> String { "asked.\(service.rawValue)" }
 
@@ -720,8 +788,7 @@ final class OnboardingModel: ObservableObject {
         switch shown {
         case .microphone: service = .microphone
         case .accessibility: service = .accessibility
-        case .inputMonitoring: service = .inputMonitoring
-        case .welcome, .engine, .ready: service = nil
+        case .welcome, .engine, .tryIt, .meetingNotes, .done: service = nil
         }
         return OnboardingFlow.mark(
             shown, current: step,
@@ -762,7 +829,7 @@ final class OnboardingModel: ObservableObject {
         refresh(announce: false)
         let defaults = environment.defaults
         let saved = defaults.object(forKey: Onboarding.progressKey) == nil
-            ? nil : OnboardingStep(rawValue: defaults.integer(forKey: Onboarding.progressKey))
+            ? nil : OnboardingStep.restored(defaults.integer(forKey: Onboarding.progressKey))
         // A Mac that has granted talkflow anything before has been through
         // setup (closing the window counts), so after an update it goes
         // straight to whatever needs attention, not the welcome page.
@@ -784,6 +851,7 @@ final class OnboardingModel: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        hideGuideIfShown()
     }
 
     private func move(to newStep: OnboardingStep) {
@@ -810,7 +878,7 @@ final class OnboardingModel: ObservableObject {
     /// then presses the button or closes the window.
     private func saveProgress() {
         let defaults = environment.defaults
-        if step == .ready {
+        if step == .tryIt || step == .meetingNotes || step == .done {
             defaults.set(true, forKey: Onboarding.completedKey)
             defaults.removeObject(forKey: Onboarding.progressKey)
             return
@@ -829,13 +897,22 @@ final class OnboardingModel: ObservableObject {
         let mic = environment.microphone()
         let ax = environment.accessibility()
         let im = environment.inputMonitoring()
+        let audio = environment.systemAudio()
         let gained = (mic == .granted && microphone != .granted)
             || (ax && !accessibility)
             || (im && !inputMonitoring)
+            || (audio == .granted && systemAudio != .granted)
         microphone = mic
         accessibility = ax
         inputMonitoring = im
+        systemAudio = audio
         if gained && announce { bringToFront() }
+
+        // A permission the guide was helping with has landed: the panel's job is done.
+        for target in guideShown where isGranted(target) {
+            hideGuideIfShown()
+            break
+        }
 
         for service in Permissions.Service.allCases where trusted(service) {
             history.record(service, granted: true, requirement: environment.designatedRequirement)
@@ -846,7 +923,7 @@ final class OnboardingModel: ObservableObject {
 
         let current = step
         advance(from: current, to: OnboardingFlow.stepAfterRefresh(
-            current: current, before: before, now: grants, engineReady: engine == .ready))
+            current: current, before: before, now: grants, engineReady: engine == .ready, offerNotes: offerNotes))
 
         if im && !hotkeyRunning {
             hotkeyRunning = startHotkey()
@@ -868,21 +945,22 @@ final class OnboardingModel: ObservableObject {
         case .welcome: return true
         case .microphone: return microphone == .granted
         case .accessibility: return accessibility
-        case .inputMonitoring: return inputMonitoring
         case .engine: return engine == .ready
-        case .ready: return true
+        case .tryIt: return true
+        case .meetingNotes: return systemAudio == .granted || (systemAudioAsked && systemAudio == .unknown)
+        case .done: return true
         }
     }
 
     /// Forward, past anything already done.
     func goNext() {
-        guard canContinue, step != .ready else { return }
-        move(to: OnboardingFlow.nextNeeded(after: step, grants: grants, engineReady: engine == .ready))
+        guard canContinue, step != .done else { return }
+        move(to: OnboardingFlow.nextNeeded(after: step, grants: grants, engineReady: engine == .ready, offerNotes: offerNotes))
     }
 
     /// Where Back goes; nil when there is nowhere useful to go.
     var previousStep: OnboardingStep? {
-        OnboardingFlow.previousShown(before: step, grants: grants, engineReady: engine == .ready, returning: isReturning)
+        OnboardingFlow.previousShown(before: step, grants: grants, engineReady: engine == .ready, returning: isReturning, offerNotes: offerNotes)
     }
 
     func goBack() {
@@ -906,6 +984,7 @@ final class OnboardingModel: ObservableObject {
     }
 
     func finish() {
+        hideGuideIfShown()
         environment.defaults.set(true, forKey: Onboarding.completedKey)
         environment.defaults.removeObject(forKey: Onboarding.progressKey)
         if loginItemAvailable { applyLoginItem() }
@@ -931,20 +1010,96 @@ final class OnboardingModel: ObservableObject {
     /// time it is asked; after that the same click opens the System
     /// Settings pane, so pressing Allow always does something visible.
     func allow(_ service: Permissions.Service) {
-        guard !trusted(service) else { return }
+        guard !needsMove, !trusted(service) else { return }
         settingsVisits.insert(service)
-        if service == .microphone {
+        switch service {
+        case .microphone:
             if microphone == .notDetermined {
                 environment.request(.microphone) { [weak self] in self?.refresh(announce: true) }
             } else {
                 environment.openSettings(.microphone)
+                guide(.microphone, .switchOn)
             }
-            return
+        case .accessibility:
+            environment.openSettings(.accessibility)
+            guide(.accessibility, .drag) { [weak self] in self?.accessibilityFallback() }
+        case .inputMonitoring:
+            // No step shows it any more; kept for completeness.
+            let askedBefore = environment.asked(service)
+            environment.request(service) {}
+            environment.defaults.set(true, forKey: Self.askedKey(service))
+            if askedBefore { environment.openSettings(service.pane) }
         }
-        let askedBefore = environment.asked(service)
-        environment.request(service) {}
-        environment.defaults.set(true, forKey: Self.askedKey(service))
-        if askedBefore { environment.openSettings(service.pane) }
+    }
+
+    /// The old flow: macOS's own prompt adds talkflow to the list switched
+    /// off; the page then shows the switch-on guide.
+    private func accessibilityFallback() {
+        environment.request(.accessibility) {}
+        environment.defaults.set(true, forKey: Self.askedKey(.accessibility))
+    }
+
+    // MARK: Guide panel
+
+    private func guide(_ target: GuideTarget, _ mode: GuideMode, onNotFound: @escaping () -> Void = {}) {
+        guideFailed.remove(target)
+        environment.showGuide(GuideRequest(target: target, mode: mode)) { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .shown:
+                self.guideShown.insert(target)
+            case .notFound:
+                self.guideShown.remove(target)
+                self.guideFailed.insert(target)
+                onNotFound()
+            }
+        }
+    }
+
+    private func hideGuideIfShown() {
+        guard !guideShown.isEmpty else { return }
+        guideShown.removeAll()
+        environment.hideGuide()
+    }
+
+    private func isGranted(_ target: GuideTarget) -> Bool {
+        switch target {
+        case .accessibility: return accessibility
+        case .microphone: return microphone == .granted
+        case .systemAudio: return systemAudio == .granted
+        }
+    }
+
+    // MARK: Meeting notes
+
+    /// The meeting notes card's button: macOS's prompt the first time, then
+    /// the System Audio pane with the guide beside it.
+    func allowSystemAudio() {
+        guard !needsMove, systemAudio != .granted else { return }
+        switch systemAudio {
+        case .denied:
+            environment.openSettings(.systemAudio)
+            guide(.systemAudio, SystemAudioPermission.dragIntoList ? .drag : .switchOn)
+        case .unknown, .granted:
+            systemAudioAsked = true
+            environment.requestSystemAudio { [weak self] in self?.refresh(announce: true) }
+        }
+    }
+
+    /// "Skip": meeting notes are not offered again.
+    func skipNotes() {
+        environment.defaults.set(true, forKey: Onboarding.notesSkippedKey)
+        move(to: .done)
+    }
+
+    // MARK: Move to Applications
+
+    func openApplicationsFolder() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
+    }
+
+    func quit() {
+        NSApp.terminate(nil)
     }
 
     func openSettings(_ service: Permissions.Service) {
@@ -1055,7 +1210,7 @@ final class OnboardingModel: ObservableObject {
         guard state.isFinished else { return }
         engineBusy = false
         let current = step
-        advance(from: current, to: OnboardingFlow.stepAfterEngine(current: current, ready: state == .ready, grants: grants))
+        advance(from: current, to: OnboardingFlow.stepAfterEngine(current: current, ready: state == .ready, grants: grants, offerNotes: offerNotes))
     }
 
     /// How far the model download is, while it runs.
@@ -1105,7 +1260,7 @@ final class OnboardingModel: ObservableObject {
     }
 
     private func checkTryIt() {
-        guard step == .ready, !tryItSucceeded, TryIt.arrived(baseline: tryItBaseline, practice: practice) else { return }
+        guard step == .tryIt, !tryItSucceeded, TryIt.arrived(baseline: tryItBaseline, practice: practice) else { return }
         tryItSucceeded = true
     }
 
@@ -1130,853 +1285,14 @@ private extension EngineState {
     var isWorking: Bool { if case .working = self { return true } else { return false } }
 }
 
-// MARK: - View
-
-private extension Color {
-    init(light: UInt32, dark: UInt32) {
-        self.init(nsColor: NSColor(name: nil) { appearance in
-            let hex = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
-            return NSColor(
-                red: CGFloat((hex >> 16) & 0xFF) / 255,
-                green: CGFloat((hex >> 8) & 0xFF) / 255,
-                blue: CGFloat(hex & 0xFF) / 255,
-                alpha: 1
-            )
-        })
-    }
-
-    // The dashboard's palette.
-    static let paper = Color(light: 0xF5F5F3, dark: 0x1F1E22)
-    static let ink = Color(light: 0x1F1E22, dark: 0xF5F5F3)
-    static let graphite = Color(light: 0x5F5E66, dark: 0xA9A8AF)
-    static let line = Color.ink.opacity(0.12)
-    static let wash = Color.ink.opacity(0.035)
-    static let good = Color(light: 0x2F7D4F, dark: 0x5FBF86)
-    static let warn = Color(light: 0xB4541A, dark: 0xE8955A)
-}
-
-private struct PrimaryButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeBody(configuration: Configuration) -> some View {
-        // Disabled: an outline with quiet text, readable in both appearances.
-        configuration.label
-            .font(.system(size: 13, weight: .medium))
-            .foregroundColor(isEnabled ? .paper : .graphite)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 9)
-            .background(Capsule().fill(isEnabled ? Color.ink.opacity(configuration.isPressed ? 0.75 : 1) : Color.clear))
-            .overlay(Capsule().stroke(isEnabled ? Color.clear : Color.line, lineWidth: 1))
-            .contentShape(Capsule())
-    }
-}
-
-/// Secondary actions are underlined words, so each step has exactly one
-/// button that looks like a button.
-private struct LinkButtonStyle: ButtonStyle {
-    var color: Color = .ink
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12))
-            .underline()
-            .foregroundColor(color)
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .contentShape(Rectangle())
-    }
-}
-
-/// The switch itself, drawn, so it matches the palette and also renders in
-/// `--onboardingshot` (AppKit-backed controls draw as placeholders there).
-private struct InkSwitch: View {
-    var isOn: Bool
-
-    var body: some View {
-        ZStack(alignment: isOn ? .trailing : .leading) {
-            Capsule()
-                .fill(isOn ? Color.ink : Color.ink.opacity(0.14))
-                .frame(width: 32, height: 19)
-            Circle()
-                .fill(Color.paper)
-                .frame(width: 15, height: 15)
-                .padding(2)
-        }
-    }
-}
-
-/// An open arc that turns once a second: the "in progress" mark. Drawn
-/// rather than a ProgressView so it renders in `--onboardingshot` too, and
-/// driven by the clock (no @State, which is a macro in this SDK).
-private struct Spinner: View {
-    var size: CGFloat = 14
-
-    var body: some View {
-        TimelineView(.animation) { context in
-            let turn = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1)
-            Circle()
-                .trim(from: 0, to: 0.72)
-                .stroke(Color.ink.opacity(0.7), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
-                .frame(width: size, height: size)
-                .rotationEffect(.degrees(turn * 360))
-        }
-        .frame(width: size, height: size)
-    }
-}
-
-/// A dot that breathes while talkflow listens. Still with Reduce Motion on.
-private struct PulseDot: View {
-    var still: Bool
-    var size: CGFloat = 8
-
-    var body: some View {
-        TimelineView(.animation(minimumInterval: nil, paused: still)) { context in
-            let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.2) / 1.2
-            let level = still ? 1 : 0.55 + 0.45 * (0.5 + 0.5 * cos(phase * 2 * .pi))
-            Circle()
-                .fill(Color.warn)
-                .frame(width: size, height: size)
-                .opacity(level)
-        }
-        .frame(width: size, height: size)
-    }
-}
-
-/// The practice field: a plain text view that takes the keyboard focus as
-/// soon as it is on screen, so holding Fn types straight into it.
-private struct PracticeTextView: NSViewRepresentable {
-    @Binding var text: String
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var text: Binding<String>
-        /// The field took the focus once; after that it is the user's call.
-        var focused = false
-        init(text: Binding<String>) { self.text = text }
-
-        func textDidChange(_ notification: Notification) {
-            guard let view = notification.object as? NSTextView else { return }
-            if text.wrappedValue != view.string { text.wrappedValue = view.string }
-        }
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-
-    func makeNSView(context: Context) -> NSScrollView {
-        let scroll = NSTextView.scrollableTextView()
-        scroll.drawsBackground = false
-        scroll.hasVerticalScroller = false
-        scroll.borderType = .noBorder
-        if let view = scroll.documentView as? NSTextView {
-            view.delegate = context.coordinator
-            view.drawsBackground = false
-            view.isRichText = false
-            view.allowsUndo = true
-            view.font = .systemFont(ofSize: 14)
-            view.textColor = .labelColor
-            view.insertionPointColor = .labelColor
-            view.textContainerInset = NSSize(width: 8, height: 9)
-            view.string = text
-        }
-        return scroll
-    }
-
-    func updateNSView(_ scroll: NSScrollView, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.text = $text
-        guard let view = scroll.documentView as? NSTextView else { return }
-        if view.string != text { view.string = text }
-        // Into the field as soon as it is in a window, so holding Fn types
-        // straight into it. Tried again on the next update until then.
-        if !coordinator.focused {
-            DispatchQueue.main.async {
-                guard !coordinator.focused, let window = view.window else { return }
-                coordinator.focused = window.makeFirstResponder(view)
-            }
-        }
-    }
-}
-
-private struct OnboardingView: View {
-    @ObservedObject var model: OnboardingModel
-    /// For `--onboardingshot`: the practice field is drawn instead of being
-    /// a live text view, which ImageRenderer cannot draw.
-    var snapshot = false
-
-    static let width: CGFloat = 540
-    static let height: CGFloat = 560
-    private let gutter: CGFloat = 36
-
-    private var motion: Animation? { OnboardingMotion.animation(reduceMotion: model.reduceMotion) }
-
-    /// The step dots: one per page of a first run. Input Monitoring counts
-    /// with Accessibility, and the engine page (only shown when the engine
-    /// is still not ready by then) with Try it.
-    private static let pages: [OnboardingStep] = [.welcome, .microphone, .accessibility, .ready]
-
-    private static func page(of step: OnboardingStep) -> OnboardingStep {
-        switch step {
-        case .inputMonitoring: return .accessibility
-        case .engine: return .ready
-        default: return step
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, gutter)
-                .padding(.top, 34)
-            ZStack(alignment: .topLeading) {
-                content
-                    .id(model.step)
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(x: 10)),
-                        removal: .opacity))
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .padding(.horizontal, gutter)
-            .padding(.top, 30)
-            .animation(motion, value: model.step)
-            Spacer(minLength: 12)
-            hairline
-            footer
-                .padding(.horizontal, gutter)
-                .padding(.vertical, 16)
-        }
-        .frame(width: Self.width, height: Self.height, alignment: .topLeading)
-        .background(Color.paper)
-        .foregroundColor(.ink)
-    }
-
-    private var hairline: some View {
-        Rectangle().fill(Color.line).frame(height: 1)
-    }
-
-    // MARK: Header and footer
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 28, height: 28)
-            Text("talkflow")
-                .font(.system(size: 21, weight: .regular, design: .serif))
-            Spacer()
-            // Only on a first run: a returning user sees a page or two of
-            // what is missing, not the whole flow.
-            if model.firstRun { dots.animation(motion, value: model.step) }
-        }
-    }
-
-    private var dots: some View {
-        HStack(spacing: 6) {
-            ForEach(Self.pages, id: \.self) { page in
-                let current = Self.page(of: model.step) == page
-                let mark = model.mark(page)
-                Capsule()
-                    .fill(current ? Color.ink
-                          : mark == .attention ? Color.warn
-                          : mark == .done ? Color.ink.opacity(0.45) : Color.ink.opacity(0.15))
-                    .frame(width: current ? 18 : 6, height: 6)
-            }
-        }
-    }
-
-    private var footer: some View {
-        HStack(spacing: 16) {
-            switch model.step {
-            case .welcome:
-                EmptyView()
-            case .ready:
-                if model.loginItemAvailable {
-                    Button {
-                        model.launchAtLogin.toggle()
-                    } label: {
-                        HStack(spacing: 10) {
-                            InkSwitch(isOn: model.launchAtLogin)
-                            Text("Open talkflow when I log in")
-                                .font(.system(size: 12))
-                                .foregroundColor(.graphite)
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Text("talkflow lives in your menu bar")
-                        .font(.system(size: 12))
-                        .foregroundColor(.graphite)
-                }
-            default:
-                if model.previousStep != nil {
-                    Button("Back") { model.goBack() }
-                        .buttonStyle(LinkButtonStyle(color: .graphite))
-                }
-            }
-            Spacer()
-            if model.step != .engine && model.step != .ready { engineProgress }
-            footerButton
-        }
-        .frame(height: 36)
-    }
-
-    /// The download, from any page, while it runs: the slow part of setup
-    /// happens while the user deals with the permissions.
-    @ViewBuilder
-    private var engineProgress: some View {
-        switch model.engine {
-        case .working(_, let fraction):
-            HStack(spacing: 8) {
-                if let fraction {
-                    bar(fraction, height: 3).frame(width: 48)
-                    Text("Speech engine \(Int(fraction * 100))%").monospacedDigit()
-                } else {
-                    Spinner(size: 11)
-                    Text("Speech engine")
-                }
-            }
-            .font(.system(size: 11))
-            .foregroundColor(.graphite)
-            .fixedSize()
-        case .ready:
-            HStack(spacing: 5) {
-                Image(systemName: "checkmark.circle.fill").foregroundColor(.good)
-                Text("Speech engine ready")
-            }
-            .font(.system(size: 11))
-            .foregroundColor(.graphite)
-            .fixedSize()
-        case .checking, .needsSetup, .needsHomebrew, .failed:
-            EmptyView()
-        }
-    }
-
-    /// The footer button moves between pages. A permission's own Allow
-    /// button is on its card, where it is seen; Continue only shows once
-    /// there is nothing left to do on the page (after Back, say, as a grant
-    /// moves on by itself).
-    @ViewBuilder
-    private var footerButton: some View {
-        switch model.step {
-        case .welcome:
-            Button("Get started") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
-        case .microphone, .accessibility, .inputMonitoring, .engine:
-            if model.canContinue {
-                Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
-            }
-        case .ready:
-            if model.needsRestart {
-                Button("Restart talkflow") { model.restartApp() }.buttonStyle(PrimaryButtonStyle())
-            } else {
-                Button("Done") { model.finish() }.buttonStyle(PrimaryButtonStyle())
-            }
-        }
-    }
-
-    // MARK: Text
-
-    /// "Fn", "Right Option": the shortcut as it is now. Setup never changes it.
-    private var shortcut: String { model.shortcut.name }
-
-    private func title(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 30, weight: .regular, design: .serif))
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func paragraph(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 13))
-            .foregroundColor(.graphite)
-            .lineSpacing(3)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func small(_ text: String, color: Color = .graphite) -> some View {
-        Text(text)
-            .font(.system(size: 12))
-            .foregroundColor(color)
-            .lineSpacing(2)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    /// A hairline panel with a live status line on top.
-    private func panel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.wash))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
-    }
-
-    private enum Tone { case good, waiting, idle, warn, live }
-
-    private func statusLine(_ tone: Tone, _ text: String) -> some View {
-        HStack(spacing: 8) {
-            // Idle has no mark: an empty circle reads as a checkbox to click.
-            if tone != .idle {
-                Group {
-                    switch tone {
-                    case .good:
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(.good)
-                    case .waiting:
-                        Spinner()
-                    case .warn:
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.warn)
-                    case .live:
-                        PulseDot(still: model.reduceMotion || snapshot, size: 9)
-                    case .idle:
-                        EmptyView()
-                    }
-                }
-                .frame(width: 16, height: 16)
-            }
-            Text(text)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(tone == .warn ? .warn : (tone == .good ? .good : .ink))
-        }
-        .font(.system(size: 13))
-    }
-
-    // MARK: Pages
-
-    @ViewBuilder
-    private var content: some View {
-        switch model.step {
-        case .welcome:
-            welcome
-        case .microphone:
-            page("Let talkflow hear you.",
-                 "Your voice is turned into text on this Mac and is never saved.") {
-                permissionCard(.microphone, icon: "mic.fill", name: "Microphone",
-                               detail: "So talkflow can hear you while you hold \(shortcut)",
-                               ask: "macOS asks once. Choose Allow.")
-            }
-        case .accessibility:
-            page("Let talkflow type for you.",
-                 "So talkflow can notice \(model.shortcut.phrase) and type your words into the app you are using.") {
-                permissionCard(.accessibility, icon: "accessibility", name: "Accessibility",
-                               detail: "Notices \(shortcut) and types for you",
-                               ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
-            }
-        case .inputMonitoring:
-            page("One more switch.",
-                 "So talkflow can tell when you hold \(model.shortcut.phrase). It watches for your shortcut and never records what you type.") {
-                permissionCard(.inputMonitoring, icon: "keyboard", name: "Input Monitoring",
-                               detail: "Hears when you hold \(shortcut)",
-                               ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
-            }
-        case .engine:
-            page("Getting the speech engine ready.",
-                 "It runs on this Mac, so your voice never leaves it. This page moves on by itself when it is ready.") {
-                engineCard
-            }
-        case .ready:
-            ready
-        }
-    }
-
-    private func page<Content: View>(_ heading: String, _ text: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            title(heading)
-            paragraph(text)
-            content().padding(.top, 10)
-        }
-    }
-
-    /// One thing to do, as a card: what it is, and its own button.
-    private func card<Action: View, Detail: View>(
-        icon: String, name: String, detail: String, done: Bool,
-        @ViewBuilder action: () -> Action, @ViewBuilder more: () -> Detail
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(done ? .good : .ink)
-                    .frame(width: 38, height: 38)
-                    .background(RoundedRectangle(cornerRadius: 9).fill(done ? Color.good.opacity(0.14) : Color.ink.opacity(0.07)))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name).font(.system(size: 14, weight: .medium))
-                    Text(detail).font(.system(size: 12)).foregroundColor(.graphite)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 8)
-                action()
-            }
-            more()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color.wash))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(done ? Color.good.opacity(0.45) : Color.line, lineWidth: 1))
-    }
-
-    private func bar(_ fraction: Double, height: CGFloat) -> some View {
-        GeometryReader { geometry in
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.ink.opacity(0.1))
-                Capsule().fill(Color.ink.opacity(0.7)).frame(width: max(height, geometry.size.width * CGFloat(fraction)))
-            }
-        }
-        .frame(height: height)
-    }
-
-    /// Said, not a button: nothing more to do here.
-    private func doneLabel(_ text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checkmark.circle.fill")
-            Text(text)
-        }
-        .font(.system(size: 13, weight: .medium))
-        .foregroundColor(.good)
-    }
-
-    private func permissionCard(_ service: Permissions.Service, icon: String, name: String, detail: String, ask: String) -> some View {
-        let status = model.status(service)
-        return card(icon: icon, name: name, detail: detail, done: status == .granted) {
-            switch status {
-            case .granted:
-                doneLabel("Allowed")
-            case .stale:
-                Button(model.resetting == service ? "Resetting..." : "Reset and allow") { model.resetAndAskAgain(service) }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(model.resetting != nil)
-            case .missing:
-                // After the first click macOS's prompt is used up, so the
-                // same button opens the pane; it says so.
-                let opensSettings = model.isWaiting(service) || (service == .microphone && model.microphone == .denied)
-                Button(opensSettings ? "Open Settings" : "Allow") { model.allow(service) }
-                    .buttonStyle(PrimaryButtonStyle())
-            }
-        } more: {
-            if status != .granted { permissionDetail(service, ask: ask) }
-        }
-    }
-
-    private var engineCard: some View {
-        card(icon: "waveform", name: "Speech engine", detail: "One-time download, about 190 MB", done: model.engine == .ready) {
-            switch model.engine {
-            case .ready:
-                doneLabel("Ready")
-            case .needsSetup:
-                Button(model.engineOnlyStopped ? "Start" : "Set up") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
-            case .needsHomebrew, .failed:
-                Button("Try again") { model.runEngineSetup() }.buttonStyle(PrimaryButtonStyle())
-            case .checking, .working:
-                Spinner(size: 15)
-            }
-        } more: {
-            if model.engine != .ready { engineDetail }
-        }
-    }
-
-    // MARK: Welcome
-
-    private var welcome: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            title("Hold \(shortcut), talk, let go.")
-            paragraph("Your words appear wherever you are typing. It all runs on your Mac, with no account. Pick your languages, allow two things, and you are ready.")
-            languages.padding(.top, 14)
-        }
-    }
-
-    private static let languageRow: CGFloat = 44
-
-    /// The languages, as a list to tick. It scrolls once there are more than
-    /// fit; drawn without a ScrollView for `--onboardingshot`, which cannot
-    /// draw one.
-    private var languages: some View {
-        let rows = VStack(spacing: 0) {
-            ForEach(Array(DictationLanguage.speakable.enumerated()), id: \.element) { index, language in
-                if index > 0 { hairline }
-                languageRow(language)
-            }
-        }
-        let height = Self.languageRow * min(CGFloat(DictationLanguage.speakable.count), 4.5)
-            + CGFloat(DictationLanguage.speakable.count - 1)
-        return VStack(alignment: .leading, spacing: 8) {
-            Text("Languages").font(.system(size: 13, weight: .medium))
-            Group {
-                if snapshot { rows } else { ScrollView { rows } }
-            }
-            .frame(height: height, alignment: .top)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.wash))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.line, lineWidth: 1))
-            small(languageNote)
-        }
-    }
-
-    private var languageNote: String {
-        var note = ""
-        if model.language == .automatic { note += "talkflow tells which one you are speaking each time. " }
-        if model.language.needsMultilingualModel && !SpeechEngine.multilingualModelIsComplete || snapshot && model.language.needsMultilingualModel {
-            note += "Deutsch adds a one-time 190 MB download. "
-        }
-        return note + DictationLanguage.moreComing
-    }
-
-    private func languageRow(_ language: DictationLanguage) -> some View {
-        let ticked = model.language.spoken.contains(language)
-        return Button {
-            model.toggleSpoken(language)
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(ticked ? Color.ink : Color.clear)
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(ticked ? Color.ink : Color.ink.opacity(0.35), lineWidth: 1.2)
-                    if ticked {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 9, weight: .heavy))
-                            .foregroundColor(.paper)
-                    }
-                }
-                .frame(width: 16, height: 16)
-                Text(language.title).font(.system(size: 13))
-                Spacer()
-                if language.needsMultilingualModel {
-                    Text("190 MB").font(.system(size: 11)).foregroundColor(.graphite)
-                }
-            }
-            .padding(.horizontal, 14)
-            .frame(height: Self.languageRow)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func permissionDetail(_ service: Permissions.Service, ask: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            switch model.status(service) {
-            case .granted:
-                statusLine(.good, "Allowed")
-            case .stale(let reason):
-                staleFix(service, reason)
-            case .missing:
-                if model.isWaiting(service) {
-                    switchOnGuide(service)
-                    small((service == .microphone ? "" : "Not listed? Add it with the + button. ")
-                          + "This moves on by itself.")
-                    alreadyOnLink(service)
-                } else if service == .microphone && model.microphone == .denied {
-                    statusLine(.idle, "Microphone access is off")
-                    switchOnGuide(service)
-                    alreadyOnLink(service)
-                } else {
-                    small(ask)
-                }
-            }
-        }
-    }
-
-    /// What to look for in System Settings: the place, and the row with its
-    /// switch on, drawn the way it looks there.
-    private func switchOnGuide(_ service: Permissions.Service) -> some View {
-        let guide = Onboarding.switchOn(service, appName: model.appName)
-        return VStack(alignment: .leading, spacing: 8) {
-            small("\(guide.action) in \(guide.place):")
-            HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 18, height: 18)
-                Text(model.appName).font(.system(size: 13))
-                Spacer()
-                InkSwitch(isOn: true)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.paper))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.line, lineWidth: 1))
-        }
-    }
-
-    private func alreadyOnLink(_ service: Permissions.Service) -> some View {
-        Button("Already switched on?") { model.reportAlreadyOn(service) }
-            .buttonStyle(LinkButtonStyle())
-    }
-
-    /// The permission is on in System Settings for an older copy of
-    /// talkflow: say so and how to fix it. Reset is the card's button.
-    @ViewBuilder
-    private func staleFix(_ service: Permissions.Service, _ reason: StaleReason) -> some View {
-        let help = Onboarding.staleHelp(service, reason)
-        statusLine(.warn, "macOS is holding on to an older talkflow")
-        small(help.why)
-        if model.manualFixShown == service || model.resetFailed == service {
-            small(help.fix)
-        }
-        HStack(spacing: 16) {
-            if service == .inputMonitoring && reason != .appChanged {
-                Button("Restart talkflow") { model.restartApp() }
-                    .buttonStyle(LinkButtonStyle())
-            }
-            if model.manualFixShown == service || model.resetFailed == service {
-                Button("Open System Settings") { model.openSettings(service) }
-                    .buttonStyle(LinkButtonStyle())
-            } else {
-                Button("Fix it by hand") { model.manualFixShown = service }
-                    .buttonStyle(LinkButtonStyle())
-            }
-        }
-        if model.resetFailed == service {
-            small("The reset did not work. Use the steps above in System Settings instead.", color: .warn)
-        }
-    }
-
-    private var engineDetail: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            switch model.engine {
-            case .checking:
-                small("Checking...")
-            case .ready:
-                statusLine(.good, "Ready")
-            case .needsSetup:
-                small(model.engineNeeds)
-            case .working(let message, let fraction):
-                let lines = message.components(separatedBy: "\n")
-                if let fraction {
-                    bar(fraction, height: 5)
-                    HStack {
-                        small("\(Int(fraction * EngineSetup.modelMegabytes)) of \(Int(EngineSetup.modelMegabytes)) MB")
-                            .monospacedDigit()
-                        Spacer()
-                        small(model.downloadTimeLeft ?? "Working out the time left")
-                    }
-                } else {
-                    small(lines[0])
-                    if lines.count > 1 {
-                        small(lines.dropFirst().joined(separator: "\n"))
-                            .lineLimit(3)
-                    }
-                }
-            case .needsHomebrew:
-                statusLine(.warn, "Homebrew is needed")
-                small("The Whisper program is installed with Homebrew, which is not on this Mac yet. Install it from brew.sh, then come back and press Try again.")
-                Button("Open brew.sh") { NSWorkspace.shared.open(URL(string: "https://brew.sh")!) }
-                    .buttonStyle(LinkButtonStyle())
-            case .failed(let message):
-                statusLine(.warn, "Setup did not finish")
-                small(message, color: .warn)
-                    .lineLimit(7)
-                if message.hasPrefix(EngineSetup.downloadStopped) {
-                    small("Check your internet connection, then press Try again. The download picks up where it stopped.")
-                } else if message.hasPrefix(EngineSetup.homebrewFailed) {
-                    Text("Or in Terminal: brew install whisper-cpp")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.graphite)
-                        .textSelection(.enabled)
-                }
-            }
-        }
-    }
-
-    // MARK: Try it
-
-    private var ready: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let phase = model.tryItPhase(at: context.date)
-            VStack(alignment: .leading, spacing: 14) {
-                title(phase == .success ? "That's it." : "Try it right here.")
-                paragraph(phase == .success
-                          ? "Hold \(shortcut) in any app, speak, and let go. talkflow waits in your menu bar."
-                          : "Hold \(model.shortcut.phrase), say something, then let go.")
-                practiceField(phase)
-                tryItStatus(phase)
-                small("You can change the shortcut later in Settings.")
-            }
-            .animation(motion, value: phase)
-        }
-    }
-
-    @ViewBuilder
-    private func tryItStatus(_ phase: TryIt.Phase) -> some View {
-        switch phase {
-        case .restart:
-            panel {
-                statusLine(.warn, "macOS needs talkflow to restart")
-                small("macOS applies the new permission when talkflow starts again. Press Restart talkflow, then hold \(shortcut) in any text field.")
-            }
-        case .starting:
-            statusLine(.waiting, "Getting \(model.shortcut.phrase) ready...")
-        case .waiting:
-            statusLine(.idle, "Ready when you are")
-        case .listening:
-            statusLine(.live, "Let go when you are done.")
-        case .writing:
-            statusLine(.waiting, "Writing it down...")
-        case .success:
-            statusLine(.good, "It works")
-        case .nothingArrived, .hint:
-            panel {
-                statusLine(.idle, phase == .hint ? "Nothing yet?" : "Nothing arrived")
-                small(phase == .hint
-                      ? (model.shortcut == .fn
-                         ? "Hold the Fn key, bottom left on most keyboards, and keep holding it while you speak."
-                         : "Hold \(shortcut) and keep holding it while you speak.")
-                      : "Hold \(shortcut) for the whole sentence and speak up a little, then let go.")
-                if model.shortcut.usesFn && model.fnKeyHasSystemAction {
-                    small("If the emoji picker or system dictation opens, set \"Press the globe key to\" to \"Do Nothing\".")
-                    Button("Open Keyboard settings") { Permissions.openKeyboardSettings() }
-                        .buttonStyle(LinkButtonStyle())
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func practiceField(_ phase: TryIt.Phase) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 10)
-        let border: Color = phase == .listening ? .ink : (phase == .success ? Color.good.opacity(0.7) : .line)
-        ZStack(alignment: .topLeading) {
-            if snapshot {
-                if !model.practice.isEmpty {
-                    Text(model.practice)
-                        .font(.system(size: 14))
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 9)
-                }
-            } else {
-                PracticeTextView(text: $model.practice)
-            }
-            if model.practice.isEmpty {
-                Text(phase == .listening ? "Speak now..." : "Your words appear here")
-                    .font(.system(size: 14))
-                    .foregroundColor(Color.graphite.opacity(0.7))
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 9)
-                    .allowsHitTesting(false)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 84, maxHeight: 84, alignment: .topLeading)
-        .background(shape.fill(Color.paper))
-        .overlay(shape.stroke(border, lineWidth: phase == .listening ? 1.5 : 1))
-        .overlay(alignment: .topTrailing) {
-            if phase == .listening {
-                HStack(spacing: 6) {
-                    PulseDot(still: model.reduceMotion || snapshot, size: 7)
-                    Text("Listening")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.graphite)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .transition(.opacity)
-            }
-        }
-    }
-}
-
 // MARK: - --onboardingshot
 
 extension OnboardingController {
     /// `--onboardingshot`: draws every setup step, and the stale-grant,
-    /// engine and Try it states, light and dark, to PNGs in `directory`,
-    /// from fixed fake permission states, so the layout can be checked
-    /// without a screen. Read-only: no permission is read or asked for,
-    /// nothing is downloaded or saved.
+    /// engine, Try it, meeting notes and guide states, light and dark, to
+    /// PNGs in `directory`, from fixed fake permission states, so the layout
+    /// can be checked without a screen. Read-only: no permission is read or
+    /// asked for, nothing is downloaded or saved.
     @MainActor
     static func renderSnapshots(to directory: URL) -> [URL] {
         _ = NSApplication.shared // the header reads NSApp's icon
@@ -1990,7 +1306,7 @@ extension OnboardingController {
         for (index, shot) in snapshotStates().enumerated() {
             for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
                 NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
-                    let renderer = ImageRenderer(content: OnboardingView(model: shot.model, snapshot: true)
+                    let renderer = ImageRenderer(content: shot.view
                         .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light))
                     renderer.scale = 2
                     guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
@@ -2007,10 +1323,12 @@ extension OnboardingController {
     /// A model on fake permissions. `grantedTo` records the grants as made
     /// to an older build, which is what makes a missing one stale. The
     /// engine never answers and its setup never runs, so each shot sets the
-    /// engine state it shows.
+    /// engine state it shows. The guide answers `guide`.
     private static func snapshotModel(
         mic: Permissions.MicrophoneStatus = .granted, ax: Bool = true, im: Bool = true,
-        engineInstalled: Bool = true, olderGrants: Bool = false
+        engineInstalled: Bool = true, olderGrants: Bool = false,
+        audio: SystemAudioStatus = .unknown, location: AppLocation = .fine,
+        guide: GuideOutcome = .shown
     ) -> OnboardingModel {
         let defaults = EphemeralDefaults()
         if olderGrants {
@@ -2027,7 +1345,10 @@ extension OnboardingController {
             resetGrant: { _, done in done(true) }, staleGrace: 0,
             fnKeyHasSystemAction: { true },
             engineResponding: { _ in }, engineProgramPresent: { true }, setUpEngine: { _ in },
-            reduceMotion: { true }, appName: "talkflow")
+            reduceMotion: { true }, appName: "talkflow",
+            systemAudio: { audio }, requestSystemAudio: { $0() },
+            notesSupported: true, appLocation: location,
+            showGuide: { _, done in done(guide) }, hideGuide: {})
         return OnboardingModel(startHotkey: { true }, environment: environment)
     }
 
@@ -2039,28 +1360,55 @@ extension OnboardingController {
         model.engineChanged(.working(EngineSetup.downloadingMessage, fraction), at: 30)
     }
 
+    /// The guide panel alone, on the window colour so its rounded card shows.
     @MainActor
-    private static func snapshotStates() -> [(name: String, model: OnboardingModel)] {
-        func make(_ name: String, _ model: OnboardingModel, _ configure: (OnboardingModel) -> Void) -> (String, OnboardingModel) {
+    private static func guideShot(_ mode: GuideMode) -> AnyView {
+        AnyView(
+            GuidePanelView(request: GuideRequest(target: .accessibility, mode: mode), appName: "talkflow", snapshot: true)
+                .frame(width: 280, height: 84)
+                .padding(24)
+                .background(Palette.window))
+    }
+
+    @MainActor
+    private static func snapshotStates() -> [(name: String, view: AnyView)] {
+        func make(_ name: String, _ model: OnboardingModel, _ configure: (OnboardingModel) -> Void) -> (name: String, view: AnyView) {
             configure(model)
-            return (name, model)
+            return (name, AnyView(OnboardingView(model: model, snapshot: true)))
+        }
+        func tryIt(_ configure: (OnboardingModel) -> Void) -> OnboardingModel {
+            let model = snapshotModel()
+            model.step = .tryIt
+            model.hotkeyRunning = true
+            model.engine = .ready
+            configure(model)
+            return model
         }
         return [
             make("welcome", snapshotModel(mic: .notDetermined, ax: false, im: false, engineInstalled: false)) {
                 $0.step = .welcome
                 downloading($0, 0.06)
             },
+            make("move-to-applications", snapshotModel(location: .diskImage)) { $0.step = .welcome },
             make("after-update", snapshotModel(ax: false, im: false, olderGrants: true)) { $0.step = .accessibility },
             make("microphone", snapshotModel(mic: .notDetermined, ax: false, im: false, engineInstalled: false)) {
                 $0.step = .microphone
                 downloading($0, 0.12)
             },
-            make("microphone-denied", snapshotModel(mic: .denied, ax: false, im: false)) { $0.step = .microphone },
+            make("microphone-denied", snapshotModel(mic: .denied, ax: false, im: false)) {
+                $0.step = .microphone
+                $0.allow(.microphone)
+            },
             make("accessibility", snapshotModel(ax: false, im: false, engineInstalled: false)) {
                 $0.step = .accessibility
                 downloading($0, 0.31)
             },
-            make("accessibility-waiting", snapshotModel(ax: false, im: false, engineInstalled: false)) {
+            make("accessibility-dragging", snapshotModel(ax: false, im: false, engineInstalled: false)) {
+                $0.step = .accessibility
+                $0.allow(.accessibility)
+                downloading($0)
+            },
+            make("accessibility-fallback", snapshotModel(ax: false, im: false, engineInstalled: false, guide: .notFound)) {
                 $0.step = .accessibility
                 $0.allow(.accessibility)
                 downloading($0)
@@ -2069,12 +1417,6 @@ extension OnboardingController {
             make("accessibility-reset-failed", snapshotModel(ax: false, im: false, olderGrants: true)) {
                 $0.step = .accessibility
                 $0.resetFailed = .accessibility
-            },
-            make("input-monitoring", snapshotModel(im: false)) { $0.step = .inputMonitoring },
-            make("input-monitoring-stale-back", snapshotModel(im: false)) {
-                $0.step = .inputMonitoring
-                $0.allow(.inputMonitoring)
-                $0.appBecameActive(awayFor: 30)
             },
             make("engine-needs-setup", snapshotModel(engineInstalled: false)) {
                 $0.step = .engine
@@ -2097,40 +1439,27 @@ extension OnboardingController {
                 $0.step = .engine
                 $0.engine = .ready
             },
-            make("try-it", snapshotModel()) {
-                $0.step = .ready
-                $0.hotkeyRunning = true
-                $0.engine = .ready
-            },
-            make("try-it-listening", snapshotModel()) {
-                $0.step = .ready
-                $0.hotkeyRunning = true
-                $0.engine = .ready
-                $0.pretendTryIt(fnDown: true)
-            },
-            make("try-it-success", snapshotModel()) {
-                $0.step = .ready
-                $0.hotkeyRunning = true
-                $0.engine = .ready
+            make("try-it", tryIt { _ in }) { _ in },
+            make("try-it-listening", tryIt { $0.pretendTryIt(fnDown: true) }) { _ in },
+            make("try-it-success", tryIt {
                 $0.practice = "Hello from talkflow, this is my first dictation."
                 $0.pretendTryIt(pressedAgo: 1, succeeded: true)
-            },
-            make("try-it-hint", snapshotModel()) {
-                $0.step = .ready
-                $0.hotkeyRunning = true
-                $0.engine = .ready
-                $0.pretendTryIt(shownAgo: 40)
-            },
-            make("try-it-nothing-arrived", snapshotModel()) {
-                $0.step = .ready
-                $0.hotkeyRunning = true
-                $0.engine = .ready
-                $0.pretendTryIt(pressedAgo: 12, shownAgo: 30)
-            },
-            make("ready-restart", snapshotModel()) {
-                $0.step = .ready
+            }) { _ in },
+            make("try-it-hint", tryIt { $0.pretendTryIt(shownAgo: 40) }) { _ in },
+            make("try-it-nothing-arrived", tryIt { $0.pretendTryIt(pressedAgo: 12, shownAgo: 30) }) { _ in },
+            make("try-it-restart", snapshotModel()) {
+                $0.step = .tryIt
                 $0.needsRestart = true
             },
+            make("meeting-notes", snapshotModel()) { $0.step = .meetingNotes },
+            make("meeting-notes-denied", snapshotModel(audio: .denied)) {
+                $0.step = .meetingNotes
+                $0.allowSystemAudio()
+            },
+            make("meeting-notes-allowed", snapshotModel(audio: .granted)) { $0.step = .meetingNotes },
+            make("done", snapshotModel()) { $0.step = .done },
+            ("guide-drag", guideShot(.drag)),
+            ("guide-switch-on", guideShot(.switchOn)),
         ]
     }
 }

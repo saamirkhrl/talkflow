@@ -55,6 +55,11 @@ extension DashboardController {
         let council = SampleNotes.seedCouncil(into: model.notes.store) ?? ""
         model.notes.refresh()
         shoot(5, "notes", .notes, fullHeight: true)
+        // Select mode with two meetings ticked.
+        model.notes.beginSelecting(with: model.notes.notes.first?.id)
+        if model.notes.notes.count > 1 { model.notes.toggleSelected(model.notes.notes[1].id) }
+        shoot(8, "notes-select", .notes, fullHeight: true)
+        model.notes.endSelecting()
         shoot(6, "dictionary", .dictionary, fullHeight: true)
 
         Preferences.learnedWords = []
@@ -108,16 +113,12 @@ extension DashboardController {
         n.stage(route: .detail(launch))
         n.detailTab = .transcript
         shoot(13, "note-detail", .notes, fullHeight: true)
-        n.renamingKey = "s2"
-        n.renameDraft = "Sam"
-        shoot(14, "note-rename", .notes, fullHeight: true)
-        n.cancelRename()
         // A note with no summary, on the Summary tab, no key.
         n.stage(route: .detail(robotics))
         n.detailTab = .summary
         shoot(15, "note-summary-off", .notes, fullHeight: true)
         n.stage(route: .detail(launch))
-        n.detailTab = .transcript
+        n.detailTab = .ask
         shoot(16, "note-ask-off", .notes, fullHeight: true)
         n.stage(route: .detail(failed))
         shoot(17, "note-failed", .notes, fullHeight: true)
@@ -133,33 +134,87 @@ extension DashboardController {
         shoot(23, "note-summary-failed", .notes, fullHeight: true)
         a.stageSummaryPhase(.idle, for: launch); a.stagePending(.summary(launch))
         shoot(24, "note-summary-confirm", .notes, fullHeight: true)
-        a.stagePending(nil); n.detailTab = .summary
-        n.askExpanded = true
+        a.stagePending(nil); n.detailTab = .ask
         shoot(25, "note-ask", .notes, fullHeight: true)
         a.stageAsk(asking: "Who is sending the screenshots?", partial: "Speaker 2 is lining up the screenshots for launch day [75] and keeping them", failure: nil)
         shoot(26, "note-ask-streaming", .notes, fullHeight: true)
         a.stageAsk(asking: nil, partial: "", failure: NoteAssistant.AskFailure(question: "Who is sending the screenshots?", error: .offline, retryAt: nil))
         shoot(27, "note-ask-failed", .notes, fullHeight: true)
-        n.askExpanded = false
         a.stageAsk(asking: nil, partial: "", failure: nil); n.detailTab = .transcript; a.stageHighlight(3)
         shoot(29, "note-cited-row", .notes, fullHeight: true)
         a.stageHighlight(nil)
-        // The council meeting: auto-named speakers, then the one being renamed.
+        // The council meeting: auto-named speakers.
         n.stage(route: .detail(council)); n.detailTab = .transcript
         shoot(30, "note-speakers-auto", .notes, fullHeight: true)
-        n.renamingKey = "s1"
-        n.renameDraft = "Councilmember Lee"
-        shoot(31, "note-rename-suggested", .notes, fullHeight: true)
-        n.cancelRename()
-        // The title being edited, and the Ask bar with answers collapsed.
+        // The title being edited.
         n.stage(route: .detail(launch)); n.detailTab = .summary
         n.editingTitle = true
         n.titleDraft = "Launch planning"
         shoot(32, "note-title-edit", .notes, fullHeight: true)
         n.editingTitle = false
         n.titleDraft = ""
-        n.askExpanded = false
-        shoot(33, "note-ask-collapsed", .notes, fullHeight: true)
+        // The meeting page at the window's default and smallest sizes, laid out and scrolling as in the app.
+        func shootLive(_ name: String, scroll: LiveScroll = .top) {
+            model.section = .notes
+            for (sizeName, size) in [("default", AppMetrics.defaultSize), ("min", AppMetrics.minSize)] {
+                for (look, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                    let url = folder.appendingPathComponent("50-\(name)-\(sizeName)-\(look).png")
+                    if renderLive(model, appearance: appearance, size: size, scroll: scroll, to: url) { written.append(url) }
+                }
+            }
+        }
+        n.stage(route: .detail(launch)); n.detailTab = .summary
+        shootLive("detail-summary")
+        // The document after editing: the sample's ticked and unticked to-dos, and an empty last block with the
+        // caret (its placeholder); then the slash menu open on a "/" block under the summary paragraph. Written
+        // to the preview sandbox's note only, and removed after.
+        if let sum = n.store.summary(launch), let meta = n.store.meta(launch) {
+            let base = NoteDocument.converting(sum, speakers: meta.speakers)
+            let basedOn = sum.written.timeIntervalSince1970
+            try? n.store.save(NoteDocument(basedOn: basedOn, blocks: base + [NoteDocument.Block(.paragraph)]), for: launch)
+            n.stage(route: .detail(launch)); n.detailTab = .summary
+            NoteDocumentEditor.snapshotStage = DocEditorStage(focusBlock: base.count, slash: false)
+            shootLive("detail-summary-edited", scroll: .bottom)
+            var slashBlocks = base
+            slashBlocks.insert(NoteDocument.Block(.paragraph, [NoteDocument.Span("/")]), at: 2)
+            try? n.store.save(NoteDocument(basedOn: basedOn, blocks: slashBlocks), for: launch)
+            n.stage(route: .detail(launch)); n.detailTab = .summary
+            NoteDocumentEditor.snapshotStage = DocEditorStage(focusBlock: 2, slash: true)
+            shootLive("detail-summary-slash")
+            NoteDocumentEditor.snapshotStage = nil
+            try? FileManager.default.removeItem(at: n.store.folder(for: launch).appendingPathComponent("document.json"))
+            n.stage(route: .detail(launch))
+        }
+        n.stage(route: .detail(robotics)); n.detailTab = .ask
+        shootLive("detail-ask-empty")
+        // The two made-up answers, then a long one.
+        var asked = NotesAISamples.questions(now: Date())
+        if let last = asked.entries.last {
+            asked.entries.append(NoteQuestions.Entry(
+                question: "What is still open before launch, and who has each part?",
+                answer: """
+                Three things are still open before launch.
+
+                First, the demo video. Everyone agreed the current one undersells the app, and a new cut waits on the Settings page being final [27]. Nobody gave a date for that yet.
+
+                Second, the launch post. It leads with the privacy angle [36], Maya drafts it tonight and sends it round for edits [48], and the screenshots for launch day come from Speaker 2 [75].
+
+                Third, the follow-up. There is a check-in on Thursday to see where things stand [92]; anything not settled by then moves to the week after.
+
+                - Demo video: waiting on Settings [27]
+                - Launch post: drafting tonight [48]
+                - Check-in: Thursday [92]
+                """,
+                citations: [27, 36, 48, 75, 92], asked: Date(), provider: last.provider, model: last.model))
+        }
+        try? n.store.save(asked, for: launch)
+        n.stage(route: .detail(launch)); n.detailTab = .ask
+        shootLive("detail-ask")
+        n.detailTab = .transcript
+        shootLive("detail-transcript")
+        shootLive("detail-transcript-scrolled", scroll: .middle)
+        try? n.store.save(NotesAISamples.questions(now: Date()), for: launch)
+        n.stage(route: .detail(launch))
         a.access = { nil }
         // A meeting still marked as recording, as if talkflow had quit during it.
         let left = try? n.store.create(title: "Weekly planning", started: Date().addingTimeInterval(-3 * 3600))
@@ -202,6 +257,9 @@ extension DashboardController {
         if fullHeight {
             host.frame = NSRect(x: 0, y: 0, width: width, height: height)
             host.layoutSubtreeIfNeeded()
+            // Lets the document editor report its height (it does so a moment after it is made).
+            RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+            host.layoutSubtreeIfNeeded()
             height = max(height, host.fittingSize.height)
         }
         // A real (off-screen) window, so AppKit controls (pickers, fields,
@@ -219,6 +277,70 @@ extension DashboardController {
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
                                          colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return false }
         rep.size = NSSize(width: width, height: height)
+        look.performAsCurrentDrawingAppearance {
+            host.cacheDisplay(in: host.bounds, to: rep)
+        }
+        window.contentView = nil
+        guard let png = rep.representation(using: .png, properties: [:]) else { return false }
+        return (try? png.write(to: url)) != nil
+    }
+
+    /// Where a live render's tab is scrolled to.
+    enum LiveScroll { case top, middle, bottom }
+
+    /// The tallest scroll view whose content is taller than it: the tab's content.
+    @MainActor
+    private static func tabScrollView(in root: NSView) -> NSScrollView? {
+        var best: NSScrollView?
+        var bestHeight: CGFloat = 0
+        func walk(_ v: NSView) {
+            if let sv = v as? NSScrollView, let doc = sv.documentView,
+               doc.frame.height > sv.contentView.bounds.height + 1, doc.frame.height > bestHeight {
+                best = sv
+                bestHeight = doc.frame.height
+            }
+            v.subviews.forEach(walk)
+        }
+        walk(root)
+        return best
+    }
+
+    /// The window at a fixed size, laid out as in the app (pages scroll), for the meeting page's tabs.
+    @MainActor
+    private static func renderLive(_ model: AppWindowModel, appearance: NSAppearance.Name, size: NSSize,
+                                   scroll: LiveScroll = .top, to url: URL) -> Bool {
+        guard let look = NSAppearance(named: appearance) else { return false }
+        let root = AppShellView(model: model, snapshot: false)
+            .environment(\.colorScheme, appearance == .darkAqua ? .dark : .light)
+            .frame(width: size.width, height: size.height)
+        let host = NSHostingView(rootView: root)
+        host.appearance = look
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: size.width, height: size.height),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = look
+        window.contentView = host
+        host.frame = NSRect(origin: .zero, size: size)
+        host.layoutSubtreeIfNeeded()
+        // Lets the Ask tab's scroll to the newest question run, as it does a moment after the page opens.
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        host.layoutSubtreeIfNeeded()
+        if scroll != .top {
+            if let sv = tabScrollView(in: host), let doc = sv.documentView {
+                let maxY = max(0, doc.frame.height - sv.contentView.bounds.height)
+                let y = scroll == .middle ? (maxY * 0.5).rounded() : maxY
+                sv.contentView.scroll(to: NSPoint(x: 0, y: doc.isFlipped ? y : maxY - y))
+                sv.reflectScrolledClipView(sv.contentView)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+                host.layoutSubtreeIfNeeded()
+            } else {
+                print("talkflowd: snapshot: no scroll view to scroll in \(url.lastPathComponent)")
+            }
+        }
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2),
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) else { return false }
+        rep.size = size
         look.performAsCurrentDrawingAppearance {
             host.cacheDisplay(in: host.bounds, to: rep)
         }

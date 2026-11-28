@@ -31,8 +31,11 @@ import Foundation
 /// Wait, don't delete it, archive it." keeps the negation), the spoken commands
 /// "actually, never mind" and "wait, start over" after a clause, and a clause
 /// broken off after an article ("Can you make the, can you change the font
-/// size?"). "delete that" and "undo that" are only detected (`hasMarker`), for
-/// the model step; these rules never apply them.
+/// size?"). A firm retraction, a hedge and a restatement ("Lee said she would
+/// invest $3 million. Actually, no, I think she said she would invest $4
+/// million") keeps the old sentence's opening and the new value (see
+/// bridgedRestart). "delete that" and "undo that" are only detected
+/// (`hasMarker`), for the model step; these rules never apply them.
 ///
 /// Release-only (`Dictation.render(structure: true)`): a correction deletes
 /// words the live path may already have typed, and a live update may only
@@ -60,7 +63,7 @@ enum SelfCorrection {
             // typedRepair first: it also handles "scratch that" when only a
             // value changed, so "at 4 p.m., scratch that, 5 p.m." keeps the
             // words around the value. scratchThat drops the clause otherwise.
-            guard let next = typedRepair(tokens) ?? scratchThat(tokens) ?? restart(tokens)
+            guard let next = typedRepair(tokens) ?? bridgedRestart(tokens) ?? scratchThat(tokens) ?? restart(tokens)
                 ?? negatedRestart(tokens) ?? falseStart(tokens) ?? stutter(tokens) ?? hedge(tokens) else { break }
             tokens = next
         }
@@ -113,6 +116,15 @@ enum SelfCorrection {
         /// Whether an ordinary word may be swapped for another after it. "I
         /// like both, I mean really both" shows why "I mean" may not.
         var trustsPlainWords: Bool { strong || words == ["or", "rather"] || words == ["correction"] }
+        /// Firm enough for `bridgedRestart`, where a hedge ("I think she said") stands
+        /// between the marker and the restated words. Not a lone "actually" or "sorry":
+        /// both open new thoughts ("He offered 12. Actually, I think that is too low.").
+        var bridgeTrusted: Bool {
+            if strong { return true }
+            if words.contains("oh") && !words.contains("wait") { return false }
+            if words.contains("no") || words.contains("wait") { return true }
+            return words == ["i", "mean"] || words == ["i", "meant"] || words == ["correction"] || words == ["or", "rather"]
+        }
         /// Firm enough for a restart that repeats only the sentence's first word.
         var firm: Bool { strong || (words.contains("no") && words.contains("actually")) }
         /// May be followed by a name that the sentence break capitalised: "Tell John. Wait, no. Mike."
@@ -524,6 +536,93 @@ enum SelfCorrection {
                    tokens[after].norm == tokens[s].norm, !runWords.contains(tokens[s].norm),
                    !refersBack(from: after + 1, in: tokens) {
                     return delete(tokens, s..<after)
+                }
+            }
+        }
+        return nil
+    }
+
+    private static let bridgeOpeners: [[String]] = [["i", "think"], ["i", "believe"], ["i", "guess"], ["i", "mean"], ["i", "meant"]]
+    private static let bridgeSubjects: Set<String> = ["he", "she", "they", "we", "you"]
+    private static let bridgeReportVerbs: Set<String> = ["said", "says", "told"]
+    private static let bridgeTellObjects: Set<String> = ["me", "us", "you", "them", "him", "her"]
+    private static let reportingVerbs: Set<String> = ["said", "says", "told", "mentioned"]
+
+    /// The hedge between a retraction and the restated words, at `index`: "I think",
+    /// "she said", "I think he told us", "I believe she said that". Grammar, all from
+    /// closed lists: [opener] [subject + said/says/told (+ me/us/... after told)]
+    /// ["that" after either], at least one word. Each word may end in a comma only,
+    /// and no line break inside. `reports` is true when it has the subject + verb part.
+    private static func bridge(at index: Int, in tokens: [Token]) -> (count: Int, reports: Bool)? {
+        var i = index
+        func matches(_ words: [String]) -> Bool {
+            i + words.count <= tokens.count && tokens[i..<(i + words.count)].map(\.norm) == words
+        }
+        if let opener = bridgeOpeners.first(where: matches) { i += opener.count }
+        var reports = false
+        if i + 1 < tokens.count, bridgeSubjects.contains(tokens[i].norm), bridgeReportVerbs.contains(tokens[i + 1].norm) {
+            reports = true
+            i += 2
+            if tokens[i - 1].norm == "told" {
+                guard i < tokens.count, bridgeTellObjects.contains(tokens[i].norm) else { return nil }
+                i += 1
+            }
+        }
+        if i > index, i < tokens.count, tokens[i].norm == "that" { i += 1 }
+        guard i > index else { return nil }
+        for k in index..<i {
+            if let p = tokens[k].trailingPunctuation, p != "," { return nil }
+            if k > index, tokens[k].leading.contains("\n") { return nil }
+        }
+        return (i - index, reports)
+    }
+
+    /// "Lee said that she would invest $3 million. Actually, no, I think she said she would
+    /// invest $4 million, and ...": after a firm retraction and a hedge (`bridge`), the
+    /// speaker says two or more words of the retracted sentence again, unchanged, and then
+    /// a different value of the same kind (a number for a number, a day for a day, a name
+    /// for a name). Everything from those words in the old sentence through the hedge goes,
+    /// so what came before them ("Lee said that") and everything after the new value stay.
+    /// An "actually" said again just after the new value ("$4 million actually for 10%")
+    /// goes too. Never after a question, never when the hedge reports ("she said") but the
+    /// old sentence reported nothing, never across a line break.
+    private static func bridgedRestart(_ tokens: [Token]) -> [Token]? {
+        for m in tokens.indices {
+            for (marker, markerEnd) in markers(at: m, in: tokens) where marker.bridgeTrusted {
+                let mark = tokens[m - 1].trailingPunctuation
+                guard mark != "?", mark != nil || marker.strong else { continue }
+                guard let bridge = bridge(at: markerEnd, in: tokens) else { continue }
+                let j = markerEnd + bridge.count
+                let s = clauseStart(tokens, before: m - 1)
+                let lowest = max(s, m - 12)
+                guard m - 3 >= lowest else { continue }
+                for p in stride(from: m - 3, through: lowest, by: -1) {
+                    // Two or more words said again, with no punctuation inside either copy.
+                    var k = 0
+                    while p + k < m, j + k < tokens.count,
+                          tokens[p + k].trailingPunctuation == nil, tokens[j + k].trailingPunctuation == nil,
+                          !tokens[j + k].leading.contains("\n"),
+                          tokens[p + k].norm == tokens[j + k].norm { k += 1 }
+                    guard k >= 2, p + k < m, j + k < tokens.count else { continue }
+                    // Then a changed value of the same kind.
+                    guard let old = unitsForward(from: p + k, in: tokens).first,
+                          let new = unitsForward(from: j + k, in: tokens).first,
+                          old.kind != .other, old.kind == new.kind, old.norm != new.norm,
+                          old.range.upperBound <= m else { continue }
+                    if bridge.reports, !tokens[s..<p].contains(where: { reportingVerbs.contains($0.norm) }) { continue }
+                    guard !tokens[(p + 1)..<new.range.upperBound].contains(where: { $0.leading.contains("\n") }) else { continue }
+                    var result = delete(tokens, p..<j)
+                    let shift = j - p
+                    var f = new.range.upperBound
+                    for _ in 0..<3 where f < tokens.count {
+                        if tokens[f].leading.contains("\n") || tokens[f - 1].trailingPunctuation != nil { break }
+                        if tokens[f].norm == "actually", tokens[f].trailingPunctuation == nil || tokens[f].trailingPunctuation == "," {
+                            result = delete(result, (f - shift)..<(f - shift + 1))
+                            break
+                        }
+                        f += 1
+                    }
+                    return result
                 }
             }
         }

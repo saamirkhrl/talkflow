@@ -16,9 +16,9 @@ final class NotesModel: ObservableObject {
     @Published private(set) var sessionDuration: Double = 0
     /// A plain-words problem for the current screen; cleared when the screen changes.
     @Published var problem: String?
-    @Published var detailTab: NoteTab = .transcript
-    /// The Ask bar's answers drawer is open (the bar itself is always there on a meeting with a transcript).
-    @Published var askExpanded = false
+    @Published var detailTab: NoteTab = .transcript {
+        didSet { if oldValue == .summary && detailTab != .summary { assistant.flushDocument() } }
+    }
     /// The meeting title is being edited on the meeting page, and what has been typed.
     @Published var editingTitle = false
     @Published var titleDraft = ""
@@ -29,6 +29,9 @@ final class NotesModel: ObservableObject {
     @Published var renameDraft = ""
     /// Shown as "Copied" on the Copy button for two seconds.
     @Published private(set) var justCopied = false
+    /// Select mode on the Notes list (delete several at once) and the notes ticked in it.
+    @Published var selecting = false
+    @Published var selected: Set<String> = []
     /// False before macOS 14.2 (and settable by the snapshots).
     var supportsRecording: Bool
     var unsupportedMessage: String
@@ -44,6 +47,8 @@ final class NotesModel: ObservableObject {
     var openKeySettings: (() -> Void)?
     /// Asks before deleting; replaced in tests. Default: NSAlert (see below).
     var confirmDelete: () -> Bool = NotesModel.askBeforeDeleting
+    /// The same for deleting several notes at once (the count); replaced in tests.
+    var confirmDeleteMany: (Int) -> Bool = NotesModel.askBeforeDeletingMany
     /// Fixes the headers of WAV files left by a crash, so "Finish notes" can read all the audio. Set by live();
     /// a no-op in previews and tests.
     var repairAudio: (URL) -> Void = { _ in }
@@ -147,6 +152,8 @@ final class NotesModel: ObservableObject {
         if found.count != leftovers.count && !found.isEmpty { Self.log("\(found.count) interrupted recording(s) found") }
         leftovers = found
         notes = all.filter { !$0.state.isUnfinished || $0.id == session?.noteID }
+        selected = selected.filter { id in notes.contains { $0.id == id } }
+        if notes.isEmpty { endSelecting() }
         if case .detail(let id) = route {
             loadDetail(id)
             if detailMeta == nil { route = .list }
@@ -323,7 +330,6 @@ final class NotesModel: ObservableObject {
         let hasTranscript = !(detailTranscript?.turns.isEmpty ?? true)
         detailTab = NotesDoc.defaultTab(hasTranscript: hasTranscript, hasSummary: assistant.summary != nil,
                                         keyInUse: keyInUse)
-        askExpanded = false
         editingTitle = false
         titleDraft = ""
     }
@@ -333,7 +339,6 @@ final class NotesModel: ObservableObject {
         assistant.load(nil)
         problem = nil
         renamingKey = nil
-        askExpanded = false
         editingTitle = false
         titleDraft = ""
         refresh()
@@ -426,15 +431,15 @@ final class NotesModel: ObservableObject {
         Self.log("copied a transcript (\(transcript.turns.count) turns)")
     }
 
-    /// Copy on the Summary tab: the notes as Markdown (NotesDoc.markdown).
+    /// Copy on the Summary tab: the document as plain text (NoteDocument.plainText).
     func copyNotes(_ id: String) {
-        guard let meta = store.meta(id), let s = store.summary(id) else { return }
-        let text = NotesDoc.markdown(meta: meta, summary: s, calendar: .current)
+        guard let meta = store.meta(id), let doc = assistant.document(for: meta) else { return }
+        let text = NoteDocument.plainText(doc.blocks)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         justCopied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.justCopied = false }
-        Self.log("copied notes (\(NotesDoc.details(s).count) details)")
+        Self.log("copied notes (\(doc.blocks.count) blocks)")
     }
 
     static func askBeforeDeleting() -> Bool {
@@ -445,6 +450,63 @@ final class NotesModel: ObservableObject {
         alert.addButton(withTitle: "Delete")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    static func askBeforeDeletingMany(_ n: Int) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = n == 1 ? "Delete this note?" : "Delete \(n) notes?"
+        alert.informativeText = n == 1
+            ? "The transcript and everything saved with it are removed from this Mac. This can't be undone."
+            : "Their transcripts and everything saved with them are removed from this Mac. This can't be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    /// The note being recorded or written cannot be deleted.
+    func canDelete(_ id: String) -> Bool { session?.noteID != id }
+
+    func beginSelecting(with id: String? = nil) {
+        selecting = true
+        selected = id.map { canDelete($0) ? [$0] : [] } ?? []
+    }
+
+    func endSelecting() {
+        selecting = false
+        selected = []
+    }
+
+    func toggleSelected(_ id: String) {
+        if !canDelete(id) { return }
+        if selected.contains(id) { selected.remove(id) } else { selected.insert(id) }
+    }
+
+    func askAndDeleteSelected() {
+        let ids = notes.map(\.id).filter { selected.contains($0) && canDelete($0) }
+        if ids.isEmpty { return }
+        if confirmDeleteMany(ids.count) { deleteMany(ids) }
+    }
+
+    func deleteMany(_ ids: [String]) {
+        var ok = 0
+        var failed = 0
+        for id in ids {
+            do {
+                try store.delete(id)
+                assistant.forget(id)
+                ok += 1
+            } catch {
+                failed += 1
+            }
+        }
+        if case .detail(let open) = route, ids.contains(open) { route = .list }
+        refresh()
+        endSelecting()
+        if failed > 0 {
+            problem = failed == 1 ? "talkflow couldn't delete 1 note." : "talkflow couldn't delete \(failed) notes."
+        }
+        Self.log("notes deleted: \(ok), failed: \(failed)")
     }
 
     func askAndDelete(_ id: String) {
