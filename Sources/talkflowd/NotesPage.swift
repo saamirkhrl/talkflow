@@ -167,8 +167,21 @@ private struct NotesListPage: View {
         HStack(alignment: .center, spacing: 12) {
             Text("Notes").font(AppFont.pageTitle).foregroundColor(Palette.ink)
             Spacer(minLength: 12)
-            if model.supportsRecording { actionButton }
+            if model.selecting {
+                Button("Cancel") { model.endSelecting() }
+                    .buttonStyle(AppSecondaryButtonStyle())
+                Button(model.selected.isEmpty ? "Delete" : "Delete \(model.selected.count)") { model.askAndDeleteSelected() }
+                    .buttonStyle(AppPrimaryButtonStyle())
+                    .disabled(model.selected.isEmpty)
+            } else {
+                if !model.notes.isEmpty {
+                    Button("Select") { model.beginSelecting() }
+                        .buttonStyle(AppSecondaryButtonStyle())
+                }
+                if model.supportsRecording { actionButton }
+            }
         }
+        .onExitCommand { model.endSelecting() }
     }
 
     @ViewBuilder private var actionButton: some View {
@@ -290,8 +303,19 @@ private struct NotesListPage: View {
         let detail = NotesLogic.rowDetail(m)
         let subtitle = (m.subtitle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let label = subtitle.isEmpty ? "\(title), \(date), \(detail)" : "\(title), \(subtitle), \(date), \(detail)"
-        return Button { model.open(m.id) } label: {
+        let selectable = model.canDelete(m.id)
+        let ticked = model.selected.contains(m.id)
+        let rowButton = Button {
+            if model.selecting { model.toggleSelected(m.id) } else { model.open(m.id) }
+        } label: {
             HStack(alignment: .center, spacing: 16) {
+                if model.selecting {
+                    Image(systemName: ticked ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 18))
+                        .foregroundColor(ticked ? Palette.ink : Palette.muted)
+                        .opacity(selectable ? 1 : 0.35)
+                        .accessibilityHidden(true)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).font(AppFont.bodyMedium).foregroundColor(Palette.ink).lineLimit(1)
                     Text(subtitle.isEmpty ? date : subtitle)
@@ -301,6 +325,14 @@ private struct NotesListPage: View {
                 Spacer(minLength: 16)
                 rowTrailing(m, date: date, detail: detail, hasSubtitle: !subtitle.isEmpty)
                     .fixedSize()
+                if !model.selecting {
+                    // Always takes its width so the row does not jump; only fades in on hover.
+                    Image(systemName: "trash")
+                        .font(.system(size: 14))
+                        .frame(width: 28, height: 28)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                }
             }
             .padding(.horizontal, AppMetrics.rowH)
             .padding(.vertical, 14)
@@ -309,7 +341,16 @@ private struct NotesListPage: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
+        return HoverTrashRow(showsTrash: !model.selecting && selectable, onDelete: { model.askAndDelete(m.id) }) { rowButton }
+        .contextMenu {
+            if !model.selecting {
+                Button("Delete...") { model.askAndDelete(m.id) }
+                    .disabled(!selectable)
+                Button("Select") { model.beginSelecting(with: m.id) }
+            }
+        }
         .accessibilityLabel(label)
+        .accessibilityAddTraits(ticked ? .isSelected : [])
     }
 
     private func detailColor(_ m: NoteMeta) -> Color {
@@ -330,5 +371,36 @@ private struct NotesListPage: View {
         } else {
             Text(detail).font(AppFont.caption).foregroundColor(detailColor(m))
         }
+    }
+}
+
+/// A note row that shows a trash icon at its trailing end while hovered. The icon is always laid out (the row
+/// reserves its width), so nothing jumps; only its opacity changes.
+private struct HoverTrashRow<Content: View>: View {
+    let showsTrash: Bool
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+    @StateObject private var hover = AppHoverState()
+
+    var body: some View {
+        content()
+            .overlay(alignment: .trailing) {
+                if showsTrash {
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 14))
+                            .foregroundColor(Palette.muted)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
+                    .help("Delete")
+                    .accessibilityLabel("Delete")
+                    .opacity(hover.on ? 1 : 0)
+                    .padding(.trailing, AppMetrics.rowH)
+                }
+            }
+            .onHover { hover.on = $0 }
     }
 }

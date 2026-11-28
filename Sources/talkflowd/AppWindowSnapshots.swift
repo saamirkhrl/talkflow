@@ -34,13 +34,23 @@ extension DashboardController {
 
         // The state a shot sets is set after `refresh()` (it overwrites
         // `setupNeeded`) and put back before the next shot.
-        model.dashboard.chartStyle = .grid
         model.dashboard.hovered = model.dashboard.days.count - 1
         shoot(1, "home", .home, fullHeight: true)
 
-        model.dashboard.chartStyle = .bars
-        model.dashboard.hovered = DashboardModel.barWeeks - 1
-        shoot(2, "home-bars", .home, fullHeight: true)
+        // Home at the window's default and smallest sizes, laid out and scrolling as in the app.
+        model.dashboard.hovered = nil
+        model.section = .home
+        for (sizeName, size) in [("default", AppMetrics.defaultSize), ("min", AppMetrics.minSize)] {
+            for (look, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                let url = folder.appendingPathComponent("02-home-\(sizeName)-\(look).png")
+                if renderLive(model, appearance: appearance, size: size, to: url) { written.append(url) }
+                let bottom = folder.appendingPathComponent("03-home-\(sizeName)-\(look)-bottom.png")
+                if renderLive(model, appearance: appearance, size: size, scroll: .bottom, to: bottom) { written.append(bottom) }
+            }
+        }
+        model.dashboard.hoveredBar = 20
+        shoot(8, "home-bar-hover", .home, fullHeight: true)
+        model.dashboard.hoveredBar = nil
 
         model.dashboard.hovered = nil
         model.updateOverride = update
@@ -55,6 +65,11 @@ extension DashboardController {
         let council = SampleNotes.seedCouncil(into: model.notes.store) ?? ""
         model.notes.refresh()
         shoot(5, "notes", .notes, fullHeight: true)
+        // Select mode with two meetings ticked.
+        model.notes.beginSelecting(with: model.notes.notes.first?.id)
+        if model.notes.notes.count > 1 { model.notes.toggleSelected(model.notes.notes[1].id) }
+        shoot(8, "notes-select", .notes, fullHeight: true)
+        model.notes.endSelecting()
         shoot(6, "dictionary", .dictionary, fullHeight: true)
 
         Preferences.learnedWords = []

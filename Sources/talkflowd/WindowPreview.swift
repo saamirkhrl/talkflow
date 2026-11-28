@@ -83,7 +83,7 @@ enum SampleData {
         let levels = [0, 180, 420, 760, 1240]
         var seed = 7
         var daily: [String: Int] = [:]
-        for offset in 0..<(DashboardModel.barDays + 7) {
+        for offset in 0..<(DashboardModel.chartDays + 7) {
             guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { continue }
             seed = (seed * 73 + 11) % 101
             var level = seed % 5

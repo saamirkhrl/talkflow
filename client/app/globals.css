@@ -58,6 +58,29 @@
   -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
+/* The scene image is sized like this everywhere it appears: full width, and
+   never shorter than the window (so at least 1.78x the window height wide). */
+.sky-size {
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-size: max(100%, calc(100svh * 1.78)) auto;
+}
+
+/* On desktop the scene behind the panels never moves, so instead of blurring
+   it live on every scroll frame (the page's biggest GPU cost), the panels
+   show a copy blurred ahead of time, pinned to the window exactly where the
+   real scene is. Touch devices keep the live blur: mobile browsers do not
+   reliably pin fixed backgrounds. */
+@media (hover: hover) and (pointer: fine) {
+  .glass::before {
+    background:
+      linear-gradient(color-mix(in srgb, #08227a 86%, transparent), color-mix(in srgb, #08227a 86%, transparent)),
+      url("/hero/sky-blur.webp") top center / max(100%, calc(100svh * 1.78)) auto no-repeat fixed;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 .on-sky {
   --color-ink: #ffffff;
   --color-paper: #0a41bf;
@@ -99,6 +122,15 @@
   to { transform: translate3d(-3%, -4%, 0) scale(1.05) scaleX(-1) rotate(-1deg); opacity: 0.1; }
 }
 /* The overlay's recording dot (Overlay.swift: opacity 1 to 0.35, 0.6 s, autoreverse). */
+/* Notes section: whose tile is lit as the speaker, and the live levels. */
+@keyframes meet-speak {
+  0%, 22% { opacity: 1; }
+  25%, 100% { opacity: 0; }
+}
+@keyframes meet-level {
+  from { transform: scaleX(0.25); }
+  to { transform: scaleX(0.7); }
+}
 @keyframes dot-pulse {
   from { opacity: 1; }
   to { opacity: 0.35; }
@@ -126,7 +158,11 @@
 
   /* The sky. On the root, so the fixed scene canvas (z-index -10) paints above it. */
   html {
-    background: linear-gradient(180deg, #0a3cb8 0%, #1550d8 100%) fixed #0a3cb8;
+    /* The 32 px scene preview, so the first frame (before the page body or
+       the full image arrive) already looks like the scene, not flat blue. */
+    background:
+      url("data:image/webp;base64,UklGRuYAAABXRUJQVlA4INoAAACQBgCdASogABIAPrVKnkmnJCKhMAgA4BaJbACdMoR6d96bDOOWUACFs4NqMTs5XxrcimJyGU5lTbm5C1oAAPaxxN/ndm1aMmxgDPBsXrpvKXmb4rvzPMekybSBf0+M1/Y3qVNs2oHBO3vbYokmYR7tmCbTOQBFCXkAHepPZnMBSol1TqQq8QaIUzM83el+L6tR0OQTpwNBTuA7HVTgqeJg/nd7+rv0X+dftZsBfWwbFI8rYy3Q67hmigotFgpmZ8I4c5106tyKhXJXpoqFclepJwu4bk4XflAAAA==") top center / max(100%, calc(100svh * 1.78)) auto no-repeat,
+      linear-gradient(180deg, #0a3cb8 0%, #1550d8 100%) fixed #0a3cb8;
   }
 
   body {

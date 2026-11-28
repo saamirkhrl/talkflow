@@ -282,10 +282,100 @@ enum NotesModelChecks {
               "audio delete fails: once deleting works, retry deletes the audio and the note is ready",
               "state=\(String(describing: state(idD))) audio=\(store.hasAudio(idD))")
 
+        // M24 to M28 select and delete several notes, on their own store
+        do {
+            let root2 = URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("talkflow-notesmodel-multi-\(UUID().uuidString)", isDirectory: true)
+            let store2 = NoteStore(root: root2)
+            func makeReady(_ title: String, _ offset: Double) -> String {
+                guard var m = try? store2.create(title: title, started: Date(timeIntervalSince1970: 1_700_000_000 + offset))
+                else { return "none" }
+                m.state = .ready
+                try? store2.save(m)
+                return m.id
+            }
+            func fresh(_ pipe: ManualPipeline) -> (NotesModel, Counter) {
+                let m = NotesModel(store: store2, capture: FakeCapture(), pipeline: pipe, os: os)
+                let c = Counter()
+                m.confirmDeleteMany = { n in c.asked.append(n); return c.answer }
+                m.refresh()
+                return (m, c)
+            }
+            let idA = makeReady("A", 0), idB = makeReady("B", 10), idC = makeReady("C", 20)
+            let (mm, cnt) = fresh(ManualPipeline())
+            let threeOK = Set(mm.notes.map(\.id)) == [idA, idB, idC]
+
+            // M24 delete the ticked notes
+            mm.beginSelecting(with: idA)
+            mm.toggleSelected(idC)
+            let ticked = mm.selected == [idA, idC] && mm.selecting
+            cnt.answer = true
+            mm.askAndDeleteSelected()
+            check(threeOK && ticked && mm.notes.map(\.id) == [idB] && !mm.selecting && mm.selected.isEmpty
+                  && cnt.asked == [2] && store2.meta(idA) == nil && store2.meta(idC) == nil && mm.problem == nil,
+                  "M24 deleting the ticked notes asks once with the count, removes them and leaves select mode",
+                  "notes=\(mm.notes.count) selecting=\(mm.selecting) asked=\(cnt.asked)")
+
+            // M25 cancel keeps everything
+            let idA2 = makeReady("A", 30), idC2 = makeReady("C", 40)
+            mm.refresh()
+            mm.beginSelecting()
+            mm.toggleSelected(idA2)
+            mm.toggleSelected(idC2)
+            cnt.answer = false
+            mm.askAndDeleteSelected()
+            check(mm.notes.count == 3 && mm.selecting && mm.selected == [idA2, idC2],
+                  "M25 cancelling the confirmation changes nothing and keeps the selection",
+                  "notes=\(mm.notes.count) selecting=\(mm.selecting) selected=\(mm.selected.count)")
+
+            // M26 refresh drops a selected note that is gone
+            try? FileManager.default.removeItem(at: store2.folder(for: idA2))
+            mm.refresh()
+            check(mm.selected == [idC2] && mm.notes.count == 2,
+                  "M26 refresh drops a selected note that no longer exists", "selected=\(mm.selected.count)")
+            mm.endSelecting()
+
+            // M27 the note being recorded cannot be selected or deleted
+            let pipeS = ManualPipeline()
+            let (ms, cntS) = fresh(pipeS)
+            ms.start()
+            let live = ms.session?.noteID ?? "none"
+            ms.beginSelecting(with: live)
+            let emptyStart = ms.selected.isEmpty
+            ms.toggleSelected(live)
+            let emptyToggle = ms.selected.isEmpty
+            ms.selected = Set(ms.notes.map(\.id))
+            let allCount = ms.selected.count
+            let notesBefore = ms.notes.count
+            cntS.answer = true
+            ms.askAndDeleteSelected()
+            check(!ms.canDelete(live) && emptyStart && emptyToggle && allCount == notesBefore && allCount >= 2
+                  && cntS.asked == [allCount - 1] && store2.meta(live) != nil && ms.notes.map(\.id) == [live],
+                  "M27 a recording cannot be ticked, and a delete of everything leaves it alone",
+                  "asked=\(cntS.asked) notes=\(ms.notes.count)")
+            ms.stop()
+            pipeS.complete(.finished(pieces: [], duration: 0))
+
+            // M28 deleting the open note leaves its screen
+            let idD2 = makeReady("D", 50)
+            ms.refresh()
+            ms.route = .detail(idD2)
+            ms.deleteMany([idD2])
+            check(ms.route == .list && store2.meta(idD2) == nil,
+                  "M28 deleting the open note returns to the list", "route=\(ms.route)")
+            try? fm.removeItem(at: root2)
+        }
+
         // M99 clean up
         try? fm.removeItem(at: root)
         check(!fm.fileExists(atPath: root.path), "M99 temporary notes folder removed", root.lastPathComponent)
     }
+}
+
+/// The counts a fake "delete several?" confirmation was asked with, and its answer.
+private final class Counter {
+    var asked: [Int] = []
+    var answer = true
 }
 
 /// Collects the onRecordingChange calls of one model.

@@ -5,6 +5,7 @@ import { Faq } from "@/components/landing/Faq";
 import { FinalCta } from "@/components/landing/FinalCta";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { NoteTaker } from "@/components/landing/NoteTaker";
 import { LaunchVideo } from "@/components/landing/LaunchVideo";
 import { Privacy } from "@/components/landing/Privacy";
 import { Prompting } from "@/components/landing/Prompting";
@@ -55,6 +56,9 @@ export default function Home() {
         </div>
         <div className="glass">
           <HowItWorks />
+        </div>
+        <div className="glass">
+          <NoteTaker />
         </div>
         <div className="glass">
           <Prompting />

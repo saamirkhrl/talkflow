@@ -99,7 +99,7 @@ export default function EmailAndChatPage() {
 
       <h2 id="limits">Good to know</h2>
       <ul>
-        <li>It is built for English.</li>
+        <li>It supports English and German.</li>
         <li>It runs on a Mac, not on phones.</li>
         <li>
           The default shortcut is fn. See{" "}

@@ -84,8 +84,7 @@ export default function CodingPage() {
         talkflow is not a voice-coding tool. It doesn&apos;t turn speech into code syntax, and it
         doesn&apos;t control your editor. Dictating{" "}
         <code>const user = await getUser(id)</code> word by word is slower than typing it. Use it for
-        the English around your code, and keep typing the code itself. It is also built for English
-        only.
+        the English around your code, and keep typing the code itself. It supports English and German.
       </p>
 
       <h2 id="tips">Tips</h2>
