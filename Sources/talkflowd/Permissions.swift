@@ -16,6 +16,8 @@ enum Permissions {
         case microphone = "Privacy_Microphone"
         case accessibility = "Privacy_Accessibility"
         case inputMonitoring = "Privacy_ListenEvent"
+        /// Screen & System Audio Recording (macOS 14.2+).
+        case systemAudio = "Privacy_AudioCapture"
     }
 
     static var microphone: MicrophoneStatus {
