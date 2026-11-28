@@ -12,7 +12,7 @@ const SPEAKING = 145;
 function SpeedChart() {
   return (
     <figure className="mt-10 max-w-[460px]">
-      <svg viewBox="0 0 440 214" className="w-full overflow-visible" role="img" aria-labelledby="speed-chart-title">
+      <svg viewBox="0 0 440 188" className="w-full overflow-visible" role="img" aria-labelledby="speed-chart-title">
         <title id="speed-chart-title">{`Words written in one minute: about ${TYPING} typing, about ${SPEAKING} speaking.`}</title>
         <defs>
           <linearGradient id="speak-fill" x1="0" y1="0" x2="0" y2="1">
@@ -39,11 +39,7 @@ function SpeedChart() {
         <text x={X1 - 8} y={Y0 - TYPING - 14} textAnchor="end" className="fill-white/60 text-[14px]">
           Typing <tspan className="font-serif text-[20px]">{TYPING}</tspan> wpm
         </text>
-        <text x={X0} y="206" className="fill-white/50 text-[11px]">0s</text>
-        <text x={(X0 + X1) / 2} y="206" textAnchor="middle" className="fill-white/50 text-[11px]">30s</text>
-        <text x={X1} y="206" textAnchor="end" className="fill-white/50 text-[11px]">1 min</text>
       </svg>
-      <figcaption className="mt-2 text-[13px] text-white/60">Words written in one minute</figcaption>
     </figure>
   );
 }
