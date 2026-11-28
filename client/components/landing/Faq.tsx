@@ -10,7 +10,7 @@ export function Faq() {
   const [open, setOpen] = useState(0);
 
   return (
-    <section id="faq" className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+    <section id="faq" className="mx-auto max-w-[1200px] px-gutter py-[clamp(56px,7vw,96px)]">
       <div className="grid gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]">
         <SectionTitle>FAQs</SectionTitle>
         <div className="border-t border-line">

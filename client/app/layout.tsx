@@ -4,6 +4,7 @@ import { Newsreader } from "next/font/google";
 import { Footer } from "@/components/landing/Footer";
 import { SITE_DESCRIPTION, SITE_TITLE } from "@/components/landing/content";
 import { Nav } from "@/components/landing/Nav";
+import { SkyBackdrop } from "@/components/landing/SkyBackdrop";
 import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { VisitorProvider } from "@/components/landing/visitor";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -72,8 +73,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html lang="en" className={newsreader.variable}>
-      <body className="font-sans">
+      <body className="on-sky font-sans">
         <SmoothScroll />
+        <SkyBackdrop />
         <VisitorProvider>
           <Nav stars={stars} />
           {children}

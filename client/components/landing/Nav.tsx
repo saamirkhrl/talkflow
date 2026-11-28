@@ -9,7 +9,8 @@ import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
 import { REPO_URL, SHOW_OS_LOGOS } from "./content";
 import { GithubIcon } from "./GithubIcon";
-import { buttonClass } from "./primitives";
+import { LiquidGlass } from "./LiquidGlass";
+import { buttonClass, GLASS_CLEAR, GLASS_CORAL } from "./primitives";
 import { useVisitor } from "./visitor";
 
 function subscribeScroll(onChange: () => void) {
@@ -33,10 +34,10 @@ export function Nav({ stars }: { stars: number | null }) {
       <nav
         aria-label="Main"
         className={cn(
-          "pointer-events-auto flex w-full items-center gap-1 rounded-full border border-line pr-3 pl-3 transition-[max-width,height,background-color,box-shadow] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
+          "pointer-events-auto relative z-0 flex w-full items-center gap-1 rounded-full border pr-3 pl-3 text-white [text-shadow:0_1px_10px_rgb(8_36_140/0.55)] transition-[max-width,height,background-color,box-shadow,border-color] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] sm:pl-4",
           scrolled
-            ? "h-12 max-w-[700px] bg-mist/75 shadow-[0_12px_32px_-14px_rgba(31,30,34,0.3)] backdrop-blur-xl backdrop-saturate-150"
-            : "h-14 max-w-[820px] bg-paper/90 shadow-[0_1px_2px_rgba(31,30,34,0.06)]",
+            ? "h-12 max-w-[700px] border-white/15 shadow-[0_16px_40px_-18px_rgba(3,12,60,0.8)] before:absolute before:inset-0 before:-z-10 before:rounded-full before:bg-[#0a2a8c]/55 before:backdrop-blur-xl before:backdrop-saturate-150"
+            : "h-14 max-w-[1120px] border-transparent bg-transparent",
         )}
       >
         <Link href="/#top" aria-label="talkflow home" className="mr-auto inline-flex items-center rounded-full">
@@ -44,9 +45,9 @@ export function Nav({ stars }: { stars: number | null }) {
         </Link>
 
         {!mobile && (
-          <div className="flex items-center text-[15px] text-graphite">
+          <div className="flex items-center text-[15px] text-white/85">
             {LINKS.map(([label, href]) => (
-              <a key={href} href={href} className="rounded-full px-3 py-1.5 transition-colors hover:bg-ink/5 hover:text-ink">
+              <a key={href} href={href} className="rounded-full px-3 py-1.5 transition-colors hover:bg-white/10 hover:text-white">
                 {label}
               </a>
             ))}
@@ -62,6 +63,7 @@ export function Nav({ stars }: { stars: number | null }) {
           {SHOW_OS_LOGOS && !mobile && (
             <BrandLogo logo={OS_LOGOS.apple} className="size-[15px] -translate-y-px" />
           )}
+          <LiquidGlass tint={GLASS_CLEAR} />
           Download
         </a>
 
@@ -71,6 +73,7 @@ export function Nav({ stars }: { stars: number | null }) {
           aria-label={stars === null ? "talkflow on GitHub" : `Star talkflow on GitHub (${stars} stars)`}
           className={cn(buttonClass.primary, "px-4 text-[15px] transition-[height] duration-500", scrolled ? "h-9" : "h-10")}
         >
+          <LiquidGlass tint={GLASS_CORAL} />
           <GithubIcon size={17} />
           {!mobile && <span>GitHub</span>}
           {!mobile && stars !== null && (

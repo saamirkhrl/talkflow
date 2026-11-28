@@ -49,13 +49,27 @@ export default function Home() {
       <JsonLd data={FAQ_JSON_LD} />
       <Hero />
       <LaunchVideo />
-      <Apps />
-      <HowItWorks />
-      <Prompting />
-      <Privacy />
-      <Stats />
-      <Faq />
-      <FinalCta />
+      <div className="mx-auto mt-[clamp(72px,10vw,140px)] flex max-w-[1280px] flex-col gap-[clamp(40px,6vw,88px)] px-3 sm:px-4">
+        <div className="glass pb-[clamp(48px,6vw,80px)]">
+          <Apps />
+        </div>
+        <div className="glass">
+          <HowItWorks />
+        </div>
+        <div className="glass">
+          <Prompting />
+        </div>
+        <Privacy />
+        <div className="glass">
+          <Stats />
+        </div>
+        <div className="glass">
+          <Faq />
+        </div>
+        <div className="glass">
+          <FinalCta />
+        </div>
+      </div>
     </main>
   );
 }

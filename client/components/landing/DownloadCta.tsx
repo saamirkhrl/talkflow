@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
 import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WISPR_FLOW_PRICE } from "./content";
-import { buttonClass } from "./primitives";
+import { LiquidGlass } from "./LiquidGlass";
+import { buttonClass, GLASS_CORAL } from "./primitives";
 import { useVisitor } from "./visitor";
 
 // Wispr Flow Pro's price with a red line drawn through it, then "Free". The
@@ -19,8 +20,8 @@ function PriceCompare() {
         Wispr Flow Pro costs {WISPR_FLOW_PRICE}. talkflow is free. talkflow is not affiliated with Wispr.
       </span>
       <span aria-hidden="true" className="flex flex-col items-start gap-1.5">
-        <span className="text-[12px] tracking-[0.01em] text-graphite">Wispr Flow Pro*</span>
-        <span className="relative font-serif text-[28px] text-ink/55">
+        <span className="text-[12px] tracking-[0.01em] text-white">Wispr Flow Pro*</span>
+        <span className="relative font-serif text-[28px] text-white/90">
           {WISPR_FLOW_PRICE}
           <svg
             viewBox="0 0 100 40"
@@ -62,6 +63,7 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
         <Link href="/download/mac" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+          <LiquidGlass tint={GLASS_CORAL} />
           {SHOW_OS_LOGOS && <BrandLogo logo={OS_LOGOS.apple} className="size-[18px] -translate-y-px" />}
           Download for Mac
         </Link>
@@ -90,9 +92,10 @@ function InstallCommand() {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-11 min-w-0 items-center gap-3 rounded-full border border-line pl-4 pr-1.5 font-mono text-[13px]">
-        <span aria-hidden="true" className="select-none text-graphite">$</span>
-        <code className="truncate text-ink">{command}</code>
+      <div className="relative isolate flex h-11 min-w-0 items-center gap-3 rounded-full pl-4 pr-1.5 font-mono text-[13px] text-white">
+        <LiquidGlass tint="rgb(7 28 102 / 0.45)" />
+        <span aria-hidden="true" className="select-none text-white/55">$</span>
+        <code className="truncate text-white">{command}</code>
         <button
           type="button"
           aria-label={copied ? "Copied" : "Copy install command"}
@@ -105,7 +108,7 @@ function InstallCommand() {
               setCopied(false);
             }
           }}
-          className="inline-flex size-8 flex-none items-center justify-center rounded-full text-graphite transition-colors hover:bg-ink/5 hover:text-ink"
+          className="inline-flex size-8 flex-none items-center justify-center rounded-full text-white/75 transition-colors hover:bg-white/10 hover:text-white"
         >
           {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
         </button>
@@ -142,8 +145,9 @@ function OtherBuilds() {
         aria-expanded={open}
         title="Other builds"
         onClick={() => setOpen((value) => !value)}
-        className={cn(buttonClass.secondary, "size-11", open && "bg-ink/5")}
+        className={buttonClass.secondary + " size-11"}
       >
+        <LiquidGlass tint={open ? "rgb(7 28 102 / 0.55)" : "rgb(7 28 102 / 0.32)"} />
         <Layers size={17} aria-hidden="true" />
       </button>
       {open && (
@@ -194,6 +198,7 @@ function CopyLink({ align, compare }: { align: "center" | "start"; compare: bool
         }}
         className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}
       >
+        <LiquidGlass tint={GLASS_CORAL} />
         {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
         {copied ? "Link copied" : "Copy link for your computer"}
       </button>

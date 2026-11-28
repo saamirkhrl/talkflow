@@ -29,8 +29,8 @@ type LegalPageProps = {
 export function LegalPage({ title, lastUpdated, children }: LegalPageProps) {
   return (
     <>
-      <main className="px-gutter pt-32 pb-14 sm:pt-40 sm:pb-20">
-        <article className={`mx-auto max-w-[68ch] text-[17px] leading-[1.7] text-ink ${PROSE}`}>
+      <main className="px-3 pt-28 pb-14 sm:px-4 sm:pt-32 sm:pb-20">
+        <article className={`glass mx-auto max-w-[860px] px-[clamp(24px,6vw,80px)] py-[clamp(40px,6vw,72px)] text-[17px] leading-[1.7] text-ink ${PROSE}`}>
           <h1 className="font-serif text-[40px] font-normal leading-[1.1] tracking-[-0.02em] sm:text-[52px]">
             {title}
           </h1>

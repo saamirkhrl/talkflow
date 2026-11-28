@@ -4,7 +4,7 @@ import { Wallpaper } from "./Wallpaper";
 
 export function Stats() {
   return (
-    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(56px,7vw,96px)]">
       <div className="grid items-end gap-x-16 gap-y-8 lg:grid-cols-2">
         <SectionTitle className="max-w-[14ch]">See how much you didn&apos;t type.</SectionTitle>
         <p className="max-w-[44ch] text-[18px] text-graphite lg:justify-self-end">

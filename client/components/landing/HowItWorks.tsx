@@ -1,13 +1,14 @@
 import { RecDot, SectionTitle, Waveform } from "./primitives";
+import { LetGoDemo } from "./LetGoDemo";
 
-const STEP = "flex flex-col gap-5 border-t border-line pt-6";
+const STEP = "flex flex-col gap-5";
 const STAGE = "flex h-36 items-center justify-center rounded-3xl bg-mist px-6";
 const KEY =
-  "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-line border-b-[5px] bg-paper p-2.5 font-sans text-[22px] text-ink shadow-[0_1px_0_rgba(31,30,34,0.05)]";
+  "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-black/10 border-b-[5px] bg-white p-2.5 font-sans text-[22px] text-[#0b1f66] shadow-[0_10px_24px_-12px_rgb(3_12_60/0.7)]";
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto max-w-[1200px] px-gutter py-[clamp(72px,10vw,136px)]">
+    <section className="mx-auto max-w-[1200px] px-gutter pt-[clamp(48px,6vw,88px)] pb-[clamp(56px,7vw,96px)]">
       <SectionTitle className="max-w-[16ch]">Three moves, no typing.</SectionTitle>
       <ol className="mt-14 grid gap-x-8 gap-y-12 md:grid-cols-3">
         <li className={STEP}>
@@ -25,7 +26,7 @@ export function HowItWorks() {
         </li>
         <li className={STEP}>
           <div className={STAGE}>
-            <span className="flex h-14 items-center gap-3 rounded-full bg-ink px-5 text-paper">
+            <span className="flex h-14 items-center gap-3 rounded-full px-5 bg-[#1f1e22] text-white shadow-[0_12px_28px_-12px_rgb(0_0_0/0.6)]">
               <RecDot />
               <Waveform bars={14} height={22} />
             </span>
@@ -37,10 +38,7 @@ export function HowItWorks() {
         </li>
         <li className={STEP}>
           <div className={STAGE}>
-            <p className="max-w-[22ch] text-left text-[17px] leading-snug">
-              Can we move standup to Thursday?
-              <span aria-hidden="true" className="ml-0.5 inline-block h-[1.1em] w-0.5 translate-y-[0.2em] animate-blink bg-ink" />
-            </p>
+            <LetGoDemo />
           </div>
           <div>
             <h3 className="text-[19px] font-semibold">3. Let go</h3>
