@@ -23,6 +23,12 @@ final class OverlayController {
     /// and error notice stack above the pill on the same screen.
     private var screen: NSScreen?
     private var screenObserver: NSObjectProtocol?
+    private var spaceObserver: NSObjectProtocol?
+    private var reportWork: DispatchWorkItem?
+    /// Index into NSScreen.screens of the screen chosen at the last placement.
+    private var screenIndex: Int?
+    /// The last diagnostic line, for --pilltest.
+    private(set) var lastShowReport: String?
 
     init() {
         // A display plugged in, unplugged or rearranged moves every screen's
@@ -33,12 +39,22 @@ final class OverlayController {
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            if self.panel?.isVisible == true { self.placePill() } else { self.screen = nil }
+            // New displays come with new Spaces: a pill on screen is rebuilt so it
+            // joins them, then placed at the new coordinates.
+            if self.panel?.isVisible == true { self.reshow(reason: "screens") } else { self.screen = nil }
+        }
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self, let panel = self.panel, panel.isVisible, !panel.isOnActiveSpace else { return }
+            // Moved to a Space the pill never joined while it was up.
+            self.reshow(reason: "space")
         }
     }
 
     deinit {
         if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        if let spaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver) }
     }
 
     /// What lets a panel sit over another app's full-screen Space: on every
@@ -53,43 +69,230 @@ final class OverlayController {
         panel.hidesOnDeactivate = false
     }
 
+    /// Every overlay panel: no title bar, and never activates talkflow or takes
+    /// the key focus, so dictation keeps typing into the app in front.
+    static let overlayStyle: NSWindow.StyleMask = [.borderless, .nonactivatingPanel]
+
+    /// A panel joins the Spaces that exist when it is ordered in, and keeps
+    /// that set while ordered out. A Space made later (an app entering full
+    /// screen, the Spaces macOS rebuilds when a display comes or goes) never
+    /// gets it, and nothing done to the existing window brings it back. So
+    /// the pill is built fresh whenever it is not already on screen on the
+    /// active Space; a new panel joins every Space there is.
+    static func needsFreshPanel(exists: Bool, visible: Bool, onActiveSpace: Bool) -> Bool {
+        !exists || !visible || !onActiveSpace
+    }
+
+    /// Takes an old panel off screen for good.
+    private static func retire(_ panel: NSPanel?) {
+        panel?.orderOut(nil)
+        panel?.close()
+    }
+
+    /// A new pill, and no caption until the next one is needed: both join
+    /// every Space that exists right now.
+    private func rebuildPanels() {
+        Self.retire(panel)
+        panel = nil
+        Self.retire(captionPanel)
+        captionPanel = nil
+        captionLabel = nil
+        buildPanel()
+    }
+
     func show() {
-        if panel == nil {
-            buildPanel()
-        }
+        let fresh = Self.needsFreshPanel(exists: panel != nil, visible: panel?.isVisible == true,
+                                         onActiveSpace: panel?.isOnActiveSpace == true)
+        if fresh { rebuildPanels() }
         placePill()
         panel?.orderFrontRegardless()
+        scheduleShowReport(reason: "show", rebuilt: fresh)
+    }
+
+    /// The pill is up but has to be rebuilt (new displays, or a Space it never joined).
+    private func reshow(reason: String) {
+        rebuildPanels()
+        placePill()
+        panel?.orderFrontRegardless()
+        scheduleShowReport(reason: reason, rebuilt: true)
     }
 
     /// Centers the pill horizontally at the bottom of the screen the user is
     /// dictating into. Recomputed on every show, never cached across them.
     private func placePill() {
-        guard let panel, let screen = Self.targetScreen() else { return }
+        guard let panel else { return }
+        let screens = NSScreen.screens
+        guard let index = Self.targetScreenIndex(), screens.indices.contains(index) else { return }
+        let screen = screens[index]
         self.screen = screen
-        let frame = screen.frame
-        panel.setFrame(NSRect(x: (frame.midX - width / 2).rounded(), y: frame.minY + bottomOffset,
-                              width: width, height: height), display: true)
+        screenIndex = index
+        panel.setFrame(Self.pillFrame(on: screen.frame, width: width, height: height, bottomOffset: bottomOffset), display: true)
     }
 
-    /// The screen holding the frontmost app's frontmost window - the app the
-    /// text is going into. Read from the window server, not Accessibility:
-    /// this runs the moment the hotkey goes down, before the mic is live, and
-    /// must not wait on a slow app. Falls back to the screen under the mouse,
-    /// then the main screen.
+    /// Bottom-center of `screen` (AppKit coordinates), `bottomOffset` up.
+    static func pillFrame(on screen: CGRect, width: CGFloat, height: CGFloat, bottomOffset: CGFloat) -> CGRect {
+        CGRect(x: (screen.midX - width / 2).rounded(), y: screen.minY + bottomOffset, width: width, height: height)
+    }
+
+    /// The screen the user is working on: the one holding most of the
+    /// frontmost app's frontmost window (the app the text goes into); if that
+    /// app has no window on screen, the one under the mouse; else the main
+    /// screen; else the first. Read fresh at every show from the window server,
+    /// not Accessibility: this runs the moment the hotkey goes down and must
+    /// not wait on a slow app.
     static func targetScreen() -> NSScreen? {
         let screens = NSScreen.screens
-        if let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
-           let bounds = frontWindowBounds(of: pid),
-           let primary = screens.first {
-            // Window-server bounds have a top-left origin on the primary
-            // display; AppKit's have a bottom-left one.
-            let window = NSRect(x: bounds.minX, y: primary.frame.maxY - bounds.maxY,
-                                width: bounds.width, height: bounds.height)
-            let best = screens.max { overlap($0.frame, window) < overlap($1.frame, window) }
-            if let best, overlap(best.frame, window) > 0 { return best }
+        guard let index = targetScreenIndex(), screens.indices.contains(index) else { return nil }
+        return screens[index]
+    }
+
+    static func targetScreenIndex() -> Int? {
+        let screens = NSScreen.screens
+        let front = NSWorkspace.shared.frontmostApplication.flatMap { frontWindowBounds(of: $0.processIdentifier) }
+        let main = NSScreen.main.flatMap { m in screens.firstIndex { $0 == m } }
+        return pickScreen(screens: screens.map(\.frame), frontWindow: front, mouse: NSEvent.mouseLocation, mainIndex: main)
+    }
+
+    /// Pure: `screens` are AppKit frames (bottom-left origin) with the primary
+    /// display first, as NSScreen.screens gives them; `frontWindow` is in
+    /// window-server coordinates (top-left origin on the primary display);
+    /// `mouse` is in AppKit coordinates. A window or mouse on a display that is
+    /// gone matches nothing and falls through to the next rule.
+    static func pickScreen(screens: [CGRect], frontWindow: CGRect?, mouse: CGPoint, mainIndex: Int?) -> Int? {
+        guard let primary = screens.first else { return nil }
+        if let bounds = frontWindow {
+            let window = CGRect(x: bounds.minX, y: primary.maxY - bounds.maxY, width: bounds.width, height: bounds.height)
+            var best: Int?
+            var bestArea: CGFloat = 0
+            for (i, s) in screens.enumerated() {
+                let area = overlap(s, window)
+                if area > bestArea { best = i; bestArea = area }
+            }
+            if let best { return best }
         }
-        let mouse = NSEvent.mouseLocation
-        return screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main ?? screens.first
+        // Same edges as NSMouseInRect for an unflipped rect.
+        if let i = screens.firstIndex(where: { mouse.x >= $0.minX && mouse.x < $0.maxX && mouse.y > $0.minY && mouse.y <= $0.maxY }) {
+            return i
+        }
+        if let mainIndex, screens.indices.contains(mainIndex) { return mainIndex }
+        return 0
+    }
+
+    /// Pure: whether a window (window-server coordinates) covers a whole
+    /// display, as a native full-screen window does; a zoomed window stops
+    /// at the menu bar and the Dock. On a display with a camera housing, a
+    /// full-screen window may start below it: `topInsets[i]` is display i's
+    /// safe-area top (0 elsewhere). Diagnostic only: with the Dock hidden, a
+    /// zoomed window on such a display looks the same.
+    static func isFullScreen(window: CGRect, displays: [CGRect], topInsets: [CGFloat] = []) -> Bool {
+        displays.enumerated().contains { i, d in
+            let inset = i < topInsets.count ? topInsets[i] : 0
+            let topOK = abs(d.minY - window.minY) <= 1 || (inset > 0 && abs(d.minY + inset - window.minY) <= 1)
+            return topOK && abs(d.minX - window.minX) <= 1 && abs(d.width - window.width) <= 1 && abs(d.maxY - window.maxY) <= 1
+        }
+    }
+
+    /// Whether the frontmost app's frontmost window is full screen right now.
+    static func frontIsFullScreen() -> Bool {
+        guard let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return false }
+        // All of the app's normal windows together: some full-screen apps draw
+        // their tab bar as a separate window above the main one.
+        let rects = list.compactMap { info -> CGRect? in
+            guard (info[kCGWindowOwnerPID as String] as? pid_t) == pid, (info[kCGWindowLayer as String] as? Int) == 0,
+                  let dict = info[kCGWindowBounds as String] as? NSDictionary else { return nil }
+            return CGRect(dictionaryRepresentation: dict)
+        }
+        guard let first = rects.first else { return false }
+        var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+        var count: UInt32 = 0
+        guard CGGetActiveDisplayList(16, &ids, &count) == .success else { return false }
+        let active = Array(ids.prefix(Int(count)))
+        // Only the windows on the display of the frontmost one.
+        let display = active.map { CGDisplayBounds($0) }.first { $0.contains(CGPoint(x: first.midX, y: first.midY)) } ?? first
+        let bounds = rects.filter { $0.intersects(display) }.reduce(first) { $0.union($1) }
+        let insets: [CGFloat] = active.map { id in
+            NSScreen.screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id }?.safeAreaInsets.top ?? 0
+        }
+        return isFullScreen(window: bounds, displays: active.map { CGDisplayBounds($0) }, topInsets: insets)
+    }
+
+    /// What one pill show looked like, for the log. No dictated text.
+    struct ShowFacts {
+        var reason: String
+        var rebuilt: Bool
+        var policy: NSApplication.ActivationPolicy
+        var appActive: Bool
+        var panelClass: String
+        var style: NSWindow.StyleMask
+        var level: Int
+        var behavior: NSWindow.CollectionBehavior
+        var hidesOnDeactivate: Bool
+        var screenIndex: Int?
+        var screens: [CGRect]
+        var frame: CGRect
+        var frontFullScreen: Bool
+        var visible: Bool
+        var onActiveSpace: Bool
+        var occlusionVisible: Bool
+        var cgOnscreen: Bool
+    }
+
+    static func showReport(_ f: ShowFacts) -> String {
+        func yn(_ b: Bool) -> String { b ? "yes" : "no" }
+        func rect(_ r: CGRect) -> String { "\(Int(r.minX)),\(Int(r.minY)) \(Int(r.width))x\(Int(r.height))" }
+        let policy: String
+        switch f.policy {
+        case .regular: policy = "regular"
+        case .accessory: policy = "accessory"
+        case .prohibited: policy = "prohibited"
+        @unknown default: policy = "other"
+        }
+        var style: [String] = [f.style.contains(.titled) ? "titled" : "borderless"]
+        if f.style.contains(.nonactivatingPanel) { style.append("nonactivating") }
+        let names: [(NSWindow.CollectionBehavior, String)] = [
+            (.canJoinAllSpaces, "canJoinAllSpaces"), (.moveToActiveSpace, "moveToActiveSpace"),
+            (.managed, "managed"), (.transient, "transient"), (.stationary, "stationary"),
+            (.participatesInCycle, "participatesInCycle"), (.ignoresCycle, "ignoresCycle"),
+            (.fullScreenPrimary, "fullScreenPrimary"), (.fullScreenAuxiliary, "fullScreenAuxiliary"),
+            (.fullScreenNone, "fullScreenNone")
+        ]
+        let behavior = names.filter { f.behavior.contains($0.0) }.map(\.1).joined(separator: ",")
+        return "talkflowd: pill shown: reason=\(f.reason) rebuilt=\(yn(f.rebuilt)) policy=\(policy) active=\(yn(f.appActive))"
+            + " panel=\(f.panelClass) style=\(style.joined(separator: ",")) level=\(f.level)"
+            + " behavior=\(behavior.isEmpty ? "none" : behavior) hidesOnDeactivate=\(yn(f.hidesOnDeactivate))"
+            + " screen=\(f.screenIndex.map(String.init) ?? "none") screens=[\(f.screens.map(rect).joined(separator: "; "))]"
+            + " frame=\(rect(f.frame)) frontFullScreen=\(yn(f.frontFullScreen)) visible=\(yn(f.visible))"
+            + " onActiveSpace=\(yn(f.onActiveSpace)) occlusionVisible=\(yn(f.occlusionVisible)) cgOnscreen=\(yn(f.cgOnscreen))"
+    }
+
+    /// Logs the show 0.3 s later, once the window server has put the pill on
+    /// screen (or not), so the line says what the user actually saw.
+    private func scheduleShowReport(reason: String, rebuilt: Bool) {
+        reportWork?.cancel()
+        let frontFullScreen = Self.frontIsFullScreen()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let panel = self.panel else { return }
+            let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], CGWindowID(panel.windowNumber)) as? [[String: Any]]
+            let facts = ShowFacts(
+                reason: reason, rebuilt: rebuilt,
+                policy: NSApp.activationPolicy(), appActive: NSApp.isActive,
+                panelClass: String(describing: type(of: panel)), style: panel.styleMask,
+                level: panel.level.rawValue, behavior: panel.collectionBehavior,
+                hidesOnDeactivate: panel.hidesOnDeactivate,
+                screenIndex: self.screenIndex, screens: NSScreen.screens.map(\.frame),
+                frame: panel.frame, frontFullScreen: frontFullScreen,
+                visible: panel.isVisible, onActiveSpace: panel.isOnActiveSpace,
+                occlusionVisible: panel.occlusionState.contains(.visible),
+                cgOnscreen: (info?.first?[kCGWindowIsOnscreen as String] as? Bool) ?? false
+            )
+            let line = Self.showReport(facts)
+            self.lastShowReport = line
+            print(line)
+        }
+        reportWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
     private static func frontWindowBounds(of pid: pid_t) -> CGRect? {
@@ -170,10 +373,11 @@ final class OverlayController {
     private func buildCaptionPanel() {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 200, height: 44),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: Self.overlayStyle,
             backing: .buffered,
             defer: false
         )
+        panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -211,6 +415,12 @@ final class OverlayController {
     func showError(_ message: String) {
         DispatchQueue.main.async { [self] in
             print("talkflowd: pill error: \(message)")
+            // Same reason as the pill: a notice not on screen is built fresh.
+            if let old = noticePanel, !old.isVisible || !old.isOnActiveSpace {
+                Self.retire(old)
+                noticePanel = nil
+                noticeLabel = nil
+            }
             if noticePanel == nil { buildNoticePanel() }
             guard let noticePanel, let noticeLabel, let screen = screen ?? Self.targetScreen() else { return }
             let text = NSAttributedString(string: message, attributes: [
@@ -243,10 +453,11 @@ final class OverlayController {
     private func buildNoticePanel() {
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 200, height: 32),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: Self.overlayStyle,
             backing: .buffered,
             defer: false
         )
+        panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -294,10 +505,11 @@ final class OverlayController {
         // Placed by placePill() before every show.
         let panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: Self.overlayStyle,
             backing: .buffered,
             defer: false
         )
+        panel.isReleasedWhenClosed = false
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true

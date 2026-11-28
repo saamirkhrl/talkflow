@@ -150,6 +150,13 @@ if let index = CommandLine.arguments.firstIndex(of: "--statusbartest") {
     NSApplication.shared.run()
 }
 
+// Shows the real pill for a few seconds and logs how the window server placed
+// it. Results in $TMPDIR/talkflow-pilltest.log.
+// Usage: --pilltest [seconds] [accessory|regular|both] [waitfullscreen]
+if let index = CommandLine.arguments.firstIndex(of: "--pilltest") {
+    PillSelfTest.run(arguments: Array(CommandLine.arguments.dropFirst(index + 1)))
+}
+
 // Pure logic, like --streamtest: the Dictionary page's add and remove
 // rules. Results in $TMPDIR/talkflow-dictionarytest.log.
 if CommandLine.arguments.contains("--dictionarytest") {

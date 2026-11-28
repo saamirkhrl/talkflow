@@ -2304,6 +2304,90 @@ enum StreamSelfTest {
         check(b.contains(.canJoinAllSpaces) && b.contains(.fullScreenAuxiliary), "overlay panels join all Spaces and full screen")
         check(!b.contains(.moveToActiveSpace), "overlay panels do not move to the active Space")
         check(OverlayController.overlayLevel.rawValue >= NSWindow.Level.statusBar.rawValue, "overlay panels sit at or above the status bar level")
+
+        // The pill never takes the focus.
+        check(OverlayController.overlayStyle.contains(.nonactivatingPanel) && !OverlayController.overlayStyle.contains(.titled),
+              "overlay panels are borderless and never activate talkflow")
+
+        // A hidden pill is always rebuilt at show: a fresh panel joins every current Space.
+        check(OverlayController.needsFreshPanel(exists: false, visible: false, onActiveSpace: false), "the first show builds the pill")
+        check(OverlayController.needsFreshPanel(exists: true, visible: false, onActiveSpace: true), "a hidden pill is rebuilt at the next show")
+        check(OverlayController.needsFreshPanel(exists: true, visible: true, onActiveSpace: false), "a pill off the active Space is rebuilt")
+        check(!OverlayController.needsFreshPanel(exists: true, visible: true, onActiveSpace: true), "a pill already on screen is kept")
+
+        // Screen choice. AppKit frames, primary first; window bounds in window-server coordinates.
+        let builtIn = CGRect(x: 0, y: 0, width: 1470, height: 956)
+        let right = CGRect(x: 1470, y: 0, width: 2560, height: 1440)       // CG: 1470, -484
+        let above = CGRect(x: 0, y: 956, width: 1920, height: 1080)        // CG: 0, -1080
+        let left = CGRect(x: -1920, y: 0, width: 1920, height: 1080)       // CG: -1920, -124
+        let mid = CGPoint(x: 700, y: 400)
+        let pick = OverlayController.pickScreen
+        check(pick([], nil, mid, nil) == nil, "no screens, no choice")
+        check(pick([builtIn], CGRect(x: 0, y: 0, width: 1470, height: 956), mid, 0) == 0, "one display: a full-screen window picks it")
+        check(pick([builtIn, right], CGRect(x: 1470, y: -484, width: 2560, height: 1440), mid, 0) == 1,
+              "a full-screen window on the external display picks it")
+        check(pick([builtIn, right], CGRect(x: 1000, y: 100, width: 800, height: 600), CGPoint(x: 3000, y: 700), 1) == 0,
+              "a window across two displays picks the one holding more of it")
+        check(pick([builtIn, right], CGRect(x: 1300, y: 100, width: 800, height: 600), mid, 0) == 1,
+              "more of the window on the external display picks it")
+        check(pick([builtIn, above], CGRect(x: 100, y: -900, width: 800, height: 600), mid, 0) == 1,
+              "a display above the primary is matched through the flipped y axis")
+        check(pick([builtIn, left], CGRect(x: -1800, y: 0, width: 800, height: 600), mid, 0) == 1,
+              "a display left of the primary (negative x) is matched")
+        check(pick([builtIn, right], nil, CGPoint(x: 2000, y: 700), 0) == 1, "no front window: the screen under the mouse")
+        check(pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), mid, 0) == 0,
+              "a window left on a removed display falls back to the mouse")
+        check(pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), CGPoint(x: 2000, y: 700), nil) == 0,
+              "window and mouse both on a removed display fall back to the first screen")
+        check(pick([builtIn, right], nil, CGPoint(x: -500, y: -500), 1) == 1, "nothing matches: the main screen")
+        check(pick([builtIn, right], nil, CGPoint(x: -500, y: -500), 7) == 0, "a main index that is gone falls back to the first screen")
+
+        // Placement: bottom-center of the chosen screen, never a frame left from an earlier layout.
+        let pf = OverlayController.pillFrame(on: builtIn, width: 150, height: 40, bottomOffset: 70)
+        check(pf == CGRect(x: 660, y: 70, width: 150, height: 40), "the pill sits bottom-center, 70 pt up", "\(pf)")
+        let pfRight = OverlayController.pillFrame(on: right, width: 150, height: 40, bottomOffset: 70)
+        check(pfRight == CGRect(x: 2675, y: 70, width: 150, height: 40) && right.contains(pfRight), "on the external display it sits inside it", "\(pfRight)")
+        if let i = pick([builtIn], CGRect(x: 1470, y: -484, width: 2560, height: 1440), CGPoint(x: 2000, y: 700), nil) {
+            let after = OverlayController.pillFrame(on: [builtIn][i], width: 150, height: 40, bottomOffset: 70)
+            check(builtIn.contains(after), "after the external display is removed the pill lands on a display that exists")
+        } else {
+            check(false, "after the external display is removed the pill lands on a display that exists", "no screen picked")
+        }
+
+        // Full-screen detection for the log line (window-server coordinates).
+        let cgBuiltIn = CGRect(x: 0, y: 0, width: 1470, height: 956)
+        let cgRight = CGRect(x: 1470, y: -484, width: 2560, height: 1440)
+        check(OverlayController.isFullScreen(window: cgBuiltIn, displays: [cgBuiltIn]), "a window covering the display is full screen")
+        check(!OverlayController.isFullScreen(window: CGRect(x: 0, y: 33, width: 1470, height: 871), displays: [cgBuiltIn]),
+              "a zoomed window under the menu bar is not full screen")
+        check(OverlayController.isFullScreen(window: cgRight, displays: [cgBuiltIn, cgRight]), "full screen on the external display")
+        check(OverlayController.isFullScreen(window: CGRect(x: 0.5, y: 0, width: 1470, height: 956), displays: [cgBuiltIn]), "half a point off still counts")
+        check(!OverlayController.isFullScreen(window: cgBuiltIn, displays: []), "no displays, not full screen")
+        let belowCamera = CGRect(x: 0, y: 33, width: 1470, height: 923)
+        check(OverlayController.isFullScreen(window: belowCamera, displays: [cgBuiltIn], topInsets: [33]),
+              "a full-screen window below the camera housing counts")
+        check(!OverlayController.isFullScreen(window: belowCamera, displays: [cgBuiltIn], topInsets: [0]),
+              "the same window on a display without a housing does not")
+
+        // The log line: one line, the values needed to diagnose, no text.
+        let line = OverlayController.showReport(.init(
+            reason: "show", rebuilt: true, policy: .accessory, appActive: false, panelClass: "NSPanel",
+            style: OverlayController.overlayStyle, level: OverlayController.overlayLevel.rawValue,
+            behavior: OverlayController.overlayBehavior, hidesOnDeactivate: false, screenIndex: 0,
+            screens: [builtIn, right], frame: pf, frontFullScreen: true, visible: true, onActiveSpace: true,
+            occlusionVisible: true, cgOnscreen: true))
+        let wanted = ["talkflowd: pill shown:", "policy=accessory", "style=borderless,nonactivating", "level=25",
+                      "behavior=canJoinAllSpaces,stationary,ignoresCycle,fullScreenAuxiliary", "hidesOnDeactivate=no",
+                      "screen=0", "screens=[0,0 1470x956; 1470,0 2560x1440]", "frame=660,70 150x40",
+                      "frontFullScreen=yes", "onActiveSpace=yes", "occlusionVisible=yes", "cgOnscreen=yes", "rebuilt=yes"]
+        let missing = wanted.filter { !line.contains($0) }
+        check(missing.isEmpty && !line.contains("\n"), "the pill log line carries every diagnostic value on one line", missing.joined(separator: " | "))
+        check(OverlayController.showReport(.init(
+            reason: "show", rebuilt: false, policy: .regular, appActive: true, panelClass: "NSPanel",
+            style: OverlayController.overlayStyle, level: 25, behavior: [], hidesOnDeactivate: true, screenIndex: nil,
+            screens: [], frame: .zero, frontFullScreen: false, visible: false, onActiveSpace: false,
+            occlusionVisible: false, cgOnscreen: false)).contains("policy=regular active=yes"),
+              "the log line names the regular policy")
     }
 
     /// The Home page's activity grid (ActivityGrid.swift): a year of weeks
