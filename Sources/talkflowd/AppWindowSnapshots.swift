@@ -65,6 +65,11 @@ extension DashboardController {
         let council = SampleNotes.seedCouncil(into: model.notes.store) ?? ""
         model.notes.refresh()
         shoot(5, "notes", .notes, fullHeight: true)
+        // Select mode with two meetings ticked.
+        model.notes.beginSelecting(with: model.notes.notes.first?.id)
+        if model.notes.notes.count > 1 { model.notes.toggleSelected(model.notes.notes[1].id) }
+        shoot(8, "notes-select", .notes, fullHeight: true)
+        model.notes.endSelecting()
         shoot(6, "dictionary", .dictionary, fullHeight: true)
 
         Preferences.learnedWords = []
