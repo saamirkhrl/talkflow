@@ -442,9 +442,11 @@ final class HoldSession {
         freeze()
         let tail = frozenTail ?? []
         let frozen = frozenTranscript ?? transcript
-        engine.whenReady(timeout: Self.finalEngineWait) { [weak self] ready in
+        // The release path holds the session strongly (here and in `release`): the caller lets go of it the
+        // moment the hold ends, and a weak capture made every release return without calling `completion`,
+        // which left the pill on screen. The live ticks above stay weak; a cancelled hold may just go away.
+        engine.whenReady(timeout: Self.finalEngineWait) { [self] ready in
             DispatchQueue.main.async {
-                guard let self else { return }
                 guard ready else {
                     completion(frozen.hasFrozen ? Transcriber.Result(text: frozen.frozenRaw, elapsed: 0) : nil, false)
                     return
@@ -479,9 +481,8 @@ final class HoldSession {
         func small(kind: RequestKind, frozenText: String, fallbackOnFail: String?, usedLarge: Bool) {
             let prompt = HoldTranscript.prompt(base: basePrompt(), frozen: frozenText)
             let startedAt = Date()
-            transcribe(wav, config.smallURL, Self.finalTimeout, prompt, config.language) { [weak self] result in
+            transcribe(wav, config.smallURL, Self.finalTimeout, prompt, config.language) { [self] result in
                 DispatchQueue.main.async {
-                    guard let self else { return }
                     self.onRequest?(RequestLog(kind: kind, audioSeconds: tailSeconds,
                                                latency: Date().timeIntervalSince(startedAt), ok: result != nil))
                     guard let result else {
@@ -507,9 +508,8 @@ final class HoldSession {
         let prompt = HoldTranscript.prompt(base: basePrompt(), frozen: seen)
         largePassStarted()
         let startedAt = Date()
-        transcribe(wav, largeURL, FinalPassSpeed.timeout, prompt, config.language) { [weak self] result in
+        transcribe(wav, largeURL, FinalPassSpeed.timeout, prompt, config.language) { [self] result in
             DispatchQueue.main.async {
-                guard let self else { return }
                 self.largePassEnded()
                 let latency = Date().timeIntervalSince(startedAt)
                 self.onRequest?(RequestLog(kind: .largeFinal, audioSeconds: tailSeconds, latency: latency, ok: result != nil))

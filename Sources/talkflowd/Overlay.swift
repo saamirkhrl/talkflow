@@ -103,7 +103,12 @@ final class OverlayController {
     func show() {
         let fresh = Self.needsFreshPanel(exists: panel != nil, visible: panel?.isVisible == true,
                                          onActiveSpace: panel?.isOnActiveSpace == true)
-        if fresh { rebuildPanels() }
+        if fresh {
+            rebuildPanels()
+        } else {
+            // A new hold never shows the last one's words.
+            captionPanel?.orderOut(nil)
+        }
         placePill()
         panel?.orderFrontRegardless()
         scheduleShowReport(reason: "show", rebuilt: fresh)
