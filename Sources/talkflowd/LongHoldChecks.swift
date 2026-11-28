@@ -128,5 +128,52 @@ enum LongHoldChecks {
         check(HoldSession.settleSearchAfter == 15 && HoldSession.forceCutAfter == 22
               && Int(14.99 * 16000) < Int(HoldSession.settleSearchAfter * 16000),
               "LH22 a tail under 15 s never searches for a cut")
+
+        releaseWithoutCaller(check)
+    }
+
+    private final class ArraySource: HoldAudioSource {
+        let all: [Int16]
+        init(_ all: [Int16]) { self.all = all }
+        var sampleCount: Int { all.count }
+        func samples(from start: Int, to end: Int) -> [Int16] {
+            let lo = max(0, min(start, all.count)), hi = max(lo, min(end, all.count))
+            return Array(all[lo..<hi])
+        }
+    }
+
+    private final class ReadyEngine: EngineGate {
+        var isReady: Bool { true }
+        func whenReady(timeout: TimeInterval, _ done: @escaping (Bool) -> Void) { done(true) }
+        func requestFailed() {}
+    }
+
+    /// LH23-LH24: Dictation drops its reference to the session the moment the key comes up, then waits
+    /// for `finish`. The release must still answer (it used to capture the session weakly, return
+    /// without answering, and leave the pill on screen), and the session must be freed afterwards.
+    /// Main thread: spins the main run loop for the async hops.
+    private static func releaseWithoutCaller(_ check: (Bool, String, String) -> Void) {
+        var answer: String??
+        weak var released: HoldSession?
+        let transcribe: HoldSession.Transcribe = { _, _, _, _, _, done in
+            DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) {
+                done(Transcriber.Result(text: "hello there", elapsed: 0.01))
+            }
+        }
+        do {
+            let session = HoldSession(source: ArraySource(speech(3)),
+                                      config: .init(smallURL: URL(string: "http://127.0.0.1:9/inference")!),
+                                      engine: ReadyEngine(), prompt: { "" }, transcribe: transcribe)
+            released = session
+            session.freeze()
+            session.finish(route: .small) { result, _ in answer = .some(result?.text) }
+        }
+        let deadline = Date().addingTimeInterval(3)
+        while answer == nil && Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        let text = answer.flatMap { $0 } ?? ""
+        check(text.contains("hello there"), "LH23 the release answers after the caller lets go of the session",
+              String(describing: answer))
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        check(released == nil, "LH24 the session is freed once it has answered", released == nil ? "" : "still alive")
     }
 }

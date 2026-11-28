@@ -109,6 +109,11 @@ final class Dictation {
     private var session: HoldSession?
     /// Keeps the live engine up for the length of the hold and its release pass.
     private var engineLease: EngineLease?
+    /// Bumped when a release pass starts and when it answers; the watchdog only acts on its own.
+    private var releaseToken = 0
+    /// Longer than the slowest release path (engine wait, large pass, small fallback). If the release
+    /// pass never answers, the pill is taken down anyway instead of staying on screen.
+    static let releaseWatchdog: TimeInterval = 60
     /// Set after a settle: the committed words are re-found in the new hypothesis
     /// before anything more is committed (`StreamCommit.rebase`).
     private var pendingRebase = false
@@ -216,10 +221,20 @@ final class Dictation {
         let lease = engineLease
         engineLease = nil
 
+        releaseToken += 1
+        let token = releaseToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.releaseWatchdog) { [weak self] in
+            guard let self, self.releaseToken == token else { return }
+            self.releaseToken += 1
+            print("talkflowd: release pass never answered in \(Int(Self.releaseWatchdog))s; pill taken down")
+            if !self.isRecording { self.dismiss() }
+        }
+
         transcribeFinal(wav: wav, session: session) { [weak self] result in
             DispatchQueue.main.async {
                 lease?.end()
                 guard let self else { return }
+                if self.releaseToken == token { self.releaseToken += 1 }
                 guard let result, !Transcriber.isPlaceholder(result.text) else {
                     if result != nil { print("talkflowd: no speech in \(String(format: "%.1f", duration))s of audio") }
                     self.dismiss()
