@@ -263,6 +263,7 @@ if CommandLine.arguments.contains("--enginecheck") {
     old f16 model complete: \(SpeechEngine.legacyModelIsComplete), agent loads it: \(SpeechEngine.agentLoadsLegacyModel())
     launch agent plist: \(FileManager.default.fileExists(atPath: SpeechEngine.agentPlistURL.path))
     server responding on :\(SpeechEngine.port): \(alive)
+    engine on demand (can stop when idle): \(LaunchAgentBackend.live.canStop)
     isInstalled: \(SpeechEngine.isInstalled)
     permissions: microphone=\(Permissions.microphone) accessibility=\(Permissions.accessibility) inputMonitoring=\(Permissions.inputMonitoring)
     needsSetup: \(Onboarding.needsSetup())

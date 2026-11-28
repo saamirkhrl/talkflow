@@ -86,6 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             hotkey.start()
         }
+        LiveEngine.shared.installWakeObserver()
 
         DispatchQueue.global(qos: .utility).async {
             SpeechEngine.prepareOnLaunch()
@@ -141,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.notes.appWillTerminate()
             NotesProcesses.stopLeftovers(reason: "sigterm")
             self?.dictation?.abandon()
+            LiveEngine.shared.stopForQuit()
             FinalPassEngine.stop()
             exit(0)
         }
@@ -152,6 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notes.appWillTerminate()
         NotesProcesses.stopLeftovers(reason: "quit")
         dictation?.abandon()
+        LiveEngine.shared.stopForQuit()
         FinalPassEngine.stop()
     }
 }

@@ -597,6 +597,8 @@ enum EngineSetup {
                 return
             }
             if SpeechEngine.waitUntilResponding(timeout: 90) {
+                // Started here, not by a hold: the engine's idle timer starts counting from now.
+                DispatchQueue.main.async { LiveEngine.shared.externallyStarted() }
                 post(.ready)
             } else {
                 post(.failed("The engine did not start. Its log is at ~/Library/Logs/TalkFlow/whisper-server.log"))

@@ -2,7 +2,8 @@ import Foundation
 
 /// Everything needed to get the local Whisper server running on a Mac that has
 /// never seen talkflow: find `whisper-server`, fetch the model, and register
-/// the LaunchAgent that keeps it warm.
+/// the LaunchAgent that talkflow starts when a hold needs it and stops after
+/// two idle minutes (`LiveEngine`).
 ///
 /// `whisper-server` ships inside talkflow.app (`Contents/Helpers`), built from
 /// a pinned whisper.cpp tag by scripts/build-whisper-macos.sh, so a Mac needs
@@ -126,9 +127,9 @@ enum SpeechEngine {
         return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
-    /// Installed means "set up", not "running right now". The server is started
-    /// by a LaunchAgent at login at about the same time as talkflow itself, so
-    /// using liveness here would pop the setup window on every login. The old
+    /// Installed means "set up", not "running right now". The server only runs
+    /// while it is being used (it stops after two idle minutes), so using
+    /// liveness here would pop the setup window after every idle spell. The old
     /// full-precision model counts, so an update never reopens setup while the
     /// new one downloads.
     static var isInstalled: Bool {
@@ -214,7 +215,7 @@ enum SpeechEngine {
         return CommandResult(succeeded: process.terminationStatus == 0, tail: lines.suffix(6).joined(separator: "\n"))
     }
 
-    /// Writes the LaunchAgent that keeps whisper-server resident, if there is not
+    /// Writes the LaunchAgent that runs whisper-server on demand, if there is not
     /// one already, and starts it. An existing plist is kept as it is (it may
     /// have been edited: a different model, a different port), except that one
     /// still running Homebrew's engine, or a program that is gone, is moved to
@@ -253,11 +254,28 @@ enum SpeechEngine {
         return [
             "Label": agentLabel,
             "ProgramArguments": agentArguments(binary: binary, model: liveModelPath.path),
-            "RunAtLoad": true,
-            "KeepAlive": true,
+            "RunAtLoad": false,
+            "KeepAlive": false,
             "StandardOutPath": log,
             "StandardErrorPath": log
         ]
+    }
+
+    /// The on-demand form of an agent plist: `KeepAlive` and `RunAtLoad` off (talkflow starts and stops the engine
+    /// itself; launchd restarting it would undo a stop). Nil when it already is. Only keys that were on are set,
+    /// every other key is kept. Pure.
+    static func onDemand(_ plist: [String: Any]) -> [String: Any]? {
+        func isOn(_ key: String) -> Bool {
+            guard let value = plist[key] else { return false }
+            return (value as? Bool) != false
+        }
+        let keepAlive = isOn("KeepAlive")
+        let runAtLoad = isOn("RunAtLoad")
+        guard keepAlive || runAtLoad else { return nil }
+        var updated = plist
+        if keepAlive { updated["KeepAlive"] = false }
+        if runAtLoad { updated["RunAtLoad"] = false }
+        return updated
     }
 
     /// What to do with the agent plist on this Mac.
@@ -337,7 +355,7 @@ enum SpeechEngine {
     /// A copy installed for testing next to a working install (install.sh
     /// with TALKFLOW_BUNDLE_ID) shares the agent and the models, and must not
     /// take either over.
-    private static var isTestCopy: Bool {
+    static var isTestCopy: Bool {
         (Bundle.main.object(forInfoDictionaryKey: "TalkflowDisableLoginItem") as? Bool) == true
     }
 
@@ -349,6 +367,7 @@ enum SpeechEngine {
     static func prepareOnLaunch() {
         clearBundledQuarantine()
         migrateAgentIfNeeded()
+        DispatchQueue.main.async { LiveEngine.shared.launch() }
         upgradeModel()
     }
 
@@ -377,7 +396,7 @@ enum SpeechEngine {
             migrateAgentIfNeeded()
         }
         guard modelIsComplete, !agentLoadsLegacyModel() else { return }
-        guard waitUntilResponding(timeout: 60) else {
+        guard LiveEngine.withEngineBlocking(.shared, reason: "model upgrade", timeout: 60) else {
             print("talkflowd: the engine is not answering on the new model yet; the old model is kept for now")
             return
         }
@@ -439,6 +458,10 @@ enum SpeechEngine {
             plist["ProgramArguments"] = updated
             changes.append("now loads \(wanted.lastPathComponent), for dictating in \(Preferences.language.title)")
         }
+        if let updated = onDemand(plist) {
+            plist = updated
+            changes.append("now starts when talkflow needs it and stops after 2 minutes idle")
+        }
         guard !changes.isEmpty else { return false }
         do {
             try writeAgent(plist)
@@ -474,6 +497,7 @@ enum SpeechEngine {
         for attempt in 1...10 {
             if runQuietly("/bin/launchctl", ["bootstrap", domain, agentPlistURL.path]) == 0 {
                 print("talkflowd: engine agent: reloaded")
+                DispatchQueue.main.async { LiveEngine.shared.agentReloaded() }
                 return
             }
             if attempt < 10 { Thread.sleep(forTimeInterval: 0.5) }
@@ -507,6 +531,20 @@ enum SpeechEngine {
             Thread.sleep(forTimeInterval: interval)
         }
         return false
+    }
+
+    /// Like `runQuietly`, but returns what the program printed (stdout and stderr together). Blocking.
+    static func runCapturing(_ path: String, _ arguments: [String]) -> (status: Int32, output: String) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        do { try process.run() } catch { return (-1, "") }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (process.terminationStatus, String(decoding: data, as: UTF8.self))
     }
 
     @discardableResult
