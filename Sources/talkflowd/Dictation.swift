@@ -3,9 +3,10 @@ import Foundation
 
 /// The whole dictation pipeline.
 ///
-/// Audio is captured while the key is held. Every ~0.7s the buffer so far is
-/// transcribed and formatted and shown in the overlay caption, so you see your
-/// words as you say them. On release the final transcript is rendered once,
+/// Audio is captured while the key is held. Every ~0.7s the unsettled tail of
+/// the buffer is transcribed (audio before it was settled and transcribed once,
+/// see `HoldSession`), joined to the settled text, formatted and shown in the
+/// overlay caption, so you see your words as you say them. On release the final transcript is rendered once,
 /// fully corrected, and inserted into the focused field in one write. Nothing
 /// is typed and then deleted, so there is no flicker and no correction that is
 /// too long to deliver - every correction is free, because none of it has been
@@ -104,7 +105,14 @@ final class Dictation {
     private var lastInsert: (text: String, bundleID: String?)?
 
     private var previewTimer: DispatchSourceTimer?
-    private var previewInFlight = false
+    /// This hold's transcription: settled pieces plus the live tail. Nil between holds.
+    private var session: HoldSession?
+    /// Keeps the live engine up for the length of the hold and its release pass.
+    private var engineLease: EngineLease?
+    /// Set after a settle: the committed words are re-found in the new hypothesis
+    /// before anything more is committed (`StreamCommit.rebase`).
+    private var pendingRebase = false
+    private var rebaseAttempts = 0
     private let previewInterval: TimeInterval = 0.7
 
     init(overlay: OverlayController, statusBar: StatusBar) {
@@ -116,6 +124,7 @@ final class Dictation {
     func begin() {
         guard !isRecording else { return }
         isRecording = true
+        engineLease = LiveEngine.shared.acquire("hold")
         startedAt = Date()
         field.reset()
         stream.reset()
@@ -126,6 +135,8 @@ final class Dictation {
         corrections = Preferences.aiCorrections
         correctionPrewarmed = false
         language = Preferences.language
+        pendingRebase = false
+        rebaseAttempts = 0
         targetAppPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
 
         statusBar.setState(.recording)
@@ -135,6 +146,20 @@ final class Dictation {
         // hold's final pass (FinalPassEngine). Every path out of the hold
         // calls holdEnded.
         if !Preferences.useOpenAITranscription { FinalPassEngine.warmUp() }
+
+        // Built before the recorder starts, so the first tick can already read it.
+        let session = HoldSession(
+            source: recorder,
+            config: .init(smallURL: transcribeURL,
+                          largeURL: (Preferences.accurateFinalPass && !Preferences.useOpenAITranscription) ? FinalPassEngine.inferenceURL : nil,
+                          language: language),
+            engine: LiveEngine.shared,
+            prompt: { [weak self] in self?.prompt ?? Transcriber.vocabularyPrompt })
+        session.largeReady = { FinalPassEngine.isReady }
+        session.largePassStarted = { FinalPassEngine.passStarted() }
+        session.largePassEnded = { FinalPassEngine.passEnded() }
+        session.onHypothesis = { [weak self] raw, afterSettle in self?.handleHypothesis(raw, afterSettle: afterSettle) }
+        self.session = session
 
         do {
             try recorder.start()
@@ -152,6 +177,10 @@ final class Dictation {
             // No release will come for this hold, and the large model it just
             // started loading would stay loaded until the next one.
             FinalPassEngine.holdEnded()
+            session.cancel()
+            self.session = nil
+            engineLease?.end()
+            engineLease = nil
             isRecording = false
             statusBar.setState(.idle)
             overlay.hide()
@@ -166,19 +195,30 @@ final class Dictation {
 
         let duration = startedAt.map { Date().timeIntervalSince($0) } ?? 0
         startedAt = nil
+        let session = self.session
+        self.session = nil
         let wav = recorder.stop()
         FinalPassEngine.holdEnded()
+        // Copies the tail now: the release pass can start later (it may wait on the
+        // final-pass model), and a new hold resets the recorder.
+        session?.freeze()
 
-        guard duration >= minDuration else {
+        guard duration >= minDuration, let session else {
             print("talkflowd: hold was \(String(format: "%.2f", duration))s, discarding as an accidental tap")
+            session?.cancel()
+            engineLease?.end()
+            engineLease = nil
             dismiss()
             return
         }
 
         statusBar.setState(.processing)
+        let lease = engineLease
+        engineLease = nil
 
-        transcribeFinal(wav: wav) { [weak self] result in
+        transcribeFinal(wav: wav, session: session) { [weak self] result in
             DispatchQueue.main.async {
+                lease?.end()
                 guard let self else { return }
                 guard let result, !Transcriber.isPlaceholder(result.text) else {
                     if result != nil { print("talkflowd: no speech in \(String(format: "%.1f", duration))s of audio") }
@@ -352,12 +392,13 @@ final class Dictation {
     /// (see `FinalPassEngine`), small.en otherwise or if the large one fails.
     /// A failed large-model request costs one retry on the fast server, never
     /// the dictation. One still loading (a very short hold) is waited for
-    /// briefly.
-    private func transcribeFinal(wav: Data, completion: @escaping (Transcriber.Result?) -> Void) {
+    /// briefly. Locally only the unsettled tail is transcribed here; the settled
+    /// pieces were done during the hold (`HoldSession`).
+    private func transcribeFinal(wav: Data, session: HoldSession, completion: @escaping (Transcriber.Result?) -> Void) {
         let prompt = self.prompt
         let language = self.language
         guard Preferences.useOpenAITranscription else {
-            transcribeLocally(wav: wav, prompt: prompt, language: language, completion: completion)
+            transcribeLocally(session: session, completion: completion)
             return
         }
         // With the user's own OpenAI key. Any failure is shown above the pill
@@ -367,11 +408,12 @@ final class Dictation {
             switch outcome {
             case .success(let result):
                 print("talkflowd: final pass via OpenAI \(CloudTranscriber.model) in \(String(format: "%.2f", result.elapsed))s")
+                session.cancel()
                 completion(result)
             case .failure(let failure):
                 self?.overlay.showError(failure.message + ", used this Mac instead")
                 guard let self else { completion(nil); return }
-                self.transcribeLocally(wav: wav, prompt: prompt, language: language, completion: completion)
+                self.transcribeLocally(session: session, completion: completion)
             }
         }
     }
@@ -381,44 +423,25 @@ final class Dictation {
         Preferences.useClaudePunctuation && APIKeys.hasKey(.anthropic)
     }
 
-    private func transcribeLocally(wav: Data, prompt: String, language: DictationLanguage, completion: @escaping (Transcriber.Result?) -> Void) {
+    private func transcribeLocally(session: HoldSession, completion: @escaping (Transcriber.Result?) -> Void) {
         // FinalPassEngine lives on the main thread, and an OpenAI failure
         // lands here from a URLSession queue.
         guard Thread.isMainThread else {
-            DispatchQueue.main.async { self.transcribeLocally(wav: wav, prompt: prompt, language: language, completion: completion) }
+            DispatchQueue.main.async { self.transcribeLocally(session: session, completion: completion) }
             return
         }
-        let small = transcribeURL
         guard Preferences.accurateFinalPass else {
-            Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, language: language, completion: completion)
+            session.finish(route: .small) { result, _ in completion(result) }
             return
         }
         FinalPassEngine.whenReady(timeout: FinalPassEngine.releaseWait) { ready in
             guard ready else {
-                Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, language: language, completion: completion)
+                session.finish(route: .small) { result, _ in completion(result) }
                 return
             }
-            // Keeps the server loaded until this pass is done; it is unloaded
-            // shortly after (FinalPassEngine.unloadDelay).
-            FinalPassEngine.passStarted()
-            // Timed from here, so waiting for the model to load never counts
-            // as a slow pass (FinalPassSpeed).
-            let startedAt = Date()
-            Transcriber.transcribe(wav: wav, serverURL: FinalPassEngine.inferenceURL, timeout: FinalPassSpeed.timeout, prompt: prompt, language: language) { result in
-                FinalPassEngine.passEnded()
-                let audioSeconds = FinalPassSpeed.seconds(ofWav: wav)
-                if let result {
-                    print("talkflowd: final pass via large-v3-turbo")
-                    FinalPassSpeed.record(elapsed: result.elapsed, audioSeconds: audioSeconds)
-                    completion(result)
-                    return
-                }
-                // Ran out of time, as opposed to being refused or failing at once.
-                if Date().timeIntervalSince(startedAt) >= FinalPassSpeed.timeout - 0.5 {
-                    FinalPassSpeed.record(elapsed: nil, audioSeconds: audioSeconds)
-                }
-                print("talkflowd: final-pass model did not answer, falling back to small.en")
-                Transcriber.transcribe(wav: wav, serverURL: small, prompt: prompt, language: language, completion: completion)
+            session.finish(route: .large) { result, usedLarge in
+                print(usedLarge ? "talkflowd: final pass via large-v3-turbo" : "talkflowd: final-pass model did not answer, falling back to small.en")
+                completion(result)
             }
         }
     }
@@ -448,6 +471,10 @@ final class Dictation {
         stopPreviewLoop()
         _ = recorder.stop()
         FinalPassEngine.holdEnded()
+        session?.cancel()
+        session = nil
+        engineLease?.end()
+        engineLease = nil
         dismiss()
     }
 
@@ -662,7 +689,7 @@ final class Dictation {
     private func startPreviewLoop() {
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + previewInterval, repeating: previewInterval)
-        timer.setEventHandler { [weak self] in self?.tickPreview() }
+        timer.setEventHandler { [weak self] in self?.session?.tick() }
         previewTimer = timer
         timer.resume()
     }
@@ -672,47 +699,50 @@ final class Dictation {
         previewTimer = nil
     }
 
-    /// Only one request is ever in flight: each one re-transcribes the whole
-    /// buffer, so a queue of them would be stale by the time it drained and would
-    /// also delay the final pass behind it.
+    /// One live update from the session: the settled text joined to the tail's
+    /// transcript, raw. Rendered as one string, so a spoken command split across
+    /// a settle seam still works.
     ///
-    /// `snapshotWAV()` always covers the whole recording, and `Recorder` offers no
-    /// way to ask for less. StreamCommit compares this transcript against the
-    /// previous one word by word, so it has to be a transcript of the same thing
-    /// every time - transcribing only the recent audio would shift every index
-    /// against what is already committed.
-    private func tickPreview() {
-        guard isRecording, !previewInFlight, recorder.durationSeconds >= 0.5 else { return }
-        previewInFlight = true
-
-        Transcriber.transcribe(wav: recorder.snapshotWAV(), serverURL: transcribeURL, timeout: 5, prompt: prompt, language: language) { [weak self] result in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.previewInFlight = false
-                guard self.isRecording, let result, !Transcriber.isPlaceholder(result.text) else { return }
-                // A discarded tick (no speech, or a failed request) must leave
-                // the committer untouched, or the next transcript would be
-                // compared against nothing and half of it would commit at once.
-                let english = self.language.usesEnglishRules(for: result.text)
-                let rendered = Self.render(result.text, leadingSpace: self.leadingSpace, structure: false, style: self.style, english: english)
-                // Loads the correction model only for holds that may need it: the caption
-                // (rendered without corrections) has a marker in it.
-                if english, !self.liveTyping, self.corrections, !self.correctionPrewarmed,
-                   CorrectionModel.isAvailable, SelfCorrection.hasMarker(in: rendered) {
-                    self.correctionPrewarmed = true
-                    DispatchQueue.global(qos: .userInitiated).async { CorrectionModel.prewarm() }
-                }
-                guard self.liveTyping else {
-                    // Caption only. StreamCommit still runs, to tell the words
-                    // that have settled from the ones whisper may revise.
-                    _ = self.stream.advance(rendered)
-                    let (settled, pending) = Self.captionParts(committed: self.stream.committed, rendered: rendered)
-                    self.overlay.showCaption(settled: settled, pending: pending)
-                    return
-                }
-                guard let settled = self.stream.advance(rendered) else { return }
-                self.streamField(to: settled)
-            }
+    /// Only one request is ever in flight (see `HoldSession`), and each covers the
+    /// unsettled tail only. StreamCommit compares this transcript against the
+    /// previous one word by word; a settle replaces the front of the text, so the
+    /// first hypothesis after one re-anchors the commit point by content
+    /// (`StreamCommit.rebase`) and commits nothing until it has.
+    private func handleHypothesis(_ raw: String, afterSettle: Bool) {
+        guard isRecording else { return }
+        // A discarded tick (no speech, or a failed request) never gets here, so
+        // the committer is not compared against nothing.
+        let english = language.usesEnglishRules(for: raw)
+        let rendered = Self.render(raw, leadingSpace: leadingSpace, structure: false, style: style, english: english)
+        // Loads the correction model only for holds that may need it: the caption
+        // (rendered without corrections) has a marker in it.
+        if english, !liveTyping, corrections, !correctionPrewarmed,
+           CorrectionModel.isAvailable, SelfCorrection.hasMarker(in: rendered) {
+            correctionPrewarmed = true
+            DispatchQueue.global(qos: .userInitiated).async { CorrectionModel.prewarm() }
         }
+        if afterSettle {
+            pendingRebase = true
+            rebaseAttempts = 0
+        }
+        if pendingRebase {
+            rebaseAttempts += 1
+            if stream.rebase(onto: rendered, force: rebaseAttempts >= 3) { pendingRebase = false }
+            if !liveTyping {
+                let (settled, pending) = Self.captionParts(committed: stream.committed, rendered: rendered)
+                overlay.showCaption(settled: settled, pending: pending)
+            }
+            return
+        }
+        guard liveTyping else {
+            // Caption only. StreamCommit still runs, to tell the words
+            // that have settled from the ones whisper may revise.
+            _ = stream.advance(rendered)
+            let (settled, pending) = Self.captionParts(committed: stream.committed, rendered: rendered)
+            overlay.showCaption(settled: settled, pending: pending)
+            return
+        }
+        guard let settled = stream.advance(rendered) else { return }
+        streamField(to: settled)
     }
 }
