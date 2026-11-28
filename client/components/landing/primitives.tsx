@@ -2,10 +2,14 @@ import { cn } from "@/lib/cn";
 
 export const buttonClass = {
   primary:
-    "inline-flex items-center justify-center gap-2 rounded-full bg-coral font-medium text-white shadow-[0_8px_20px_-10px_rgb(246_93_75/0.9)] transition-[transform,background-color] hover:-translate-y-px hover:bg-[#ff6b59] active:translate-y-0",
+    "relative isolate inline-flex items-center justify-center gap-2 rounded-full font-medium text-white [text-shadow:0_1px_8px_rgb(120_20_10/0.35)] transition-transform duration-200 hover:-translate-y-px active:translate-y-0 active:scale-[0.97]",
   secondary:
-    "inline-flex items-center justify-center gap-2 rounded-full border border-line font-medium text-ink transition-colors hover:bg-ink/5 active:bg-ink/10",
+    "relative isolate inline-flex items-center justify-center gap-2 rounded-full font-medium text-white [text-shadow:0_1px_8px_rgb(6_30_130/0.45)] transition-transform duration-200 hover:-translate-y-px active:translate-y-0 active:scale-[0.97]",
 };
+
+// Glass tints: coral for the main action, near-clear for the rest.
+export const GLASS_CORAL = "rgb(246 93 75 / 0.8)";
+export const GLASS_CLEAR = "rgb(255 255 255 / 0.07)";
 
 // The red "listening" dot, the same red the menu bar icon turns while recording.
 export function RecDot({ className }: { className?: string }) {

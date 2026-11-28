@@ -7,7 +7,8 @@ import { cn } from "@/lib/cn";
 import { BrandLogo } from "./BrandLogo";
 import { OS_LOGOS } from "./brand-logos.generated";
 import { INSTALL_SCRIPT_PATH, MAC_BUILD_DETAIL, RELEASES_URL, SHOW_OS_LOGOS, WISPR_FLOW_PRICE } from "./content";
-import { buttonClass } from "./primitives";
+import { LiquidGlass } from "./LiquidGlass";
+import { buttonClass, GLASS_CORAL } from "./primitives";
 import { useVisitor } from "./visitor";
 
 // Wispr Flow Pro's price with a red line drawn through it, then "Free". The
@@ -62,6 +63,7 @@ export function DownloadCta({ align = "center", compare = false }: { align?: "ce
     <div className={cn("flex flex-col gap-4", align === "center" ? "items-center" : "items-start")}>
       <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
         <Link href="/download/mac" className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}>
+          <LiquidGlass tint={GLASS_CORAL} />
           {SHOW_OS_LOGOS && <BrandLogo logo={OS_LOGOS.apple} className="size-[18px] -translate-y-px" />}
           Download for Mac
         </Link>
@@ -90,7 +92,8 @@ function InstallCommand() {
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex h-11 min-w-0 items-center gap-3 rounded-full bg-[#071c66]/90 pl-4 pr-1.5 font-mono text-[13px] text-white shadow-[0_10px_30px_-12px_rgb(3_12_60/0.8)] ring-1 ring-white/15 backdrop-blur-md">
+      <div className="relative isolate flex h-11 min-w-0 items-center gap-3 rounded-full pl-4 pr-1.5 font-mono text-[13px] text-white">
+        <LiquidGlass tint="rgb(7 28 102 / 0.45)" />
         <span aria-hidden="true" className="select-none text-white/55">$</span>
         <code className="truncate text-white">{command}</code>
         <button
@@ -142,8 +145,9 @@ function OtherBuilds() {
         aria-expanded={open}
         title="Other builds"
         onClick={() => setOpen((value) => !value)}
-        className={cn(buttonClass.secondary, "size-11 border-transparent bg-[#071c66]/90 text-white ring-1 ring-white/15 backdrop-blur-md", open && "bg-[#0a2580]")}
+        className={buttonClass.secondary + " size-11"}
       >
+        <LiquidGlass tint={open ? "rgb(7 28 102 / 0.55)" : "rgb(7 28 102 / 0.32)"} />
         <Layers size={17} aria-hidden="true" />
       </button>
       {open && (
@@ -194,6 +198,7 @@ function CopyLink({ align, compare }: { align: "center" | "start"; compare: bool
         }}
         className={cn(buttonClass.primary, "h-13 px-7 text-[17px]")}
       >
+        <LiquidGlass tint={GLASS_CORAL} />
         {copied ? <Check size={18} aria-hidden="true" /> : <Link2 size={18} aria-hidden="true" />}
         {copied ? "Link copied" : "Copy link for your computer"}
       </button>

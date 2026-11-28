@@ -1,7 +1,7 @@
 import { RecDot, SectionTitle, Waveform } from "./primitives";
 import { LetGoDemo } from "./LetGoDemo";
 
-const STEP = "flex flex-col gap-5 border-t border-line pt-6";
+const STEP = "flex flex-col gap-5";
 const STAGE = "flex h-36 items-center justify-center rounded-3xl bg-mist px-6";
 const KEY =
   "grid h-[68px] min-w-[76px] place-items-end rounded-[14px] border border-black/10 border-b-[5px] bg-white p-2.5 font-sans text-[22px] text-[#0b1f66] shadow-[0_10px_24px_-12px_rgb(3_12_60/0.7)]";
