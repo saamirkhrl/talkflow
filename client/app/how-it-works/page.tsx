@@ -52,8 +52,10 @@ export default function HowItWorksPage() {
       <p>Two Whisper models are used:</p>
       <ul>
         <li>
-          <strong>small.en</strong>, an English-only model, is the main one. It produces the live caption while you hold
-          the key, and the final text unless the larger model below is in use. It is a
+          <strong>small.en</strong>, an English-only model, is the main one for English. If you dictate in German or
+          pick Automatic, talkflow uses Whisper&apos;s multilingual small model instead, also about 190 MB and downloaded
+          once. Either one produces the live caption while you hold the key, and the final text unless the larger
+          model below is in use. It is a
           5-bit compressed copy of about 190 MB. Setup downloads it once, from the whisper.cpp project on Hugging Face.
         </li>
         <li>
@@ -113,13 +115,18 @@ export default function HowItWorksPage() {
           same word-for-word guarantee. With a key added, that step leaves your computer and goes to
           that provider.
         </li>
+        <li>
+          <strong>AI corrections</strong> (experimental) remove words you take back mid-sentence. They use Apple
+          Intelligence on your Mac when it&apos;s available; otherwise they send the text to Anthropic with your own key.
+          They only ever delete words.
+        </li>
       </ul>
 
       <h2 id="limits">What it doesn&apos;t do</h2>
       <ul>
         <li>
-          It is built for English. Its main model, small.en, is English-only: fast and accurate
-          for English, but it doesn&apos;t transcribe other languages.
+          It supports English and German, with more languages coming. Some rules, such as
+          self-corrections, apply to English only.
         </li>
         <li>It doesn&apos;t run on phones or tablets, only on a Mac.</li>
         <li>It doesn&apos;t rewrite, summarize or &quot;improve&quot; what you dictate.</li>

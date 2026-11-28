@@ -30,7 +30,7 @@ const ROWS: [label: string, talkflow: string, wispr: string][] = [
   ["Works offline", "Yes, once set up", "No, transcription needs its servers"],
   ["Account", "None", "Required by its terms of service"],
   ["Platforms", "Mac", "Mac, Windows, iPhone and Android"],
-  ["Languages", "English", "100+ languages, per its website"],
+  ["Languages", "English and German", "100+ languages, per its website"],
   ["Text editing", "Fixed rules: filler removal, spoken punctuation, lists. Never rephrases", "Automatic formatting and edits of what you said"],
 ];
 
@@ -108,8 +108,8 @@ export default function WisprFlowAlternativePage() {
           <strong>Phones.</strong> Wispr Flow has iPhone and Android apps. talkflow is only for Mac.
         </li>
         <li>
-          <strong>Languages.</strong> Wispr Flow says it supports more than 100 languages. talkflow is
-          built for English.
+          <strong>Languages.</strong> Wispr Flow says it supports more than 100 languages. talkflow
+          supports English and German.
         </li>
         <li>
           <strong>AI editing.</strong> Wispr Flow formats and edits what you say. talkflow
@@ -124,8 +124,8 @@ export default function WisprFlowAlternativePage() {
 
       <h2 id="which">Which one fits</h2>
       <p>
-        talkflow is a good fit if you dictate in English on a Mac and want it free, private and
-        working offline, with code you can inspect. If you need Windows or phone apps, other languages or
+        talkflow is a good fit if you dictate in English or German on a Mac and want it free, private and
+        working offline, with code you can inspect. If you need Windows or phone apps, more languages or
         AI rewriting, Wispr Flow covers those.
       </p>
       <p>

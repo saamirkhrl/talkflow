@@ -45,7 +45,7 @@ export default function OfflineDictationMacPage() {
         to disk.
       </p>
       <p>
-        Setup downloads the English speech model once (small.en, about 190 MB). A larger, more
+        Setup downloads the speech model once (small.en for English, or the multilingual small model for German; about 190 MB each). A larger, more
         accurate model for the final text (large-v3-turbo, about 575 MB) is optional: turn on
         Accurate final pass in Settings and it downloads in the background. Either way, nothing
         more needs to be downloaded to dictate. The full pipeline is described in{" "}
@@ -68,8 +68,8 @@ export default function OfflineDictationMacPage() {
         </li>
       </ul>
       <p>
-        Meeting notes ask for one more, System Audio Recording, the first time you record a meeting
-        (macOS 14.2 or later); dictation doesn&apos;t need it. You can turn any of them off at any
+        Meeting notes need one more, System Audio Recording (macOS 14.2 or later). Setup offers it as an
+        optional last step; if you skip it, macOS asks the first time you record a meeting; dictation doesn&apos;t need it. You can turn any of them off at any
         time in System Settings &gt; Privacy &amp; Security. If
         holding fn opens the emoji picker instead, set System Settings &gt; Keyboard &gt; &quot;Press
         the globe key to&quot; to <strong>Do Nothing</strong>.
@@ -116,7 +116,7 @@ export default function OfflineDictationMacPage() {
 
       <h2 id="limits">Good to know</h2>
       <ul>
-        <li>It is built for English; its main model, small.en, is English-only.</li>
+        <li>It supports English and German, with more languages coming.</li>
         <li>
           It types into the focused text field of most Mac apps, but not every app has been tested,
           and an app can change how it accepts typed text.

@@ -131,7 +131,11 @@ function buildMaps(w: number, h: number, radius: number, dpr: number): Maps {
 
 function supportsSvgBackdrop() {
   const brands = (navigator as Navigator & { userAgentData?: { brands: { brand: string }[] } }).userAgentData?.brands;
-  return !!brands?.some((b) => /Chromium|Google Chrome|Microsoft Edge/.test(b.brand));
+  if (brands) return brands.some((b) => /Chromium|Google Chrome|Microsoft Edge/.test(b.brand));
+  // userAgentData only exists on https and localhost, so on a plain-http LAN
+  // address fall back to the UA string. Chrome on iOS is WebKit and says
+  // "CriOS", not "Chrome/", so it correctly stays on the fallback.
+  return /\b(Chrome|Chromium|Edg)\/\d+/.test(navigator.userAgent);
 }
 
 // Drop inside any `relative isolate` button. It sits behind the label and
