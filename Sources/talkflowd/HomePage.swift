@@ -1,11 +1,6 @@
 import AppKit
 import SwiftUI
 
-enum ChartStyle: String, CaseIterable {
-    case grid = "Grid"
-    case bars = "Weekly bars"
-}
-
 /// Splits minutes into the two largest whole units, e.g. 879 -> 14 h 39 min,
 /// 4000 -> 2 d 18 h. Units: min, h, d, wk, mo (30 d), yr (365 d).
 func timeSavedParts(minutes: Int) -> [(value: String, unit: String)] {
@@ -26,29 +21,13 @@ func timeSavedParts(minutes: Int) -> [(value: String, unit: String)] {
 final class DashboardModel: ObservableObject {
     @Published var snapshot = StatsStore.shared.snapshot()
     @Published var days = StatsStore.shared.recentDays(DashboardModel.chartDays)
-    /// Grid or bars, remembered between launches.
-    @Published var chartStyle = ChartStyle(rawValue: Preferences.defaults.string(forKey: "dashboardChart") ?? "") ?? .grid {
-        didSet { Preferences.defaults.set(chartStyle.rawValue, forKey: "dashboardChart") }
-    }
-    /// The day (grid) or week (bars) under the pointer, for the tooltip.
+    /// The calendar day under the pointer (its place in `days`), for the tooltip.
     @Published var hovered: Int?
+    /// The bar under the pointer in the last 30 days (0 is the oldest).
+    @Published var hoveredBar: Int?
 
-    /// The weekly bars keep their half year; the grid shows a year.
-    static let barWeeks = 26
-
-    /// Enough days to fill the grid's year of columns, the last one running up
-    /// to today, so the first day always lands on the first row of its column.
-    static var chartDays: Int { days(weeks: ActivityGrid.weeks) }
-
-    /// The days the weekly bars cover (the last `barWeeks` columns).
-    static var barDays: Int { days(weeks: barWeeks) }
-
-    private static func days(weeks: Int) -> Int {
-        let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: Date())
-        let sinceWeekStart = (weekday - calendar.firstWeekday + 7) % 7
-        return (weeks - 1) * 7 + sinceWeekStart + 1
-    }
+    /// From the first day of the calendar's first month up to today.
+    static var chartDays: Int { ActivityGrid.dayCount(today: Date(), calendar: Calendar.current) }
 
     func refresh() {
         snapshot = StatsStore.shared.snapshot()
@@ -56,13 +35,14 @@ final class DashboardModel: ObservableObject {
     }
 }
 
-/// Home: the totals and the activity chart. The chart is moved verbatim from
-/// the old dashboard.
+/// Home: a greeting, the totals, today against a usual day, the last 30 days
+/// and the year calendar.
 struct HomePage: View {
     @ObservedObject var window: AppWindowModel
     @ObservedObject var model: DashboardModel
     @ObservedObject var updater: Updater
     var scrolls = true
+    @Environment(\.colorScheme) private var colorScheme
 
     private var s: StatsStore.Snapshot { model.snapshot }
 
@@ -72,7 +52,8 @@ struct HomePage: View {
                 if showsBanner { updateBanner }
                 header
                 totals
-                activity
+                todayAndRecent
+                yearCard
             }
         }
     }
@@ -135,7 +116,7 @@ struct HomePage: View {
 
     private var header: some View {
         HStack {
-            Text("Home")
+            Text(HomeInsights.greeting(hour: Calendar.current.component(.hour, from: Date())))
                 .font(AppFont.pageTitle)
                 .foregroundColor(Palette.ink)
             Spacer()
@@ -158,7 +139,7 @@ struct HomePage: View {
             .accessibilityLabel("Finish setup")
             .help("Opens setup.")
         } else {
-            pill(dot: Palette.ink, text: "Ready. Hold \(window.hotkeyName) anywhere to dictate.")
+            pill(dot: Palette.brand, text: "Ready. Hold \(window.hotkeyName) anywhere to dictate.")
         }
     }
 
@@ -187,7 +168,9 @@ struct HomePage: View {
     }
 
     private var hero: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let calendar = Calendar.current
+        let line = HomeInsights.milestone(total: s.totalWords, day: HomeInsights.dayNumber(Date(), calendar: calendar))
+        return VStack(alignment: .leading, spacing: 0) {
             Text("Total words dictated")
                 .font(.system(size: 13))
                 .foregroundColor(Palette.muted)
@@ -195,27 +178,53 @@ struct HomePage: View {
                 .font(AppFont.hero)
                 .monospacedDigit()
                 .foregroundColor(Palette.ink)
+            if let line {
+                Text(line)
+                    .font(AppFont.bodyMedium)
+                    .foregroundColor(Palette.brand)
+                    .padding(.top, 2)
+            }
+        }
+        // A soft glow behind the number: a background, so it never changes the layout.
+        .background(alignment: .leading) {
+            RadialGradient(colors: [Palette.brand.opacity(colorScheme == .dark ? 0.22 : 0.14), .clear],
+                           center: .center, startRadius: 0, endRadius: 110)
+                // A 220 pt circle stretched to 420 x 220, so the glow fades out inside its frame instead of being cut by it.
+                .frame(width: 220, height: 220)
+                .scaleEffect(x: 420.0 / 220.0, y: 1)
+                .offset(x: 0, y: -10)
+                .blur(radius: 30)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 
     private var grid: some View {
         // One row, so no tile is left empty.
-        let tiles: [(String, [(value: String, unit: String)])] = [
-            ("Today", [(s.todayWords.formatted(), "words")]),
-            ("Speed", [("\(s.averageWPM)", "wpm")]),
-            ("Streak", [("\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days")]),
-            ("Time saved", timeSavedParts(minutes: s.estimatedMinutesSaved))
+        let tiles: [(String, String, Color, [(value: String, unit: String)])] = [
+            ("Today", "text.bubble.fill", Palette.brand, [(s.todayWords.formatted(), "words")]),
+            ("Speed", "speedometer", Palette.brand, [("\(s.averageWPM)", "wpm")]),
+            ("Streak", "flame.fill", Palette.coral, [("\(s.dayStreak)", s.dayStreak == 1 ? "day" : "days")]),
+            ("Time saved", "clock.fill", Palette.brand, timeSavedParts(minutes: s.estimatedMinutesSaved))
         ]
         return HStack(spacing: 12) {
             ForEach(tiles, id: \.0) { tile in
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(tile.0)
-                        .font(AppFont.caption)
-                        .foregroundColor(Palette.muted)
+                    HStack(spacing: 8) {
+                        Image(systemName: tile.1)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(tile.2)
+                            .frame(width: 26, height: 26)
+                            .background(Circle().fill(tile.2.opacity(0.16)))
+                            .accessibilityHidden(true)
+                        Text(tile.0)
+                            .font(AppFont.caption)
+                            .foregroundColor(Palette.muted)
+                    }
                     // "16 h 48 min" when it fits the tile, else "16 h".
                     ViewThatFits(in: .horizontal) {
-                        value(tile.1)
-                        value(Array(tile.1.prefix(1)))
+                        value(tile.3)
+                        value(Array(tile.3.prefix(1)))
                     }
                     .foregroundColor(Palette.ink)
                 }
@@ -246,64 +255,156 @@ struct HomePage: View {
         .fixedSize()
     }
 
-    // MARK: - Activity chart
+    // MARK: - Today and the last 30 days
 
-    /// One column of the weekly bars: a bar plus its gap, which is part of the
-    /// hover target so the pointer is never between bars.
-    private let cell: CGFloat = 18
-    /// Room for the value labels on the left of the bars.
-    private let axisWidth: CGFloat = 30
-    /// Room for the month labels.
-    private let monthHeight: CGFloat = 16
-
-    /// The bars' weeks: the last `barWeeks` columns of the year.
-    private var weeks: [[(date: Date, words: Int)]] {
-        let all = stride(from: 0, to: model.days.count, by: 7).map { Array(model.days[$0..<min($0 + 7, model.days.count)]) }
-        return Array(all.suffix(DashboardModel.barWeeks))
+    private var todayAndRecent: some View {
+        ThirdSplit(spacing: 16) {
+            todayCard
+            recentCard
+        }
     }
 
-    private var activity: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Text("Activity")
-                    .font(AppFont.bodyMedium)
-                    .foregroundColor(Palette.ink)
-                Spacer()
-                Menu {
-                    ForEach(ChartStyle.allCases, id: \.self) { style in
-                        Button(style.rawValue) {
-                            model.hovered = nil
-                            model.chartStyle = style
+    private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 14) { content() }
+            .padding(.horizontal, ActivityGrid.cardPadding)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).fill(Palette.card))
+            .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.cardStroke, lineWidth: 1))
+    }
+
+    /// Today's words against a usual day: a ring, or just the count until
+    /// there are enough days to know what usual is.
+    private var todayCard: some View {
+        let calendar = Calendar.current
+        let usual = HomeInsights.usual(days: model.days, today: model.days.last?.date ?? Date(), calendar: calendar)
+        let ratio = HomeInsights.todayRatio(today: s.todayWords, usual: usual)
+        let words = s.todayWords.formatted()
+        return card {
+            Text("Today")
+                .font(AppFont.bodyMedium)
+                .foregroundColor(Palette.ink)
+            if let ratio, let usual {
+                let percent = Int((ratio * 100).rounded())
+                VStack(spacing: 10) {
+                    ZStack {
+                        Circle().stroke(Palette.ink.opacity(0.08), lineWidth: 10)
+                        if ratio > 0 {
+                            Circle()
+                                .trim(from: 0, to: min(ratio, 1))
+                                .stroke(ratio >= 1 ? Palette.coral : Palette.brand,
+                                        style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
                         }
+                        Text("\(percent)%")
+                            .font(AppFont.stat)
+                            .monospacedDigit()
+                            .foregroundColor(Palette.ink)
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(model.chartStyle.rawValue)
-                        Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
-                    }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Palette.ink)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .overlay(Capsule().strokeBorder(Palette.line, lineWidth: 1))
-                    .contentShape(Capsule())
+                    .frame(width: 96, height: 96)
+                    Text("Usual day: \(HomeInsights.grouped(usual)) words")
+                        .font(AppFont.caption)
+                        .foregroundColor(Palette.muted)
                 }
-                // The borderless menu style re-lays the label (chevron first, no capsule).
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .fixedSize()
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Today: \(words) words, \(percent) percent of a usual day.")
+            } else {
+                VStack(spacing: 10) {
+                    Text(words)
+                        .font(AppFont.stat)
+                        .monospacedDigit()
+                        .foregroundColor(Palette.ink)
+                    Text("Your usual shows after a few days.")
+                        .font(AppFont.caption)
+                        .foregroundColor(Palette.muted)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Today: \(words) words.")
             }
-            Group {
-                switch model.chartStyle {
-                case .grid: contributionGrid
-                case .bars: weeklyBars
+        }
+    }
+
+    private var recentCard: some View {
+        let recent = Array(model.days.suffix(30))
+        return card {
+            Text("Last 30 days")
+                .font(AppFont.bodyMedium)
+                .foregroundColor(Palette.ink)
+            VStack(alignment: .leading, spacing: 6) {
+                GeometryReader { proxy in
+                    bars(recent, width: proxy.size.width)
                 }
+                .frame(height: 120)
+                HStack {
+                    Text((recent.first?.date ?? Date()).formatted(.dateTime.month(.abbreviated).day()))
+                    Spacer()
+                    Text("Today")
+                }
+                .font(AppFont.small)
+                .foregroundColor(Palette.muted)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Words dictated per day over the last \(model.chartStyle == .grid ? "year" : "\(DashboardModel.barWeeks) weeks"). Today: \(model.snapshot.todayWords.formatted()) words.")
-            if model.chartStyle == .grid { legend }
+            .accessibilityLabel("Words dictated per day, last 30 days. Today: \(s.todayWords.formatted()) words.")
         }
+    }
+
+    /// One bar per day, oldest left, today coral. The gap between bars is part
+    /// of the hover target so the pointer is never between bars.
+    private func bars(_ days: [(date: Date, words: Int)], width: CGFloat) -> some View {
+        let chartHeight: CGFloat = 120
+        let count = max(days.count, 1)
+        let barWidth = width / (CGFloat(count) + CGFloat(count - 1) * 0.3)
+        let pitch = barWidth * 1.3
+        let peak = max(days.map(\.words).max() ?? 0, 1)
+        func barHeight(_ words: Int) -> CGFloat {
+            words > 0 ? max(3, CGFloat(words) / CGFloat(peak) * chartHeight) : 3
+        }
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
+                let isToday = index == days.count - 1
+                let color = day.words == 0 ? Palette.ink.opacity(0.08) : (isToday ? Palette.coral : Palette.brand)
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    TopRoundedBar(radius: 3)
+                        .fill(color)
+                        .frame(width: barWidth, height: barHeight(day.words))
+                }
+                .frame(width: index == days.count - 1 ? barWidth : pitch, height: chartHeight, alignment: .bottomLeading)
+                .opacity(model.hoveredBar == nil || model.hoveredBar == index ? 1 : 0.55)
+                .contentShape(Rectangle())
+                .onHover { inside in
+                    if inside { model.hoveredBar = index } else if model.hoveredBar == index { model.hoveredBar = nil }
+                }
+                .offset(x: CGFloat(index) * pitch)
+            }
+            if let index = model.hoveredBar, days.indices.contains(index) {
+                let day = days[index]
+                tooltip(wordsLine(day.date, day.words),
+                        x: CGFloat(index) * pitch + barWidth / 2, y: chartHeight - barHeight(day.words) - 4, width: width)
+            }
+        }
+        .frame(width: width, height: chartHeight, alignment: .topLeading)
+    }
+
+    // MARK: - This year
+
+    private var yearCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("This year")
+                .font(AppFont.bodyMedium)
+                .foregroundColor(Palette.ink)
+            ActivityGridFrame {
+                GeometryReader { proxy in
+                    calendarBody(width: proxy.size.width)
+                }
+            }
+            legend
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Words dictated per day this year. Today: \(s.todayWords.formatted()) words.")
         .padding(.horizontal, ActivityGrid.cardPadding)
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -311,150 +412,109 @@ struct HomePage: View {
         .overlay(RoundedRectangle(cornerRadius: AppMetrics.cardRadius).stroke(Palette.cardStroke, lineWidth: 1))
     }
 
-    /// The grid's own five shades, so the key matches the tiles.
+    private func levelFill(_ level: Int) -> Color {
+        level == 0 ? Palette.ink.opacity(0.08) : Palette.brand.opacity(ActivityGrid.levelOpacity[level - 1])
+    }
+
+    /// The calendar's own five fills, so the key matches the tiles.
     private var legend: some View {
         HStack(spacing: 6) {
             Text("Less")
-            ForEach(ActivityGrid.levelOpacity, id: \.self) { opacity in
+            ForEach(0..<5, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Palette.ink.opacity(opacity))
+                    .fill(levelFill(level))
                     .frame(width: 12, height: 12)
             }
             Text("More")
         }
         .font(AppFont.small)
         .foregroundColor(Palette.muted)
-        .accessibilityHidden(true)
     }
 
-    /// GitHub-style: a year of weeks, a column per week, a row per weekday,
-    /// darker for more words, sized to fill the card. Month names along the
-    /// top, weekdays down the side, today outlined, and the day's count above
-    /// the tile under the pointer.
-    private var contributionGrid: some View {
-        ActivityGridFrame {
-            GeometryReader { proxy in
-                gridBody(width: proxy.size.width)
-            }
-        }
-    }
-
-    /// One drawn day: `index` is its place in `model.days` (column * 7 + row),
-    /// the key `hovered` uses.
-    private struct GridDay {
+    /// One drawn day: `index` is its place in `model.days`, the key `hovered` uses.
+    private struct CalendarDay {
         let index: Int
-        let column: Int
-        let row: Int
+        let x: CGFloat
+        let y: CGFloat
         let date: Date
         let level: Int
     }
 
-    private func gridDays(_ layout: ActivityGrid.Layout, words: [Date: Int]) -> [GridDay] {
-        let levels = ActivityGrid.levels(columns: layout.columns, words: words)
-        var out: [GridDay] = []
-        for (column, days) in layout.columns.enumerated() {
-            for (row, date) in days.enumerated() {
-                out.append(GridDay(index: column * 7 + row, column: column, row: row, date: date, level: levels[column][row]))
-            }
-        }
-        return out
+    private func monthName(_ month: Date, withYear: Bool) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.dateFormat = withYear ? "MMM yyyy" : "MMM"
+        return formatter.string(from: month)
     }
 
-    private func gridBody(width: CGFloat) -> some View {
+    /// The 12 month blocks in rows of `perRow`, a month's days under its
+    /// name, today outlined, and the day's count above the tile under the pointer.
+    private func calendarBody(width: CGFloat) -> some View {
         let calendar = Calendar.current
-        let today = model.days.last?.date ?? Date()
-        let layout = ActivityGrid.layout(today: today, calendar: calendar, width: width)
+        let todayDate = model.days.last?.date ?? Date()
+        let today = calendar.startOfDay(for: todayDate)
+        let months = ActivityGrid.months(today: todayDate, calendar: calendar)
+        let first = months.first ?? today
+        let (perRow, cell) = ActivityGrid.blocksPerRow(width: width)
+        let pitch = cell * (1 + ActivityGrid.gapRatio)
         var words: [Date: Int] = [:]
         for day in model.days { words[calendar.startOfDay(for: day.date), default: 0] += day.words }
-        let days = gridDays(layout, words: words)
-        return ZStack(alignment: .topLeading) {
-            ForEach(layout.months, id: \.column) { label in
-                Text(label.name)
-                    .font(.system(size: 10))
-                    .foregroundColor(Palette.muted)
-                    .fixedSize()
-                    .offset(x: label.x, y: 0)
+
+        let slotsByMonth = months.map { ActivityGrid.slots(month: $0, calendar: calendar) }
+        let shown = slotsByMonth.flatMap { $0 }.compactMap { $0 }.filter { $0 <= today }
+        let levels = ActivityGrid.levels(days: shown, words: words)
+        var levelOf: [Date: Int] = [:]
+        for (day, level) in zip(shown, levels) { levelOf[day] = level }
+
+        var days: [CalendarDay] = []
+        for (block, slots) in slotsByMonth.enumerated() {
+            let originX = CGFloat(block % perRow) * (ActivityGrid.blockWidth(cell: cell) + ActivityGrid.blockGap)
+            let originY = CGFloat(block / perRow) * (ActivityGrid.blockHeight(cell: cell) + ActivityGrid.blockGap)
+            for (slot, date) in slots.enumerated() {
+                guard let date, date <= today else { continue }
+                days.append(CalendarDay(
+                    index: calendar.dateComponents([.day], from: first, to: date).day ?? 0,
+                    x: originX + CGFloat(slot % 7) * pitch,
+                    y: originY + ActivityGrid.monthLabelHeight + CGFloat(slot / 7) * pitch,
+                    date: date, level: levelOf[date] ?? 0))
             }
-            ForEach(weekdayLabels, id: \.row) { label in
-                Text(label.name)
-                    .font(.system(size: 10))
+        }
+        let radius = cell * ActivityGrid.radiusRatio
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(months.enumerated()), id: \.offset) { block, month in
+                Text(monthName(month, withYear: block == 0 || calendar.component(.month, from: month) == 1))
+                    .font(AppFont.caption)
                     .foregroundColor(Palette.muted)
                     .fixedSize()
-                    .frame(height: layout.cell)
-                    .offset(x: layout.inset, y: layout.y(row: label.row))
+                    .frame(height: ActivityGrid.monthLabelHeight, alignment: .topLeading)
+                    .offset(x: CGFloat(block % perRow) * (ActivityGrid.blockWidth(cell: cell) + ActivityGrid.blockGap),
+                            y: CGFloat(block / perRow) * (ActivityGrid.blockHeight(cell: cell) + ActivityGrid.blockGap))
             }
             ForEach(days, id: \.index) { day in
-                gridTile(day, layout: layout)
+                let shape = RoundedRectangle(cornerRadius: radius)
+                shape
+                    .fill(levelFill(day.level))
+                    .overlay(shape.stroke(Palette.coral, lineWidth: day.date == today ? 2 : 0))
+                    .opacity(model.hovered == nil || model.hovered == day.index ? 1 : 0.55)
+                    .frame(width: cell, height: cell)
+                    .frame(width: pitch, height: pitch, alignment: .topLeading)
+                    .contentShape(Rectangle())
+                    .onHover { inside in
+                        if inside { model.hovered = day.index } else if model.hovered == day.index { model.hovered = nil }
+                    }
+                    .offset(x: day.x, y: day.y)
             }
             if let index = model.hovered, let day = days.first(where: { $0.index == index }) {
-                let count = words[day.date] ?? 0
-                tooltip("\(dayName(day.date)): \(count.formatted()) \(count == 1 ? "word" : "words")",
-                        x: layout.x(column: day.column) + layout.cell / 2, y: layout.y(row: day.row) - 4,
-                        width: width)
+                tooltip(wordsLine(day.date, words[day.date] ?? 0), x: day.x + cell / 2, y: day.y - 4, width: width)
             }
         }
-        .frame(width: width, height: layout.height, alignment: .topLeading)
+        .frame(width: width, height: ActivityGrid.height(width: width), alignment: .topLeading)
     }
 
-    private func gridTile(_ day: GridDay, layout: ActivityGrid.Layout) -> some View {
-        let isToday = Calendar.current.isDateInToday(day.date)
-        let shape = RoundedRectangle(cornerRadius: layout.radius)
-        return shape
-            .fill(Palette.ink.opacity(ActivityGrid.levelOpacity[day.level]))
-            .overlay(shape.stroke(Palette.ink.opacity(isToday ? 1 : 0), lineWidth: 1.5))
-            .opacity(model.hovered == nil || model.hovered == day.index ? 1 : 0.55)
-            .frame(width: layout.cell, height: layout.cell)
-            .frame(width: layout.pitch, height: layout.pitch, alignment: .topLeading)
-            .contentShape(Rectangle())
-            .onHover { inside in hover(day.index, inside) }
-            .offset(x: layout.x(column: day.column), y: layout.y(row: day.row))
-    }
+    // MARK: - Tooltip
 
-    /// One bar per week, on the last 26 weeks: easier to compare totals than
-    /// shades. One series, so no legend; the axis shows 0 and the peak.
-    private var weeklyBars: some View {
-        let weeks = self.weeks
-        let totals = weeks.map { $0.reduce(0) { $0 + $1.words } }
-        let peak = max(totals.max() ?? 0, 1)
-        let width = axisWidth + CGFloat(weeks.count) * cell
-        let plotTop: CGFloat = 8, plotHeight = 7 * cell - plotTop
-        let baseline = plotTop + plotHeight
-        return ZStack(alignment: .topLeading) {
-            // Recessive axis: a hairline at the peak and the baseline.
-            Rectangle().fill(Palette.line).frame(width: width - axisWidth, height: 0.5).offset(x: axisWidth, y: plotTop)
-            Rectangle().fill(Palette.line).frame(width: width - axisWidth, height: 1).offset(x: axisWidth, y: baseline)
-            Text(compact(peak)).font(.system(size: 10)).foregroundColor(Palette.muted).offset(x: 0, y: plotTop - 6)
-            Text("0").font(.system(size: 10)).foregroundColor(Palette.muted).offset(x: 0, y: baseline - 7)
-            ForEach(Array(totals.enumerated()), id: \.offset) { index, total in
-                let barHeight = total == 0 ? 0 : max(2, plotHeight * CGFloat(total) / CGFloat(peak))
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    TopRoundedBar(radius: 3)
-                        .fill(Palette.ink.opacity(model.hovered == nil || model.hovered == index ? 0.8 : 0.3))
-                        .frame(width: cell - 4, height: barHeight)
-                }
-                .frame(width: cell, height: plotHeight)
-                .contentShape(Rectangle())
-                .onHover { inside in hover(index, inside) }
-                .offset(x: axisWidth + CGFloat(index) * cell, y: plotTop)
-            }
-            ForEach(monthLabels(weeks), id: \.column) { label in
-                Text(label.name)
-                    .font(.system(size: 10))
-                    .foregroundColor(Palette.muted)
-                    .offset(x: axisWidth + CGFloat(label.column) * cell, y: baseline + 3)
-            }
-            if let index = model.hovered, weeks.indices.contains(index), let first = weeks[index].first, let last = weeks[index].last {
-                let barHeight = totals[index] == 0 ? 0 : max(2, plotHeight * CGFloat(totals[index]) / CGFloat(peak))
-                tooltip("\(first.date.formatted(.dateTime.month(.abbreviated).day())) - \(last.date.formatted(.dateTime.month(.abbreviated).day())): \(totals[index].formatted()) words",
-                        x: axisWidth + CGFloat(index) * cell + cell / 2, y: baseline - barHeight - 4, width: width)
-            }
-        }
-        .frame(width: width, height: monthHeight + 7 * cell, alignment: .topLeading)
-    }
-
-    private func hover(_ index: Int, _ inside: Bool) {
-        if inside { model.hovered = index } else if model.hovered == index { model.hovered = nil }
+    private func wordsLine(_ date: Date, _ count: Int) -> String {
+        "\(dayName(date)): \(count.formatted()) \(count == 1 ? "word" : "words")"
     }
 
     /// A dark label centred above (x, y), kept inside the chart's width.
@@ -482,44 +542,10 @@ struct HomePage: View {
         if calendar.isDateInYesterday(date) { return "Yesterday, \(monthDay)" }
         return date.formatted(.dateTime.weekday(.abbreviated)) + ", " + monthDay
     }
-
-    /// The short month name over the first week that starts in it, skipped
-    /// when the next one is too close to fit (the partial first month).
-    private func monthLabels(_ weeks: [[(date: Date, words: Int)]]) -> [(column: Int, name: String)] {
-        let calendar = Calendar.current
-        var labels: [(column: Int, name: String)] = []
-        var previousMonth = -1
-        for (column, week) in weeks.enumerated() {
-            guard let first = week.first else { continue }
-            let month = calendar.component(.month, from: first.date)
-            if month != previousMonth {
-                labels.append((column, first.date.formatted(.dateTime.month(.abbreviated))))
-                previousMonth = month
-            }
-        }
-        if labels.count > 1, labels[1].column - labels[0].column < 3 { labels.removeFirst() }
-        return labels
-    }
-
-    /// Mon, Wed and Fri, on whichever rows they fall for this locale's first
-    /// weekday - as GitHub labels it.
-    private var weekdayLabels: [(row: Int, name: String)] {
-        let calendar = Calendar.current
-        let symbols = calendar.shortWeekdaySymbols // Sunday first
-        return (0..<7).compactMap { row in
-            let weekday = (calendar.firstWeekday - 1 + row) % 7 // 0 = Sunday
-            return [1, 3, 5].contains(weekday) ? (row, symbols[weekday]) : nil
-        }
-    }
-
-    /// 4512 -> "4.5k".
-    private func compact(_ value: Int) -> String {
-        value >= 1000 ? String(format: "%.1fk", Double(value) / 1000) : String(value)
-    }
 }
 
-/// Takes the width it is offered and asks for the height the activity grid
-/// needs at that width, so the grid can size its tiles to fill the card.
+/// Takes the width it is offered and asks for the height the year calendar
+/// needs at that width, so the blocks can size their tiles to fill the card.
 private struct ActivityGridFrame: Layout {
     /// Used only when no width is offered (an ideal-size pass).
     private let fallbackWidth: CGFloat = 640
@@ -534,6 +560,35 @@ private struct ActivityGridFrame: Layout {
         for subview in subviews {
             subview.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
         }
+    }
+}
+
+/// Two cards side by side, the first a third of the row (less half the
+/// spacing) and the second the rest, both as tall as the taller one.
+private struct ThirdSplit: Layout {
+    let spacing: CGFloat
+
+    private func widths(_ total: CGFloat) -> (CGFloat, CGFloat) {
+        let first = ((total - spacing) / 3).rounded(.down)
+        return (first, total - spacing - first)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 2 else { return .zero }
+        var total = proposal.width ?? 600
+        if !total.isFinite { total = 600 }
+        let (a, b) = widths(total)
+        let height = max(subviews[0].sizeThatFits(ProposedViewSize(width: a, height: nil)).height,
+                         subviews[1].sizeThatFits(ProposedViewSize(width: b, height: nil)).height)
+        return CGSize(width: total, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 2 else { return }
+        let (a, b) = widths(bounds.width)
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(width: a, height: bounds.height))
+        subviews[1].place(at: CGPoint(x: bounds.minX + a + spacing, y: bounds.minY),
+                          proposal: ProposedViewSize(width: b, height: bounds.height))
     }
 }
 

@@ -134,6 +134,7 @@ enum StreamSelfTest {
         report("case: app location and the guide panel placement")
         OnboardingGuideChecks.run { check($0, $1, $2) }
         runActivityGridCases()
+        runHomeInsightsCases()
         runOverlayCases()
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
@@ -2646,85 +2647,116 @@ enum StreamSelfTest {
               "the log line names the regular policy")
     }
 
-    /// The Home page's activity grid (ActivityGrid.swift): a year of weeks
-    /// ending today, every day drawn, sized to the card.
+    /// The Home page's year calendar (ActivityGrid.swift): 12 month blocks
+    /// ending this month, sized to the card, and the levels rule.
     private static func runActivityGridCases() {
-        report("case: the activity grid shows a year, ends today and fills the card")
-        var sunday = Calendar(identifier: .gregorian)
-        sunday.timeZone = TimeZone(identifier: "Europe/London") ?? .current
-        sunday.locale = Locale(identifier: "en_US_POSIX")
-        sunday.firstWeekday = 1
-        var monday = sunday
-        monday.firstWeekday = 2
-        // Tuesday 24 Nov 2026, midday London time.
-        let today = Date(timeIntervalSince1970: 1_795_521_600)
-
-        for (name, cal) in [("Sunday", sunday), ("Monday", monday)] {
-            let cols = ActivityGrid.columns(today: today, calendar: cal)
-            let flat = cols.flatMap { $0 }
-            let end = cal.startOfDay(for: today)
-            let start = ActivityGrid.weekStart(today, calendar: cal)
-            let expectedFirst = cal.date(byAdding: .weekOfYear, value: -52, to: start)
-            check(cols.count == 53, "\(name) start: 53 columns", "\(cols.count)")
-            check(cols.last?.contains(end) == true, "\(name) start: the last column holds today")
-            check(flat.allSatisfy { $0 <= end }, "\(name) start: no day after today")
-            check(cols.first?.first == expectedFirst, "\(name) start: the first column starts 52 weeks before this week",
-                  "\(String(describing: cols.first?.first))")
-            check(cols.dropLast().allSatisfy { $0.count == 7 }, "\(name) start: every earlier column has 7 days")
-            let steps = zip(flat, flat.dropFirst()).allSatisfy { cal.dateComponents([.day], from: $0, to: $1).day == 1 }
-            check(steps, "\(name) start: one day after another, no holes")
-            check(flat.count == 52 * 7 + (cols.last?.count ?? 0), "\(name) start: day count", "\(flat.count)")
+        report("case: the year calendar shows 12 months, lays blocks out to the width and keeps the levels rule")
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC") ?? .current
+        cal.locale = Locale(identifier: "en_US_POSIX")
+        cal.firstWeekday = 1
+        // Saturday 28 Nov 2026, midday UTC.
+        let today = Date(timeIntervalSince1970: 1_795_867_200)
+        func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
+            cal.date(from: DateComponents(year: y, month: m, day: d)) ?? Date.distantPast
         }
-        let mondayLast = ActivityGrid.columns(today: today, calendar: monday).last?.count
-        check(mondayLast == 2, "Monday start: a Tuesday ends the last column on its second row", "\(String(describing: mondayLast))")
 
-        // A brand-new user: nothing stored, so a full year of level 0.
-        let cols = ActivityGrid.columns(today: today, calendar: sunday)
-        let empty = ActivityGrid.levels(columns: cols, words: [:])
-        check(empty.count == 53 && empty.dropLast().allSatisfy { $0.count == 7 }, "new user: a full grid is drawn")
-        check(empty.allSatisfy { $0.allSatisfy { $0 == 0 } }, "new user: every day is level 0")
-        let end = sunday.startOfDay(for: today)
-        let firstDay = ActivityGrid.levels(columns: cols, words: [end: 40])
-        let earlier = firstDay.dropLast().allSatisfy { $0.allSatisfy { $0 == 0 } }
-        check(earlier && firstDay.last?.last == 4, "first day of use: today is the top level, every day before it level 0")
-        check(ActivityGrid.level(words: 1, peak: 100) == 1 && ActivityGrid.level(words: 51, peak: 100) == 3,
-              "levels keep their old steps relative to the busiest day")
-        check(ActivityGrid.levelOpacity.count == 5, "five levels: empty plus four")
-        let rising = zip(ActivityGrid.levelOpacity, ActivityGrid.levelOpacity.dropFirst()).allSatisfy { $1 - $0 >= 0.15 }
-        check(rising && ActivityGrid.levelOpacity[0] >= 0.1, "each level is a clear step up, and empty is visible")
+        let months = ActivityGrid.months(today: today, calendar: cal)
+        check(months.count == 12, "12 months", "\(months.count)")
+        check(months.first == date(2025, 12, 1) && months.last == date(2026, 11, 1), "the months run 2025-12 to 2026-11",
+              "\(String(describing: months.first)) \(String(describing: months.last))")
+        check(ActivityGrid.dayCount(today: today, calendar: cal) == 363, "data days for 28 Nov 2026 is 363",
+              "\(ActivityGrid.dayCount(today: today, calendar: cal))")
 
-        // Month labels: each month once, over the column holding its 1st.
-        let wide = ActivityGrid.layout(today: today, calendar: sunday, width: 800)
-        let names = wide.months.map(\.name)
-        check(names.count == 12 && Set(names).count == 12, "12 month labels, each once", "\(names)")
-        let dec = wide.months.first { $0.name == "Dec" }
-        let decHasFirst = dec.map { wide.columns[$0.column].contains { sunday.component(.day, from: $0) == 1 } } ?? false
-        check(decHasFirst, "a month's label sits over the column holding its 1st")
-        var repeats: [String] = []
-        for offset in 0..<40 {
-            guard let day = sunday.date(byAdding: .day, value: offset, to: today) else { continue }
-            let labels = ActivityGrid.layout(today: day, calendar: monday, width: 560).months
-            let spaced = zip(labels, labels.dropFirst()).allSatisfy { $1.x >= $0.x + ActivityGrid.labelWidth($0.name) }
-            if Set(labels.map(\.name)).count != labels.count || !spaced { repeats.append("+\(offset)") }
+        func near(_ got: (perRow: Int, cell: CGFloat), _ perRow: Int, _ cell: CGFloat) -> Bool {
+            got.perRow == perRow && abs(got.cell - cell) <= 0.05
         }
-        check(repeats.isEmpty, "over 40 days around a new month, no label repeats or overlaps", repeats.joined(separator: " "))
+        check(near(ActivityGrid.blocksPerRow(width: 840), 4, 24.13), "width 840: 4 per row, cell 24.13", "\(ActivityGrid.blocksPerRow(width: 840))")
+        check(near(ActivityGrid.blocksPerRow(width: 552), 3, 21.12), "width 552: 3 per row, cell 21.12", "\(ActivityGrid.blocksPerRow(width: 552))")
+        check(near(ActivityGrid.blocksPerRow(width: 300), 2, 17.33), "width 300: 2 per row, cell 17.33", "\(ActivityGrid.blocksPerRow(width: 300))")
+        check(near(ActivityGrid.blocksPerRow(width: 200), 2, 11.14), "width 200: 2 per row, cell 11.14", "\(ActivityGrid.blocksPerRow(width: 200))")
+        check(near(ActivityGrid.blocksPerRow(width: 2000), 4, 26), "width 2000: 4 per row, cell clamps to 26", "\(ActivityGrid.blocksPerRow(width: 2000))")
 
-        // Cell size: from the card's width, clamped, never wider than the card.
+        // A block: 42 slots, the month's days in order from the right weekday, none missing.
+        for (name, first) in [("Sunday", 1), ("Monday", 2)] {
+            var c = cal
+            c.firstWeekday = first
+            let slots = ActivityGrid.slots(month: date(2026, 11, 1), calendar: c)
+            let days = slots.compactMap { $0 }
+            let lead = slots.firstIndex { $0 != nil } ?? -1
+            check(slots.count == 42 && days.count == 30, "\(name) start: Nov 2026 has 42 slots holding 30 days", "\(slots.count) \(days.count)")
+            // 1 Nov 2026 is a Sunday.
+            check(lead == (first == 1 ? 0 : 6), "\(name) start: 1 Nov lands in column \(first == 1 ? 0 : 6)", "\(lead)")
+            check(days.first == date(2026, 11, 1) && days.last == date(2026, 11, 30), "\(name) start: first and last day")
+        }
+        check(ActivityGrid.slots(month: date(2028, 2, 1), calendar: cal).compactMap { $0 }.count == 29, "Feb 2028 has 29 days")
+
+        // Height: rows of blocks, a gap between them.
+        let wide = ActivityGrid.blocksPerRow(width: 840)
+        let rows3 = 3 * ActivityGrid.blockHeight(cell: wide.cell) + 2 * ActivityGrid.blockGap
+        check(abs(ActivityGrid.height(width: 840) - rows3) < 0.01, "840 wide: three rows of blocks", "\(ActivityGrid.height(width: 840))")
         let side = ActivityGrid.cardPadding * 2 + AppMetrics.pageSide * 2
         let narrowest = AppMetrics.minSize.width - AppMetrics.sidebarWidth - side
-        let small = ActivityGrid.layout(today: today, calendar: sunday, width: narrowest)
-        check(small.cell >= ActivityGrid.minCell && small.cell <= ActivityGrid.maxCell, "minimum window: cell within the clamp",
-              "\(small.cell)")
-        check(small.gridWidth <= narrowest + 0.01, "minimum window: the grid fits the card", "\(small.gridWidth) > \(narrowest)")
-        let widest = 880 - ActivityGrid.cardPadding * 2
-        let big = ActivityGrid.layout(today: today, calendar: sunday, width: widest)
-        check(abs(big.gridWidth - widest) < 0.5 && big.inset == 0, "widest page: the grid fills the card", "\(big.gridWidth)")
-        check(ActivityGrid.cellSize(width: 200) == ActivityGrid.minCell, "a tiny width clamps to the smallest cell")
-        let huge = ActivityGrid.layout(today: today, calendar: sunday, width: 2000)
-        let centred = abs(huge.inset * 2 + huge.gridWidth - 2000) < 0.5
-        check(huge.cell == ActivityGrid.maxCell && centred, "a huge width clamps to the largest cell and centres the grid")
-        let ratio = small.gap / small.cell
-        check(ratio >= 0.15 && ratio <= 0.2, "the gap is 15 to 20 percent of the cell", "\(ratio)")
+        let small = ActivityGrid.blocksPerRow(width: narrowest)
+        check(small.cell >= ActivityGrid.minCell, "minimum window: cell at least the minimum", "\(small)")
+        let used = CGFloat(small.perRow) * ActivityGrid.blockWidth(cell: small.cell) + CGFloat(small.perRow - 1) * ActivityGrid.blockGap
+        check(used <= narrowest + 0.01, "minimum window: the blocks fit the card", "\(used) > \(narrowest)")
+
+        // The levels rule, as the old grid had it.
+        let year = months.flatMap { ActivityGrid.slots(month: $0, calendar: cal) }.compactMap { $0 }.filter { $0 <= cal.startOfDay(for: today) }
+        check(year.count == 363, "every day up to today is shown", "\(year.count)")
+        let empty = ActivityGrid.levels(days: year, words: [:])
+        check(empty.count == year.count && empty.allSatisfy { $0 == 0 }, "new user: every day is level 0")
+        let end = cal.startOfDay(for: today)
+        let firstDay = ActivityGrid.levels(days: year, words: [end: 40])
+        check(firstDay.last == 4 && firstDay.dropLast().allSatisfy { $0 == 0 },
+              "first day of use: today is the top level, every day before it level 0")
+        check(ActivityGrid.level(words: 1, peak: 100) == 1 && ActivityGrid.level(words: 51, peak: 100) == 3,
+              "levels keep their old steps relative to the busiest day")
+        check(ActivityGrid.levelOpacity == [0.35, 0.55, 0.78, 1.0], "four brand steps above the empty level")
+    }
+
+    /// The words Home says (HomeInsights.swift): greeting, usual day, ratio, milestone.
+    private static func runHomeInsightsCases() {
+        report("case: Home insights - greeting, usual day, ratio and milestone")
+        for (hour, expected) in [(4, "Working late"), (5, "Good morning"), (11, "Good morning"), (12, "Good afternoon"),
+                                 (16, "Good afternoon"), (17, "Good evening"), (21, "Good evening"), (22, "Working late")] {
+            check(HomeInsights.greeting(hour: hour) == expected, "greeting at \(hour) is \(expected)", HomeInsights.greeting(hour: hour))
+        }
+
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC") ?? .current
+        let today = cal.date(from: DateComponents(year: 2026, month: 11, day: 28, hour: 12)) ?? Date()
+        func day(_ ago: Int) -> Date { cal.date(byAdding: .day, value: -ago, to: today) ?? today }
+        func usual(_ words: [Int], todayWords: Int = 0, extra: [(Int, Int)] = []) -> Int? {
+            var days: [(date: Date, words: Int)] = words.enumerated().map { (day($0.offset + 1), $0.element) }
+            days.append((today, todayWords))
+            for (ago, w) in extra { days.append((day(ago), w)) }
+            return HomeInsights.usual(days: days, today: today, calendar: cal)
+        }
+        check(usual([0, 0, 100, 200, 300]) == 200, "usual: median of the nonzero days, odd count", "\(String(describing: usual([0, 0, 100, 200, 300])))")
+        check(usual([100, 200, 300, 400]) == 250, "usual: even count averages the middle two", "\(String(describing: usual([100, 200, 300, 400])))")
+        check(usual([0, 0, 100, 200]) == nil, "usual: only 2 nonzero days is nil")
+        check(usual([10, 20, 30], todayWords: 5000) == 20, "usual: today is ignored", "\(String(describing: usual([10, 20, 30], todayWords: 5000)))")
+        check(usual([100, 200], extra: [(31, 900)]) == nil, "usual: a day 31 days back is ignored")
+        check(usual([100, 200], extra: [(30, 300)]) == 200, "usual: a day 30 days back counts")
+
+        check(HomeInsights.todayRatio(today: 50, usual: 200) == 0.25, "ratio 50 of 200")
+        check(HomeInsights.todayRatio(today: 300, usual: 200) == 1.5, "ratio 300 of 200 is not capped")
+        check(HomeInsights.todayRatio(today: 10, usual: nil) == nil, "ratio with no usual is nil")
+        check(HomeInsights.todayRatio(today: 10, usual: 0) == nil, "ratio with usual 0 is nil")
+
+        check(HomeInsights.milestone(total: 0, day: 3) == nil, "milestone: total 0 is nil")
+        let big = ["11,493 words to 125,000.", "That's about 1.3 novels.", "About 227 pages, typed for you."]
+        check(HomeInsights.milestone(total: 113_507, day: 0) == big[0], "milestone 113,507 day 0", "\(String(describing: HomeInsights.milestone(total: 113_507, day: 0)))")
+        check(HomeInsights.milestone(total: 113_507, day: 1) == big[1], "milestone 113,507 day 1", "\(String(describing: HomeInsights.milestone(total: 113_507, day: 1)))")
+        check(HomeInsights.milestone(total: 113_507, day: 5) == big[2], "milestone 113,507 day 5", "\(String(describing: HomeInsights.milestone(total: 113_507, day: 5)))")
+        check(HomeInsights.milestone(total: 900, day: 0) == "100 words to 1,000." && HomeInsights.milestone(total: 900, day: 1) == "About 2 pages, typed for you.",
+              "milestone 900: two lines")
+        check(HomeInsights.milestone(total: 90_000, day: 1) == "That's about 1 novel." && HomeInsights.milestone(total: 90_000, day: 0) == "10,000 words to 100,000.",
+              "milestone 90,000: one novel")
+        check(HomeInsights.milestone(total: 400, day: 0) == "600 words to 1,000." && HomeInsights.milestone(total: 400, day: 7) == "600 words to 1,000.",
+              "milestone 400: only the next round number")
     }
 
     private static func check(_ condition: Bool, _ label: String, _ detail: String = "") {
