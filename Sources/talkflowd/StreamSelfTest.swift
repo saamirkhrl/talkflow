@@ -135,6 +135,10 @@ enum StreamSelfTest {
         OnboardingGuideChecks.run { check($0, $1, $2) }
         runActivityGridCases()
         runOverlayCases()
+        report("case: bounded live updates (long holds)")
+        LongHoldChecks.run { check($0, $1, $2) }
+        report("case: the live engine starts on demand and stops when idle")
+        LiveEngineChecks.run { check($0, $1, $2) }
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)
     }
