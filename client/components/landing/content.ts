@@ -97,8 +97,12 @@ export const FAQ: [question: string, answer: string][] = [
     "Not your voice or your words. Your audio goes to one place: the speech engine running on your own computer. The text is typed straight into the app you're using. There's no account and no usage analytics. It makes two other requests: once, after you install it, it tells us so we can count installs (no ID, nothing about you or how you use it), and it asks GitHub whether there's a newer version (shortly after it starts, every few hours, and when you open the talkflow window). It also downloads its speech models from Hugging Face during setup. An update only installs when you click it. Features that use your own OpenAI or Anthropic key, including meeting-note summaries, are off unless you turn them on.",
   ],
   [
-    "Which key do I hold?",
-    "fn, the Globe key in the bottom-left corner of Mac keyboards (you can change it in Settings). Hold it while you talk and let go when you're done.",
+    "How do meeting notes work?",
+    "Start recording in Notes before or during any call. talkflow records your microphone and the sound your Mac plays, so it works with any meeting app and nothing joins the call. When you stop, it transcribes the meeting on your Mac and tells the voices apart (on Apple silicon). With your own Anthropic or OpenAI key, it then writes a summary with decisions and open questions, and you can ask about the meeting, with each answer linked to the moment it came from.",
+  ],
+  [
+    "Does a meeting's audio leave my Mac?",
+    "No. Recording and transcription run on your Mac, and the audio is deleted once the transcript is saved. Only if you save an Anthropic or OpenAI key does the transcript text go to that provider for the summary and Ask, and talkflow asks once before the first request. Meeting notes need macOS 14.2 or later.",
   ],
   [
     "Does it rewrite what I say?",
@@ -111,10 +115,6 @@ export const FAQ: [question: string, answer: string][] = [
   [
     "Which languages does it support?",
     "English and German. Pick one in Settings, or Automatic if you switch between them. English uses Whisper's English model; German and Automatic download Whisper's multilingual model (about 190 MB) once. More languages are coming.",
-  ],
-  [
-    "Does it work offline?",
-    "Yes. Once it's set up, turn off Wi-Fi and talkflow works exactly the same.",
   ],
   [
     "What do I need to run it?",

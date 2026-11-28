@@ -58,10 +58,10 @@ export default function Home() {
           <HowItWorks />
         </div>
         <div className="glass">
-          <Prompting />
+          <NoteTaker />
         </div>
         <div className="glass">
-          <NoteTaker />
+          <Prompting />
         </div>
         <Privacy />
         <div className="glass">

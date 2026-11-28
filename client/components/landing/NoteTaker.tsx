@@ -204,34 +204,27 @@ export function NoteTaker() {
   const step = p < 0.42 ? 0 : p < 0.72 ? 1 : 2;
 
   return (
-    <section id="notes" aria-labelledby="notes-title" className="px-gutter pt-[clamp(48px,6vw,88px)]">
-      <div className="mx-auto max-w-[1200px] text-center">
-        <SectionTitle className="mx-auto max-w-[16ch]">
-          <span id="notes-title">Every meeting, written up.</span>
-        </SectionTitle>
-        <p className="mx-auto mt-5 max-w-[50ch] text-[18px] text-graphite">
-          Record any call. talkflow transcribes it on your Mac, then writes the notes and answers your questions with
-          your own AI key.
-        </p>
-      </div>
-
+    <section id="notes" aria-labelledby="notes-title" className="px-gutter">
       <div ref={track} className={cn("relative", reduced ? "h-auto" : "h-[420svh]")}>
-        <div className={cn("flex flex-col items-center justify-center gap-5 py-6", reduced ? "" : "sticky top-0 h-svh pt-20")}>
-          <ol className="flex items-center gap-2 rounded-full bg-[#071c66]/60 p-1 text-[14px] ring-1 ring-white/15">
-            {STEPS.map((label, i) => (
-              <li
-                key={label}
-                className={cn(
-                  "rounded-full px-4 py-1.5 transition-colors duration-300",
-                  i === step ? "bg-white text-[#0b1f66]" : "text-white/70",
-                )}
-              >
-                {label}
-              </li>
-            ))}
-          </ol>
+        <div
+          className={cn(
+            "flex flex-col items-center gap-[clamp(14px,2.2svh,24px)] pt-[clamp(80px,11svh,104px)] pb-[clamp(16px,3svh,32px)]",
+            !reduced && "sticky top-0 h-svh",
+          )}
+        >
+          <div className="text-center">
+            <SectionTitle className="text-[clamp(34px,4.4vw,56px)]">
+              <span id="notes-title">Every meeting, written up.</span>
+            </SectionTitle>
+            <p className="mx-auto mt-3 max-w-[56ch] text-[clamp(15px,1.3vw,17px)] text-white/75">
+              Record any call. talkflow transcribes it on your Mac, then writes the notes and answers your questions
+              with your own AI key.
+            </p>
+          </div>
 
-          <div ref={box} className="relative aspect-[16/10] max-h-[calc(100svh-180px)] w-full max-w-[1120px]">
+          <Steps step={step} progress={p} />
+
+          <div ref={box} className="relative min-h-0 w-full max-w-[1120px] flex-1">
             {scale > 0 && (
               <div
                 aria-hidden="true"
@@ -247,13 +240,7 @@ export function NoteTaker() {
                     pointerEvents: "none",
                   }}
                 >
-                  <AppWindow>
-                    {!detail ? (
-                      <Recording writing={writing} />
-                    ) : (
-                      <NoteDetail p={p} askTab={askTab} />
-                    )}
-                  </AppWindow>
+                  <AppWindow>{!detail ? <Recording writing={writing} /> : <NoteDetail p={p} askTab={askTab} />}</AppWindow>
                 </div>
               </div>
             )}
@@ -265,6 +252,44 @@ export function NoteTaker() {
         </div>
       </div>
     </section>
+  );
+}
+
+// Record, Write, Ask: a white pill slides to the current step, and a thin
+// line under it fills as the story plays.
+function Steps({ step, progress }: { step: number; progress: number }) {
+  return (
+    <div className="relative">
+      <ol className="relative grid grid-cols-3 rounded-full bg-white/10 p-1 text-[14px] font-medium ring-1 ring-white/20 backdrop-blur-md">
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-1 left-1 w-[calc((100%-8px)/3)] rounded-full bg-white shadow-[0_6px_18px_-6px_rgb(3_12_60/0.6)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)]"
+          style={{ transform: `translateX(${step * 100}%)` }}
+        />
+        {STEPS.map((label, i) => (
+          <li
+            key={label}
+            className={cn(
+              "relative z-10 flex items-center justify-center gap-2 px-5 py-1.5 transition-colors duration-300",
+              i === step ? "text-[#0b1f66]" : "text-white/70",
+            )}
+          >
+            <span
+              className={cn(
+                "grid size-[18px] place-items-center rounded-full text-[11px] tabular-nums transition-colors duration-300",
+                i === step ? "bg-[#0b1f66] text-white" : "bg-white/15 text-white/80",
+              )}
+            >
+              {i + 1}
+            </span>
+            {label}
+          </li>
+        ))}
+      </ol>
+      <div aria-hidden="true" className="mx-auto mt-2 h-[2px] w-[70%] overflow-hidden rounded-full bg-white/15">
+        <div className="h-full origin-left rounded-full bg-white/80" style={{ transform: `scaleX(${progress})` }} />
+      </div>
+    </div>
   );
 }
 
