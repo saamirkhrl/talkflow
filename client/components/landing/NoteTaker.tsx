@@ -47,10 +47,10 @@ const MEET = APP_LOGOS.find((l) => l.name === "Google Meet");
 // photo: a webcam frame in public/notes/. Without one the tile shows the
 // call's camera-off look: a coloured circle with the initial.
 const PEOPLE: { name: string; photo?: string; color: string; speaks: number; muted?: boolean }[] = [
-  { name: "Maya Chen", color: "#e8710a", speaks: 0 },
-  { name: "Jordan Lee", color: "#1e8e3e", speaks: 1, muted: true },
-  { name: "Priya Shah", color: "#9334e6", speaks: 2 },
-  { name: "You", color: "#1a73e8", speaks: 3 },
+  { name: "Maya Chen", photo: "/notes/maya.webp", color: "#e8710a", speaks: 0 },
+  { name: "Jordan Lee", photo: "/notes/jordan.webp", color: "#1e8e3e", speaks: 1, muted: true },
+  { name: "Priya Shah", photo: "/notes/priya.webp", color: "#9334e6", speaks: 2 },
+  { name: "You", photo: "/notes/you.webp", color: "#1a73e8", speaks: 3 },
 ];
 
 type Seg = { t: string; cite?: never } | { cite: string; t?: never };
@@ -208,23 +208,23 @@ export function NoteTaker() {
       <div ref={track} className={cn("relative", reduced ? "h-auto" : "h-[420svh]")}>
         <div
           className={cn(
-            "flex flex-col items-center gap-[clamp(14px,2.2svh,24px)] pt-[clamp(80px,11svh,104px)] pb-[clamp(16px,3svh,32px)]",
+            "flex flex-col items-center gap-[clamp(14px,2.2svh,24px)] pt-[clamp(76px,10svh,96px)] pb-[clamp(10px,2svh,20px)]",
             !reduced && "sticky top-0 h-svh",
           )}
         >
-          <div className="text-center">
-            <SectionTitle className="text-[clamp(34px,4.4vw,56px)]">
-              <span id="notes-title">Every meeting, written up.</span>
-            </SectionTitle>
-            <p className="mx-auto mt-3 max-w-[56ch] text-[clamp(15px,1.3vw,17px)] text-white/75">
-              Record any call. talkflow transcribes it on your Mac, then writes the notes and answers your questions
-              with your own AI key.
-            </p>
+          <div className="flex w-full max-w-[1240px] flex-wrap items-end justify-between gap-x-8 gap-y-4">
+            <div>
+              <SectionTitle className="text-[clamp(30px,3.4vw,46px)]">
+                <span id="notes-title">Every meeting, written up.</span>
+              </SectionTitle>
+              <p className="mt-2 text-[clamp(14px,1.15vw,16px)] text-white/75">
+                Transcribed on your Mac. Notes and answers with your own AI key.
+              </p>
+            </div>
+            <Steps step={step} />
           </div>
 
-          <Steps step={step} progress={p} />
-
-          <div ref={box} className="relative min-h-0 w-full max-w-[1120px] flex-1">
+          <div ref={box} className="relative min-h-0 w-full max-w-[1240px] flex-1">
             {scale > 0 && (
               <div
                 aria-hidden="true"
@@ -255,41 +255,35 @@ export function NoteTaker() {
   );
 }
 
-// Record, Write, Ask: a white pill slides to the current step, and a thin
-// line under it fills as the story plays.
-function Steps({ step, progress }: { step: number; progress: number }) {
+// Record, Write, Ask: a white pill slides to the current step.
+function Steps({ step }: { step: number }) {
   return (
-    <div className="relative">
-      <ol className="relative grid grid-cols-3 rounded-full bg-white/10 p-1 text-[14px] font-medium ring-1 ring-white/20 backdrop-blur-md">
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-1 left-1 w-[calc((100%-8px)/3)] rounded-full bg-white shadow-[0_6px_18px_-6px_rgb(3_12_60/0.6)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)]"
-          style={{ transform: `translateX(${step * 100}%)` }}
-        />
-        {STEPS.map((label, i) => (
-          <li
-            key={label}
+    <ol className="relative grid grid-cols-3 rounded-full bg-white/10 p-1 text-[14px] font-medium ring-1 ring-white/20 backdrop-blur-md">
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-1 left-1 w-[calc((100%-8px)/3)] rounded-full bg-white shadow-[0_6px_18px_-6px_rgb(3_12_60/0.6)] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)]"
+        style={{ transform: `translateX(${step * 100}%)` }}
+      />
+      {STEPS.map((label, i) => (
+        <li
+          key={label}
+          className={cn(
+            "relative z-10 flex items-center justify-center gap-2 px-5 py-1.5 transition-colors duration-300",
+            i === step ? "text-[#0b1f66]" : "text-white/70",
+          )}
+        >
+          <span
             className={cn(
-              "relative z-10 flex items-center justify-center gap-2 px-5 py-1.5 transition-colors duration-300",
-              i === step ? "text-[#0b1f66]" : "text-white/70",
+              "grid size-[18px] place-items-center rounded-full text-[11px] tabular-nums transition-colors duration-300",
+              i === step ? "bg-[#0b1f66] text-white" : "bg-white/15 text-white/80",
             )}
           >
-            <span
-              className={cn(
-                "grid size-[18px] place-items-center rounded-full text-[11px] tabular-nums transition-colors duration-300",
-                i === step ? "bg-[#0b1f66] text-white" : "bg-white/15 text-white/80",
-              )}
-            >
-              {i + 1}
-            </span>
-            {label}
-          </li>
-        ))}
-      </ol>
-      <div aria-hidden="true" className="mx-auto mt-2 h-[2px] w-[70%] overflow-hidden rounded-full bg-white/15">
-        <div className="h-full origin-left rounded-full bg-white/80" style={{ transform: `scaleX(${progress})` }} />
-      </div>
-    </div>
+            {i + 1}
+          </span>
+          {label}
+        </li>
+      ))}
+    </ol>
   );
 }
 
