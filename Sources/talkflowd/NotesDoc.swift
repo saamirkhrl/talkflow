@@ -204,6 +204,86 @@ enum NotesDoc {
         return s.decisions + open
     }
 
+    // MARK: Stored speaker references
+
+    /// "{{s2}}" placeholders in stored summary text become the speaker's current display name. Text without
+    /// placeholders (old summaries) is returned unchanged.
+    static func resolvingSpeakers(_ text: String, speakers: [NoteSpeaker]) -> String {
+        guard text.contains("{{"),
+              let regex = try? NSRegularExpression(pattern: "\\{\\{(s[0-9]+)\\}\\}") else { return text }
+        let ns = text as NSString
+        var out = ""
+        var cursor = 0
+        for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+            out += ns.substring(with: NSRange(location: cursor, length: match.range.location - cursor))
+            let key = ns.substring(with: match.range(at: 1))
+            out += NotesLogic.displayName(key, in: speakers)
+            cursor = match.range.location + match.range.length
+        }
+        out += ns.substring(from: cursor)
+        return out
+    }
+
+    /// Whole-word, case-sensitive occurrences of each other voice's default label ("Speaker 2") and of its current
+    /// name (when it is auto or user set and not empty) become "{{s2}}". "You" is never tokenized.
+    static func tokenizingSpeakers(_ text: String, speakers: [NoteSpeaker]) -> String {
+        var patterns: [(pattern: String, token: String)] = []
+        for sp in speakers where isOtherVoice(sp.key) {
+            let token = "{{" + sp.key + "}}"
+            patterns.append((NotesLogic.defaultName(sp.key), token))
+            let name = trimmed(sp.name ?? "")
+            let source = nameSource(sp)
+            if (source == .auto || source == .user) && !name.isEmpty { patterns.append((name, token)) }
+        }
+        patterns.sort { $0.pattern.count > $1.pattern.count }
+        var out = text
+        for p in patterns {
+            let body = NSRegularExpression.escapedPattern(for: p.pattern)
+            guard let regex = try? NSRegularExpression(pattern: "\\b" + body + "\\b") else { continue }
+            let range = NSRange(location: 0, length: (out as NSString).length)
+            let template = NSRegularExpression.escapedTemplate(for: p.token)
+            out = regex.stringByReplacingMatches(in: out, range: range, withTemplate: template)
+        }
+        return out
+    }
+
+    private static func mapText(_ s: NoteSummary, _ f: (String) -> String) -> NoteSummary {
+        var r = s
+        r.summary = f(s.summary)
+        r.decisions = s.decisions.map { p in
+            var q = p
+            q.text = f(p.text)
+            return q
+        }
+        r.openQuestions = s.openQuestions.map { p in
+            var q = p
+            q.text = f(p.text)
+            return q
+        }
+        if let details = s.details {
+            r.details = details.map { d in
+                var e = d
+                e.topic = f(d.topic)
+                e.text = f(d.text)
+                return e
+            }
+        }
+        r.actionItems = s.actionItems.map { a in
+            var b = a
+            b.task = f(a.task)
+            return b
+        }
+        return r
+    }
+
+    static func resolving(_ s: NoteSummary, speakers: [NoteSpeaker]) -> NoteSummary {
+        mapText(s) { resolvingSpeakers($0, speakers: speakers) }
+    }
+
+    static func tokenizing(_ s: NoteSummary, speakers: [NoteSpeaker]) -> NoteSummary {
+        mapText(s) { tokenizingSpeakers($0, speakers: speakers) }
+    }
+
     // MARK: Copy
 
     private static func cites(_ times: [Double]) -> String {
@@ -213,7 +293,8 @@ enum NotesDoc {
     }
 
     /// The notes as Markdown in the same document structure, for Copy on the Summary tab.
-    static func markdown(meta: NoteMeta, summary: NoteSummary, calendar: Calendar) -> String {
+    static func markdown(meta: NoteMeta, summary original: NoteSummary, calendar: Calendar) -> String {
+        let summary = resolving(original, speakers: meta.speakers)
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.calendar = calendar

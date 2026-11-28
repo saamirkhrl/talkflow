@@ -402,9 +402,10 @@ enum NotesRoute: Equatable {
     case detail(String)
 }
 
-/// The tabs of one meeting, in order. Ask is not a tab: it is the bar pinned at the bottom of the meeting.
+/// The tabs of one meeting, in order. Ask is its own page; it is never the tab a meeting opens on.
 enum NoteTab: String, CaseIterable, Hashable {
     case summary = "Summary"
+    case ask = "Ask"
     case transcript = "Transcript"
 }
 

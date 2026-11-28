@@ -160,6 +160,9 @@ final class NotesAIClient {
     /// provider's key takes over, so a running job stops instead of reusing the request it built at the start.
     /// NoteAssistant sets it from the real access check; tests and the test flags keep the default.
     var allowed: (NotesProvider) -> Bool = { _ in true }
+    /// Diagnostics only (--notesasktest): the reply text of every summary-part and combine request, on the main
+    /// queue, right after the reply was read and before it is validated. Nil in the app.
+    var onReplyText: ((String) -> Void)?
 
     init(transport: NotesTransport, keyFor: @escaping (APIKeys.Provider) -> String?) {
         self.transport = transport
@@ -280,7 +283,9 @@ final class NotesAIClient {
             case .failure(let error):
                 failSummary(job, error)
             case .success(let data):
-                let parsed = NotesAI.replyText(job.access.provider, data: data).flatMap {
+                let replied = NotesAI.replyText(job.access.provider, data: data)
+                if case .success(let replyText) = replied { onReplyText?(replyText) }
+                let parsed = replied.flatMap {
                     NotesAI.validateSummary($0, turns: job.transcript.turns, speakers: job.speakers,
                                             provider: job.access.provider, model: job.access.model,
                                             written: now(), parts: 1)
@@ -312,7 +317,9 @@ final class NotesAIClient {
             case .failure(let error):
                 failSummary(job, error)
             case .success(let data):
-                let parsed = NotesAI.replyText(job.access.provider, data: data).flatMap {
+                let replied = NotesAI.replyText(job.access.provider, data: data)
+                if case .success(let replyText) = replied { onReplyText?(replyText) }
+                let parsed = replied.flatMap {
                     NotesAI.validateSummary($0, turns: job.transcript.turns, speakers: job.speakers,
                                             provider: job.access.provider, model: job.access.model,
                                             written: now(), parts: total)
@@ -323,6 +330,8 @@ final class NotesAIClient {
                     // The combine reply has no speakers: the names come from the parts.
                     let merged = NotesAI.mergedNames(job.partSummaries.compactMap { $0.suggestedNames })
                     summary.suggestedNames = merged.isEmpty ? nil : merged
+                    let named = NotesDoc.applyingSuggestedNames(merged, to: job.speakers)
+                    summary = NotesDoc.tokenizing(summary, speakers: named)
                     succeed(job, summary)
                 }
             }

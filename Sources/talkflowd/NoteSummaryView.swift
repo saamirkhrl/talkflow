@@ -217,144 +217,45 @@ struct NoteSummaryView: View {
             return false
         }()
         return NotesDocumentView(assistant: assistant, meta: meta, summary: summary, writing: writing,
-                                 onWriteAgain: { assistant.writeSummary(meta.id) })
+                                 onWriteAgain: { assistant.writeAgain(meta.id) })
     }
 }
 
-/// The meeting's written notes as a document: Summary, Decisions, Details, Suggested next steps, then who wrote
-/// them. Shown with a key (with Write again) and without one (saved notes, read only).
+/// The meeting's notes as an editable document (the document editor), then a quiet Write again. Shown with a key
+/// (with Write again) and without one (editable, no Write again).
 struct NotesDocumentView: View {
     @ObservedObject var assistant: NoteAssistant
     let meta: NoteMeta
-    let summary: NoteSummary
     var writing = false
     var onWriteAgain: (() -> Void)?
 
+    /// `summary` is unused (the document comes from the assistant); kept so callers stay the same.
+    init(assistant: NoteAssistant, meta: NoteMeta, summary: NoteSummary, writing: Bool = false,
+         onWriteAgain: (() -> Void)? = nil) {
+        _assistant = ObservedObject(wrappedValue: assistant)
+        self.meta = meta
+        self.writing = writing
+        self.onWriteAgain = onWriteAgain
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 26) {
-            summarySection
-            decisionsSection
-            detailsSection
-            stepsSection
-            footer
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func docSection<C: View>(_ title: String, @ViewBuilder _ body: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(AppFont.docHeading)
-                .foregroundColor(Palette.ink)
-                .accessibilityAddTraits(.isHeader)
-            body()
-        }
-    }
-
-    private func statusTag(_ label: String) -> some View {
-        Text(label)
-            .font(AppFont.small)
-            .foregroundColor(Palette.muted)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 2)
-            .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.18), lineWidth: 1))
-            .fixedSize()
-    }
-
-    private var summarySection: some View {
-        docSection("Summary") {
-            CitedText(assistant: assistant, [.text(summary.summary)] + summary.summaryTimes.map { .cite($0) },
-                      parenthesized: true)
-        }
-    }
-
-    @ViewBuilder
-    private var decisionsSection: some View {
-        let decisions = NotesDoc.decisions(summary)
-        if !decisions.isEmpty {
-            docSection("Decisions") {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(decisions.enumerated()), id: \.offset) { _, p in
-                        decisionRow(p)
-                    }
+        if let doc = assistant.document(for: meta) {
+            VStack(alignment: .leading, spacing: 14) {
+                NoteDocumentEditorView(
+                    token: "\(meta.id)|\(doc.basedOn)", blocks: doc.blocks,
+                    onChange: { assistant.editDocument($0) },
+                    onCite: { t in DispatchQueue.main.async { assistant.jump(to: t) } },
+                    onFlush: { assistant.flushDocument() })
+                    .frame(maxWidth: DocStyle.columnWidth, alignment: .leading)
+                if let onWriteAgain {
+                    Button("Write again", action: onWriteAgain)
+                        .buttonStyle(AppQuietButtonStyle())
+                        .padding(.leading, -10)
+                        .disabled(writing)
+                        .help("Writes a new summary, sending the transcript again")
                 }
             }
-        }
-    }
-
-    private func decisionRow(_ p: NoteSummary.Point) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            statusTag(DecisionStatus.of(p.status).label)
-            CitedText(assistant: assistant, [.text(p.text), .cite(p.time)], parenthesized: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    @ViewBuilder
-    private var detailsSection: some View {
-        let details = NotesDoc.details(summary)
-        if !details.isEmpty {
-            docSection("Details") {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(Array(details.enumerated()), id: \.offset) { _, d in
-                        detailRow(d)
-                    }
-                }
-            }
-        }
-    }
-
-    private func detailRow(_ d: NoteSummary.Detail) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("\u{2022}")
-                .font(AppFont.body)
-                .foregroundColor(Palette.ink)
-            CitedText(assistant: assistant, prefix: d.topic + ": ",
-                      [.text(d.text)] + d.times.map { .cite($0) }, parenthesized: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var stepsSection: some View {
-        docSection("Suggested next steps") {
-            if summary.actionItems.isEmpty {
-                Text("No suggested next steps.")
-                    .font(AppFont.body)
-                    .foregroundColor(Palette.muted)
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(summary.actionItems.enumerated()), id: \.offset) { i, item in
-                        stepRow(i, item)
-                    }
-                }
-            }
-        }
-    }
-
-    private func stepRow(_ index: Int, _ item: NoteSummary.ActionItem) -> some View {
-        let owner = item.owner.isEmpty ? nil : NotesAI.ownerName(item.owner, speakers: meta.speakers) + ": "
-        return HStack(alignment: .top, spacing: 10) {
-            Toggle("", isOn: Binding(get: { item.done }, set: { assistant.setDone(index, $0) }))
-                .toggleStyle(.checkbox)
-                .labelsHidden()
-                .accessibilityLabel("Done: \(item.task)")
-            CitedText(assistant: assistant, prefix: owner, [.text(item.task), .cite(item.time)], parenthesized: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(NotesAI.disclosure(provider: summary.provider, modelID: summary.model))
-                .font(AppFont.caption)
-                .foregroundColor(Palette.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            if let onWriteAgain {
-                Button("Write again", action: onWriteAgain)
-                    .buttonStyle(AppLinkButtonStyle())
-                    .disabled(writing)
-                    .help("Writes a new summary, sending the transcript again")
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

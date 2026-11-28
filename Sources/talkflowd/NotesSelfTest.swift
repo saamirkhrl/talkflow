@@ -431,6 +431,9 @@ enum NotesSelfTest {
         NotesAskChecks.run { check($0, $1, $2) }
         NotesSummaryFlowChecks.run { check($0, $1, $2) }
         NotesDocChecks.run { check($0, $1, $2) }
+        NoteDocumentChecks.run { check($0, $1, $2) }
+        // The editor itself, typed into offscreen through its SwiftUI wrapper (needs the main run loop, pumped here).
+        NoteEditorHarness.run { check($0, $1, $2) }
 
         report(failures == 0 ? "ALL PASS" : "\(failures) FAILURES")
         exit(failures == 0 ? 0 : 1)

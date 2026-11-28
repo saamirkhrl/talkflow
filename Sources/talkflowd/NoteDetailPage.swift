@@ -1,9 +1,35 @@
 import AppKit
 import SwiftUI
 
-/// One meeting: header with Copy and Delete, the speakers, then Summary and Transcript. The Ask bar (NoteAskBar)
-/// is pinned under the page. Without a key the Summary tab shows saved notes read only, or how to add a key; a
-/// time in the notes or in an answer jumps to its row in the transcript.
+/// Spacing and widths of a meeting's page, shared by its three tabs so switching tabs moves nothing.
+enum NoteDetailMetrics {
+    /// The text column, on every tab.
+    static let maxWidth: CGFloat = 780
+    /// From the bottom of the title bar to the back row; centres the back row on the sidebar's wordmark.
+    static let top: CGFloat = 18
+    /// Back row to the title.
+    static let titleGap: CGFloat = 8
+    /// Title to the date line.
+    static let dateGap: CGFloat = 3
+    /// Date line (or a notice under it) to the tabs.
+    static let tabsGap: CGFloat = 16
+    /// Tabs to the first line of a tab's content.
+    static let bodyGap: CGFloat = 20
+    /// On the Summary, Ask and Transcript tabs, the part of `bodyGap` above the content's scroll view; the rest is inside it.
+    static let askClip: CGFloat = 8
+    /// The transcript's speaker and time column.
+    static let speakerColumn: CGFloat = 112
+    /// Between transcript turns.
+    static let turnSpacing: CGFloat = 16
+    /// Transcript text: the document's body size and line height (DocStyle), so the tabs read as one design.
+    static let transcriptSize: CGFloat = 15
+    static let transcriptLineSpacing: CGFloat = 5
+}
+
+/// One meeting: a header that never scrolls (back, the Copy and Delete icons; the title and date; the tabs), then
+/// Summary, Ask or Transcript, each scrolling on its own under it. The Summary tab is an editable document (or how
+/// to add a key, or its writing and failure states); Ask keeps its question field pinned at the bottom; a time in
+/// the notes or in an answer jumps to its row in the transcript.
 struct NoteDetailPage: View {
     @ObservedObject var model: NotesModel
     @ObservedObject private var assistant: NoteAssistant
@@ -16,22 +42,16 @@ struct NoteDetailPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // A snapshot has no scroll view: the page takes the height its content needs, so the bar sits under it.
-            if scrolls { page } else { page.fixedSize(horizontal: false, vertical: true) }
-            if !turns.isEmpty, let meta = model.detailMeta {
-                NoteAskBar(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
-            }
-        }
-    }
-
-    private var page: some View {
+        // One reader around every tab, so a citation clicked on Summary or Ask scrolls the transcript that
+        // replaces it.
         ScrollViewReader { proxy in
-            AppPage(maxWidth: 780, scrolls: scrolls) {
-                VStack(alignment: .leading, spacing: 22) {
-                    AppBackLink(title: "Notes") { model.backToList() }
-                    if let meta = model.detailMeta {
-                        content(meta)
+            Group {
+                if let meta = model.detailMeta {
+                    detailLayout(meta)
+                } else {
+                    AppPage(maxWidth: NoteDetailMetrics.maxWidth, scrolls: scrolls,
+                            top: AppMetrics.titlebar + NoteDetailMetrics.top) {
+                        topRow(nil)
                     }
                 }
             }
@@ -44,6 +64,44 @@ struct NoteDetailPage: View {
         }
     }
 
+    /// The header, not in a scroll view, over the tab, which gets the height that is left.
+    private func detailLayout(_ meta: NoteMeta) -> some View {
+        VStack(spacing: 0) {
+            headerBlock(meta)
+                .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
+                .padding(.top, AppMetrics.titlebar + NoteDetailMetrics.top)
+                .padding(.horizontal, AppMetrics.pageSide)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            switch model.detailTab {
+            case .ask:
+                NoteAskPage(model: model, assistant: assistant, meta: meta, turns: turns, scrolls: scrolls)
+            case .summary:
+                tabScroll { summaryTab(meta) }
+            case .transcript:
+                tabScroll { transcript(meta) }
+            }
+        }
+        .frame(maxHeight: scrolls ? .infinity : nil, alignment: .top)
+    }
+
+    /// A tab's content in the page's column, in its own scroll view (in the app) under the fixed header.
+    @ViewBuilder
+    private func tabScroll<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        let inner = content()
+            .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
+            .padding(.horizontal, AppMetrics.pageSide)
+            .padding(.top, NoteDetailMetrics.bodyGap - NoteDetailMetrics.askClip)
+            .padding(.bottom, AppMetrics.pageBottom)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        if scrolls {
+            ScrollView { inner }
+                .padding(.top, NoteDetailMetrics.askClip)
+                .frame(maxHeight: .infinity)
+        } else {
+            inner.padding(.top, NoteDetailMetrics.askClip)
+        }
+    }
+
     private func scroll(_ proxy: ScrollViewProxy, to turn: Int) {
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             proxy.scrollTo(turn, anchor: .center)
@@ -52,26 +110,48 @@ struct NoteDetailPage: View {
         }
     }
 
-    @ViewBuilder
-    private func content(_ meta: NoteMeta) -> some View {
-        header(meta)
-        if !meta.speakers.isEmpty {
-            speakersRow(meta)
-        }
-        if let problem = model.problem {
-            Text(problem)
+    private func headerBlock(_ meta: NoteMeta) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            topRow(meta)
+            titleView(meta)
+                .padding(.top, NoteDetailMetrics.titleGap)
+            Text(headerLine(meta))
                 .font(AppFont.caption)
-                .foregroundColor(Palette.warn)
+                .foregroundColor(Palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, NoteDetailMetrics.dateGap)
+            if let problem = model.problem {
+                Text(problem)
+                    .font(AppFont.caption)
+                    .foregroundColor(Palette.warn)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+            }
+            if case .failed(let f) = meta.state {
+                failedNotice(meta, f)
+                    .padding(.top, 14)
+            }
+            AppTextTabs(label: "View", options: NoteTab.allCases, title: { $0.rawValue }, selection: $model.detailTab)
+                .padding(.top, NoteDetailMetrics.tabsGap)
         }
-        if case .failed(let f) = meta.state {
-            failedNotice(meta, f)
-        }
-        AppSegmented(label: "View", options: NoteTab.allCases, title: { $0.rawValue }, selection: $model.detailTab)
-        switch model.detailTab {
-        case .transcript:
-            transcript(meta)
-        case .summary:
-            summaryTab(meta)
+    }
+
+    /// The first row: back to the list on the left, the Copy and Delete icons on the right.
+    private func topRow(_ meta: NoteMeta?) -> some View {
+        HStack(spacing: 4) {
+            AppBackLink(title: "Notes") { model.backToList() }
+            Spacer(minLength: 12)
+            if let meta {
+                copyButton(meta)
+                Button { model.askAndDelete(meta.id) } label: {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(AppIconButtonStyle())
+                .help("Delete")
+                .accessibilityLabel("Delete")
+                // The symbol, not its square, lines up with the column's right edge.
+                .padding(.trailing, -7)
+            }
         }
     }
 
@@ -99,25 +179,6 @@ struct NoteDetailPage: View {
         return parts.compactMap { $0 }.joined(separator: " \u{00B7} ")
     }
 
-    private func header(_ meta: NoteMeta) -> some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                titleView(meta)
-                Text(headerLine(meta))
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: 12)
-            HStack(spacing: 8) {
-                copyButton(meta)
-                Button("Delete...") { model.askAndDelete(meta.id) }
-                    .buttonStyle(AppSecondaryButtonStyle())
-                    .help("Deletes this note from this Mac")
-            }
-        }
-    }
-
     @ViewBuilder
     private func titleView(_ meta: NoteMeta) -> some View {
         let title = NotesLogic.displayTitle(meta)
@@ -125,7 +186,7 @@ struct NoteDetailPage: View {
             HStack(spacing: 10) {
                 TextField("Untitled meeting", text: $model.titleDraft)
                     .textFieldStyle(.plain)
-                    .font(AppFont.pageTitle)
+                    .font(AppFont.noteTitle)
                     .foregroundColor(Palette.ink)
                     .padding(.horizontal, 10)
                     .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
@@ -142,7 +203,7 @@ struct NoteDetailPage: View {
         } else {
             Button { model.beginTitleEdit() } label: {
                 Text(title)
-                    .font(AppFont.pageTitle)
+                    .font(AppFont.noteTitle)
                     .foregroundColor(Palette.ink)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -157,12 +218,15 @@ struct NoteDetailPage: View {
     @ViewBuilder
     private func copyButton(_ meta: NoteMeta) -> some View {
         let notes = model.detailTab == .summary && assistant.summary != nil
-        Button(model.justCopied ? "Copied" : "Copy") {
+        Button {
             if notes { model.copyNotes(meta.id) } else { model.copy(meta.id) }
+        } label: {
+            Image(systemName: model.justCopied ? "checkmark" : "doc.on.doc")
         }
-        .buttonStyle(AppSecondaryButtonStyle())
+        .buttonStyle(AppIconButtonStyle())
         .disabled(model.detailTab == .summary ? assistant.summary == nil : turns.isEmpty)
-        .help(notes ? "Copies the notes" : "Copies the transcript with speakers and times")
+        .help("Copy")
+        .accessibilityLabel(model.justCopied ? "Copied" : "Copy")
     }
 
     // MARK: Failure
@@ -217,7 +281,7 @@ struct NoteDetailPage: View {
                 .font(AppFont.body)
                 .foregroundColor(Palette.muted)
         } else {
-            LazyVStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: NoteDetailMetrics.turnSpacing) {
                 ForEach(Array(turns.enumerated()), id: \.offset) { index, t in
                     turnRow(t, meta)
                         .background(highlight(index))
@@ -237,97 +301,22 @@ struct NoteDetailPage: View {
         }
     }
 
-    private func speakersRow(_ meta: NoteMeta) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(meta.speakers, id: \.key) { s in
-                    chip(s, meta)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-
-    private func chipLabel(_ name: String, auto: Bool) -> some View {
-        Text(name)
-            .font(AppFont.caption)
-            .foregroundColor(Palette.ink)
-            .lineLimit(1)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .overlay(chipBorder(auto: auto))
-            .contentShape(Capsule())
-            .fixedSize()
-    }
-
-    @ViewBuilder
-    private func chipBorder(auto: Bool) -> some View {
-        if auto {
-            Capsule().strokeBorder(Palette.ink.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
-        } else {
-            Capsule().strokeBorder(Palette.ink.opacity(0.18), lineWidth: 1)
-        }
-    }
-
-    @ViewBuilder
-    private func chip(_ s: NoteSpeaker, _ meta: NoteMeta) -> some View {
-        let name = NotesLogic.displayName(s.key, in: meta.speakers)
-        let auto = NotesDoc.nameSource(s) == .auto
-        if s.key == NotesLogic.youKey {
-            chipLabel(name, auto: false)
-        } else if model.renamingKey == s.key {
-            renameEditor(s, name: name, auto: auto)
-        } else if auto {
-            Button { model.beginRename(s.key) } label: { chipLabel(name, auto: true) }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .help("Suggested from the meeting. Click to rename or clear.")
-                .accessibilityLabel("\(name), suggested. Rename")
-        } else {
-            Button { model.beginRename(s.key) } label: { chipLabel(name, auto: false) }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .accessibilityLabel("Rename \(name)")
-        }
-    }
-
-    private func renameEditor(_ s: NoteSpeaker, name: String, auto: Bool) -> some View {
-        HStack(spacing: 8) {
-            TextField(NotesLogic.defaultName(s.key), text: $model.renameDraft)
-                .textFieldStyle(.plain)
-                .font(AppFont.caption)
-                .padding(.horizontal, 12)
-                .frame(width: 150, height: 26)
-                .background(Capsule().fill(Palette.field))
-                .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
-                .onSubmit { model.commitRename() }
-                .onExitCommand { model.cancelRename() }
-                .accessibilityLabel("New name for \(name)")
-            Button("Save") { model.commitRename() }
-                .buttonStyle(AppLinkButtonStyle())
-            if auto {
-                Button("Clear") { model.clearSuggestedName(s.key) }
-                    .buttonStyle(AppLinkButtonStyle())
-                    .help("Back to \(NotesLogic.defaultName(s.key))")
-            }
-            Button("Cancel") { model.cancelRename() }
-                .buttonStyle(AppLinkButtonStyle())
-        }
-    }
-
     private func turnRow(_ t: TranscriptTurn, _ meta: NoteMeta) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(NotesLogic.displayName(t.speaker, in: meta.speakers))
-                    .font(AppFont.speaker)
+                    .font(AppFont.bodyMedium)
                     .foregroundColor(Palette.ink)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(NotesLogic.timestamp(t.start))
                     .font(AppFont.caption)
                     .foregroundColor(Palette.muted)
             }
-            .frame(width: 124, alignment: .leading)
+            .frame(width: NoteDetailMetrics.speakerColumn, alignment: .leading)
             Text(t.text)
-                .font(AppFont.body)
+                .font(.system(size: NoteDetailMetrics.transcriptSize))
+                .lineSpacing(NoteDetailMetrics.transcriptLineSpacing)
                 .foregroundColor(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -1,34 +1,27 @@
 import SwiftUI
 
-/// The Ask bar pinned under a meeting that has a transcript: one input line, and above it a drawer with the
-/// questions asked so far, the one being answered and the confirmation. Ask is not a tab.
-struct NoteAskBar: View {
+/// The Ask tab of a meeting: the conversation fills the height under the header in its own scroll view, and
+/// under it one rounded question field, which is not in the scroll view and so never moves.
+struct NoteAskPage: View {
     @ObservedObject var model: NotesModel
     @ObservedObject var assistant: NoteAssistant
     let meta: NoteMeta
     let turns: [TranscriptTurn]
-    /// True in the live window (the drawer scrolls inside a fixed height); false in snapshots (full height).
+    /// True in the live window (fills the height left under the header); false in snapshots (a fixed height).
     let scrolls: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(Palette.hairline).frame(height: 1)
-            VStack(alignment: .leading, spacing: 12) {
-                if model.askExpanded && model.keyInUse { drawer }
-                inputRow
+            if model.keyInUse, let access = assistant.currentAccess {
+                conversationScroll(access)
+            } else {
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: 780, alignment: .leading)
-            .padding(.horizontal, AppMetrics.pageSide)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            inputBar
         }
-        .background(Palette.window)
-        .onChange(of: assistant.asking) { asking in
-            if asking != nil { model.askExpanded = true }
-        }
-        .onChange(of: assistant.pending) { pending in
-            if case .ask? = pending { model.askExpanded = true }
-        }
+        .frame(maxWidth: .infinity)
+        .frame(height: scrolls ? nil : 440)
+        .frame(maxHeight: scrolls ? .infinity : nil)
     }
 
     private var busy: Bool { assistant.asking != nil || assistant.pending != nil }
@@ -37,18 +30,31 @@ struct NoteAskBar: View {
         assistant.askDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    private var hasHistory: Bool {
-        if !assistant.questions.isEmpty || assistant.asking != nil || assistant.askFailure != nil { return true }
-        if case .ask? = assistant.pending { return true }
-        return false
-    }
+    private var canSend: Bool { !busy && !draftEmpty }
 
-    private func send() {
-        model.askExpanded = true
-        assistant.ask()
+    private func send() { assistant.ask() }
+
+    /// The id of the newest message, which the conversation scrolls to.
+    private var lastID: String? {
+        if case .ask? = assistant.pending { return "pending" }
+        if assistant.askFailure != nil { return "failure" }
+        if assistant.asking != nil { return "asking" }
+        if assistant.questions.isEmpty { return nil }
+        return "q\(assistant.questions.count - 1)"
     }
 
     // MARK: Input
+
+    /// Pinned under the conversation, in the same column as the header.
+    private var inputBar: some View {
+        inputRow
+            .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
+            .padding(.horizontal, AppMetrics.pageSide)
+            .padding(.top, 10)
+            .padding(.bottom, 20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.window)
+    }
 
     @ViewBuilder
     private var inputRow: some View {
@@ -66,102 +72,84 @@ struct NoteAskBar: View {
         }
     }
 
+    /// One rounded field with the send control inside its right end. Return sends.
     private var keyedInput: some View {
-        HStack(alignment: .center, spacing: 10) {
-            if hasHistory { toggleButton }
+        HStack(spacing: 8) {
             TextField("Ask about this meeting", text: $assistant.askDraft)
                 .textFieldStyle(.plain)
                 .font(AppFont.body)
                 .foregroundColor(Palette.ink)
-                .padding(.horizontal, 14)
-                .frame(height: 36)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Palette.field))
-                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Palette.ink.opacity(0.28), lineWidth: 1))
                 .disabled(busy)
-                .onSubmit { if !busy && !draftEmpty { send() } }
+                .onSubmit { if canSend { send() } }
                 .accessibilityLabel("Ask about this meeting")
-            Button("Ask") { send() }
-                .buttonStyle(AppPrimaryButtonStyle(height: 36))
-                .disabled(busy || draftEmpty)
-        }
-    }
-
-    private var toggleButton: some View {
-        let label = model.askExpanded ? "Hide answers" : "Show answers"
-        return Button { model.askExpanded.toggle() } label: {
-            Image(systemName: model.askExpanded ? "chevron.down" : "chevron.up")
-                .font(.system(size: 14))
-                .foregroundColor(Palette.ink)
-                .frame(width: 30, height: 30)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .pointerCursor()
-        .help(label)
-        .accessibilityLabel(label)
-    }
-
-    // MARK: Drawer
-
-    @ViewBuilder
-    private var drawer: some View {
-        if let access = assistant.currentAccess {
-            if scrolls {
-                ScrollViewReader { proxy in
-                    ScrollView { drawerContent(access) }
-                        .frame(maxHeight: 300)
-                        .onChange(of: assistant.questions.count) { _ in scrollToBottom(proxy) }
-                        .onChange(of: assistant.partialAnswer) { _ in scrollToBottom(proxy) }
-                }
-            } else {
-                drawerContent(access)
+            Button(action: send) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(canSend ? Palette.window : Palette.muted)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(canSend ? Palette.ink : Palette.ink.opacity(0.08)))
+                    .contentShape(Circle())
             }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .pointerCursor()
+            .accessibilityLabel("Send question")
         }
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .frame(height: 40)
+        .background(Capsule().fill(Palette.field))
+        .overlay(Capsule().strokeBorder(Palette.ink.opacity(0.18), lineWidth: 1))
     }
 
-    private func scrollToBottom(_ proxy: ScrollViewProxy) {
-        proxy.scrollTo("ask-bottom", anchor: .bottom)
-    }
+    // MARK: Scrolling conversation
 
-    private func drawerContent(_ access: NotesAccess) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack { NoteSectionHeading("Ask"); Spacer(minLength: 0) }
-            conversation(access)
-            Text(NotesAI.askFooter(access))
-                .font(AppFont.caption)
-                .foregroundColor(Palette.muted)
-                .fixedSize(horizontal: false, vertical: true)
-            // Computed once per body, the same way the client builds the transcript it sends.
-            if let hint = NotesAI.askCostHint(lines: NotesAI.transcriptLines(turns, speakers: meta.speakers)) {
-                Text(hint)
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
+    private func conversationScroll(_ access: NotesAccess) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 28) { conversation(access) }
+                    .frame(maxWidth: NoteDetailMetrics.maxWidth, alignment: .leading)
+                    .padding(.horizontal, AppMetrics.pageSide)
+                    .padding(.top, NoteDetailMetrics.bodyGap - NoteDetailMetrics.askClip)
+                    .padding(.bottom, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Color.clear.frame(height: 1).id("ask-bottom")
+            .padding(.top, NoteDetailMetrics.askClip)
+            .frame(maxHeight: .infinity)
+            .onChange(of: lastID) { _ in scrollToLatest(proxy) }
+            .onAppear { DispatchQueue.main.async { scrollToLatest(proxy) } }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Brings the newest question to the top of the view (or as far as the content goes), so the question is
+    /// never cut off and its answer reads down from it.
+    private func scrollToLatest(_ proxy: ScrollViewProxy) {
+        guard let id = lastID else { return }
+        proxy.scrollTo(id, anchor: .top)
     }
 
     // MARK: Conversation
 
     @ViewBuilder
     private func conversation(_ access: NotesAccess) -> some View {
-        ForEach(Array(assistant.questions.enumerated()), id: \.offset) { _, entry in
-            questionBubble(entry.question)
-            VStack(alignment: .leading, spacing: 6) {
-                answerBubble {
+        if lastID == nil {
+            Text(emptyLine(access))
+                .font(AppFont.body)
+                .foregroundColor(Palette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        ForEach(Array(assistant.questions.enumerated()), id: \.offset) { index, entry in
+            VStack(alignment: .leading, spacing: 14) {
+                questionBubble(entry.question)
+                answerText {
                     CitedText(assistant: assistant, NotesAI.parseAnswer(entry.answer, turns: turns).segments)
                 }
-                Text(NotesAI.disclosure(provider: entry.provider, modelID: entry.model))
-                    .font(AppFont.caption)
-                    .foregroundColor(Palette.muted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
+            .id("q\(index)")
         }
         if let q = assistant.asking {
-            questionBubble(q)
-            answerBubble {
+            VStack(alignment: .leading, spacing: 14) {
+                questionBubble(q)
                 if assistant.partialAnswer.isEmpty {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
@@ -170,46 +158,53 @@ struct NoteAskBar: View {
                             .foregroundColor(Palette.muted)
                     }
                 } else {
-                    CitedText(assistant: assistant, NotesAI.parseAnswer(assistant.partialAnswer, turns: turns).segments)
+                    answerText {
+                        CitedText(assistant: assistant, NotesAI.parseAnswer(assistant.partialAnswer, turns: turns).segments)
+                    }
                 }
             }
+            .id("asking")
         }
         if let f = assistant.askFailure {
-            questionBubble(f.question)
-            failedNotice(f, access: access)
+            VStack(alignment: .leading, spacing: 14) {
+                questionBubble(f.question)
+                failedNotice(f, access: access)
+            }
+            .id("failure")
         }
         if case .ask(let q) = assistant.pending {
-            questionBubble(q)
-            NotesConfirmCard(provider: access.provider, onSend: { assistant.confirmSend() },
-                             onCancel: { assistant.cancelPending() })
+            VStack(alignment: .leading, spacing: 14) {
+                questionBubble(q)
+                NotesConfirmCard(provider: access.provider, onSend: { assistant.confirmSend() },
+                                 onCancel: { assistant.cancelPending() })
+            }
+            .id("pending")
         }
-        if assistant.questions.isEmpty && assistant.asking == nil && assistant.askFailure == nil && assistant.pending == nil {
-            Text("No questions yet.")
-                .font(AppFont.body)
-                .foregroundColor(Palette.muted)
-        }
+    }
+
+    /// The only line on an empty Ask tab: where questions go, and (for a long meeting) that they cost more.
+    private func emptyLine(_ access: NotesAccess) -> String {
+        let hint = NotesAI.askCostHint(lines: NotesAI.transcriptLines(turns, speakers: meta.speakers))
+        return [NotesAI.askFooter(access), hint].compactMap { $0 }.joined(separator: " ")
     }
 
     private func questionBubble(_ text: String) -> some View {
-        BubbleWidth(fraction: 0.8, trailing: true) {
+        BubbleWidth(fraction: 0.7, trailing: true) {
             Text(text)
                 .font(AppFont.body)
-                .foregroundColor(Palette.window)
+                .foregroundColor(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Palette.ink))
+                .padding(.vertical, 9)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Palette.card))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Palette.cardStroke, lineWidth: 1))
         }
     }
 
-    private func answerBubble<C: View>(@ViewBuilder _ content: () -> C) -> some View {
-        BubbleWidth(fraction: 0.9, trailing: false) {
-            content()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 14).fill(Palette.card))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Palette.cardStroke, lineWidth: 1))
-        }
+    /// An answer: plain text across the whole column, as the Summary tab reads. No bubble.
+    private func answerText<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func failedNotice(_ f: NoteAssistant.AskFailure, access: NotesAccess) -> some View {

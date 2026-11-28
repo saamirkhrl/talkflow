@@ -254,9 +254,9 @@ enum SampleNotes {
             TranscriptTurn(speaker: speaker, start: start, end: start + 8, text: text)
         }
         let turns = [
-            turn("you", 5, "Good evening, everyone. First item is the parks budget, which is short this year."),
-            turn("s1", 22, "Thank you, Councilmember Lee. The shortfall is about forty thousand, mostly from the pool repairs."),
-            turn("you", 41, "Thank you. Dana, you had a question about the library?"),
+            turn("you", 5, "Good evening, everyone. First item is the parks budget. Councilmember Lee, would you start us off?"),
+            turn("s1", 22, "Happy to. The parks budget is short about forty thousand, mostly from the pool repairs."),
+            turn("you", 41, "Thank you, Councilmember Lee. Dana, you had a question about the library?"),
             turn("s2", 55, "Yes. Can the library keep its Saturday hours if we trim the parks line?"),
             turn("you", 71, "Priya, you had a question about the crosswalk too?"),
             turn("s3", 84, "I do. The crossing by the school needs a flashing sign before winter."),
