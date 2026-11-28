@@ -198,7 +198,9 @@ struct GuidePanelView: View {
     }
 
     private static var appIcon: NSImage {
-        let icon = NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath)
+        // A bare `.build` binary has no bundle icon; use the app icon then.
+        let icon = Bundle.main.bundleURL.pathExtension == "app"
+            ? NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath) : (NSApp?.applicationIconImage ?? NSImage())
         icon.size = NSSize(width: 44, height: 44)
         return icon
     }
