@@ -97,6 +97,8 @@ enum Onboarding {
     /// it (System Settings' "Quit & Reopen", or Restart talkflow) resumes
     /// there instead of on the welcome page. Removed when setup finishes.
     static let progressKey = "onboardingProgress"
+    /// The user pressed Skip on the meeting notes step: it is not offered again.
+    static let notesSkippedKey = "onboardingNotesSkipped"
 
     /// Whether to open the setup window on launch: only when something is
     /// actually missing. A Mac that already has every permission and a working
@@ -151,26 +153,42 @@ enum Onboarding {
     /// relaunching talkflow after a grant), so it opens again where it was.
     static func wasInterrupted(defaults: UserDefaults = .standard) -> Bool {
         guard !defaults.bool(forKey: completedKey),
-              let saved = OnboardingStep(rawValue: defaults.integer(forKey: progressKey)) else { return false }
-        return saved != .welcome && saved != .ready
+              let saved = OnboardingStep.restored(defaults.integer(forKey: progressKey)) else { return false }
+        return saved != .welcome && saved != .tryIt && saved != .meetingNotes && saved != .done
     }
 }
 
 // MARK: - Model
 
 enum OnboardingStep: Int, CaseIterable {
-    case welcome, microphone, accessibility, inputMonitoring, engine, ready
+    // Raw values stay compatible with the progress saved by older builds
+    // (3 was Input Monitoring, which is no longer a step).
+    case welcome = 0, microphone = 1, accessibility = 2, engine = 4, tryIt = 5, meetingNotes = 6, done = 7
 
-    var next: OnboardingStep? { OnboardingStep(rawValue: rawValue + 1) }
-    var previous: OnboardingStep? { OnboardingStep(rawValue: rawValue - 1) }
+    /// The neighbour in flow order (not rawValue +- 1: 3 is unused).
+    var next: OnboardingStep? {
+        guard let index = Self.allCases.firstIndex(of: self), index + 1 < Self.allCases.count else { return nil }
+        return Self.allCases[index + 1]
+    }
+
+    var previous: OnboardingStep? {
+        guard let index = Self.allCases.firstIndex(of: self), index > 0 else { return nil }
+        return Self.allCases[index - 1]
+    }
+
+    /// A saved progress value as a step. The dropped Input Monitoring step
+    /// (3) resumes on Accessibility; anything unknown is nil.
+    static func restored(_ raw: Int) -> OnboardingStep? {
+        raw == 3 ? .accessibility : OnboardingStep(rawValue: raw)
+    }
 }
 
-/// The three permissions as plain values, so the step logic below can be
-/// checked by `--streamtest` without touching the real ones.
+/// The permissions as plain values, so the step logic below can be checked
+/// by `--streamtest` without touching the real ones.
 struct PermissionGrants: Equatable {
     var microphone: Bool
     var accessibility: Bool
-    var inputMonitoring: Bool
+    var systemAudio: Bool = false
 
     /// Whether the permission a step asks for is granted; nil for the steps
     /// that are not about a permission.
@@ -178,63 +196,75 @@ struct PermissionGrants: Equatable {
         switch step {
         case .microphone: return microphone
         case .accessibility: return accessibility
-        case .inputMonitoring: return inputMonitoring
-        case .welcome, .engine, .ready: return nil
+        case .meetingNotes: return systemAudio
+        case .welcome, .engine, .tryIt, .done: return nil
         }
     }
 }
 
 /// Which step setup shows. Pure, for `--streamtest`.
 enum OnboardingFlow {
-    /// The first permission step still missing, then the engine.
+    /// Whether the meeting notes step is still to be offered.
+    static func offersNotes(supported: Bool, skipped: Bool, granted: Bool) -> Bool {
+        supported && !skipped && !granted
+    }
+
+    /// The steps of a flow, without meeting notes where it is not supported.
+    static func steps(notesSupported: Bool) -> [OnboardingStep] {
+        OnboardingStep.allCases.filter { notesSupported || $0 != .meetingNotes }
+    }
+
+    /// The first permission step still missing, then the engine. System
+    /// audio is never required.
     static func firstMissing(_ grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep? {
         if !grants.microphone { return .microphone }
         if !grants.accessibility { return .accessibility }
-        if !grants.inputMonitoring { return .inputMonitoring }
         if !engineInstalled { return .engine }
         return nil
     }
 
-    /// Nothing to do on this step: its permission is granted, or it is the
-    /// engine and the engine is already answering.
-    static func isDone(_ step: OnboardingStep, grants: PermissionGrants, engineReady: Bool) -> Bool {
-        if let granted = grants.isGranted(step) { return granted }
-        return step == .engine && engineReady
+    /// Nothing to do on this step: its permission is granted, it is the
+    /// engine and the engine is already answering, or it is the meeting notes
+    /// step and there is nothing to offer. Welcome, Try it and the last page
+    /// are never skipped.
+    static func isDone(_ step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, offerNotes: Bool = true) -> Bool {
+        switch step {
+        case .microphone: return grants.microphone
+        case .accessibility: return grants.accessibility
+        case .engine: return engineReady
+        case .meetingNotes: return grants.systemAudio || !offerNotes
+        case .welcome, .tryIt, .done: return false
+        }
     }
 
     /// The step after `step`, skipping the ones that are already done.
-    static func nextNeeded(after step: OnboardingStep, grants: PermissionGrants, engineReady: Bool = false) -> OnboardingStep {
-        var candidate = step.next ?? .ready
-        while isDone(candidate, grants: grants, engineReady: engineReady), let next = candidate.next { candidate = next }
+    static func nextNeeded(after step: OnboardingStep, grants: PermissionGrants, engineReady: Bool = false, offerNotes: Bool = true) -> OnboardingStep {
+        var candidate = step.next ?? .done
+        while isDone(candidate, grants: grants, engineReady: engineReady, offerNotes: offerNotes), let next = candidate.next { candidate = next }
         return candidate
     }
 
     /// Where Back goes: the closest earlier step that still has something to
-    /// do, or the welcome page on a first run. Nil hides Back. Input
-    /// Monitoring is only ever a step after Accessibility is granted (that
-    /// grant usually covers it), so Back never lands on it before then.
-    static func previousShown(before step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, returning: Bool) -> OnboardingStep? {
+    /// do, or the welcome page on a first run. Nil hides Back.
+    static func previousShown(before step: OnboardingStep, grants: PermissionGrants, engineReady: Bool, returning: Bool, offerNotes: Bool = true) -> OnboardingStep? {
         var candidate = step.previous
         while let shown = candidate {
             if shown == .welcome { return returning ? nil : .welcome }
-            let skipped = isDone(shown, grants: grants, engineReady: engineReady)
-                || (shown == .inputMonitoring && !grants.accessibility)
-            if !skipped { return shown }
+            if !isDone(shown, grants: grants, engineReady: engineReady, offerNotes: offerNotes) { return shown }
             candidate = shown.previous
         }
         return nil
     }
 
     /// Where setup opens when it was not already open. A finished setup goes
-    /// to whatever is missing, or to the last page (with the practice field)
-    /// when nothing is, never through the whole flow again. A first run
-    /// starts on the welcome page (where the languages are chosen), or, when
-    /// it was interrupted (`saved`), where it was, moved past a permission
-    /// that has since been granted and back to an earlier one that has since
-    /// been lost.
+    /// to whatever is missing, or to the Try it page when nothing is, never
+    /// through the whole flow again. A first run starts on the welcome page
+    /// (where the languages are chosen), or, when it was interrupted
+    /// (`saved`), where it was, moved past a permission that has since been
+    /// granted and back to an earlier one that has since been lost.
     static func initialStep(completed: Bool, saved: OnboardingStep?, grants: PermissionGrants, engineInstalled: Bool) -> OnboardingStep {
         let missing = firstMissing(grants, engineInstalled: engineInstalled)
-        if completed { return missing ?? .ready }
+        if completed { return missing ?? .tryIt }
         guard let saved, saved != .welcome else { return .welcome }
         var resumed = saved
         if grants.isGranted(saved) == true { resumed = nextNeeded(after: saved, grants: grants) }
@@ -261,17 +291,17 @@ enum OnboardingFlow {
     /// when the permission the current step asks for has just been granted;
     /// anything else, including the window simply coming back to the front,
     /// leaves the step alone (so Back to a granted step stays there).
-    static func stepAfterRefresh(current: OnboardingStep, before: PermissionGrants, now: PermissionGrants, engineReady: Bool = false) -> OnboardingStep {
+    static func stepAfterRefresh(current: OnboardingStep, before: PermissionGrants, now: PermissionGrants, engineReady: Bool = false, offerNotes: Bool = true) -> OnboardingStep {
         guard before.isGranted(current) == false, now.isGranted(current) == true else { return current }
-        return nextNeeded(after: current, grants: now, engineReady: engineReady)
+        return nextNeeded(after: current, grants: now, engineReady: engineReady, offerNotes: offerNotes)
     }
 
     /// The step once the engine has finished getting ready: on its own step,
     /// setup moves on by itself, as it does when a grant lands. Anywhere
     /// else the step stays (the engine step is simply skipped later).
-    static func stepAfterEngine(current: OnboardingStep, ready: Bool, grants: PermissionGrants) -> OnboardingStep {
+    static func stepAfterEngine(current: OnboardingStep, ready: Bool, grants: PermissionGrants, offerNotes: Bool = true) -> OnboardingStep {
         guard current == .engine, ready else { return current }
-        return nextNeeded(after: .engine, grants: grants, engineReady: true)
+        return nextNeeded(after: .engine, grants: grants, engineReady: true, offerNotes: offerNotes)
     }
 
     /// After the engine check: start getting it ready without a click when
@@ -417,6 +447,17 @@ struct OnboardingEnvironment {
     var appName: String
     /// The shortcut held to dictate. Setup only names it; Settings changes it.
     var shortcut: () -> HotkeySpec = { .fn }
+    /// System Audio Recording, which meeting notes need.
+    var systemAudio: () -> SystemAudioStatus = { .unknown }
+    /// Raises the system's own prompt for it (or its stand-in); calls back on the main thread.
+    var requestSystemAudio: (@escaping () -> Void) -> Void = { $0() }
+    /// Whether this macOS can record system audio at all (14.2 and later).
+    var notesSupported: Bool = false
+    /// Where this copy runs from.
+    var appLocation: AppLocation = .fine
+    /// Docks the guide panel beside System Settings; answers once per request.
+    var showGuide: (GuideRequest, @escaping (GuideOutcome) -> Void) -> Void = { _, done in done(.notFound) }
+    var hideGuide: () -> Void = {}
 
     static let live = OnboardingEnvironment(
         microphone: { Permissions.microphone },
@@ -454,7 +495,13 @@ struct OnboardingEnvironment {
             // A bare `.build` binary has no bundle name worth showing.
             return name.isEmpty || name == "talkflowd" ? "talkflow" : name
         }(),
-        shortcut: { Preferences.hotkey }
+        shortcut: { Preferences.hotkey },
+        systemAudio: { SystemAudioPermission.status() },
+        requestSystemAudio: { SystemAudioPermission.request($0) },
+        notesSupported: SystemAudioPermission.isSupported,
+        appLocation: AppLocation.current,
+        showGuide: { PermissionGuide.shared.show($0, outcome: $1) },
+        hideGuide: { PermissionGuide.shared.hide() }
     )
 }
 
@@ -606,12 +653,21 @@ final class OnboardingModel: ObservableObject {
     @Published var step: OnboardingStep = .welcome {
         didSet {
             saveProgress()
-            if step == .ready && oldValue != .ready { resetTryIt() }
+            if oldValue != step { hideGuideIfShown() }
+            if step == .tryIt && oldValue != .tryIt { resetTryIt() }
         }
     }
     @Published var microphone: Permissions.MicrophoneStatus
     @Published var accessibility: Bool
+    /// Only decides when the hotkey is started; no step asks for it.
     @Published var inputMonitoring: Bool
+    @Published var systemAudio: SystemAudioStatus
+    /// The user pressed Allow for system audio at least once this session.
+    @Published private(set) var systemAudioAsked = false
+    /// The guide panel is docked beside System Settings for this target.
+    @Published private(set) var guideShown: Set<GuideTarget> = []
+    /// The panel could not find System Settings: the old flow is shown.
+    @Published private(set) var guideFailed: Set<GuideTarget> = []
     @Published var engine: EngineState = .checking
     @Published var hotkeyRunning = false
     /// The same setting as in Settings, ticked as a list on the welcome page
@@ -661,6 +717,10 @@ final class OnboardingModel: ObservableObject {
     var bringToFront: () -> Void = {}
     var close: () -> Void = {}
 
+    /// This copy runs from the disk image or a translocated path: setup asks
+    /// for the move to Applications instead of any step.
+    let needsMove: Bool
+
     private let startHotkey: () -> Bool
     private let environment: OnboardingEnvironment
     private let history: PermissionHistory
@@ -688,11 +748,19 @@ final class OnboardingModel: ObservableObject {
         microphone = environment.microphone()
         accessibility = environment.accessibility()
         inputMonitoring = environment.inputMonitoring()
+        systemAudio = environment.systemAudio()
+        needsMove = environment.appLocation.needsMove
     }
 
     var grants: PermissionGrants {
-        PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, inputMonitoring: inputMonitoring)
+        PermissionGrants(microphone: microphone == .granted, accessibility: accessibility, systemAudio: systemAudio == .granted)
     }
+
+    var notesSkipped: Bool { environment.defaults.bool(forKey: Onboarding.notesSkippedKey) }
+    var offerNotes: Bool {
+        OnboardingFlow.offersNotes(supported: environment.notesSupported, skipped: notesSkipped, granted: systemAudio == .granted)
+    }
+    var notesSupported: Bool { environment.notesSupported }
 
     static func askedKey(_ service: Permissions.Service) -> String { "asked.\(service.rawValue)" }
 
@@ -720,8 +788,7 @@ final class OnboardingModel: ObservableObject {
         switch shown {
         case .microphone: service = .microphone
         case .accessibility: service = .accessibility
-        case .inputMonitoring: service = .inputMonitoring
-        case .welcome, .engine, .ready: service = nil
+        case .welcome, .engine, .tryIt, .meetingNotes, .done: service = nil
         }
         return OnboardingFlow.mark(
             shown, current: step,
@@ -762,7 +829,7 @@ final class OnboardingModel: ObservableObject {
         refresh(announce: false)
         let defaults = environment.defaults
         let saved = defaults.object(forKey: Onboarding.progressKey) == nil
-            ? nil : OnboardingStep(rawValue: defaults.integer(forKey: Onboarding.progressKey))
+            ? nil : OnboardingStep.restored(defaults.integer(forKey: Onboarding.progressKey))
         // A Mac that has granted talkflow anything before has been through
         // setup (closing the window counts), so after an update it goes
         // straight to whatever needs attention, not the welcome page.
@@ -784,6 +851,7 @@ final class OnboardingModel: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        hideGuideIfShown()
     }
 
     private func move(to newStep: OnboardingStep) {
@@ -810,7 +878,7 @@ final class OnboardingModel: ObservableObject {
     /// then presses the button or closes the window.
     private func saveProgress() {
         let defaults = environment.defaults
-        if step == .ready {
+        if step == .tryIt || step == .meetingNotes || step == .done {
             defaults.set(true, forKey: Onboarding.completedKey)
             defaults.removeObject(forKey: Onboarding.progressKey)
             return
@@ -829,13 +897,22 @@ final class OnboardingModel: ObservableObject {
         let mic = environment.microphone()
         let ax = environment.accessibility()
         let im = environment.inputMonitoring()
+        let audio = environment.systemAudio()
         let gained = (mic == .granted && microphone != .granted)
             || (ax && !accessibility)
             || (im && !inputMonitoring)
+            || (audio == .granted && systemAudio != .granted)
         microphone = mic
         accessibility = ax
         inputMonitoring = im
+        systemAudio = audio
         if gained && announce { bringToFront() }
+
+        // A permission the guide was helping with has landed: the panel's job is done.
+        for target in guideShown where isGranted(target) {
+            hideGuideIfShown()
+            break
+        }
 
         for service in Permissions.Service.allCases where trusted(service) {
             history.record(service, granted: true, requirement: environment.designatedRequirement)
@@ -846,7 +923,7 @@ final class OnboardingModel: ObservableObject {
 
         let current = step
         advance(from: current, to: OnboardingFlow.stepAfterRefresh(
-            current: current, before: before, now: grants, engineReady: engine == .ready))
+            current: current, before: before, now: grants, engineReady: engine == .ready, offerNotes: offerNotes))
 
         if im && !hotkeyRunning {
             hotkeyRunning = startHotkey()
@@ -868,21 +945,22 @@ final class OnboardingModel: ObservableObject {
         case .welcome: return true
         case .microphone: return microphone == .granted
         case .accessibility: return accessibility
-        case .inputMonitoring: return inputMonitoring
         case .engine: return engine == .ready
-        case .ready: return true
+        case .tryIt: return true
+        case .meetingNotes: return systemAudio == .granted || (systemAudioAsked && systemAudio == .unknown)
+        case .done: return true
         }
     }
 
     /// Forward, past anything already done.
     func goNext() {
-        guard canContinue, step != .ready else { return }
-        move(to: OnboardingFlow.nextNeeded(after: step, grants: grants, engineReady: engine == .ready))
+        guard canContinue, step != .done else { return }
+        move(to: OnboardingFlow.nextNeeded(after: step, grants: grants, engineReady: engine == .ready, offerNotes: offerNotes))
     }
 
     /// Where Back goes; nil when there is nowhere useful to go.
     var previousStep: OnboardingStep? {
-        OnboardingFlow.previousShown(before: step, grants: grants, engineReady: engine == .ready, returning: isReturning)
+        OnboardingFlow.previousShown(before: step, grants: grants, engineReady: engine == .ready, returning: isReturning, offerNotes: offerNotes)
     }
 
     func goBack() {
@@ -906,6 +984,7 @@ final class OnboardingModel: ObservableObject {
     }
 
     func finish() {
+        hideGuideIfShown()
         environment.defaults.set(true, forKey: Onboarding.completedKey)
         environment.defaults.removeObject(forKey: Onboarding.progressKey)
         if loginItemAvailable { applyLoginItem() }
@@ -931,20 +1010,96 @@ final class OnboardingModel: ObservableObject {
     /// time it is asked; after that the same click opens the System
     /// Settings pane, so pressing Allow always does something visible.
     func allow(_ service: Permissions.Service) {
-        guard !trusted(service) else { return }
+        guard !needsMove, !trusted(service) else { return }
         settingsVisits.insert(service)
-        if service == .microphone {
+        switch service {
+        case .microphone:
             if microphone == .notDetermined {
                 environment.request(.microphone) { [weak self] in self?.refresh(announce: true) }
             } else {
                 environment.openSettings(.microphone)
+                guide(.microphone, .switchOn)
             }
-            return
+        case .accessibility:
+            environment.openSettings(.accessibility)
+            guide(.accessibility, .drag) { [weak self] in self?.accessibilityFallback() }
+        case .inputMonitoring:
+            // No step shows it any more; kept for completeness.
+            let askedBefore = environment.asked(service)
+            environment.request(service) {}
+            environment.defaults.set(true, forKey: Self.askedKey(service))
+            if askedBefore { environment.openSettings(service.pane) }
         }
-        let askedBefore = environment.asked(service)
-        environment.request(service) {}
-        environment.defaults.set(true, forKey: Self.askedKey(service))
-        if askedBefore { environment.openSettings(service.pane) }
+    }
+
+    /// The old flow: macOS's own prompt adds talkflow to the list switched
+    /// off; the page then shows the switch-on guide.
+    private func accessibilityFallback() {
+        environment.request(.accessibility) {}
+        environment.defaults.set(true, forKey: Self.askedKey(.accessibility))
+    }
+
+    // MARK: Guide panel
+
+    private func guide(_ target: GuideTarget, _ mode: GuideMode, onNotFound: @escaping () -> Void = {}) {
+        guideFailed.remove(target)
+        environment.showGuide(GuideRequest(target: target, mode: mode)) { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .shown:
+                self.guideShown.insert(target)
+            case .notFound:
+                self.guideShown.remove(target)
+                self.guideFailed.insert(target)
+                onNotFound()
+            }
+        }
+    }
+
+    private func hideGuideIfShown() {
+        guard !guideShown.isEmpty else { return }
+        guideShown.removeAll()
+        environment.hideGuide()
+    }
+
+    private func isGranted(_ target: GuideTarget) -> Bool {
+        switch target {
+        case .accessibility: return accessibility
+        case .microphone: return microphone == .granted
+        case .systemAudio: return systemAudio == .granted
+        }
+    }
+
+    // MARK: Meeting notes
+
+    /// The meeting notes card's button: macOS's prompt the first time, then
+    /// the System Audio pane with the guide beside it.
+    func allowSystemAudio() {
+        guard !needsMove, systemAudio != .granted else { return }
+        switch systemAudio {
+        case .denied:
+            environment.openSettings(.systemAudio)
+            guide(.systemAudio, SystemAudioPermission.dragIntoList ? .drag : .switchOn)
+        case .unknown, .granted:
+            systemAudioAsked = true
+            environment.requestSystemAudio { [weak self] in self?.refresh(announce: true) }
+        }
+    }
+
+    /// "Skip": meeting notes are not offered again.
+    func skipNotes() {
+        environment.defaults.set(true, forKey: Onboarding.notesSkippedKey)
+        move(to: .done)
+    }
+
+    // MARK: Move to Applications
+
+    func openApplicationsFolder() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
+    }
+
+    func quit() {
+        NSApp.terminate(nil)
     }
 
     func openSettings(_ service: Permissions.Service) {
@@ -1055,7 +1210,7 @@ final class OnboardingModel: ObservableObject {
         guard state.isFinished else { return }
         engineBusy = false
         let current = step
-        advance(from: current, to: OnboardingFlow.stepAfterEngine(current: current, ready: state == .ready, grants: grants))
+        advance(from: current, to: OnboardingFlow.stepAfterEngine(current: current, ready: state == .ready, grants: grants, offerNotes: offerNotes))
     }
 
     /// How far the model download is, while it runs.
@@ -1105,7 +1260,7 @@ final class OnboardingModel: ObservableObject {
     }
 
     private func checkTryIt() {
-        guard step == .ready, !tryItSucceeded, TryIt.arrived(baseline: tryItBaseline, practice: practice) else { return }
+        guard step == .tryIt, !tryItSucceeded, TryIt.arrived(baseline: tryItBaseline, practice: practice) else { return }
         tryItSucceeded = true
     }
 
@@ -1310,17 +1465,42 @@ private struct OnboardingView: View {
     /// The step dots: one per page of a first run. Input Monitoring counts
     /// with Accessibility, and the engine page (only shown when the engine
     /// is still not ready by then) with Try it.
-    private static let pages: [OnboardingStep] = [.welcome, .microphone, .accessibility, .ready]
+    private static let pages: [OnboardingStep] = [.welcome, .microphone, .accessibility, .tryIt]
 
     private static func page(of step: OnboardingStep) -> OnboardingStep {
         switch step {
-        case .inputMonitoring: return .accessibility
-        case .engine: return .ready
+        case .engine, .meetingNotes, .done: return .tryIt
         default: return step
         }
     }
 
     var body: some View {
+        if model.needsMove {
+            moveScreen
+        } else {
+            setupBody
+        }
+    }
+
+    /// Placeholder until the restyle: the move to Applications screen.
+    private var moveScreen: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            title("Move talkflow to Applications.")
+            paragraph("Then open it from there.")
+            Spacer()
+            HStack(spacing: 16) {
+                Button("Quit") { model.quit() }.buttonStyle(LinkButtonStyle(color: .graphite))
+                Spacer()
+                Button("Open Applications") { model.openApplicationsFolder() }.buttonStyle(PrimaryButtonStyle())
+            }
+        }
+        .padding(gutter)
+        .frame(width: Self.width, height: Self.height, alignment: .topLeading)
+        .background(Color.paper)
+        .foregroundColor(.ink)
+    }
+
+    private var setupBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
                 .padding(.horizontal, gutter)
@@ -1386,7 +1566,7 @@ private struct OnboardingView: View {
             switch model.step {
             case .welcome:
                 EmptyView()
-            case .ready:
+            case .done:
                 if model.loginItemAvailable {
                     Button {
                         model.launchAtLogin.toggle()
@@ -1412,7 +1592,7 @@ private struct OnboardingView: View {
                 }
             }
             Spacer()
-            if model.step != .engine && model.step != .ready { engineProgress }
+            if model.step != .engine && model.step != .tryIt && model.step != .meetingNotes && model.step != .done { engineProgress }
             footerButton
         }
         .frame(height: 36)
@@ -1458,16 +1638,23 @@ private struct OnboardingView: View {
         switch model.step {
         case .welcome:
             Button("Get started") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
-        case .microphone, .accessibility, .inputMonitoring, .engine:
+        case .microphone, .accessibility, .engine:
             if model.canContinue {
                 Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
             }
-        case .ready:
+        case .tryIt:
             if model.needsRestart {
                 Button("Restart talkflow") { model.restartApp() }.buttonStyle(PrimaryButtonStyle())
             } else {
-                Button("Done") { model.finish() }.buttonStyle(PrimaryButtonStyle())
+                Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
             }
+        case .meetingNotes:
+            Button("Skip") { model.skipNotes() }.buttonStyle(LinkButtonStyle(color: .graphite))
+            if model.canContinue {
+                Button("Continue") { model.goNext() }.buttonStyle(PrimaryButtonStyle())
+            }
+        case .done:
+            Button("Done") { model.finish() }.buttonStyle(PrimaryButtonStyle())
         }
     }
 
@@ -1559,20 +1746,32 @@ private struct OnboardingView: View {
                                detail: "Notices \(shortcut) and types for you",
                                ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
             }
-        case .inputMonitoring:
-            page("One more switch.",
-                 "So talkflow can tell when you hold \(model.shortcut.phrase). It watches for your shortcut and never records what you type.") {
-                permissionCard(.inputMonitoring, icon: "keyboard", name: "Input Monitoring",
-                               detail: "Hears when you hold \(shortcut)",
-                               ask: "macOS opens System Settings. Switch on \(model.appName) there and come back.")
-            }
         case .engine:
             page("Getting the speech engine ready.",
                  "It runs on this Mac, so your voice never leaves it. This page moves on by itself when it is ready.") {
                 engineCard
             }
-        case .ready:
+        case .tryIt:
             ready
+        case .meetingNotes:
+            // Placeholder until the restyle.
+            page("Want talkflow to take meeting notes too?",
+                 "It hears the other people in your calls through your Mac's sound.") {
+                card(icon: "speaker.wave.2.fill", name: "System audio", detail: "", done: model.systemAudio == .granted) {
+                    if model.systemAudio == .granted {
+                        doneLabel("Allowed")
+                    } else {
+                        Button(model.systemAudio == .denied ? "Open Settings" : "Allow") { model.allowSystemAudio() }
+                            .buttonStyle(PrimaryButtonStyle())
+                    }
+                } more: {
+                    EmptyView()
+                }
+            }
+        case .done:
+            page("You're all set.", "Hold \(shortcut) in any app to dictate.") {
+                EmptyView()
+            }
         }
     }
 
@@ -2070,12 +2269,8 @@ extension OnboardingController {
                 $0.step = .accessibility
                 $0.resetFailed = .accessibility
             },
-            make("input-monitoring", snapshotModel(im: false)) { $0.step = .inputMonitoring },
-            make("input-monitoring-stale-back", snapshotModel(im: false)) {
-                $0.step = .inputMonitoring
-                $0.allow(.inputMonitoring)
-                $0.appBecameActive(awayFor: 30)
-            },
+            make("meeting-notes", snapshotModel()) { $0.step = .meetingNotes },
+            make("done", snapshotModel()) { $0.step = .done },
             make("engine-needs-setup", snapshotModel(engineInstalled: false)) {
                 $0.step = .engine
                 $0.engine = .needsSetup
@@ -2098,37 +2293,37 @@ extension OnboardingController {
                 $0.engine = .ready
             },
             make("try-it", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.hotkeyRunning = true
                 $0.engine = .ready
             },
             make("try-it-listening", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.hotkeyRunning = true
                 $0.engine = .ready
                 $0.pretendTryIt(fnDown: true)
             },
             make("try-it-success", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.hotkeyRunning = true
                 $0.engine = .ready
                 $0.practice = "Hello from talkflow, this is my first dictation."
                 $0.pretendTryIt(pressedAgo: 1, succeeded: true)
             },
             make("try-it-hint", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.hotkeyRunning = true
                 $0.engine = .ready
                 $0.pretendTryIt(shownAgo: 40)
             },
             make("try-it-nothing-arrived", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.hotkeyRunning = true
                 $0.engine = .ready
                 $0.pretendTryIt(pressedAgo: 12, shownAgo: 30)
             },
             make("ready-restart", snapshotModel()) {
-                $0.step = .ready
+                $0.step = .tryIt
                 $0.needsRestart = true
             },
         ]
